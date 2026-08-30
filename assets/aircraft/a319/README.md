@@ -8,7 +8,7 @@ Primeiro teste do pipeline da Meshy como substituto do desenho vetorial.
 | `a319-lateral.png` | perfil lateral, câmera perpendicular |
 | `a319-traseira.png` | três-quartos traseiro, ~35° da cauda |
 
-1536×1024 (3:2), RGBA com fundo transparente, `gpt-image-2`, 9 créditos cada.
+1536×1024 (3:2), fundo branco sólido (`#FFFFFF`), `gpt-image-2`, 9 créditos cada.
 `catalogo.json` traz os prompts e `manifest.json` o id da task, o modelo e o
 custo real de cada geração — é o que permite reproduzir ou auditar o lote.
 
@@ -17,6 +17,16 @@ custo real de cada geração — é o que permite reproduzir ou auditar o lote.
 Gerado **só por prompt**, sem imagem de referência. Nenhuma foto de terceiro
 entrou na cadeia, o que mantém a promessa do README do projeto de que nenhum
 ativo veio de produto de terceiros.
+
+## Fundo
+
+A primeira geração usou `remove_background: true` e saiu com uma sombra cinza
+"queimada" na borda do recorte — visível sobretudo atrás da deriva e do nariz.
+Por pedido do autor, a versão publicada usa fundo branco sólido
+(`remove_background: false` + `SOLID PURE WHITE background` no prompt) em vez
+de transparência: sem esse degradê, contorno mais limpo. Recorte por alfa fica
+para depois, quando fizer sentido — o `catalogo.json` já traz os dois modos,
+então é só reverter o campo e regerar.
 
 ## A ficha que o prompt trava
 
