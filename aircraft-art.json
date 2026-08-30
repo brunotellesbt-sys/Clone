@@ -1,0 +1,409 @@
+{
+  "_leia": "Este arquivo diz ao scripts/art.mjs ONDE procurar cada aeronave na Wikimedia Commons. O script roda no prebuild (inclusive no GitHub Actions), escolhe um desenho de perfil com licença livre e grava a URL em public/aircraft/manifest.json. Nenhuma imagem é copiada para o repositório: o site publicado aponta para os servidores da Wikimedia e o crédito sai no public/aircraft/CREDITS.md.",
+  "_como_fixar_na_mao": "Se o automático escolher mal, preencha 'url' (link direto do arquivo em upload.wikimedia.org), 'w', 'h', 'author', 'license' e 'source' no modelo em questão. Com 'url' preenchida o script não procura mais nada para aquele modelo.",
+  "_ajuste_fino": "'regions' controla onde a pintura cai dentro da imagem: fuselage [y0,y1], tail [x0,y0,x1,y1] e titles [x,y], tudo em fração de 0 a 1. Sem 'regions' o jogo usa proporções médias de avião de linha.",
+  "_licenca": "Só entram arquivos em domínio público ou Creative Commons — o script descarta o resto. CC BY e CC BY-SA exigem crédito ao autor, que o CREDITS.md gera. Fotografia de avião pintado é descartada de propósito: carrega a marca de uma companhia real.",
+  "aeronaves": {
+    "atr72": {
+      "categorias": [
+        "ATR 72 drawings",
+        "ATR aircraft drawings"
+      ],
+      "buscas": [
+        "ATR 72 side view silhouette",
+        "ATR 72 line drawing"
+      ],
+      "termos": [
+        "atr.?72",
+        "atr72"
+      ],
+      "marca": "atr",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/e/ea/ATR_72_sideview.svg",
+      "w": 803,
+      "h": 417,
+      "author": "Olivier Cleynen",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:ATR_72_sideview.svg",
+      "regions": {
+        "box": [
+          0.015,
+          0.02,
+          0.995,
+          0.66
+        ],
+        "fuselage": [
+          0.3,
+          0.5
+        ],
+        "tail": [
+          0.74,
+          0.04,
+          1.0,
+          0.36
+        ],
+        "titles": [
+          0.2,
+          0.355
+        ]
+      }
+    },
+    "q400": {
+      "categorias": [
+        "Bombardier Dash 8 drawings",
+        "De Havilland Canada Dash 8"
+      ],
+      "buscas": [
+        "Dash 8 Q400 side view silhouette",
+        "DHC-8 line drawing"
+      ],
+      "termos": [
+        "dash.?8",
+        "dhc.?8",
+        "q400"
+      ],
+      "marca": "dash.?8|dhc.?8|de.?havilland|bombardier"
+    },
+    "crj900": {
+      "categorias": [
+        "Bombardier CRJ drawings",
+        "Line drawings of Bombardier aircraft"
+      ],
+      "buscas": [
+        "Bombardier CRJ900 side view silhouette",
+        "CRJ line drawing"
+      ],
+      "termos": [
+        "crj"
+      ],
+      "marca": "bombardier|canadair|crj"
+    },
+    "e175": {
+      "categorias": [
+        "Embraer E-Jet drawings",
+        "Line drawings of Embraer aircraft"
+      ],
+      "buscas": [
+        "Embraer 175 side view silhouette",
+        "Embraer E-Jet line drawing"
+      ],
+      "termos": [
+        "e.?175",
+        "erj.?175",
+        "e.?jet"
+      ],
+      "marca": "embraer"
+    },
+    "e190": {
+      "categorias": [
+        "Embraer E-Jet drawings",
+        "Line drawings of Embraer aircraft"
+      ],
+      "buscas": [
+        "Embraer 190 side view silhouette",
+        "Embraer 190 line drawing"
+      ],
+      "termos": [
+        "e.?190",
+        "erj.?190"
+      ],
+      "marca": "embraer"
+    },
+    "e195e2": {
+      "categorias": [
+        "Embraer E-Jet E2 drawings",
+        "Embraer E-Jet drawings"
+      ],
+      "buscas": [
+        "Embraer 195-E2 side view silhouette",
+        "E195-E2 line drawing"
+      ],
+      "termos": [
+        "e.?195",
+        "e2"
+      ],
+      "marca": "embraer"
+    },
+    "a220": {
+      "categorias": [
+        "Airbus A220 drawings",
+        "Bombardier CSeries drawings"
+      ],
+      "buscas": [
+        "Airbus A220-300 side view silhouette",
+        "CS300 line drawing"
+      ],
+      "termos": [
+        "a220",
+        "cs300",
+        "cseries"
+      ],
+      "marca": "airbus|bombardier"
+    },
+    "b737": {
+      "categorias": [
+        "Boeing 737 drawings",
+        "Line drawings of Boeing aircraft",
+        "Boeing 737 side views"
+      ],
+      "buscas": [
+        "Boeing 737-800 side view silhouette",
+        "Boeing 737 line drawing"
+      ],
+      "termos": [
+        "737.?800",
+        "737ng",
+        "737"
+      ],
+      "marca": "boeing"
+    },
+    "a320": {
+      "categorias": [
+        "Airbus A320 drawings",
+        "Airbus A320 (technical drawings)",
+        "Line drawings of Airbus aircraft"
+      ],
+      "buscas": [
+        "Airbus A320 side view silhouette",
+        "Airbus A320 line drawing"
+      ],
+      "termos": [
+        "a320"
+      ],
+      "marca": "airbus"
+    },
+    "a320neo": {
+      "categorias": [
+        "Airbus A320neo drawings",
+        "Airbus A320 (technical drawings)"
+      ],
+      "buscas": [
+        "Airbus A320neo side view silhouette"
+      ],
+      "termos": [
+        "a320.?neo",
+        "a320n"
+      ],
+      "marca": "airbus"
+    },
+    "b38m": {
+      "categorias": [
+        "Boeing 737 MAX drawings",
+        "Boeing 737 drawings"
+      ],
+      "buscas": [
+        "Boeing 737 MAX 8 side view silhouette"
+      ],
+      "termos": [
+        "737.?max",
+        "737.?8"
+      ],
+      "marca": "boeing"
+    },
+    "a321neo": {
+      "categorias": [
+        "Airbus A321 drawings",
+        "Airbus A320 (technical drawings)"
+      ],
+      "buscas": [
+        "Airbus A321neo side view silhouette",
+        "Airbus A321 line drawing"
+      ],
+      "termos": [
+        "a321"
+      ],
+      "marca": "airbus"
+    },
+    "a21xlr": {
+      "categorias": [
+        "Airbus A321 drawings"
+      ],
+      "buscas": [
+        "Airbus A321XLR side view silhouette",
+        "Airbus A321LR line drawing"
+      ],
+      "termos": [
+        "a321.?xlr",
+        "a321.?lr",
+        "a321"
+      ],
+      "marca": "airbus"
+    },
+    "b752": {
+      "categorias": [
+        "Boeing 757 drawings",
+        "Line drawings of Boeing aircraft"
+      ],
+      "buscas": [
+        "Boeing 757-200 side view silhouette"
+      ],
+      "termos": [
+        "757"
+      ],
+      "marca": "boeing"
+    },
+    "b763": {
+      "categorias": [
+        "Boeing 767 drawings",
+        "Boeing 767 side views"
+      ],
+      "buscas": [
+        "Boeing 767-300 side view silhouette"
+      ],
+      "termos": [
+        "767"
+      ],
+      "marca": "boeing"
+    },
+    "a333": {
+      "categorias": [
+        "Airbus A330 drawings",
+        "Line drawings of Airbus aircraft"
+      ],
+      "buscas": [
+        "Airbus A330-300 side view silhouette"
+      ],
+      "termos": [
+        "a330"
+      ],
+      "marca": "airbus"
+    },
+    "a339": {
+      "categorias": [
+        "Airbus A330neo drawings",
+        "Airbus A330 drawings"
+      ],
+      "buscas": [
+        "Airbus A330-900 side view silhouette"
+      ],
+      "termos": [
+        "a330.?900",
+        "a330.?neo",
+        "a330"
+      ],
+      "marca": "airbus"
+    },
+    "b788": {
+      "categorias": [
+        "Boeing 787 drawings",
+        "Line drawings of Boeing aircraft"
+      ],
+      "buscas": [
+        "Boeing 787-8 side view silhouette"
+      ],
+      "termos": [
+        "787.?8",
+        "787"
+      ],
+      "marca": "boeing"
+    },
+    "b789": {
+      "categorias": [
+        "Boeing 787 drawings"
+      ],
+      "buscas": [
+        "Boeing 787-9 side view silhouette"
+      ],
+      "termos": [
+        "787.?9",
+        "787"
+      ],
+      "marca": "boeing"
+    },
+    "a359": {
+      "categorias": [
+        "Airbus A350 drawings",
+        "Line drawings of Airbus aircraft"
+      ],
+      "buscas": [
+        "Airbus A350-900 side view silhouette"
+      ],
+      "termos": [
+        "a350.?900",
+        "a350"
+      ],
+      "marca": "airbus"
+    },
+    "a35k": {
+      "categorias": [
+        "Airbus A350 drawings"
+      ],
+      "buscas": [
+        "Airbus A350-1000 side view silhouette"
+      ],
+      "termos": [
+        "a350.?1000",
+        "a350"
+      ],
+      "marca": "airbus"
+    },
+    "b77w": {
+      "categorias": [
+        "Boeing 777 drawings",
+        "Boeing 777 left side views"
+      ],
+      "buscas": [
+        "Boeing 777-300ER side view silhouette"
+      ],
+      "termos": [
+        "777.?300",
+        "777"
+      ],
+      "marca": "boeing"
+    },
+    "b779": {
+      "categorias": [
+        "Boeing 777X drawings",
+        "Boeing 777 drawings"
+      ],
+      "buscas": [
+        "Boeing 777-9 side view silhouette",
+        "Boeing 777X line drawing"
+      ],
+      "termos": [
+        "777.?9",
+        "777x",
+        "777"
+      ],
+      "marca": "boeing"
+    },
+    "b748": {
+      "categorias": [
+        "Boeing 747 drawings",
+        "Boeing 747-8 drawings",
+        "Line drawings of Boeing aircraft"
+      ],
+      "buscas": [
+        "Boeing 747-8 side view silhouette",
+        "Boeing 747 line drawing"
+      ],
+      "termos": [
+        "747.?8",
+        "747"
+      ],
+      "marca": "boeing"
+    },
+    "a388": {
+      "categorias": [
+        "Airbus A380 drawings",
+        "Line drawings of Airbus aircraft"
+      ],
+      "buscas": [
+        "Airbus A380 side view silhouette",
+        "Airbus A380 line drawing"
+      ],
+      "termos": [
+        "a380"
+      ],
+      "marca": "airbus",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/7/7c/Airbus_A380_sideview.svg",
+      "w": 1505,
+      "h": 717,
+      "author": "Olivier Cleynen",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Airbus_A380_sideview.svg"
+    }
+  },
+  "_marca": "O nome do arquivo precisa trazer o fabricante, senão placa de estrada francesa com o número 767 entra no lugar de um Boeing.",
+  "_fixados": "atr72 e a388 estão fixados porque foram conferidos a olho. O resto o script procura sozinho; o que não achar fica no desenho vetorial.",
+  "_busca_automatica": "Desligada por padrão: varri ~3.700 arquivos da Commons e o que a busca automática traz para os outros modelos é foto com pintura de companhia real, gráfico sobre a aeronave ou vista em 3/4 — nada aproveitável como base de pintura. Rode 'npm run art -- --auto' para procurar assim mesmo, e confira o resultado antes de publicar."
+}

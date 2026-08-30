@@ -5,10 +5,9 @@ conta, sem backend. O jogador funda a empresa, compra aeronaves, abre rotas,
 define frequência e tarifa, disputa passageiro com companhias controladas por
 IA e pinta a frota. Build estático publicado no GitHub Pages.
 
-> **Estado do repositório.** A árvore foi zerada de propósito: aqui existia um
-> fork do `pokemon-roulette` (Angular), sem relação com este projeto. O código
-> do jogo entra depois; por enquanto o repositório carrega as skills e este
-> arquivo. Não recrie nada do projeto antigo.
+> **Histórico.** Este repositório carregava um fork do `pokemon-roulette`
+> (Angular), removido por não ter relação com o projeto. Nada dele deve
+> reaparecer; o código antigo segue acessível pelos commits anteriores.
 
 ## Stack
 
