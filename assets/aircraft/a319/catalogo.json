@@ -1,0 +1,23 @@
+{
+  "defaults": {
+    "ai_model": "gpt-image-2",
+    "aspect_ratio": "3:2",
+    "remove_background": false,
+    "prompt_prefix": "A single Airbus A319-100 narrow-body twin-engine jet airliner, completely unpainted: pure clean white fuselage, wings and tail, with absolutely no livery, no logos, no airline titles, no registration and no cheatline. Exact aircraft identity, follow every point: overall fuselage length 33.8 metres and wingspan 34.1 metres, so the WINGSPAN IS SLIGHTLY WIDER THAN THE FUSELAGE IS LONG — a short, stubby, compact airliner, never long and slender. Constant-diameter cylindrical fuselage tube 3.95 metres across, total height 11.76 metres. Exactly two full passenger doors on each side, one immediately behind the cockpit and one at the rear before the tailcone, and EXACTLY ONE small overwing emergency exit hatch on each side — this single overwing exit is the defining A319 marker, never two. Thirteen small round cabin windows ahead of that overwing exit. Low-mounted wings swept back 25 degrees, joined to the belly by a large smooth wing-to-body fairing. Wingtips carry small WINGTIP FENCES: a compact triangular surface projecting both upward and downward at the tip, roughly equal above and below, short and blunt — not tall curved sharklets, not big upward blended winglets. Two CFM56-5B turbofans slung on pylons under and forward of the wing leading edge, hanging low and close to the ground; each nacelle inlet is a PERFECT CIRCLE in cross-section, round all the way around, 1.73 metre fan, with a polished inlet lip and a visible exhaust cone. Blunt rounded slightly drooped radome nose. Airbus cockpit glazing of six windows: two upright forward windshields, two side windows, two small wedge-shaped aft windows. Conventional swept vertical fin with a straight leading edge, low-set horizontal stabilisers mounted on the rear fuselage, and a small APU exhaust at the very tip of the tailcone. Landing gear fully extended: twin-wheel nose gear under the forward fuselage, twin-wheel main gear under the wing roots, short struts giving the aircraft a low stance close to the ground. Camera and framing: ",
+    "prompt_suffix": ". Clean neutral 3D product render on a SOLID PURE WHITE background (#FFFFFF, seamless studio white, no gradient, no floor line, no horizon), even soft studio lighting from above, no harsh shadows, crisp accurate panel lines, correct engineering proportions, aircraft centred and filling the frame with a small even margin, high resolution game-ready sprite."
+  },
+  "items": [
+    {
+      "id": "a319-frente",
+      "prompt": "three-quarter FRONT view, camera positioned ahead of and to the left of the aircraft at about 35 degrees off the nose, at wing height, so the nose and the left side of the fuselage, the left wing and both engine inlets are visible, nose pointing toward the lower left of the frame"
+    },
+    {
+      "id": "a319-lateral",
+      "prompt": "perfectly flat ORTHOGRAPHIC SIDE PROFILE, camera exactly perpendicular to the fuselage centreline at wing height, zero perspective distortion, the aircraft seen dead-on from the left so the fuselage reads as a true silhouette, nose pointing to the left of the frame, both wings overlapping in line, complete aircraft from nose tip to tailcone visible"
+    },
+    {
+      "id": "a319-traseira",
+      "prompt": "three-quarter REAR view, camera positioned behind and to the left of the aircraft at about 35 degrees off the tail, at wing height, showing the tailcone, the swept vertical fin, both horizontal stabilisers, the rear of both engine nacelles with their exhaust cones, and the trailing edges of the wings, tail pointing toward the lower left of the frame"
+    }
+  ]
+}
