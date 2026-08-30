@@ -85,24 +85,43 @@ for hub in GRU JFK SIN; do npm run sim -- $hub 1460; done
 O `sim` imprime, a cada 180 dias: caixa, patrimônio, tamanho da frota, rotas,
 lucro por dia, load factor, reputação e preço do combustível. É a régua.
 
-## Como fica um jogo saudável
+## O baseline medido
 
-Não são metas rígidas — são a faixa em que o jogo se comporta como jogo. Fora
-dela, alguma coisa está errada mesmo que o código esteja certo:
+Medido neste repositório, `npm run sim -- GRU 1460`, com a estratégia burra do
+próprio script:
 
-- **Load factor** estabiliza entre **0,72 e 0,86**. Acima de 0,9 a demanda está
-  frouxa e não existe decisão a tomar; abaixo de 0,6 nenhuma rota fecha conta.
-- **Margem** da rota exemplo entre **8% e 22%**. Margem de 40% quer dizer que o
-  jogador não precisa escolher nada.
-- **Crescimento** do patrimônio positivo mas não explosivo: multiplicar o
-  capital inicial por mais de ~40× em 8 anos é sinal de economia quebrada.
-- **Falir é possível** jogando mal, e o `sim` usa uma estratégia burra de
-  propósito: se a estratégia burra fica bilionária, o jogo não tem desafio.
-- **Concorrentes relevantes**: no ranking de 30 dias, o jogador não deve estar
-  10× à frente do primeiro rival no ano 2.
+```
+dia 1460 | caixa $89.3 mi | patrim $471 mi | frota 9 | rotas 9
+         | lucro/dia $1.5 mi | LF 89.2% | rep 58 | fuel $1.02
+rota exemplo GRU-JFK (4138 nm, 1x/dia): margem 37.4%, LF 90.7%
+ranking 30d: primeiro rival $668 mi | você $96.6 mi
+```
 
-Quando o resultado sair fora da faixa, diga o número no relato — "LF subiu de
-0,79 para 0,93 em GRU" vale mais que "ficou mais fácil".
+Guarde este bloco: é a régua de comparação. Uma mudança que mexa em qualquer
+número da simulação deve ser relatada como diferença contra ele, não em
+adjetivos.
+
+Duas leituras que esse baseline já entrega, e que valem como pauta de
+balanceamento — não como defeito a consertar por conta própria:
+
+- **O load factor está encostado no teto.** `SELLABLE` é 0,9 e o jogo entrega
+  0,892: na prática todo avião voa cheio. Quando o LF fica preso no teto, a
+  demanda deixou de ser restrição e algumas decisões do jogador — frequência,
+  tarifa, porte da aeronave — param de ter consequência, porque qualquer
+  assento oferecido é vendido.
+- **A margem de 37% é folgada** para um setor cujo jogo se apoia em decisão
+  apertada. Margem alta perdoa escolha ruim, e perdoar escolha ruim é o que
+  transforma simulador em planilha de crescimento automático.
+
+O contrapeso, e é real: o jogador termina 4 anos com US$ 96,6 mi contra US$ 668
+mi do primeiro rival. A dificuldade não está em sobreviver, está em alcançar —
+o que é uma escolha de design legítima. Só decida qual das duas o jogo quer ser
+antes de mexer: apertar margem e demanda junto com essa distância para os
+rivais produz um jogo onde não dá para vencer.
+
+Ao propor mudança de balanceamento, traga o `sim` de antes e o de depois lado a
+lado, em pelo menos três hubs de perfil diferente (GRU doméstico grande, JFK
+concorrência pesada e longo curso, SIN quase tudo internacional).
 
 ## Invariantes que não se negociam
 
