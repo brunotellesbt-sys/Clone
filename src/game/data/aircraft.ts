@@ -231,6 +231,26 @@ export const AIRCRAFT: AircraftType[] = [
   A('a388', 'A380-800', 'Airbus', 'widebody', 853, 10, 8000, 490, 10500, 445, 10500, 1.4, 1.15, 110, 2007,
     ['trent970', 'gp7270'],
     S(72.72, 7.14, 24.1, 79.75, 'low', 'conv', 4, 'wing', false, 'double', 'fence')),
+
+  // -------------------------------------------------- fabricantes russos/ucranianos
+  // Sem site de fabricante em atividade normal para conferir (Antonov parado
+  // pela guerra, Ilyushin/Tupolev/Sukhoi sob sanções): dimensões e alcance vêm
+  // de fichas técnicas publicadas e páginas de especificação de aeronave, não
+  // do fabricante direto como o resto do catálogo. Preço, consumo, manutenção
+  // e conforto são número de jogo, calibrados contra o equivalente ocidental
+  // mais próximo em porte e empuxo.
+  A('an158', 'An-158', 'Antonov', 'regional', 99, 5, 1350, 450, 1050, 48, 6200, 1.15, 0.93, 25, 2013,
+    ['d436148'],
+    S(30.83, 3.15, 8.19, 28.91, 'high', 'ttail', 2, 'wing', false, 'single', 'none')),
+  A('il96', 'Il-96-300', 'Ilyushin', 'widebody', 300, 9, 6200, 460, 6700, 190, 7800, 1.35, 0.95, 70, 1993,
+    ['ps90a'],
+    S(55.3, 6.08, 15.7, 60.1, 'low', 'conv', 4, 'wing', false, 'single', 'blended')),
+  A('sj100', 'SJ-100', 'Yakovlev', 'regional', 103, 5, 2470, 447, 1020, 48, 6100, 1.1, 0.95, 25, 2027,
+    ['pd8'],
+    S(29.94, 3.46, 10.28, 29.7, 'low', 'conv', 2, 'wing', false, 'single', 'blended')),
+  A('tu204', 'Tu-204-100', 'Tupolev', 'narrowbody', 210, 6, 3240, 460, 2950, 78, 7400, 1.2, 0.92, 45, 1996,
+    ['ps90a'],
+    S(46.14, 3.8, 13.9, 41.8, 'low', 'conv', 2, 'wing', false, 'single', 'none')),
 ]
 
 export const AIRCRAFT_BY_ID: Record<string, AircraftType> = Object.fromEntries(
@@ -259,4 +279,5 @@ export const FAMILY_OF: Record<string, string> = {
   a359: 'A350', a35k: 'A350',
   b77e: '777', b77w: '777', b779: '777X',
   b748: '747', a388: 'A380',
+  an158: 'An-158', il96: 'Il-96', sj100: 'SJ-100', tu204: 'Tu-204',
 }

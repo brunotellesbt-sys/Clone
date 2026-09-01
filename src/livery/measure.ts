@@ -1,10 +1,20 @@
 /**
  * Mede a silhueta de uma imagem para saber onde pintar.
  *
- * As imagens da Commons vêm em enquadramentos variados — umas num quadrado,
- * outras deitadas — então em vez de chutar proporções o jogo rasteriza a
- * imagem uma vez, acha o recorte do avião pelo canal alfa e deduz três coisas:
- * a faixa da fuselagem, o retângulo da deriva e onde cabe o letreiro.
+ * As imagens vêm em enquadramentos variados — umas num quadrado, outras
+ * deitadas, umas com fundo transparente (a arte livre da Commons), outras com
+ * fundo branco sólido (os sprites gerados por IA em `public/sprites/aircraft`)
+ * — então em vez de chutar proporções o jogo rasteriza a imagem uma vez, acha
+ * o recorte do avião e deduz três coisas: a faixa da fuselagem, o retângulo
+ * da deriva e onde cabe o letreiro.
+ *
+ * "Achar o recorte" testa alfa quando a imagem tem canal alfa de verdade — as
+ * quatro quinas viram a amostra do fundo, e pixel com alfa baixo é fundo. Sem
+ * transparência real (as quinas saem opacas), cai para a mesma amostra de
+ * quina, mas comparando cor: pixel parecido com o fundo amostrado é fundo,
+ * pixel diferente é avião. Uma imagem já transparente nunca passa pelo
+ * segundo teste — a primeira condição já resolve, então nenhuma arte da
+ * Commons muda de comportamento por causa disso.
  */
 export interface Measured {
   /** Caixa do avião inteiro, em fração da imagem. */
@@ -63,12 +73,36 @@ function analyse(img: HTMLImageElement): Measured | null {
   ctx.drawImage(img, 0, 0, w, h)
   const { data } = ctx.getImageData(0, 0, w, h)
 
+  // Amostra do fundo pelas quatro quinas. Quina com alfa baixo: a imagem tem
+  // transparência de verdade, e o teste de primeiro-plano fica só no alfa —
+  // igual ao comportamento de sempre. Quina opaca: não há transparência, e o
+  // teste passa a comparar cor com a média das quinas (fundo branco sólido).
+  const corners = [
+    [0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1],
+  ].map(([x, y]) => (y * w + x) * 4)
+  const bg = { r: 0, g: 0, b: 0, a: 0 }
+  for (const i of corners) {
+    bg.r += data[i] / corners.length
+    bg.g += data[i + 1] / corners.length
+    bg.b += data[i + 2] / corners.length
+    bg.a += data[i + 3] / corners.length
+  }
+  const transparent = bg.a < 40
+  const COLOR_TOL = 60 // soma das três diferenças de canal; janela e reflexo claro ainda contam como avião
+  function isFg(i: number): boolean {
+    const a = data[i + 3]
+    if (a < 40) return false
+    if (transparent) return true
+    const dist = Math.abs(data[i] - bg.r) + Math.abs(data[i + 1] - bg.g) + Math.abs(data[i + 2] - bg.b)
+    return dist >= COLOR_TOL
+  }
+
   const rowCount = new Int32Array(h)
   let x0 = w, x1 = -1, y0 = h, y1 = -1
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      const a = data[(y * w + x) * 4 + 3]
-      if (a < 40) continue
+      const i = (y * w + x) * 4
+      if (!isFg(i)) continue
       rowCount[y]++
       if (x < x0) x0 = x
       if (x > x1) x1 = x
@@ -101,7 +135,7 @@ function analyse(img: HTMLImageElement): Measured | null {
   const colAbove = new Int32Array(w)
   for (let y = y0; y < fy0; y++) {
     for (let x = x0; x <= x1; x++) {
-      if (data[(y * w + x) * 4 + 3] < 40) continue
+      if (!isFg((y * w + x) * 4)) continue
       colAbove[x]++
       if (x < x0 + planeW * 0.3) leftMass++
       else if (x > x0 + planeW * 0.7) rightMass++
@@ -124,7 +158,7 @@ function analyse(img: HTMLImageElement): Measured | null {
   for (let y = y0; y < fy0; y++) {
     let any = false
     for (let x = tx0; x <= tx1; x++) {
-      if (data[(y * w + x) * 4 + 3] >= 40) { any = true; break }
+      if (isFg((y * w + x) * 4)) { any = true; break }
     }
     if (any) { finTop = y; break }
   }

@@ -14,7 +14,7 @@
  *   npm run art -- --dry    só mostra o que encontraria
  *   npm run art -- --force  ignora o cache e consulta tudo de novo
  */
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 const ROOT = resolve(import.meta.dirname, '..')
@@ -265,6 +265,28 @@ for (const [id, model] of Object.entries(models)) {
   console.log(`  ✓ ${id}: ${best.title.replace(/^File:/, '')} (${best.width}×${best.height}, ${best.license}, nota ${ranked[0].s})`)
 }
 
+// Sprites próprios (gerados por IA, sem imagem de referência de terceiros) em
+// public/sprites/aircraft/<id>.png. Não passam pela Commons e não levam
+// crédito de licença — são originais. Sobrepõem qualquer resultado da Commons
+// para o mesmo id (a arte feita para o jogo vence a genérica) e saem da lista
+// de "sem imagem livre" se tivessem caído lá.
+const localSprites = []
+const spritesDir = join(ROOT, 'public', 'sprites', 'aircraft')
+if (existsSync(spritesDir)) {
+  for (const file of readdirSync(spritesDir)) {
+    if (!file.endsWith('.png')) continue
+    const id = file.slice(0, -4)
+    const bytes = readFileSync(join(spritesDir, file))
+    const w = bytes.readUInt32BE(16)
+    const h = bytes.readUInt32BE(20)
+    manifest[id] = { file: `sprites/aircraft/${file}`, w, h }
+    const i = misses.indexOf(id)
+    if (i >= 0) misses.splice(i, 1)
+    localSprites.push(id)
+    console.log(`  ★ ${id}: sprite próprio (${w}×${h})`)
+  }
+}
+
 if (dry) {
   console.log(`\n[--dry] nada gravado. ${Object.keys(manifest).length} modelos resolvidos, ${misses.length} sem imagem.`)
   process.exit(0)
@@ -288,9 +310,24 @@ writeFileSync(
     '',
     ...(credits.length ? credits : ['_Nenhuma imagem resolvida; o jogo está usando os desenhos vetoriais próprios._']),
     '',
+    ...(localSprites.length
+      ? [
+          '## Sprites próprios',
+          '',
+          'Gerados por IA a partir de prompt, sem imagem de referência de terceiros —',
+          'não precisam de crédito de licença. Ficam em `public/sprites/aircraft/` e',
+          '**são versionados no repositório**, diferente da arte da Commons.',
+          '',
+          `${localSprites.join(', ')}.`,
+          '',
+        ]
+      : []),
     ...(misses.length ? ['', `Sem imagem livre encontrada (usam o vetor do jogo): ${misses.join(', ')}.`] : []),
     '',
   ].join('\n'),
 )
 
-console.log(`\nmanifest.json e CREDITS.md gravados: ${Object.keys(manifest).length} modelos com imagem, ${misses.length} no vetor.`)
+console.log(
+  `\nmanifest.json e CREDITS.md gravados: ${Object.keys(manifest).length} modelos com imagem` +
+    ` (${localSprites.length} sprite próprio), ${misses.length} no vetor.`,
+)

@@ -192,6 +192,17 @@ export const ENGINES: Record<string, Engine> = Object.fromEntries(
       'A motorização de lançamento do A380: mais silenciosa que a rival.'),
     E('gp7270', 'Engine Alliance GP7270', 'Engine Alliance', 2.96, 70000, 0.99, 0.99, -5, 1.01, 1, 0.93, 2008,
       'A alternativa GE/Pratt, um pouco mais econômica em serviço e mais barata.'),
+
+    // -------------------------------------------------- fabricantes russos/ucranianos
+    // Motor único de cada aeronave — sem alternativa de fábrica —, então os
+    // multiplicadores ficam em 1 (são a própria referência). O ruído mais alto
+    // reflete núcleo de geração anterior ao CFM56/V2500 equivalente ocidental.
+    E('d436148', 'Progress D-436-148', 'Ivchenko-Progress', 1.373, 15000, 1, 1, 0, 1, 1, 1.12, 2009,
+      'Motor único do An-158, derated de um projeto de maior empuxo para durar mais.'),
+    E('ps90a', 'Aviadvigatel PS-90A', 'Aviadvigatel', 1.9, 35300, 1, 1, 0, 1, 1, 1.15, 1992,
+      'Motor único do Il-96 e do Tu-204: núcleo do início dos anos 1990, taxa de bypass 4,4.'),
+    E('pd8', 'Aviadvigatel PD-8', 'Aviadvigatel', 1.9, 17500, 1, 1, 0, 1, 1, 1.05, 2026,
+      'Substitui o SaM146 franco-russo no SJ-100 depois das sanções de 2022; certificado em 2026.'),
   ].map((e) => [e.id, e]),
 )
 
