@@ -266,24 +266,30 @@ for (const [id, model] of Object.entries(models)) {
 }
 
 // Sprites próprios (gerados por IA, sem imagem de referência de terceiros) em
-// public/sprites/aircraft/<id>.png. Não passam pela Commons e não levam
-// crédito de licença — são originais. Sobrepõem qualquer resultado da Commons
-// para o mesmo id (a arte feita para o jogo vence a genérica) e saem da lista
-// de "sem imagem livre" se tivessem caído lá.
+// public/sprites/aircraft/<id>.png ou <id>__<motor>.png quando a nacela muda
+// por motorização. Não passam pela Commons e não levam crédito de licença —
+// são originais. Sobrepõem qualquer resultado da Commons para o mesmo id (a
+// arte feita para o jogo vence a genérica) e saem da lista de "sem imagem
+// livre" se tivessem caído lá.
 const localSprites = []
 const spritesDir = join(ROOT, 'public', 'sprites', 'aircraft')
 if (existsSync(spritesDir)) {
   for (const file of readdirSync(spritesDir)) {
     if (!file.endsWith('.png')) continue
-    const id = file.slice(0, -4)
+    const stem = file.slice(0, -4)
+    const [id, engineId] = stem.split('__')
     const bytes = readFileSync(join(spritesDir, file))
     const w = bytes.readUInt32BE(16)
     const h = bytes.readUInt32BE(20)
-    manifest[id] = { file: `sprites/aircraft/${file}`, w, h }
+    const entry = { file: `sprites/aircraft/${file}`, w, h }
+    const key = engineId ? `${id}:${engineId}` : id
+    manifest[key] = entry
+    // Chave-base (`id` puro) como reserva, para quem consultar sem motor.
+    if (engineId && !manifest[id]) manifest[id] = entry
     const i = misses.indexOf(id)
     if (i >= 0) misses.splice(i, 1)
-    localSprites.push(id)
-    console.log(`  ★ ${id}: sprite próprio (${w}×${h})`)
+    if (!localSprites.includes(id)) localSprites.push(id)
+    console.log(`  ★ ${key}: sprite próprio (${w}×${h})`)
   }
 }
 

@@ -95,7 +95,7 @@ export function MarketView() {
         >
           <div className="plane-frame" style={{ marginBottom: 12 }}>
             <AircraftArt
-              type={sel} livery={state.airline.livery}
+              type={sel} engineId={chosen?.id} livery={state.airline.livery}
               titles={state.airline.name} registration={state.airline.code}
             />
           </div>

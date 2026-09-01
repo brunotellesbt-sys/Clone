@@ -75,7 +75,10 @@ export function FleetView() {
           <>
             <Card title={`${acLabel(modelOf(sel))} · ${sel.reg}`}>
               <div className="plane-frame" style={{ marginBottom: 12 }}>
-                <AircraftArt type={typeOf(sel)} livery={state.airline.livery} titles={state.airline.name} registration={sel.reg} />
+                <AircraftArt
+                  type={typeOf(sel)} engineId={sel.engineId}
+                  livery={state.airline.livery} titles={state.airline.name} registration={sel.reg}
+                />
               </div>
               <div className="grid g2" style={{ gap: 8, fontSize: 13 }}>
                 <div style={{ gridColumn: '1 / -1' }}>

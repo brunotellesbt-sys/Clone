@@ -12,6 +12,8 @@ interface Props {
   titles?: string
   registration?: string
   className?: string
+  /** Motor instalado, quando relevante para a arte (a nacela muda com ele). */
+  engineId?: string | null
 }
 
 /**
@@ -24,7 +26,7 @@ export function AircraftArt(props: Props) {
   useEffect(() => {
     loadArtManifest().then(() => setReady(true))
   }, [])
-  const entry = ready ? artFor(props.type.id) : undefined
+  const entry = ready ? artFor(props.type.id, props.engineId) : undefined
   if (!entry) return <LiveryPlane {...props} />
   return <MaskedArt {...props} entry={entry} />
 }
