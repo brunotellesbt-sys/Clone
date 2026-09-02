@@ -43,6 +43,8 @@ export function LiveryEditor() {
   const [openField, setOpenField] = useState<ColorKey | null>('fuselage')
   const livery = state.airline.livery
   const type = AIRCRAFT_BY_ID[preview]
+  // Sem escolha de motor nesta tela: mostra a arte do motor de série.
+  const previewEngineId = type.engines[0]
 
   const set = <K extends keyof Livery>(k: K, v: Livery[K]) =>
     act((s) => {
@@ -110,15 +112,19 @@ export function LiveryEditor() {
         <div className="plane-frame" id="livery-preview">
           <AircraftArt
             type={type}
+            engineId={previewEngineId}
             livery={livery}
             titles={state.airline.name}
             registration={`${state.airline.code}-ABC`}
           />
         </div>
-        {creditLine(preview) && (
+        {creditLine(preview, previewEngineId) && (
           <p className="muted" style={{ fontSize: 11, margin: '6px 2px 0' }}>
-            {creditLine(preview)}{' '}
-            <a href={creditSource(preview) ?? '#'} target="_blank" rel="noreferrer" style={{ color: 'var(--ink-3)' }}>
+            {creditLine(preview, previewEngineId)}{' '}
+            <a
+              href={creditSource(preview, previewEngineId) ?? '#'}
+              target="_blank" rel="noreferrer" style={{ color: 'var(--ink-3)' }}
+            >
               ver arquivo
             </a>
           </p>

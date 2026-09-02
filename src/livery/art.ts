@@ -51,16 +51,24 @@ export function loadArtManifest(base = import.meta.env.BASE_URL): Promise<ArtMan
   return pending
 }
 
-export const artFor = (id: string): ArtEntry | undefined => cache?.[id]
+/**
+ * Chave composta `id:motor` primeiro — o motor muda o tamanho da nacela e às
+ * vezes o desenho inteiro (mesmo padrão de chave que `spec.ts` já usa para a
+ * ficha efetiva). Sem entrada por motor, cai na entrada só do modelo; sem
+ * nenhuma das duas, cai no vetor.
+ */
+export const artFor = (id: string, engineId?: string | null): ArtEntry | undefined =>
+  (engineId && cache?.[`${id}:${engineId}`]) || cache?.[id]
 
 /** Linha de crédito exigida pela licença, quando a imagem vem de terceiros. */
-export function creditLine(id: string): string | null {
-  const c = cache?.[id]?.credit
+export function creditLine(id: string, engineId?: string | null): string | null {
+  const c = artFor(id, engineId)?.credit
   if (!c || !c.license) return null
   return `Silhueta: ${c.author || 'autor na página do arquivo'} · ${c.license}`
 }
 
-export const creditSource = (id: string): string | null => cache?.[id]?.credit?.source ?? null
+export const creditSource = (id: string, engineId?: string | null): string | null =>
+  artFor(id, engineId)?.credit?.source ?? null
 
 /** Regiões padrão, deduzidas das proporções típicas de um avião de linha. */
 export const DEFAULT_REGIONS: {
