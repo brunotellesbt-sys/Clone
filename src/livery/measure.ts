@@ -56,24 +56,34 @@ const SAMPLE_W = 240
  * modelo tem uma (o lote foi feito por avião, sob conferência visual, não é
  * gerado sozinho) — sem arquivo, cai de volta na caixa aproximada de sempre.
  */
-const tailMaskCache = new Map<string, string | null>()
+const namedMaskCache = new Map<string, string | null>()
 
-export function tailMaskHref(id: string, base = import.meta.env.BASE_URL): Promise<string | null> {
-  const key = `${base}sprites/tailmasks/${id}.png`
-  if (tailMaskCache.has(key)) return Promise.resolve(tailMaskCache.get(key)!)
+/** Carrega `public/sprites/<pasta>/<id>.png` se existir; null sem tentar de novo. */
+function namedMaskHref(folder: string, id: string, base: string): Promise<string | null> {
+  const key = `${base}sprites/${folder}/${id}.png`
+  if (namedMaskCache.has(key)) return Promise.resolve(namedMaskCache.get(key)!)
   return new Promise((resolve) => {
     const img = new Image()
     img.onload = () => {
-      tailMaskCache.set(key, key)
+      namedMaskCache.set(key, key)
       resolve(key)
     }
     img.onerror = () => {
-      tailMaskCache.set(key, null)
+      namedMaskCache.set(key, null)
       resolve(null)
     }
     img.src = key
   })
 }
+
+export const tailMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('tailmasks', id, base)
+
+/**
+ * Máscara exata do trem de pouso (perna + roda), uma por modelo. Sem ela, o
+ * trem cai dentro do retângulo "tudo abaixo da fuselagem" e pinta com a cor
+ * da asa — visível principalmente quando asa e trem têm cores bem diferentes.
+ */
+export const gearMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('gearmasks', id, base)
 
 export function measured(href: string): Measured | null | undefined {
   return cache.get(href)

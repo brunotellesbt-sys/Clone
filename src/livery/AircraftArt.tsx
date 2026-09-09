@@ -4,7 +4,7 @@ import type { Livery } from '../game/types'
 import { artFor, DEFAULT_REGIONS, loadArtManifest, type ArtEntry } from './art'
 import { emblemHref } from './emblems'
 import { LiveryPlane } from './LiveryPlane'
-import { measure, measured, tailMaskHref, type Measured } from './measure'
+import { gearMaskHref, measure, measured, tailMaskHref, type Measured } from './measure'
 import { FONT_STACK } from './silhouette'
 
 interface Props {
@@ -41,6 +41,7 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   const [box, setBox] = useState<Measured | null | undefined>(() => measured(href))
   const [failed, setFailed] = useState(false)
   const [preciseTail, setPreciseTail] = useState<string | null>(null)
+  const [gearMask, setGearMask] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -53,6 +54,14 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   useEffect(() => {
     let alive = true
     tailMaskHref(type.id).then((m) => alive && setPreciseTail(m))
+    return () => {
+      alive = false
+    }
+  }, [type.id])
+
+  useEffect(() => {
+    let alive = true
+    gearMaskHref(type.id).then((m) => alive && setGearMask(m))
     return () => {
       alive = false
     }
@@ -127,6 +136,12 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
             <image href={preciseTail} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
         )}
+        {gearMask && (
+          <mask id={`gm-${uid}`} style={{ maskType: 'alpha' }}>
+            {/* Perna e roda do trem (public/sprites/gearmasks/), pra não pintar com a cor da asa. */}
+            <image href={gearMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
+          </mask>
+        )}
         <linearGradient id={`tg-${uid}`} x1="0" y1="1" x2="1" y2="0">
           <stop offset="0%" stopColor={livery.tail} />
           <stop offset="100%" stopColor={livery.tailAccent} />
@@ -144,6 +159,13 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
 
           {/* tudo abaixo da fuselagem é asa, motor e trem */}
           <rect x="0" y={bandBot} width={w} height={h} fill={livery.wing} />
+
+          {/* trem de pouso, por cima da asa, só onde a máscara precisa existe */}
+          {gearMask && (
+            <g mask={`url(#gm-${uid})`}>
+              <rect x="0" y={bandBot} width={w} height={h} fill={livery.gear} />
+            </g>
+          )}
 
           {/* barriga, dentro da faixa da fuselagem */}
           <rect x="0" y={bellyY} width={w} height={bandBot - bellyY} fill={livery.belly} />
