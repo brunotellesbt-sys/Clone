@@ -62,6 +62,8 @@ export const ENGINES: Record<string, Engine> = Object.fromEntries(
       'Empuxo de série do E190/E195.'),
     E('cf3410e6', 'CF34-10E6', 'GE Aerospace', 1.45, 20000, 1.02, 1.04, 0.8, 1.04, 0.96, 1.01, 2005,
       'Empuxo alto: útil em pista curta e aeroporto quente, cobra em combustível.'),
+    E('cf3410a', 'CF34-10A', 'GE Aerospace', 1.45, 17057, 1, 1, 0, 1, 1, 1, 2008,
+      'Motor único do ARJ21 — mesmo núcleo do CF34-10E dos E-Jets maiores.'),
 
     // ---------------------------------------------------- GTF (PW1000G)
     E('pw1919g', 'PW1919G', 'Pratt & Whitney', 1.85, 19000, 1, 1, 0, 1, 1, 0.9, 2018,
@@ -96,6 +98,8 @@ export const ENGINES: Record<string, Engine> = Object.fromEntries(
       'A versão de empuxo alto do A321neo.'),
     E('leap1a33x', 'CFM LEAP-1A33B2X', 'CFM International', 1.98, 33110, 1.005, 1.01, 0.4, 1.03, 0.99, 0.91, 2024,
       'Ajustado para o peso máximo do A321XLR.'),
+    E('leap1c', 'CFM LEAP-1C', 'CFM International', 1.98, 30000, 1, 1, 0, 1, 1, 0.9, 2017,
+      'Motor único do C919 — mesmo fan da família LEAP-1A, ajustado para a nacela chinesa.'),
     E('leap1b25', 'CFM LEAP-1B25', 'CFM International', 1.76, 25900, 1, 1, 0, 1, 1, 0.92, 2018,
       'O empuxo mais baixo da família MAX: menos consumo, menos desgaste.'),
     E('leap1b27', 'CFM LEAP-1B27', 'CFM International', 1.76, 27300, 1.015, 1.03, 0.6, 1.03, 0.97, 0.92, 2018,

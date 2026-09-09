@@ -213,6 +213,12 @@ export const AIRCRAFT: AircraftType[] = [
   A('a359', 'A350-900', 'Airbus', 'widebody', 440, 9, 8600, 488, 5000, 320, 8500, 0.97, 1.14, 70, 2015,
     ['trentxwb84'],
     S(66.8, 5.96, 17.05, 64.75, 'low', 'conv', 2, 'wing', false, 'single', 'blended')),
+  // Mesma célula do A350-900, com tanque extra e MTOW maior — nenhuma
+  // mudança de forma externa, só de alcance. É o avião do voo comercial sem
+  // escala mais longo do mundo (Singapore Airlines, Singapura–Nova York).
+  A('a35ulr', 'A350-900ULR', 'Airbus', 'widebody', 440, 9, 9700, 488, 5250, 350, 8500, 0.98, 1.14, 70, 2018,
+    ['trentxwb84'],
+    S(66.8, 5.96, 17.05, 64.75, 'low', 'conv', 2, 'wing', false, 'single', 'blended')),
   A('a35k', 'A350-1000', 'Airbus', 'widebody', 480, 9, 9100, 488, 5800, 366, 9200, 1.02, 1.14, 80, 2018,
     ['trentxwb97'],
     S(73.79, 5.96, 17.08, 64.75, 'low', 'conv', 2, 'wing', false, 'single', 'blended')),
@@ -239,6 +245,9 @@ export const AIRCRAFT: AircraftType[] = [
   // do fabricante direto como o resto do catálogo. Preço, consumo, manutenção
   // e conforto são número de jogo, calibrados contra o equivalente ocidental
   // mais próximo em porte e empuxo.
+  A('an148', 'An-148', 'Antonov', 'regional', 85, 5, 1890, 450, 1000, 44, 6200, 1.15, 0.93, 25, 2007,
+    ['d436148'],
+    S(29.13, 3.15, 8.19, 28.91, 'high', 'ttail', 2, 'wing', false, 'single', 'none')),
   A('an158', 'An-158', 'Antonov', 'regional', 99, 5, 1350, 450, 1050, 48, 6200, 1.15, 0.93, 25, 2013,
     ['d436148'],
     S(30.83, 3.15, 8.19, 28.91, 'high', 'ttail', 2, 'wing', false, 'single', 'none')),
@@ -251,6 +260,18 @@ export const AIRCRAFT: AircraftType[] = [
   A('tu204', 'Tu-204-100', 'Tupolev', 'narrowbody', 210, 6, 3240, 460, 2950, 78, 7400, 1.2, 0.92, 45, 1996,
     ['ps90a'],
     S(46.14, 3.8, 13.9, 41.8, 'low', 'conv', 2, 'wing', false, 'single', 'none')),
+
+  // ------------------------------------------------------------ Comac
+  // Site do fabricante (comac.cc) existe, mas o PDF técnico é grande demais
+  // para conferir direto; dimensões e alcance vêm de fichas técnicas
+  // publicadas, como no bloco russo/ucraniano acima. Preço, consumo,
+  // manutenção e conforto são número de jogo.
+  A('arj21', 'ARJ21-700', 'Comac', 'regional', 90, 5, 2000, 470, 1080, 46, 5600, 1.08, 0.94, 25, 2016,
+    ['cf3410a'],
+    S(33.46, 3.2, 8.44, 27.28, 'low', 'conv', 2, 'rear', false, 'single', 'none')),
+  A('c919', 'C919', 'Comac', 'narrowbody', 168, 6, 2200, 451, 2050, 55, 6550, 1.05, 1.0, 35, 2023,
+    ['leap1c'],
+    S(38.9, 3.95, 11.95, 35.81, 'low', 'conv', 2, 'wing', false, 'single', 'sharklet')),
 ]
 
 export const AIRCRAFT_BY_ID: Record<string, AircraftType> = Object.fromEntries(
@@ -276,8 +297,9 @@ export const FAMILY_OF: Record<string, string> = {
   b763: '767', b764: '767',
   a332: 'A330ceo', a333: 'A330ceo', a338: 'A330neo', a339: 'A330neo',
   b788: '787', b789: '787', b78x: '787',
-  a359: 'A350', a35k: 'A350',
+  a359: 'A350', a35k: 'A350', a35ulr: 'A350',
   b77e: '777', b77w: '777', b779: '777X',
   b748: '747', a388: 'A380',
-  an158: 'An-158', il96: 'Il-96', sj100: 'SJ-100', tu204: 'Tu-204',
+  an148: 'An-148', an158: 'An-158', il96: 'Il-96', sj100: 'SJ-100', tu204: 'Tu-204',
+  arj21: 'ARJ21', c919: 'C919',
 }
