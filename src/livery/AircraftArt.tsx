@@ -99,8 +99,14 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
     <svg viewBox={view.join(' ')} className={className} role="img" aria-label={`${type.maker} ${type.name}`}>
       <defs>
         <mask id={`m-${uid}`} style={{ maskType: 'alpha' }}>
-          {/* A silhueta vira o recorte: tudo que for pintado fica dentro do avião. */}
-          <image href={href} x="0" y="0" width={w} height={h} crossOrigin="anonymous" onError={() => setFailed(true)} />
+          {/*
+            A silhueta vira o recorte: tudo que for pintado fica dentro do avião.
+            O arquivo publicado tem fundo branco sólido — a máscara usa uma cópia
+            com alfa calculado em memória (`box.maskHref`, de measure.ts), nunca o
+            arquivo em si; sem medição ainda, cai no próprio arquivo como recorte
+            provisório (mostra tudo, corrige no primeiro re-render).
+          */}
+          <image href={box?.maskHref || href} x="0" y="0" width={w} height={h} crossOrigin="anonymous" onError={() => setFailed(true)} />
         </mask>
         <linearGradient id={`tg-${uid}`} x1="0" y1="1" x2="1" y2="0">
           <stop offset="0%" stopColor={livery.tail} />

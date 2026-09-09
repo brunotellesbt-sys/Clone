@@ -10,11 +10,18 @@
  *
  * "Achar o recorte" testa alfa quando a imagem tem canal alfa de verdade — as
  * quatro quinas viram a amostra do fundo, e pixel com alfa baixo é fundo. Sem
- * transparência real (as quinas saem opacas), cai para a mesma amostra de
- * quina, mas comparando cor: pixel parecido com o fundo amostrado é fundo,
- * pixel diferente é avião. Uma imagem já transparente nunca passa pelo
- * segundo teste — a primeira condição já resolve, então nenhuma arte da
- * Commons muda de comportamento por causa disso.
+ * transparência real (as quinas saem opacas — o caso dos sprites da Meshy,
+ * salvos de propósito com fundo branco sólido, não recortado), cai para a
+ * mesma amostra de quina, mas comparando cor: pixel parecido com o fundo
+ * amostrado é fundo, pixel diferente é avião. Uma imagem já transparente
+ * nunca passa pelo segundo teste — a primeira condição já resolve, então
+ * nenhuma arte da Commons muda de comportamento por causa disso.
+ *
+ * Esse mesmo teste gera `maskHref`: uma segunda cópia da imagem, com alfa
+ * sintético (0 no fundo, 255 no avião, com uma faixa de transição pra não
+ * serrilhar a borda), usada só como máscara SVG na hora de pintar. O arquivo
+ * publicado continua com fundo branco — a transparência existe só nessa
+ * cópia em memória, nunca é salva.
  */
 export interface Measured {
   /** Caixa do avião inteiro, em fração da imagem. */
@@ -33,6 +40,8 @@ export interface Measured {
   emblem: { cx: number; cy: number; maxW: number; maxH: number }
   /** true quando o nariz aponta para a esquerda no arquivo original. */
   noseLeft: boolean
+  /** Cópia com alfa sintético, só pra máscara SVG — ver comentário do arquivo. */
+  maskHref: string
 }
 
 const cache = new Map<string, Measured | null>()
@@ -235,6 +244,30 @@ function analyse(img: HTMLImageElement): Measured | null {
   const emblemH = Math.min(emblemW, finH * 0.4)
   const emblemCy = finTop + finH * 0.5
 
+  // Máscara em resolução mais alta que a de medir (240px basta pra achar
+  // caixa e faixa, mas fica serrilhada demais recortando pintura de perto).
+  const maskW = Math.min(img.naturalWidth, 900)
+  const maskH = Math.max(1, Math.round((img.naturalHeight / img.naturalWidth) * maskW))
+  const maskCanvas = document.createElement('canvas')
+  maskCanvas.width = maskW
+  maskCanvas.height = maskH
+  const mctx = maskCanvas.getContext('2d')
+  let maskHref = ''
+  if (mctx) {
+    mctx.drawImage(img, 0, 0, maskW, maskH)
+    const mImg = mctx.getImageData(0, 0, maskW, maskH)
+    const md = mImg.data
+    const FEATHER = 40 // faixa de transição suave, evita borda serrilhada
+    if (!transparent) {
+      for (let i = 0; i < md.length; i += 4) {
+        const dist = Math.abs(md[i] - bg.r) + Math.abs(md[i + 1] - bg.g) + Math.abs(md[i + 2] - bg.b)
+        md[i + 3] = dist < COLOR_TOL ? 0 : dist < COLOR_TOL + FEATHER ? Math.round((dist - COLOR_TOL) / FEATHER * 255) : 255
+      }
+    } // já transparente: o alfa lido do próprio desenho já é o recorte certo
+    mctx.putImageData(mImg, 0, 0)
+    maskHref = maskCanvas.toDataURL('image/png')
+  }
+
   return {
     box: [x0 / w, y0 / h, (x1 + 1) / w, (y0 + boxH) / h],
     fuselage: [fy0 / h, (fy1 + 1) / h],
@@ -242,5 +275,6 @@ function analyse(img: HTMLImageElement): Measured | null {
     titles: [(noseLeft ? x0 + planeW * 0.22 : x0 + planeW * 0.48) / w, (fy0 + (fy1 - fy0) * 0.34) / h],
     emblem: { cx: finCx / w, cy: emblemCy / h, maxW: emblemW / w, maxH: emblemH / h },
     noseLeft,
+    maskHref,
   }
 }
