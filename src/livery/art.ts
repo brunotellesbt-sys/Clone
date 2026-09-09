@@ -75,8 +75,10 @@ export const DEFAULT_REGIONS: {
   fuselage: [number, number]
   tail: [number, number, number, number]
   titles: [number, number]
+  emblem: { cx: number; cy: number; maxW: number; maxH: number }
 } = {
   fuselage: [0.42, 0.72],
   tail: [0.72, 0.0, 1.0, 0.55],
   titles: [0.24, 0.44],
+  emblem: { cx: 0.83, cy: 0.18, maxW: 0.1, maxH: 0.1 },
 }

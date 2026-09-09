@@ -1,0 +1,98 @@
+[
+  {
+    "id": "b737f",
+    "task": "01a08588-5600-77dd-9d90-5ac1db6935da",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "side profile view of a dedicated cargo freighter airliner, Boeing 737-800BCF converted freighter, low wing twinjet, large forward main-deck cargo door on the left side, NO passenger windows along the fuselage (blank unbroken fuselage skin except one forward crew door), large main-deck cargo door visible, pure white unpainted fuselage, no logos, no titles, centered, nose pointing left, even studio lighting, plain background, game-ready asset, orthographic flat side elevation",
+    "generated_at": "2026-09-09T09:39:06.039Z"
+  },
+  {
+    "id": "a321f",
+    "task": "01a08588-5609-7255-a6e8-c2b9b6167c61",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "side profile view of a dedicated cargo freighter airliner, Airbus A321P2F converted freighter, low wing twinjet, large forward main-deck cargo door, NO passenger windows along the fuselage (blank unbroken fuselage skin except one forward crew door), large main-deck cargo door visible, pure white unpainted fuselage, no logos, no titles, centered, nose pointing left, even studio lighting, plain background, game-ready asset, orthographic flat side elevation",
+    "generated_at": "2026-09-09T09:39:09.669Z"
+  },
+  {
+    "id": "atr72f",
+    "task": "01a08588-5675-7567-bbf0-795c34918311",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "side profile view of a dedicated cargo freighter airliner, ATR 72-600F twin-turboprop freighter, high wing, T-tail, large forward upper-deck cargo door on the left side, NO passenger windows along the fuselage (blank unbroken fuselage skin except one forward crew door), large main-deck cargo door visible, pure white unpainted fuselage, no logos, no titles, centered, nose pointing left, even studio lighting, plain background, game-ready asset, orthographic flat side elevation",
+    "generated_at": "2026-09-09T09:39:10.118Z"
+  },
+  {
+    "id": "b752f",
+    "task": "01a08588-55b6-74d8-96b6-e9228ab3ff1e",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "side profile view of a dedicated cargo freighter airliner, Boeing 757-200PF package freighter, low wing twinjet, large forward main-deck cargo door, NO passenger windows along the fuselage (blank unbroken fuselage skin except one forward crew door), large main-deck cargo door visible, pure white unpainted fuselage, no logos, no titles, centered, nose pointing left, even studio lighting, plain background, game-ready asset, orthographic flat side elevation",
+    "generated_at": "2026-09-09T09:39:13.693Z"
+  },
+  {
+    "id": "b763f",
+    "task": "01a08589-0af6-71ef-ade4-a7d00a4be7f2",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "side profile view of a dedicated cargo freighter airliner, Boeing 767-300F freighter, low wing twinjet widebody, large forward main-deck cargo door, NO passenger windows along the fuselage (blank unbroken fuselage skin except one forward crew door), large main-deck cargo door visible, pure white unpainted fuselage, no logos, no titles, centered, nose pointing left, even studio lighting, plain background, game-ready asset, orthographic flat side elevation",
+    "generated_at": "2026-09-09T09:39:43.952Z"
+  },
+  {
+    "id": "il96f",
+    "task": "01a08589-28da-732b-a373-98a3cfda7267",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "side profile view of a dedicated cargo freighter airliner, Ilyushin Il-96-400T freighter, four engines under low wings, large forward main-deck cargo door, stretched fuselage, NO passenger windows along the fuselage (blank unbroken fuselage skin except one forward crew door), large main-deck cargo door visible, pure white unpainted fuselage, no logos, no titles, centered, nose pointing left, even studio lighting, plain background, game-ready asset, orthographic flat side elevation",
+    "generated_at": "2026-09-09T09:39:52.007Z"
+  },
+  {
+    "id": "tu204f",
+    "task": "01a08589-9f11-7393-acd1-566f8eaf4181",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "side profile view of a dedicated cargo freighter airliner, Tupolev Tu-204C freighter, low wing twinjet, large forward main-deck cargo door, NO passenger windows along the fuselage (blank unbroken fuselage skin except one forward crew door), large main-deck cargo door visible, pure white unpainted fuselage, no logos, no titles, centered, nose pointing left, even studio lighting, plain background, game-ready asset, orthographic flat side elevation",
+    "generated_at": "2026-09-09T09:40:22.054Z"
+  },
+  {
+    "id": "a332f",
+    "task": "01a08589-1925-74ee-82a1-1a558dba96c3",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "side profile view of a dedicated cargo freighter airliner, Airbus A330-200F freighter, low wing twinjet widebody, large forward main-deck cargo door, NO passenger windows along the fuselage (blank unbroken fuselage skin except one forward crew door), large main-deck cargo door visible, pure white unpainted fuselage, no logos, no titles, centered, nose pointing left, even studio lighting, plain background, game-ready asset, orthographic flat side elevation",
+    "generated_at": "2026-09-09T09:40:52.461Z"
+  },
+  {
+    "id": "b748f",
+    "task": "01a08589-1ae5-73ff-897b-034f67a2f6b1",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "side profile view of a dedicated cargo freighter airliner, Boeing 747-8F freighter with hinged upward-swinging nose cargo door visible open at the nose, four engines under the wings, humped upper deck, NO passenger windows along the fuselage (blank unbroken fuselage skin except one forward crew door), large main-deck cargo door visible, pure white unpainted fuselage, no logos, no titles, centered, nose pointing left, even studio lighting, plain background, game-ready asset, orthographic flat side elevation",
+    "generated_at": "2026-09-09T09:40:57.085Z"
+  },
+  {
+    "id": "an225",
+    "task": "01a08599-0071-7675-b4da-03dc5cd8eccc",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "side profile view of a purpose-built cargo-only aircraft, never had a passenger version, Antonov An-225 Mriya, the largest cargo aircraft ever built, six engines under high wings, twin vertical tail fins, extremely long fuselage, front cargo nose, tall multi-wheel landing gear. Clean neutral 3D product render on a SOLID PURE WHITE background (#FFFFFF, seamless studio white, no gradient, no floor line), even soft studio lighting, crisp panel lines, correct engineering proportions, aircraft centred filling the frame with a small even margin, high resolution game-ready sprite, perfectly flat orthographic side profile, zero perspective distortion, nose pointing left, complete aircraft from nose to tailcone visible, no logos, no titles, pure white unpainted fuselage.",
+    "generated_at": "2026-09-09T09:57:06.290Z"
+  },
+  {
+    "id": "belugaxl",
+    "task": "01a08599-001f-7515-bbcd-a45ebf09961d",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "side profile view of a purpose-built cargo-only aircraft, never had a passenger version, Airbus BelugaXL A330-700L oversize cargo transporter, distinctive huge bulbous humped upper fuselage far larger in diameter than a normal airliner, low-mounted wings, twin engines, small cockpit tucked low at the very front under the hump, dolphin-like whale shape. Clean neutral 3D product render on a SOLID PURE WHITE background (#FFFFFF, seamless studio white, no gradient, no floor line), even soft studio lighting, crisp panel lines, correct engineering proportions, aircraft centred filling the frame with a small even margin, high resolution game-ready sprite, perfectly flat orthographic side profile, zero perspective distortion, nose pointing left, complete aircraft from nose to tailcone visible, no logos, no titles, pure white unpainted fuselage.",
+    "generated_at": "2026-09-09T09:57:09.910Z"
+  },
+  {
+    "id": "an124",
+    "task": "01a08598-ffee-7171-bd08-bdbd0f2878d7",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "side profile view of a purpose-built cargo-only aircraft, never had a passenger version, Antonov An-124 Ruslan strategic airlifter, four engines under high wings, front and rear cargo doors, high-set tail with large vertical fin, tall multi-wheel landing gear, massive box-like fuselage. Clean neutral 3D product render on a SOLID PURE WHITE background (#FFFFFF, seamless studio white, no gradient, no floor line), even soft studio lighting, crisp panel lines, correct engineering proportions, aircraft centred filling the frame with a small even margin, high resolution game-ready sprite, perfectly flat orthographic side profile, zero perspective distortion, nose pointing left, complete aircraft from nose to tailcone visible, no logos, no titles, pure white unpainted fuselage.",
+    "generated_at": "2026-09-09T09:57:13.923Z"
+  }
+]

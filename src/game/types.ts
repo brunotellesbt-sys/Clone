@@ -11,6 +11,13 @@ export type CheatStyle = 'none' | 'straight' | 'wide' | 'double' | 'wave' | 'spl
 export type TailStyle = 'solid' | 'stripes' | 'swoosh' | 'gradient' | 'split' | 'chevron'
 export type NoseStyle = 'body' | 'dark' | 'custom'
 export type TitleFont = 'sans' | 'wide' | 'serif' | 'mono'
+/**
+ * Emblema fictício aplicado sobre a deriva, além do desenho do `tailStyle`.
+ * `'none'` é a única string com significado especial; o catálogo de verdade
+ * é orientado a dados, em `src/livery/emblems.ts` (mesmo padrão do `id` de
+ * aeronave), então o tipo aqui fica aberto em vez de enumerar cada opção.
+ */
+export type EmblemId = string
 
 /**
  * Pintura por peça. Cada campo corresponde a uma parte real da aeronave, para
@@ -45,6 +52,10 @@ export interface Livery {
   tailStyle: TailStyle
   /** Estabilizador horizontal. */
   stab: string
+  /** Emblema fictício sobre a deriva, além do `tailStyle`. */
+  emblem: EmblemId
+  emblemColor: string
+  emblemAccent: string
 
   // ---- asa e motores
   wing: string

@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from 'react'
 import type { AircraftType } from '../game/data/aircraft'
 import type { Livery } from '../game/types'
 import { artFor, DEFAULT_REGIONS, loadArtManifest, type ArtEntry } from './art'
+import { emblemHref } from './emblems'
 import { LiveryPlane } from './LiveryPlane'
 import { measure, measured, type Measured } from './measure'
 import { FONT_STACK } from './silhouette'
@@ -98,8 +99,14 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
     <svg viewBox={view.join(' ')} className={className} role="img" aria-label={`${type.maker} ${type.name}`}>
       <defs>
         <mask id={`m-${uid}`} style={{ maskType: 'alpha' }}>
-          {/* A silhueta vira o recorte: tudo que for pintado fica dentro do avião. */}
-          <image href={href} x="0" y="0" width={w} height={h} crossOrigin="anonymous" onError={() => setFailed(true)} />
+          {/*
+            A silhueta vira o recorte: tudo que for pintado fica dentro do avião.
+            O arquivo publicado tem fundo branco sólido — a máscara usa uma cópia
+            com alfa calculado em memória (`box.maskHref`, de measure.ts), nunca o
+            arquivo em si; sem medição ainda, cai no próprio arquivo como recorte
+            provisório (mostra tudo, corrige no primeiro re-render).
+          */}
+          <image href={box?.maskHref || href} x="0" y="0" width={w} height={h} crossOrigin="anonymous" onError={() => setFailed(true)} />
         </mask>
         <linearGradient id={`tg-${uid}`} x1="0" y1="1" x2="1" y2="0">
           <stop offset="0%" stopColor={livery.tail} />
@@ -177,6 +184,10 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
               fill={livery.tailAccent}
             />
           )}
+
+          {livery.emblem !== 'none' && (
+            <Emblem livery={livery} region={region.emblem} w={w} h={h} />
+          )}
         </g>
 
         {/* o desenho original por cima devolve painéis, portas e sombreado */}
@@ -212,6 +223,38 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
         )}
       </g>
     </svg>
+  )
+}
+
+/**
+ * Desenha o emblema centrado na caixa segura medida em `measure.ts` (ou o
+ * padrão de `DEFAULT_REGIONS`) — a silhueta é um PNG fixo da Meshy, então o
+ * tamanho vem do lado menor da caixa (nunca estica) e a cor é aplicada por
+ * máscara de alfa, com um crachá de fundo em `emblemAccent` atrás pra dar o
+ * segundo tom sem depender do desenho ter duas camadas.
+ */
+function Emblem({
+  livery, region, w, h,
+}: {
+  livery: Livery
+  region: { cx: number; cy: number; maxW: number; maxH: number }
+  w: number
+  h: number
+}) {
+  const uid = useId().replace(/:/g, '')
+  const href = emblemHref(livery.emblem)
+  if (!href) return null
+  const size = Math.min(region.maxW * w, region.maxH * h)
+  const cx = region.cx * w
+  const cy = region.cy * h
+  return (
+    <g transform={`translate(${cx} ${cy})`}>
+      <circle r={size * 0.62} fill={livery.emblemAccent} />
+      <mask id={`em-${uid}`} style={{ maskType: 'alpha' }}>
+        <image href={href} x={-size / 2} y={-size / 2} width={size} height={size} crossOrigin="anonymous" />
+      </mask>
+      <rect x={-size / 2} y={-size / 2} width={size} height={size} fill={livery.emblemColor} mask={`url(#em-${uid})`} />
+    </g>
   )
 }
 

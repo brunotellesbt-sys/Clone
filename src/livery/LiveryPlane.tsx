@@ -1,6 +1,7 @@
 import { useId, useMemo } from 'react'
 import type { AircraftType } from '../game/data/aircraft'
 import type { Livery } from '../game/types'
+import { emblemHref } from './emblems'
 import { FONT_STACK, geometry, VIEW_H, VIEW_W, type Geometry } from './silhouette'
 
 interface Props {
@@ -306,6 +307,40 @@ function Cheatline({
 }
 
 function TailDecor({ g, livery }: { g: Geometry; livery: Livery }) {
+  return (
+    <>
+      <TailPattern g={g} livery={livery} />
+      {livery.emblem !== 'none' && <TailEmblem g={g} livery={livery} />}
+    </>
+  )
+}
+
+/**
+ * O emblema fica dentro de `finBase` com uma folga generosa: aqui não há
+ * medição real de pixel como no caminho do sprite, então a margem cobre a
+ * pior sobra do trapézio dentro do retângulo — e o `clipPath` da deriva de
+ * verdade (`g.fin`, um polígono, não um rect) ainda corta o que passar.
+ */
+function TailEmblem({ g, livery }: { g: Geometry; livery: Livery }) {
+  const uid = useId().replace(/:/g, '')
+  const href = emblemHref(livery.emblem)
+  if (!href) return null
+  const b = g.finBase
+  const size = Math.min(b.w, b.h) * 0.42
+  const cx = b.x + b.w * 0.52
+  const cy = b.y + b.h * 0.5
+  return (
+    <g transform={`translate(${cx} ${cy})`}>
+      <circle r={size * 0.62} fill={livery.emblemAccent} />
+      <mask id={`fem-${uid}`} style={{ maskType: 'alpha' }}>
+        <image href={href} x={-size / 2} y={-size / 2} width={size} height={size} crossOrigin="anonymous" />
+      </mask>
+      <rect x={-size / 2} y={-size / 2} width={size} height={size} fill={livery.emblemColor} mask={`url(#fem-${uid})`} />
+    </g>
+  )
+}
+
+function TailPattern({ g, livery }: { g: Geometry; livery: Livery }) {
   const b = g.finBase
   switch (livery.tailStyle) {
     case 'stripes':
