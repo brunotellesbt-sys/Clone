@@ -49,6 +49,32 @@ const inFlight = new Map<string, Promise<Measured | null>>()
 
 const SAMPLE_W = 240
 
+/**
+ * Máscara exata da deriva, uma por modelo (não por motor — a nacela não muda
+ * o desenho da cauda). Vem de `public/sprites/tailmasks/<id>.png`: contorno
+ * de verdade, não a caixa aproximada que `analyse()` calcula abaixo. Nem todo
+ * modelo tem uma (o lote foi feito por avião, sob conferência visual, não é
+ * gerado sozinho) — sem arquivo, cai de volta na caixa aproximada de sempre.
+ */
+const tailMaskCache = new Map<string, string | null>()
+
+export function tailMaskHref(id: string, base = import.meta.env.BASE_URL): Promise<string | null> {
+  const key = `${base}sprites/tailmasks/${id}.png`
+  if (tailMaskCache.has(key)) return Promise.resolve(tailMaskCache.get(key)!)
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      tailMaskCache.set(key, key)
+      resolve(key)
+    }
+    img.onerror = () => {
+      tailMaskCache.set(key, null)
+      resolve(null)
+    }
+    img.src = key
+  })
+}
+
 export function measured(href: string): Measured | null | undefined {
   return cache.get(href)
 }

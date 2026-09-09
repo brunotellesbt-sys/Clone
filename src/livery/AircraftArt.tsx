@@ -4,7 +4,7 @@ import type { Livery } from '../game/types'
 import { artFor, DEFAULT_REGIONS, loadArtManifest, type ArtEntry } from './art'
 import { emblemHref } from './emblems'
 import { LiveryPlane } from './LiveryPlane'
-import { measure, measured, type Measured } from './measure'
+import { measure, measured, tailMaskHref, type Measured } from './measure'
 import { FONT_STACK } from './silhouette'
 
 interface Props {
@@ -40,6 +40,7 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   const href = hrefOf(entry)
   const [box, setBox] = useState<Measured | null | undefined>(() => measured(href))
   const [failed, setFailed] = useState(false)
+  const [preciseTail, setPreciseTail] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -48,6 +49,14 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
       alive = false
     }
   }, [href])
+
+  useEffect(() => {
+    let alive = true
+    tailMaskHref(type.id).then((m) => alive && setPreciseTail(m))
+    return () => {
+      alive = false
+    }
+  }, [type.id])
 
   if (failed) {
     return <LiveryPlane type={type} livery={livery} titles={titles} registration={registration} className={className} />
@@ -108,6 +117,16 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
           */}
           <image href={box?.maskHref || href} x="0" y="0" width={w} height={h} crossOrigin="anonymous" onError={() => setFailed(true)} />
         </mask>
+        {preciseTail && (
+          <mask id={`ft-${uid}`} style={{ maskType: 'alpha' }}>
+            {/*
+              Contorno de verdade da deriva (public/sprites/tailmasks/), não a
+              caixa aproximada de measure.ts — recorta a pintura pelo polígono
+              real quando o modelo tem essa máscara conferida à mão.
+            */}
+            <image href={preciseTail} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
+          </mask>
+        )}
         <linearGradient id={`tg-${uid}`} x1="0" y1="1" x2="1" y2="0">
           <stop offset="0%" stopColor={livery.tail} />
           <stop offset="100%" stopColor={livery.tailAccent} />
@@ -140,50 +159,52 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
           {/* radome */}
           {noseColor && <rect x={planeX0 - 2} y={bandTop - 2} width={planeW * 0.06} height={bandH + 4} fill={noseColor} />}
 
-          {/* deriva */}
-          <rect
-            x={w * tx0} y={h * ty0} width={tailW} height={h * (ty1 - ty0)}
-            fill={livery.tailStyle === 'gradient' ? `url(#tg-${uid})` : livery.tail}
-          />
-          {livery.tailStyle === 'stripes' &&
-            [0, 1, 2].map((i) => (
-              <rect
-                key={i} x={w * tx0 + tailW * (0.18 + i * 0.24)} y={h * ty0}
-                width={tailW * 0.12} height={h * (ty1 - ty0)} fill={livery.tailAccent}
+          {/* deriva — com máscara precisa por cima da caixa, quando existe */}
+          <g mask={preciseTail ? `url(#ft-${uid})` : undefined}>
+            <rect
+              x={w * tx0} y={h * ty0} width={tailW} height={h * (ty1 - ty0)}
+              fill={livery.tailStyle === 'gradient' ? `url(#tg-${uid})` : livery.tail}
+            />
+            {livery.tailStyle === 'stripes' &&
+              [0, 1, 2].map((i) => (
+                <rect
+                  key={i} x={w * tx0 + tailW * (0.18 + i * 0.24)} y={h * ty0}
+                  width={tailW * 0.12} height={h * (ty1 - ty0)} fill={livery.tailAccent}
+                />
+              ))}
+            {livery.tailStyle === 'split' && (
+              <path
+                d={
+                  `M ${w * tx0} ${h * ty0 + (h * (ty1 - ty0)) * 0.55} L ${w * tx1} ${h * ty0 + (h * (ty1 - ty0)) * 0.28} ` +
+                  `L ${w * tx1} ${h * ty1} L ${w * tx0} ${h * ty1} Z`
+                }
+                fill={livery.tailAccent}
               />
-            ))}
-          {livery.tailStyle === 'split' && (
-            <path
-              d={
-                `M ${w * tx0} ${h * ty0 + (h * (ty1 - ty0)) * 0.55} L ${w * tx1} ${h * ty0 + (h * (ty1 - ty0)) * 0.28} ` +
-                `L ${w * tx1} ${h * ty1} L ${w * tx0} ${h * ty1} Z`
-              }
-              fill={livery.tailAccent}
-            />
-          )}
-          {livery.tailStyle === 'swoosh' && (
-            <path
-              d={
-                `M ${w * tx0} ${h * ty1} ` +
-                `C ${w * tx0 + tailW * 0.5} ${h * ty0 + (h * (ty1 - ty0)) * 0.7}, ` +
-                `${w * tx0 + tailW * 0.66} ${h * ty0 + (h * (ty1 - ty0)) * 0.25}, ` +
-                `${w * tx0 + tailW * 0.7} ${h * ty0} L ${w * tx1} ${h * ty0} ` +
-                `C ${w * tx0 + tailW * 0.95} ${h * ty0 + (h * (ty1 - ty0)) * 0.55}, ` +
-                `${w * tx0 + tailW * 0.7} ${h * ty0 + (h * (ty1 - ty0)) * 0.9}, ` +
-                `${w * tx0 + tailW * 0.5} ${h * ty1} Z`
-              }
-              fill={livery.tailAccent}
-            />
-          )}
-          {livery.tailStyle === 'chevron' && (
-            <path
-              d={
-                `M ${w * tx0 + tailW * 0.1} ${h * ty1} L ${w * tx0 + tailW * 0.54} ${h * ty0} ` +
-                `L ${w * tx0 + tailW * 0.8} ${h * ty0} L ${w * tx0 + tailW * 0.4} ${h * ty1} Z`
-              }
-              fill={livery.tailAccent}
-            />
-          )}
+            )}
+            {livery.tailStyle === 'swoosh' && (
+              <path
+                d={
+                  `M ${w * tx0} ${h * ty1} ` +
+                  `C ${w * tx0 + tailW * 0.5} ${h * ty0 + (h * (ty1 - ty0)) * 0.7}, ` +
+                  `${w * tx0 + tailW * 0.66} ${h * ty0 + (h * (ty1 - ty0)) * 0.25}, ` +
+                  `${w * tx0 + tailW * 0.7} ${h * ty0} L ${w * tx1} ${h * ty0} ` +
+                  `C ${w * tx0 + tailW * 0.95} ${h * ty0 + (h * (ty1 - ty0)) * 0.55}, ` +
+                  `${w * tx0 + tailW * 0.7} ${h * ty0 + (h * (ty1 - ty0)) * 0.9}, ` +
+                  `${w * tx0 + tailW * 0.5} ${h * ty1} Z`
+                }
+                fill={livery.tailAccent}
+              />
+            )}
+            {livery.tailStyle === 'chevron' && (
+              <path
+                d={
+                  `M ${w * tx0 + tailW * 0.1} ${h * ty1} L ${w * tx0 + tailW * 0.54} ${h * ty0} ` +
+                  `L ${w * tx0 + tailW * 0.8} ${h * ty0} L ${w * tx0 + tailW * 0.4} ${h * ty1} Z`
+                }
+                fill={livery.tailAccent}
+              />
+            )}
+          </g>
 
           {livery.emblem !== 'none' && (
             <Emblem livery={livery} region={region.emblem} w={w} h={h} />
