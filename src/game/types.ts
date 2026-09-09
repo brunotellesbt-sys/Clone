@@ -11,6 +11,8 @@ export type CheatStyle = 'none' | 'straight' | 'wide' | 'double' | 'wave' | 'spl
 export type TailStyle = 'solid' | 'stripes' | 'swoosh' | 'gradient' | 'split' | 'chevron'
 export type NoseStyle = 'body' | 'dark' | 'custom'
 export type TitleFont = 'sans' | 'wide' | 'serif' | 'mono'
+/** Emblema fictício aplicado sobre a deriva, além do desenho do `tailStyle`. */
+export type EmblemId = 'none' | 'fan' | 'chevron' | 'star' | 'arc' | 'diamond' | 'wing'
 
 /**
  * Pintura por peça. Cada campo corresponde a uma parte real da aeronave, para
@@ -45,6 +47,10 @@ export interface Livery {
   tailStyle: TailStyle
   /** Estabilizador horizontal. */
   stab: string
+  /** Emblema fictício sobre a deriva, além do `tailStyle`. */
+  emblem: EmblemId
+  emblemColor: string
+  emblemAccent: string
 
   // ---- asa e motores
   wing: string

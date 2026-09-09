@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from 'react'
 import type { AircraftType } from '../game/data/aircraft'
 import type { Livery } from '../game/types'
 import { artFor, DEFAULT_REGIONS, loadArtManifest, type ArtEntry } from './art'
+import { emblemPaths } from './emblems'
 import { LiveryPlane } from './LiveryPlane'
 import { measure, measured, type Measured } from './measure'
 import { FONT_STACK } from './silhouette'
@@ -177,6 +178,10 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
               fill={livery.tailAccent}
             />
           )}
+
+          {livery.emblem !== 'none' && (
+            <Emblem livery={livery} region={region.emblem} w={w} h={h} />
+          )}
         </g>
 
         {/* o desenho original por cima devolve painéis, portas e sombreado */}
@@ -212,6 +217,35 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
         )}
       </g>
     </svg>
+  )
+}
+
+/**
+ * Desenha o emblema centrado na caixa segura medida em `measure.ts` (ou o
+ * padrão de `DEFAULT_REGIONS`), preservando a proporção do desenho original
+ * de 100×100 em vez de esticar — assim ele nunca sai deformado nem passa
+ * da largura real da deriva naquela altura.
+ */
+function Emblem({
+  livery, region, w, h,
+}: {
+  livery: Livery
+  region: { cx: number; cy: number; maxW: number; maxH: number }
+  w: number
+  h: number
+}) {
+  const { base, accent } = emblemPaths(livery.emblem)
+  if (base.length === 0 && accent.length === 0) return null
+  const boxW = region.maxW * w
+  const boxH = region.maxH * h
+  const scale = Math.min(boxW, boxH) / 100
+  const cx = region.cx * w
+  const cy = region.cy * h
+  return (
+    <g transform={`translate(${cx} ${cy}) scale(${scale}) translate(-50 -50)`}>
+      {base.map((d, i) => <path key={`b${i}`} d={d} fill={livery.emblemColor} />)}
+      {accent.map((d, i) => <path key={`a${i}`} d={d} fill={livery.emblemAccent} />)}
+    </g>
   )
 }
 

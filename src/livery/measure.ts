@@ -22,6 +22,15 @@ export interface Measured {
   fuselage: [number, number]
   tail: [number, number, number, number]
   titles: [number, number]
+  /**
+   * Onde o emblema cabe de verdade: centro e tamanho máximo, em fração da
+   * imagem. `tail` é a caixa que envolve a deriva — a deriva de verdade é um
+   * trapézio dentro dela, não o retângulo inteiro. Em vez de supor a forma do
+   * trapézio, isto mede a largura real de pixel na altura onde o emblema vai
+   * ficar, então o tamanho já vem certo mesmo em deriva muito varrida (a que
+   * mais escapa do retângulo) ou num desenho de cauda fora do comum.
+   */
+  emblem: { cx: number; cy: number; maxW: number; maxH: number }
   /** true quando o nariz aponta para a esquerda no arquivo original. */
   noseLeft: boolean
 }
@@ -192,11 +201,46 @@ function analyse(img: HTMLImageElement): Measured | null {
   const band = Math.max(1, fy1 - fy0)
   cut = Math.min(cut, Math.round(fy1 + band * 1.6))
   const boxH = cut - y0 + 1
+
+  // Onde o emblema cabe: mede a largura real de pixel numa faixa de linhas
+  // no terço superior da deriva (perto da ponta o traço fecha demais; perto
+  // da base entra a carenagem com a fuselagem). Usa o MÍNIMO entre as linhas
+  // amostradas, não a média — é a linha mais estreita que decide o tamanho
+  // seguro, senão o emblema passa por fora numa deriva bem afunilada.
+  const finH = Math.max(1, fy0 - finTop)
+  const sampleY0 = Math.round(finTop + finH * 0.35)
+  const sampleY1 = Math.round(finTop + finH * 0.65)
+  let finMinW = tx1 - tx0 + 1
+  let finCx = (tx0 + tx1) / 2
+  let sampled = false
+  for (let y = sampleY0; y <= sampleY1; y++) {
+    let lx = -1
+    let rx = -1
+    for (let x = tx0; x <= tx1; x++) {
+      if (!isFg((y * w + x) * 4)) continue
+      if (lx < 0) lx = x
+      rx = x
+    }
+    if (lx < 0) continue
+    const rowW = rx - lx + 1
+    if (!sampled || rowW < finMinW) {
+      finMinW = rowW
+      finCx = (lx + rx) / 2
+      sampled = true
+    }
+  }
+  // Folga de segurança: a largura medida ainda é de uma faixa de linhas, não
+  // de um ponto só, então perde um pouco mais antes de virar tamanho do emblema.
+  const emblemW = finMinW * 0.72
+  const emblemH = Math.min(emblemW, finH * 0.4)
+  const emblemCy = finTop + finH * 0.5
+
   return {
     box: [x0 / w, y0 / h, (x1 + 1) / w, (y0 + boxH) / h],
     fuselage: [fy0 / h, (fy1 + 1) / h],
     tail: [tx0 / w, finTop / h, (tx1 + 1) / w, (fy0 + (fy1 - fy0) * 0.3) / h],
     titles: [(noseLeft ? x0 + planeW * 0.22 : x0 + planeW * 0.48) / w, (fy0 + (fy1 - fy0) * 0.34) / h],
+    emblem: { cx: finCx / w, cy: emblemCy / h, maxW: emblemW / w, maxH: emblemH / h },
     noseLeft,
   }
 }

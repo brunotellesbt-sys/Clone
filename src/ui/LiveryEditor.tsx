@@ -3,6 +3,7 @@ import { AIRCRAFT, acLabel, AIRCRAFT_BY_ID } from '../game/data/aircraft'
 import type { Livery } from '../game/types'
 import { AircraftArt } from '../livery/AircraftArt'
 import { creditLine, creditSource } from '../livery/art'
+import { EMBLEMS } from '../livery/emblems'
 import { BLANK_LIVERY, LIVERY_PRESETS } from '../livery/presets'
 import { useGame } from '../store/useGame'
 import { Card } from './components/Bits'
@@ -34,6 +35,7 @@ type ColorKey = Extract<
   keyof Livery,
   | 'fuselage' | 'belly' | 'nose' | 'cheat' | 'cheat2' | 'tail' | 'tailAccent' | 'stab'
   | 'wing' | 'winglet' | 'engine' | 'engineCowl' | 'gear' | 'titles' | 'regColor' | 'windowColor'
+  | 'emblemColor' | 'emblemAccent'
 >
 
 export function LiveryEditor() {
@@ -222,6 +224,18 @@ export function LiveryEditor() {
               />
               {livery.tailStyle !== 'solid' && <Color k="tailAccent" label="Cor do detalhe" />}
               <Color k="stab" label="Estabilizador horizontal" />
+              <Select
+                label="Emblema"
+                value={livery.emblem}
+                options={EMBLEMS.map((e) => ({ v: e.id, label: e.label }))}
+                onChange={(v) => set('emblem', v as Livery['emblem'])}
+              />
+              {livery.emblem !== 'none' && (
+                <>
+                  <Color k="emblemColor" label="Cor do emblema" />
+                  <Color k="emblemAccent" label="Cor de destaque do emblema" />
+                </>
+              )}
             </>
           )}
 
@@ -429,6 +443,9 @@ function randomLivery(): Livery {
     tailAccent: accent,
     tailStyle: pick(['solid', 'stripes', 'swoosh', 'gradient', 'split', 'chevron'] as const),
     stab: brand,
+    emblem: pick(['none', 'none', 'fan', 'chevron', 'star', 'arc', 'diamond', 'wing'] as const),
+    emblemColor: accent,
+    emblemAccent: dark ? '#f8fafc' : brand,
     wing: dark ? '#1e293b' : '#e2e8f0',
     winglet: brand,
     engine: dark ? '#1e293b' : '#e2e8f0',

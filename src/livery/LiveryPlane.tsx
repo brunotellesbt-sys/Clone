@@ -1,6 +1,7 @@
 import { useId, useMemo } from 'react'
 import type { AircraftType } from '../game/data/aircraft'
 import type { Livery } from '../game/types'
+import { emblemPaths } from './emblems'
 import { FONT_STACK, geometry, VIEW_H, VIEW_W, type Geometry } from './silhouette'
 
 interface Props {
@@ -306,6 +307,37 @@ function Cheatline({
 }
 
 function TailDecor({ g, livery }: { g: Geometry; livery: Livery }) {
+  return (
+    <>
+      <TailPattern g={g} livery={livery} />
+      {livery.emblem !== 'none' && <TailEmblem g={g} livery={livery} />}
+    </>
+  )
+}
+
+/**
+ * O emblema fica dentro de `finBase` com uma folga generosa: aqui não há
+ * medição real de pixel como no caminho do sprite, então a margem cobre a
+ * pior sobra do trapézio dentro do retângulo — e o `clipPath` da deriva de
+ * verdade (`g.fin`, um polígono, não um rect) ainda corta o que passar.
+ */
+function TailEmblem({ g, livery }: { g: Geometry; livery: Livery }) {
+  const b = g.finBase
+  const { base, accent } = emblemPaths(livery.emblem)
+  if (base.length === 0 && accent.length === 0) return null
+  const size = Math.min(b.w, b.h) * 0.42
+  const cx = b.x + b.w * 0.52
+  const cy = b.y + b.h * 0.5
+  const scale = size / 100
+  return (
+    <g transform={`translate(${cx} ${cy}) scale(${scale}) translate(-50 -50)`}>
+      {base.map((d, i) => <path key={`b${i}`} d={d} fill={livery.emblemColor} />)}
+      {accent.map((d, i) => <path key={`a${i}`} d={d} fill={livery.emblemAccent} />)}
+    </g>
+  )
+}
+
+function TailPattern({ g, livery }: { g: Geometry; livery: Livery }) {
   const b = g.finBase
   switch (livery.tailStyle) {
     case 'stripes':
