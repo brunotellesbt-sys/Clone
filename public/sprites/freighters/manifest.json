@@ -70,5 +70,29 @@
     "credits": 9,
     "prompt": "side profile view of a dedicated cargo freighter airliner, Boeing 747-8F freighter with hinged upward-swinging nose cargo door visible open at the nose, four engines under the wings, humped upper deck, NO passenger windows along the fuselage (blank unbroken fuselage skin except one forward crew door), large main-deck cargo door visible, pure white unpainted fuselage, no logos, no titles, centered, nose pointing left, even studio lighting, plain background, game-ready asset, orthographic flat side elevation",
     "generated_at": "2026-09-09T09:40:57.085Z"
+  },
+  {
+    "id": "an225",
+    "task": "01a08599-0071-7675-b4da-03dc5cd8eccc",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "side profile view of a purpose-built cargo-only aircraft, never had a passenger version, Antonov An-225 Mriya, the largest cargo aircraft ever built, six engines under high wings, twin vertical tail fins, extremely long fuselage, front cargo nose, tall multi-wheel landing gear. Clean neutral 3D product render on a SOLID PURE WHITE background (#FFFFFF, seamless studio white, no gradient, no floor line), even soft studio lighting, crisp panel lines, correct engineering proportions, aircraft centred filling the frame with a small even margin, high resolution game-ready sprite, perfectly flat orthographic side profile, zero perspective distortion, nose pointing left, complete aircraft from nose to tailcone visible, no logos, no titles, pure white unpainted fuselage.",
+    "generated_at": "2026-09-09T09:57:06.290Z"
+  },
+  {
+    "id": "belugaxl",
+    "task": "01a08599-001f-7515-bbcd-a45ebf09961d",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "side profile view of a purpose-built cargo-only aircraft, never had a passenger version, Airbus BelugaXL A330-700L oversize cargo transporter, distinctive huge bulbous humped upper fuselage far larger in diameter than a normal airliner, low-mounted wings, twin engines, small cockpit tucked low at the very front under the hump, dolphin-like whale shape. Clean neutral 3D product render on a SOLID PURE WHITE background (#FFFFFF, seamless studio white, no gradient, no floor line), even soft studio lighting, crisp panel lines, correct engineering proportions, aircraft centred filling the frame with a small even margin, high resolution game-ready sprite, perfectly flat orthographic side profile, zero perspective distortion, nose pointing left, complete aircraft from nose to tailcone visible, no logos, no titles, pure white unpainted fuselage.",
+    "generated_at": "2026-09-09T09:57:09.910Z"
+  },
+  {
+    "id": "an124",
+    "task": "01a08598-ffee-7171-bd08-bdbd0f2878d7",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "side profile view of a purpose-built cargo-only aircraft, never had a passenger version, Antonov An-124 Ruslan strategic airlifter, four engines under high wings, front and rear cargo doors, high-set tail with large vertical fin, tall multi-wheel landing gear, massive box-like fuselage. Clean neutral 3D product render on a SOLID PURE WHITE background (#FFFFFF, seamless studio white, no gradient, no floor line), even soft studio lighting, crisp panel lines, correct engineering proportions, aircraft centred filling the frame with a small even margin, high resolution game-ready sprite, perfectly flat orthographic side profile, zero perspective distortion, nose pointing left, complete aircraft from nose to tailcone visible, no logos, no titles, pure white unpainted fuselage.",
+    "generated_at": "2026-09-09T09:57:13.923Z"
   }
 ]
