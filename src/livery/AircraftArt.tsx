@@ -4,7 +4,7 @@ import type { Livery } from '../game/types'
 import { artFor, DEFAULT_REGIONS, loadArtManifest, type ArtEntry } from './art'
 import { emblemHref } from './emblems'
 import { LiveryPlane } from './LiveryPlane'
-import { gearMaskHref, measure, measured, tailMaskHref, type Measured } from './measure'
+import { engineMaskHref, gearMaskHref, measure, measured, tailMaskHref, wingMaskHref, type Measured } from './measure'
 import { FONT_STACK } from './silhouette'
 
 interface Props {
@@ -42,6 +42,8 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   const [failed, setFailed] = useState(false)
   const [preciseTail, setPreciseTail] = useState<string | null>(null)
   const [gearMask, setGearMask] = useState<string | null>(null)
+  const [wingMask, setWingMask] = useState<string | null>(null)
+  const [engineMask, setEngineMask] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -62,6 +64,22 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   useEffect(() => {
     let alive = true
     gearMaskHref(type.id).then((m) => alive && setGearMask(m))
+    return () => {
+      alive = false
+    }
+  }, [type.id])
+
+  useEffect(() => {
+    let alive = true
+    wingMaskHref(type.id).then((m) => alive && setWingMask(m))
+    return () => {
+      alive = false
+    }
+  }, [type.id])
+
+  useEffect(() => {
+    let alive = true
+    engineMaskHref(type.id).then((m) => alive && setEngineMask(m))
     return () => {
       alive = false
     }
@@ -142,6 +160,18 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
             <image href={gearMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
         )}
+        {wingMask && (
+          <mask id={`wm-${uid}`} style={{ maskType: 'alpha' }}>
+            {/* Asa sem o motor nem o trem por cima (public/sprites/wingmasks/). */}
+            <image href={wingMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
+          </mask>
+        )}
+        {engineMask && (
+          <mask id={`egm-${uid}`} style={{ maskType: 'alpha' }}>
+            {/* Carenagem do motor, separada da asa (public/sprites/enginemasks/). */}
+            <image href={engineMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
+          </mask>
+        )}
         <linearGradient id={`tg-${uid}`} x1="0" y1="1" x2="1" y2="0">
           <stop offset="0%" stopColor={livery.tail} />
           <stop offset="100%" stopColor={livery.tailAccent} />
@@ -157,8 +187,19 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
           {/* fuselagem inteira */}
           <rect x="0" y="0" width={w} height={h} fill={livery.fuselage} />
 
-          {/* tudo abaixo da fuselagem é asa, motor e trem */}
-          <rect x="0" y={bandBot} width={w} height={h} fill={livery.wing} />
+          {/* asa -- com máscara precisa (sem motor nem trem) quando existe,
+              senão cai no retângulo de sempre (tudo abaixo da fuselagem) */}
+          <g mask={wingMask ? `url(#wm-${uid})` : undefined}>
+            <rect x="0" y={bandBot} width={w} height={h} fill={livery.wing} />
+          </g>
+
+          {/* carenagem do motor, setor de pintura próprio -- só onde a
+              máscara precisa existe (senão fica com a cor da asa, de antes) */}
+          {engineMask && (
+            <g mask={`url(#egm-${uid})`}>
+              <rect x="0" y={bandBot} width={w} height={h} fill={livery.engine} />
+            </g>
+          )}
 
           {/* trem de pouso, por cima da asa, só onde a máscara precisa existe */}
           {gearMask && (
