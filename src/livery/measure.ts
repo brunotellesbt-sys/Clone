@@ -85,6 +85,16 @@ export const tailMaskHref = (id: string, base = import.meta.env.BASE_URL) => nam
  */
 export const gearMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('gearmasks', id, base)
 
+/**
+ * Máscara exata da asa, sem o motor nem o trem por cima — sem ela, a asa
+ * cai no retângulo "tudo abaixo da fuselagem" de sempre, que pinta motor
+ * e trem com a cor da asa (setores de pintura diferentes na vida real).
+ */
+export const wingMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('wingmasks', id, base)
+
+/** Máscara exata da carenagem do motor, separada da asa. */
+export const engineMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('enginemasks', id, base)
+
 export function measured(href: string): Measured | null | undefined {
   return cache.get(href)
 }
