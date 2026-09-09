@@ -114,6 +114,7 @@ async function generate(catalogPath, outDir, { force, concurrency }) {
   }
 
   const manifest = []
+  const falhas = []
   let cursor = 0
   let gastos = 0
 
@@ -123,35 +124,54 @@ async function generate(catalogPath, outDir, { force, concurrency }) {
       if (i >= pending.length) return
       const { item, dest } = pending[i]
       const prompt = `${defaults.prompt_prefix ?? ''}${item.prompt}${defaults.prompt_suffix ?? ''}`
-      try {
-        const { result: id } = await api('/v1/text-to-image', {
-          method: 'POST',
-          body: JSON.stringify({
-            ai_model: item.ai_model ?? model,
+
+      // Lote grande = mais chance de uma falha isolada (rede, task que nasce
+      // FAILED por instabilidade momentanea do servico). Falha isolada nao
+      // pode custar a geracao inteira: tenta de novo antes de desistir do item.
+      const MAX_TENTATIVAS = 3
+      let ultimoErro
+      for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+        try {
+          const { result: id } = await api('/v1/text-to-image', {
+            method: 'POST',
+            body: JSON.stringify({
+              ai_model: item.ai_model ?? model,
+              prompt,
+              aspect_ratio: item.aspect_ratio ?? defaults.aspect_ratio ?? '1:1',
+              remove_background: item.remove_background ?? defaults.remove_background ?? false,
+              ...(item.generate_multi_view ?? defaults.generate_multi_view
+                ? { generate_multi_view: true }
+                : {}),
+            }),
+          })
+          const task = await waitFor(id, item.id)
+          const url = task.image_urls?.[0]
+          if (!url) throw new Error('task terminou sem image_urls')
+          await download(url, dest)
+          gastos += task.consumed_credits ?? 0
+          manifest.push({
+            id: item.id,
+            task: task.id,
+            model: task.ai_model,
+            credits: task.consumed_credits,
             prompt,
-            aspect_ratio: item.aspect_ratio ?? defaults.aspect_ratio ?? '1:1',
-            remove_background: item.remove_background ?? defaults.remove_background ?? false,
-            ...(item.generate_multi_view ?? defaults.generate_multi_view
-              ? { generate_multi_view: true }
-              : {}),
-          }),
-        })
-        const task = await waitFor(id, item.id)
-        const url = task.image_urls?.[0]
-        if (!url) throw new Error('task terminou sem image_urls')
-        await download(url, dest)
-        gastos += task.consumed_credits ?? 0
-        manifest.push({
-          id: item.id,
-          task: task.id,
-          model: task.ai_model,
-          credits: task.consumed_credits,
-          prompt,
-          generated_at: new Date().toISOString(),
-        })
-        console.log(`  ${item.id}: ok (${task.consumed_credits} creditos) -> ${dest}`)
-      } catch (err) {
-        console.error(`  ${item.id}: ${err.message}`)
+            generated_at: new Date().toISOString(),
+          })
+          console.log(`  ${item.id}: ok (${task.consumed_credits} creditos) -> ${dest}`)
+          ultimoErro = null
+          break
+        } catch (err) {
+          ultimoErro = err
+          if (tentativa < MAX_TENTATIVAS) {
+            const espera = 2000 * tentativa
+            console.error(`  ${item.id}: tentativa ${tentativa} falhou (${err.message}) — nova tentativa em ${espera / 1000}s`)
+            await sleep(espera)
+          }
+        }
+      }
+      if (ultimoErro) {
+        falhas.push({ id: item.id, erro: ultimoErro.message })
+        console.error(`  ${item.id}: desistiu depois de ${MAX_TENTATIVAS} tentativas — ${ultimoErro.message}`)
       }
     }
   }
@@ -166,6 +186,11 @@ async function generate(catalogPath, outDir, { force, concurrency }) {
     await writeFile(path, JSON.stringify([...porId.values()], null, 2) + '\n')
   }
   console.log(`\n${manifest.length}/${pending.length} gerada(s), ${gastos} credito(s) gastos.`)
+  if (falhas.length) {
+    console.log(`\n${falhas.length} item(ns) falharam depois de ${3} tentativas cada:`)
+    for (const f of falhas) console.log(`  ${f.id}: ${f.erro}`)
+    console.log('\nRode de novo so para esses ids (crie um catalogo com --force apontando so para eles).')
+  }
 }
 
 const [cmd, ...rest] = process.argv.slice(2)
