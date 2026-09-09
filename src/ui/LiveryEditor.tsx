@@ -443,7 +443,7 @@ function randomLivery(): Livery {
     tailAccent: accent,
     tailStyle: pick(['solid', 'stripes', 'swoosh', 'gradient', 'split', 'chevron'] as const),
     stab: brand,
-    emblem: pick(['none', 'none', 'fan', 'chevron', 'star', 'arc', 'diamond', 'wing'] as const),
+    emblem: pick(['none', 'none', ...EMBLEMS.filter((e) => e.id !== 'none').map((e) => e.id)]),
     emblemColor: accent,
     emblemAccent: dark ? '#f8fafc' : brand,
     wing: dark ? '#1e293b' : '#e2e8f0',

@@ -2,7 +2,7 @@ import { useEffect, useId, useState } from 'react'
 import type { AircraftType } from '../game/data/aircraft'
 import type { Livery } from '../game/types'
 import { artFor, DEFAULT_REGIONS, loadArtManifest, type ArtEntry } from './art'
-import { emblemPaths } from './emblems'
+import { emblemHref } from './emblems'
 import { LiveryPlane } from './LiveryPlane'
 import { measure, measured, type Measured } from './measure'
 import { FONT_STACK } from './silhouette'
@@ -222,9 +222,10 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
 
 /**
  * Desenha o emblema centrado na caixa segura medida em `measure.ts` (ou o
- * padrão de `DEFAULT_REGIONS`), preservando a proporção do desenho original
- * de 100×100 em vez de esticar — assim ele nunca sai deformado nem passa
- * da largura real da deriva naquela altura.
+ * padrão de `DEFAULT_REGIONS`) — a silhueta é um PNG fixo da Meshy, então o
+ * tamanho vem do lado menor da caixa (nunca estica) e a cor é aplicada por
+ * máscara de alfa, com um crachá de fundo em `emblemAccent` atrás pra dar o
+ * segundo tom sem depender do desenho ter duas camadas.
  */
 function Emblem({
   livery, region, w, h,
@@ -234,17 +235,19 @@ function Emblem({
   w: number
   h: number
 }) {
-  const { base, accent } = emblemPaths(livery.emblem)
-  if (base.length === 0 && accent.length === 0) return null
-  const boxW = region.maxW * w
-  const boxH = region.maxH * h
-  const scale = Math.min(boxW, boxH) / 100
+  const uid = useId().replace(/:/g, '')
+  const href = emblemHref(livery.emblem)
+  if (!href) return null
+  const size = Math.min(region.maxW * w, region.maxH * h)
   const cx = region.cx * w
   const cy = region.cy * h
   return (
-    <g transform={`translate(${cx} ${cy}) scale(${scale}) translate(-50 -50)`}>
-      {base.map((d, i) => <path key={`b${i}`} d={d} fill={livery.emblemColor} />)}
-      {accent.map((d, i) => <path key={`a${i}`} d={d} fill={livery.emblemAccent} />)}
+    <g transform={`translate(${cx} ${cy})`}>
+      <circle r={size * 0.62} fill={livery.emblemAccent} />
+      <mask id={`em-${uid}`} style={{ maskType: 'alpha' }}>
+        <image href={href} x={-size / 2} y={-size / 2} width={size} height={size} crossOrigin="anonymous" />
+      </mask>
+      <rect x={-size / 2} y={-size / 2} width={size} height={size} fill={livery.emblemColor} mask={`url(#em-${uid})`} />
     </g>
   )
 }
