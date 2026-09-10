@@ -268,7 +268,8 @@ export function LiveryEditor() {
               <Color k="winglet" label="Winglet" />
               <Color k="engine" label="Nacela do motor" />
               <Color k="engineCowl" label="Aro do bocal" />
-              <Color k="gear" label="Trem de pouso" />
+              {/* só a perna: o pneu é preto e não entra na livery */}
+              <Color k="gear" label="Perna do trem" />
             </>
           )}
 

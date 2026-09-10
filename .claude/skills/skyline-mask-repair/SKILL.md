@@ -123,6 +123,70 @@ Por serem derivados, esses quatro ficam de fora do `autofix`: quando o pai
 muda, rode o `derive_sectors.py` de novo. Remendar um derivado só faria ele
 divergir da peça de que saiu.
 
+## Dois defeitos que só aparecem pintado
+
+Nenhum dos dois o `diagnose.py` acusa: as duas máscaras estão coladas em
+contorno de verdade e passam com aderência alta. O que denuncia é abrir o jogo.
+
+### A tira reta no topo do trem
+
+46 das 55 máscaras de trem vinham com uma faixa horizontal de poucos pixels
+colada no topo, cobrindo toda a largura da peça — resíduo da caixa do prompt
+original. Ela cai na chapa da barriga e do intradorso da asa, e no jogo aparece
+como um risco de cor de trem atravessando a fuselagem.
+
+```bash
+python3 .claude/skills/skyline-mask-repair/scripts/tirar_barra.py --write
+```
+
+Reconhece a tira por três coisas juntas: fina, cobrindo quase toda a extensão
+horizontal, e no topo da peça. Tampa de poço e viga de bogie não têm as três.
+Não dá para parar na primeira linha que falha o teste: a linha de cima da tira
+vem serrilhada e cobre menos que o limiar. Saíram 25.685px.
+
+### O sulco entre vizinhos
+
+`recompute_sector.py` dilata o vizinho 2px antes de subtrair, para as bordas não
+se encostarem. O preço é um sulco que não é de ninguém em volta do motor e do
+trem — e como a fuselagem é pintada como retângulo recortado pela silhueta
+inteira, é a cor dela que aparece ali, contornando o motor por cima da asa.
+
+```bash
+python3 .claude/skills/skyline-mask-repair/scripts/costurar.py --write
+```
+
+Cada órfão vai para o setor mais perto, com **duas** condições: até 3px e com
+dois donos por perto. A segunda é a que faz funcionar — sem ela cada setor
+cresce 3px para todo lado, inclusive na divisa aberta com a fuselagem, e a asa
+passa a comer barriga: 4.377px no a320 contra os 458 de um sulco de verdade.
+Sulco tem vizinho dos dois lados; divisa com a fuselagem, não.
+
+O trem entra como **reserva**: reivindica os órfãos em volta dele mas não
+cresce, então a costura nunca pinta borracha.
+
+## Pneu não leva cor
+
+O que a livery pinta no trem é a perna — amortecedor e viga do bogie. Pneu é
+borracha preta em qualquer companhia do mundo, e pintado de azul o trem fica de
+brinquedo.
+
+```bash
+python3 .claude/skills/skyline-mask-repair/scripts/derive_sectors.py --all --what gearstrut
+```
+
+O pneu é achado como **disco**: o maior círculo que cabe dentro da máscara,
+descontado várias vezes para cobrir bogie de quatro e seis rodas. Duas
+alternativas foram medidas e não servem, para não serem tentadas de novo:
+
+- **Limiar de cor pega o cubo**, que é claro, e deixa a banda preta de fora —
+  exatamente o contrário do que se quer.
+- **Largura por linha não separa**: o flange da tampa do poço é tão largo quanto
+  o pneu, e o vale entre os dois não desce o bastante para cortar por fração da
+  largura máxima.
+
+`gearmasks` continua sendo a referência de medida e a origem do recorte;
+`gearstrutmasks` é o que o jogo pinta.
+
 ## Nem toda aeronave tem winglet
 
 Antes de tentar recortar um dispositivo de ponta, veja `pontas.md`: ele lista,

@@ -115,6 +115,58 @@ def cabine(photo_path, sil, nariz):
     return np.isin(rot, manter)
 
 
+def perna_do_trem(trem):
+    """A perna do trem, sem os pneus.
+
+    Pneu é preto de borracha: pintar de cor de companhia fica errado em qualquer
+    livery real. O que leva cor é a perna — o amortecedor e a viga do bogie.
+
+    O pneu é achado como **disco**: o maior círculo que cabe dentro da máscara.
+    Duas alternativas foram medidas e não servem. Limiar de cor pega o *cubo* da
+    roda, que é claro, e deixa a banda preta de fora — exatamente ao contrário
+    do que se quer. Largura por linha também não: o flange da tampa do poço é
+    tão largo quanto o pneu, e o vale entre os dois não desce o bastante para
+    separar por fração da largura máxima.
+
+    Descontar vários discos seguidos cobre o bogie de quatro e seis rodas.
+    """
+    resto = trem.copy()
+    roda = np.zeros_like(trem)
+    yy, xx = np.mgrid[0:trem.shape[0], 0:trem.shape[1]]
+
+    # O pneu encosta no chão. Procurar o disco na metade de baixo da máscara
+    # impede que a primeira roda saia de um retângulo de lixo lá em cima e
+    # desregule a escala de todas as outras.
+    ys_t = np.where(trem.any(axis=1))[0]
+    chao = np.zeros_like(trem)
+    chao[int(ys_t.min() + 0.45 * (ys_t.max() - ys_t.min())):] = True
+
+    rmax = None
+    for _ in range(12):
+        d = ndimage.distance_transform_edt(resto)
+        alvo = d * chao if rmax is None else d
+        r = float(alvo.max())
+        if rmax is None:
+            rmax = r
+        # roda muito menor que a primeira já não é roda, é recanto da perna
+        if r < 6 or r < 0.55 * rmax:
+            break
+        cy, cx = np.unravel_index(int(np.argmax(alvo)), alvo.shape)
+        disco = (yy - cy) ** 2 + (xx - cx) ** 2 <= (r * 1.25) ** 2
+        roda |= trem & disco
+        resto &= ~disco
+    # o cubo claro fica cercado de borracha: buraco dentro do pneu é pneu
+    roda = ndimage.binary_fill_holes(roda)
+
+    perna = trem & ~roda
+    rot, n = ndimage.label(perna)
+    if n == 0:
+        return perna
+    tam = ndimage.sum(perna, rot, range(1, n + 1))
+    # lasca entre dois pneus é sombra, não perna
+    return np.isin(rot, [i + 1 for i, t in enumerate(tam) if t >= 80])
+
+
 def faixas_da_asa(asa, nariz, estacoes=60):
     """Divide a asa em bordo de ataque, dorso e bordo de fuga.
 
@@ -219,6 +271,10 @@ def main():
             saidas["fuselagemasks"] = fuselagem(sil, pecas)
         if "cockpit" in quero:
             saidas["cockpitmasks"] = cabine(foto, sil, nariz)
+        if "gearstrut" in quero:
+            pt = os.path.join(args.root, "gearmasks", f"{aid}.png")
+            if os.path.exists(pt):
+                saidas["gearstrutmasks"] = perna_do_trem(mc.carregar_mask(pt))
         if "wingbands" in quero:
             pa = os.path.join(args.root, "wingmasks", f"{aid}.png")
             if os.path.exists(pa):

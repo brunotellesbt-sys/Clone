@@ -5,7 +5,7 @@ import { artFor, DEFAULT_REGIONS, loadArtManifest, type ArtEntry } from './art'
 import { emblemHref } from './emblems'
 import { LiveryPlane } from './LiveryPlane'
 import {
-  cockpitMaskHref, engineMaskHref, gearMaskHref, leadingEdgeMaskHref, measure, measured,
+  cockpitMaskHref, engineMaskHref, gearStrutMaskHref, leadingEdgeMaskHref, measure, measured,
   tailMaskHref, trailingEdgeMaskHref, wingMaskHref, wingTopMaskHref, wingletMaskHref, type Measured,
 } from './measure'
 import { FONT_STACK } from './silhouette'
@@ -71,7 +71,7 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
 
   useEffect(() => {
     let alive = true
-    gearMaskHref(type.id).then((m) => alive && setGearMask(m))
+    gearStrutMaskHref(type.id).then((m) => alive && setGearMask(m))
     return () => {
       alive = false
     }
@@ -184,7 +184,13 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
         )}
         {gearMask && (
           <mask id={`gm-${uid}`} style={{ maskType: 'luminance' }}>
-            {/* Perna e roda do trem (public/sprites/gearmasks/), pra não pintar com a cor da asa. */}
+            {/*
+              Só a perna (public/sprites/gearstrutmasks/). O pneu fica de fora
+              de propósito: borracha é preta em qualquer companhia, e pintada
+              com a cor da livery o trem vira brinquedo. Sem a máscara, o trem
+              ainda cairia no retângulo "tudo abaixo da fuselagem" e sairia com
+              a cor da asa.
+            */}
             <image href={gearMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
         )}

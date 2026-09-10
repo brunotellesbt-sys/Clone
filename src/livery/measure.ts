@@ -82,8 +82,18 @@ export const tailMaskHref = (id: string, base = import.meta.env.BASE_URL) => nam
  * Máscara exata do trem de pouso (perna + roda), uma por modelo. Sem ela, o
  * trem cai dentro do retângulo "tudo abaixo da fuselagem" e pinta com a cor
  * da asa — visível principalmente quando asa e trem têm cores bem diferentes.
+ *
+ * Serve de referência e de recorte para a perna; **não** é o que o jogo pinta.
  */
 export const gearMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('gearmasks', id, base)
+
+/**
+ * A perna do trem — amortecedor e viga do bogie, sem os pneus. É esta que
+ * recebe a cor: pneu é borracha preta em qualquer companhia do mundo, e pintado
+ * de azul ou vermelho o trem fica de brinquedo. Sai de gearmasks descontando o
+ * maior círculo inscrito, que é a roda (derive_sectors.py --what gearstrut).
+ */
+export const gearStrutMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('gearstrutmasks', id, base)
 
 /**
  * Máscara exata da asa, sem o motor nem o trem por cima — sem ela, a asa
