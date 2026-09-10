@@ -30,12 +30,38 @@ import maskcore as mc  # noqa: E402
 CKPT = os.environ.get("SAM2_CKPT", "sam2ckpt/sam2.1_hiera_large.pt")
 CFG = os.environ.get("SAM2_CFG", "configs/sam2.1/sam2.1_hiera_l.yaml")
 
-# O que um dispositivo de ponta pode ser, medido. Fora disso é outra coisa —
-# quase sempre um pedaço de fuselagem que o SAM2 agarrou junto.
-MIN_PX, MAX_PX = 150, 14000
+# O que um dispositivo de ponta pode ser, medido nos que saíram certos: de
+# 261px (ponta raked do a359) a 3.983px (sharklet do a220100). Fora disso é
+# outra coisa — quase sempre um pedaço de fuselagem que o SAM2 agarrou junto.
+#
+# O teto começou em 14.000px e passavam sete erros. Todos eram box-fill: o SAM2
+# devolvendo a caixa inteira, que aparece como retângulo preenchendo quase todo
+# o próprio contorno. Daí o teto apertado e o teste de retangularidade.
+MIN_PX, MAX_PX = 150, 6000
 MAX_FORA = 40
 MAX_SOBRE_ASA = 400
 MIN_ADER = 0.55
+MAX_PREENCHE = 0.85  # fração da caixa delimitadora: acima disso é box-fill
+
+
+def avaliar(m, sil, forte, asa, tx, ty):
+    """Mede um candidato e diz por que ele não serve, ou None se serve."""
+    med = mc.medir(m, sil, forte, {"wingmasks": asa})
+    if not (MIN_PX <= med["px"] <= MAX_PX):
+        return med, f"tamanho {med['px']}px"
+    ys, xs = np.where(m)
+    caixa = (xs.max() - xs.min() + 1) * (ys.max() - ys.min() + 1)
+    if med["px"] / caixa > MAX_PREENCHE:
+        return med, f"box-fill ({med['px'] / caixa:.0%} da caixa)"
+    if med["fora"] > MAX_FORA:
+        return med, f"sangra {med['fora']}px"
+    if med["sobrepoe"].get("wingmasks", 0) > MAX_SOBRE_ASA:
+        return med, f"invade a asa {med['sobrepoe']['wingmasks']}px"
+    if med["ader"] < MIN_ADER:
+        return med, f"aderência {med['ader']:.0%}"
+    if ys.mean() > ty + 20:  # o dispositivo sobe a partir da ponta
+        return med, "abaixo da ponta"
+    return med, None
 
 
 def ponta_da_asa(asa):
@@ -116,32 +142,35 @@ def main():
             point_coords=np.array([pt]), point_labels=np.array([1]),
             box=np.array(caixa, dtype=float), multimask_output=True,
         )
-        k = int(np.argmax(scores))
-        m = masks[k].astype(bool)
-        recorte = np.zeros_like(m)
+        # O SAM2 devolve três recortes em granularidades diferentes. Ficar com o
+        # de maior score pega o mais "confiante", que é justamente o maior — e o
+        # maior aqui costuma ser a caixa inteira. Vale testar os três e ficar com
+        # o melhor que passa no portão.
+        recorte = np.zeros_like(masks[0], dtype=bool)
         recorte[caixa[1]:caixa[3] + 1, caixa[0]:caixa[2] + 1] = True
-        m &= recorte & sil & ~asa
-        rot, n = ndimage.label(m)
-        if n > 1:
-            tam = ndimage.sum(m, rot, range(1, n + 1))
-            m = rot == (int(np.argmax(tam)) + 1)
-        m = ndimage.binary_fill_holes(m)
+        aprovados, motivos = [], []
+        for k in range(masks.shape[0]):
+            m = masks[k].astype(bool) & recorte & sil & ~asa
+            rot, n = ndimage.label(m)
+            if n == 0:
+                motivos.append("vazio")
+                continue
+            if n > 1:
+                tam = ndimage.sum(m, rot, range(1, n + 1))
+                m = rot == (int(np.argmax(tam)) + 1)
+            m = ndimage.binary_fill_holes(m)
+            med, motivo = avaliar(m, sil, forte, asa, tx, ty)
+            if motivo:
+                motivos.append(f"{motivo}")
+            else:
+                aprovados.append((med["ader"], k, m, med))
 
-        med = mc.medir(m, sil, forte, {"wingmasks": asa})
-        motivo = None
-        if not (MIN_PX <= med["px"] <= MAX_PX):
-            motivo = f"tamanho {med['px']}px"
-        elif med["fora"] > MAX_FORA:
-            motivo = f"sangra {med['fora']}px"
-        elif med["sobrepoe"].get("wingmasks", 0) > MAX_SOBRE_ASA:
-            motivo = f"invade a asa {med['sobrepoe']['wingmasks']}px"
-        elif med["ader"] < MIN_ADER:
-            motivo = f"aderência {med['ader']:.0%}"
-
-        if motivo:
+        if not aprovados:
             reprovou += 1
-            print(f"[{i}/{len(aids)}] {aid:10s} REPROVA  {motivo}  (score {scores[k]:.2f})")
+            print(f"[{i}/{len(aids)}] {aid:10s} REPROVA  {' / '.join(motivos)}")
         else:
+            aprovados.sort(key=lambda t: -t[0])
+            _, k, m, med = aprovados[0]
             passou += 1
             mc.salvar_mask(m, os.path.join(args.out, f"{aid}.png"))
             print(f"[{i}/{len(aids)}] {aid:10s} ok  {med['px']:5d}px  ader {med['ader']:.0%}  "
