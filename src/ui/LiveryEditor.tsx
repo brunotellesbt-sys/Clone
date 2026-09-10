@@ -31,6 +31,8 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'detalhes', label: 'Detalhes' },
 ]
 
+type OptColorKey = Extract<keyof Livery, 'leadingEdge' | 'wingTop' | 'trailingEdge' | 'cockpit'>
+
 type ColorKey = Extract<
   keyof Livery,
   | 'fuselage' | 'belly' | 'nose' | 'cheat' | 'cheat2' | 'tail' | 'tailAccent' | 'stab'
@@ -42,7 +44,7 @@ export function LiveryEditor() {
   const { state, act, toast } = useGame()
   const [preview, setPreview] = useState('b737')
   const [section, setSection] = useState<SectionId>('fuselagem')
-  const [openField, setOpenField] = useState<ColorKey | null>('fuselage')
+  const [openField, setOpenField] = useState<ColorKey | OptColorKey | null>('fuselage')
   const livery = state.airline.livery
   const type = AIRCRAFT_BY_ID[preview]
   // Sem escolha de motor nesta tela: mostra a arte do motor de série.
@@ -84,6 +86,24 @@ export function LiveryEditor() {
     }
     img.onerror = () => toast('Não consegui gerar o PNG neste navegador.', 'error')
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml)
+  }
+
+  /** Cor opcional: nula herda de outro setor, e o editor diz de qual. */
+  const OptColor = ({ k, label, herdaDe, herdaCor }: {
+    k: OptColorKey; label: string; herdaDe: string; herdaCor: string
+  }) => {
+    const atual = livery[k]
+    return (
+      <ColorField
+        label={label}
+        value={atual ?? herdaCor}
+        herdado={atual ? undefined : herdaDe}
+        onHerdar={() => set(k, null as Livery[OptColorKey])}
+        open={openField === k}
+        onToggle={() => setOpenField(openField === k ? null : k)}
+        onChange={(v) => set(k, v as Livery[OptColorKey])}
+      />
+    )
   }
 
   const Color = ({ k, label }: { k: ColorKey; label: string }) => (
@@ -242,6 +262,9 @@ export function LiveryEditor() {
           {section === 'asa' && (
             <>
               <Color k="wing" label="Asa" />
+              <OptColor k="leadingEdge" label="Bordo de ataque" herdaDe="cor da asa" herdaCor={livery.wing} />
+              <OptColor k="wingTop" label="Dorso da asa" herdaDe="cor da asa" herdaCor={livery.wing} />
+              <OptColor k="trailingEdge" label="Bordo de fuga" herdaDe="cor da asa" herdaCor={livery.wing} />
               <Color k="winglet" label="Winglet" />
               <Color k="engine" label="Nacela do motor" />
               <Color k="engineCowl" label="Aro do bocal" />
@@ -284,6 +307,7 @@ export function LiveryEditor() {
             <>
               <Toggle label="Janelas" value={livery.windows} onChange={(v) => set('windows', v)} />
               {livery.windows && <Color k="windowColor" label="Cor das janelas" />}
+              <OptColor k="cockpit" label="Cabine de comando" herdaDe="sem pintura" herdaCor={livery.windowColor} />
               <Toggle label="Contorno das portas" value={livery.doors} onChange={(v) => set('doors', v)} />
             </>
           )}
@@ -336,8 +360,13 @@ export function LiveryEditor() {
 }
 
 function ColorField({
-  label, value, open, onToggle, onChange,
-}: { label: string; value: string; open: boolean; onToggle: () => void; onChange: (v: string) => void }) {
+  label, value, open, onToggle, onChange, herdado, onHerdar,
+}: {
+  label: string; value: string; open: boolean; onToggle: () => void; onChange: (v: string) => void
+  /** Texto do estado herdado, quando a cor é opcional e ainda não foi escolhida. */
+  herdado?: string
+  onHerdar?: () => void
+}) {
   return (
     <div style={{ borderBottom: '1px solid var(--line-soft)', padding: '8px 0' }}>
       <button
@@ -354,7 +383,9 @@ function ColorField({
           }}
         />
         <span style={{ fontWeight: 600, fontSize: 13 }}>{label}</span>
-        <span className="muted" style={{ marginLeft: 'auto', fontSize: 11, fontFamily: 'monospace' }}>{value}</span>
+        <span className="muted" style={{ marginLeft: 'auto', fontSize: 11, fontFamily: herdado ? 'inherit' : 'monospace' }}>
+          {herdado ?? value}
+        </span>
         <span className="muted" style={{ fontSize: 11 }}>{open ? '▲' : '▼'}</span>
       </button>
       {open && (
@@ -377,6 +408,11 @@ function ColorField({
             />
             <input type="text" value={value} onChange={(e) => onChange(e.target.value)} style={{ flex: 1 }} />
           </div>
+          {onHerdar && !herdado && (
+            <button className="btn ghost" style={{ marginTop: 8 }} onClick={onHerdar}>
+              Voltar a herdar
+            </button>
+          )}
         </div>
       )}
     </div>
