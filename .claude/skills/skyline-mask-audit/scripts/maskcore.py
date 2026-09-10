@@ -33,6 +33,10 @@ SUBSETOR_DE = {
 # Setores gerados por geometria a partir de outro. Não se remendam: quando o
 # pai muda, se regeneram com derive_sectors.py.
 DERIVADOS = set(SUBSETOR_DE) | {"fuselagemasks"}
+# Faixas da asa. Três dos quatro lados de uma faixa são corte artificial (as
+# duas divisas de banda e a raiz), então sobra quase nada de borda útil:
+# aderência e deslocamento ali medem ruído, e faixa fina é fina por definição.
+FAIXAS = {"leadingedgemasks", "wingtopmasks", "trailingedgemasks"}
 
 
 def disputam(a, b):

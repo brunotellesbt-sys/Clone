@@ -32,7 +32,7 @@ def setores_existentes(raiz):
     return [s for s in SETORES if os.path.isdir(os.path.join(raiz, s))]
 
 
-def defeitos_de_forma(mask):
+def defeitos_de_forma(mask, faixa=False):
     """Defeitos grosseiros de recorte, que o alinhamento fino não enxerga.
 
     Uma máscara pode estar perfeitamente colada nos contornos e mesmo assim ser
@@ -54,7 +54,7 @@ def defeitos_de_forma(mask):
     principal = rot == (int(np.argmax(tam)) + 1)
     pys, pxs = np.where(principal)
     largura = pxs.max() - pxs.min() + 1
-    if largura > 300 and principal.sum() / largura < 6:
+    if not faixa and largura > 300 and principal.sum() / largura < 6:
         achados.append(f"fio fino (espessura média {principal.sum() / largura:.1f}px)")
     return achados
 
@@ -88,10 +88,11 @@ def diagnosticar(raiz, setor, aids, fotos, cache):
         if m["px"] == 0:
             problemas.append("vazia")
         else:
-            problemas.extend(defeitos_de_forma(mask))
+            faixa = setor in mc.FAIXAS
+            problemas.extend(defeitos_de_forma(mask, faixa))
             if m["fora"] > MAX_FORA:
                 problemas.append(f"sangra {m['fora']}px para fora do avião")
-            if (m["dx"], m["dy"]) != (0, 0) and m["ganho"] >= GANHO_MIN:
+            if not faixa and (m["dx"], m["dy"]) != (0, 0) and m["ganho"] >= GANHO_MIN:
                 problemas.append(
                     f"deslocada dx={m['dx']:+d} dy={m['dy']:+d} (borda cola {m['ganho']:.2f}px melhor)"
                 )
