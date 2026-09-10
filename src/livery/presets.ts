@@ -21,6 +21,9 @@ export const BLANK_LIVERY: Livery = {
   emblemColor: '#f8fafc',
   emblemAccent: '#1d4ed8',
   wing: '#e2e8f0',
+  leadingEdge: null,
+  wingTop: null,
+  trailingEdge: null,
   winglet: '#1d4ed8',
   engine: '#e2e8f0',
   engineCowl: '#334155',
@@ -33,6 +36,7 @@ export const BLANK_LIVERY: Livery = {
   showReg: true,
   windows: true,
   windowColor: '#1e293b',
+  cockpit: null,
   doors: true,
 }
 

@@ -59,6 +59,14 @@ export interface Livery {
 
   // ---- asa e motores
   wing: string
+  /**
+   * Bordo de ataque, dorso e bordo de fuga: setores próprios dentro da asa.
+   * Nulo herda a cor da asa, que é o padrão — sem isso as três faixas cobririam
+   * a asa inteira e o seletor "Asa" não teria mais efeito visível.
+   */
+  leadingEdge: string | null
+  wingTop: string | null
+  trailingEdge: string | null
   winglet: string
   engine: string
   /** Aro do bocal e cone. */
@@ -78,6 +86,8 @@ export interface Livery {
   // ---- detalhes
   windows: boolean
   windowColor: string
+  /** Vidraça da cabine de comando. Nulo deixa a foto aparecer, como antes. */
+  cockpit: string | null
   doors: boolean
 }
 

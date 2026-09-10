@@ -4,7 +4,10 @@ import type { Livery } from '../game/types'
 import { artFor, DEFAULT_REGIONS, loadArtManifest, type ArtEntry } from './art'
 import { emblemHref } from './emblems'
 import { LiveryPlane } from './LiveryPlane'
-import { engineMaskHref, gearMaskHref, measure, measured, tailMaskHref, wingMaskHref, wingletMaskHref, type Measured } from './measure'
+import {
+  cockpitMaskHref, engineMaskHref, gearMaskHref, leadingEdgeMaskHref, measure, measured,
+  tailMaskHref, trailingEdgeMaskHref, wingMaskHref, wingTopMaskHref, wingletMaskHref, type Measured,
+} from './measure'
 import { FONT_STACK } from './silhouette'
 
 interface Props {
@@ -45,6 +48,10 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   const [wingMask, setWingMask] = useState<string | null>(null)
   const [engineMask, setEngineMask] = useState<string | null>(null)
   const [wingletMask, setWingletMask] = useState<string | null>(null)
+  const [cockpitMask, setCockpitMask] = useState<string | null>(null)
+  const [leMask, setLeMask] = useState<string | null>(null)
+  const [topMask, setTopMask] = useState<string | null>(null)
+  const [teMask, setTeMask] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -89,6 +96,10 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   useEffect(() => {
     let alive = true
     wingletMaskHref(type.id).then((m) => alive && setWingletMask(m))
+    cockpitMaskHref(type.id).then((m) => alive && setCockpitMask(m))
+    leadingEdgeMaskHref(type.id).then((m) => alive && setLeMask(m))
+    wingTopMaskHref(type.id).then((m) => alive && setTopMask(m))
+    trailingEdgeMaskHref(type.id).then((m) => alive && setTeMask(m))
     return () => {
       alive = false
     }
@@ -195,6 +206,26 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
             <image href={wingletMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
         )}
+        {cockpitMask && livery.cockpit && (
+          <mask id={`cpm-${uid}`} style={{ maskType: 'luminance' }}>
+            <image href={cockpitMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
+          </mask>
+        )}
+        {leMask && livery.leadingEdge && (
+          <mask id={`lem-${uid}`} style={{ maskType: 'luminance' }}>
+            <image href={leMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
+          </mask>
+        )}
+        {topMask && livery.wingTop && (
+          <mask id={`wtm-${uid}`} style={{ maskType: 'luminance' }}>
+            <image href={topMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
+          </mask>
+        )}
+        {teMask && livery.trailingEdge && (
+          <mask id={`tem-${uid}`} style={{ maskType: 'luminance' }}>
+            <image href={teMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
+          </mask>
+        )}
         <linearGradient id={`tg-${uid}`} x1="0" y1="1" x2="1" y2="0">
           <stop offset="0%" stopColor={livery.tail} />
           <stop offset="100%" stopColor={livery.tailAccent} />
@@ -229,6 +260,14 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
           {/* radome */}
           {noseColor && <rect x={planeX0 - 2} y={bandTop - 2} width={planeW * 0.06} height={bandH + 4} fill={noseColor} />}
 
+          {/* Vidraça da cabine, depois da faixa para o listrado não cobri-la.
+              Sem cor escolhida não pinta nada e a foto aparece, como antes. */}
+          {cockpitMask && livery.cockpit && (
+            <g mask={`url(#cpm-${uid})`}>
+              <rect x="0" y="0" width={w} height={h} fill={livery.cockpit} />
+            </g>
+          )}
+
           {/*
             Asa, motor e trem vêm DEPOIS da barriga e da faixa: na foto essas
             peças estão na frente da fuselagem, então pintura de fuselagem não
@@ -245,6 +284,25 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
               <rect x="0" y="0" width={w} height={h} fill={livery.wing} />
             </g>
           )}
+          {/* As três faixas da asa vêm logo depois dela, e só quando têm cor
+              própria: são uma partição da asa, então pintadas sempre cobririam a
+              cor da asa inteira e o seletor "Asa" perderia efeito. */}
+          {leMask && livery.leadingEdge && (
+            <g mask={`url(#lem-${uid})`}>
+              <rect x="0" y="0" width={w} height={h} fill={livery.leadingEdge} />
+            </g>
+          )}
+          {topMask && livery.wingTop && (
+            <g mask={`url(#wtm-${uid})`}>
+              <rect x="0" y="0" width={w} height={h} fill={livery.wingTop} />
+            </g>
+          )}
+          {teMask && livery.trailingEdge && (
+            <g mask={`url(#tem-${uid})`}>
+              <rect x="0" y="0" width={w} height={h} fill={livery.trailingEdge} />
+            </g>
+          )}
+
           {/* Winglet logo depois da asa: a máscara da asa termina na quebra, e o
               dispositivo continua dali para cima. Sem isso o seletor de cor do
               winglet não fazia nada na arte de foto — só no desenho vetorial. */}

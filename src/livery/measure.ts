@@ -104,6 +104,19 @@ export const engineMaskHref = (id: string, base = import.meta.env.BASE_URL) => n
  */
 export const wingletMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('wingletmasks', id, base)
 
+/** Vidraça da cabine de comando (public/sprites/cockpitmasks/). */
+export const cockpitMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('cockpitmasks', id, base)
+
+/**
+ * As três faixas da asa, cada uma um setor de pintura próprio: bordo de ataque,
+ * dorso e bordo de fuga. Saem da divisão da própria máscara da asa ao longo da
+ * corda, então formam uma partição dela — pintadas por cima da asa, na ordem em
+ * que aparecem aqui.
+ */
+export const leadingEdgeMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('leadingedgemasks', id, base)
+export const wingTopMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('wingtopmasks', id, base)
+export const trailingEdgeMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('trailingedgemasks', id, base)
+
 export function measured(href: string): Measured | null | undefined {
   return cache.get(href)
 }

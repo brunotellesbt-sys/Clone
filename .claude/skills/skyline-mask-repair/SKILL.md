@@ -95,6 +95,14 @@ python3 .claude/skills/skyline-mask-repair/scripts/derive_sectors.py --all
 - **fuselagem** = silhueta menos todas as peças. A asa corta a fuselagem em
   frente e trás na vista lateral, então os dois pedaços contam — ficar só com o
   maior perderia metade do corpo.
+
+  **Este é o único setor que o jogo não consome, e de propósito.** A arte já
+  pinta a fuselagem como retângulo recortado pela silhueta inteira, com as peças
+  por cima; recortá-lo por `fuselagemasks` não mudaria nada de visível e abriria
+  um anel de foto crua na divisa de cada peça, porque a derivação subtrai as
+  peças **dilatadas em 1px**. Medido nas 55: de 1,4% a 2,2% da silhueta ficaria
+  sem tinta, 4.706px no `e175`. O setor serve para medir e para o `derive`, não
+  para pintar.
 - **cabine de comando** = o preto do nariz. As vidraças são quase pretas
   (luminância 2 no a320); o contorno da porta dianteira, que cai na mesma
   faixa, é bem mais claro. Daí o limiar apertado e o descarte de componente
