@@ -95,6 +95,15 @@ export const wingMaskHref = (id: string, base = import.meta.env.BASE_URL) => nam
 /** Máscara exata da carenagem do motor, separada da asa. */
 export const engineMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('enginemasks', id, base)
 
+/**
+ * Máscara do dispositivo de ponta de asa — winglet, sharklet, wingtip fence ou
+ * ponta raked. Só existe para os modelos que têm algum: em ponta lisa (atr42,
+ * atr72, b752, b753, b764, b77e) a ausência do arquivo é a resposta certa, e o
+ * setor simplesmente não aparece. A lista está em
+ * .claude/skills/skyline-mask-repair/pontas.md.
+ */
+export const wingletMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('wingletmasks', id, base)
+
 export function measured(href: string): Measured | null | undefined {
   return cache.get(href)
 }
