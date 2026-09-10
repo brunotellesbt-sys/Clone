@@ -13,3 +13,6 @@ tsconfig.tsbuildinfo
 
 # cache do Python das skills
 __pycache__/
+
+# checkpoint do SAM2: 856MB, baixado sob demanda pela skill de conserto
+sam2ckpt/

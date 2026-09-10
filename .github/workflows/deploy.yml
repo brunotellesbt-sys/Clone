@@ -25,7 +25,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # enablement liga o Pages e passa a origem para Actions pela API. Sem
+      # isso o passo falha com "Get Pages site failed" quando o repositório
+      # está na origem antiga, "deploy from a branch" — que é o que vinha
+      # acontecendo: o build passava, o deploy morria aqui, e o Pages seguia
+      # publicando a raiz do repositório, onde não existe app nenhum.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
