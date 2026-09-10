@@ -164,6 +164,51 @@ Sulco tem vizinho dos dois lados; divisa com a fuselagem, não.
 O trem entra como **reserva**: reivindica os órfãos em volta dele mas não
 cresce, então a costura nunca pinta borracha.
 
+### A traseira da nacela que ficava com a asa
+
+O recorte antigo do motor pegava a boca e deixava o cone de escape para a asa.
+Como o jogo pinta a asa por cima, o motor saía com a cor da asa — e no `a320` o
+motor tinha 6.444px contra os 24.214px da peça de verdade.
+
+Nenhuma medida de área acusava: turboélice tem nacela pequena de verdade, então
+`motor/silhueta` não separa o `q400` (2,5%, certo) do `a320` (2,6%, errado). O
+que acusa é **montar a foto com asa em vermelho e motor em verde** e olhar as 55
+em folha de contato: o cone sai vermelho em quase todas.
+
+```bash
+python3 .claude/skills/skyline-mask-repair/scripts/engine_batch.py --out /tmp/engine
+```
+
+A caixa sai do motor antigo esticada **para trás** — para cima alcançaria a
+fileira de janela e voltaria a seção inteira da fuselagem. O ponto é a mediana
+dos pixels do motor antigo, que por construção está na peça certa.
+
+O portão exige que o recorte novo **contenha** o antigo (80%), cresça, não passe
+de 18% da silhueta, não suba até a fileira de janela e não sangre. Conter o
+antigo é a trava que importa: sem ela, um recorte que troca de peça passaria só
+por ser maior.
+
+Trem e cauda são descontados antes de medir. Eles ficam na frente da nacela na
+foto e o SAM2 os traz junto — no `a220100` o recorte engolia a roda inteira, e
+sem descontar antes o portão aprovava um motor com pneu dentro.
+
+**O portão aprovou as 55 e treze estavam erradas.** Como no winglet: ele pega
+erro grosseiro, quem diz se caiu na peça certa é o olho, e a folha de contato de
+asa-vermelho/motor-verde mostra os treze de uma vez. Entraram 42; o motor antigo
+ficou nos outros. Os que falham têm um padrão:
+
+- **motor na cauda** (`arj21`, `crj700`, `crj900`, `crj1000`, `an148`, `an158`):
+  a nacela está encostada na fuselagem, então esticar a caixa para trás cai
+  direto nela. Nesses o alongamento tem que ser para a frente, ou nenhum;
+- **turboélice** (`atr42`, `atr72`, `q400`): a divisa entre nacela e asa é
+  genuinamente confusa na vista lateral, e o recorte come asa;
+- **`b748`, `b752`, `b753`, `tu204`**: o recorte subiu até a fileira de janela e
+  trouxe uma fatia de fuselagem.
+
+Contar janela dentro da máscara ajuda mas não fecha: pega `atr72` (6 janelas),
+`an148` (4) e `an158` (3), e passa batido em `arj21` e `atr42`, que erram sem
+encostar em janela nenhuma.
+
 ## Pneu não leva cor
 
 O que a livery pinta no trem é a perna — amortecedor e viga do bogie. Pneu é
