@@ -144,8 +144,16 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
           */}
           <image href={box?.maskHref || href} x="0" y="0" width={w} height={h} crossOrigin="anonymous" onError={() => setFailed(true)} />
         </mask>
+        {/*
+          As máscaras de arquivo abaixo são `luminance`, não `alpha`, e isso não é
+          detalhe: os PNG de public/sprites/*masks/ são cinza **opaco** — a forma
+          está no brilho, não na transparência. Lidas como alfa, alfa ausente vale
+          1 e a máscara deixa passar tudo, então o setor pintava a silhueta
+          inteira em vez da peça. A máscara `m-` continua `alpha` porque a dela é
+          montada num canvas por measure.ts, essa sim com alfa de verdade.
+        */}
         {preciseTail && (
-          <mask id={`ft-${uid}`} style={{ maskType: 'alpha' }}>
+          <mask id={`ft-${uid}`} style={{ maskType: 'luminance' }}>
             {/*
               Contorno de verdade da deriva (public/sprites/tailmasks/), não a
               caixa aproximada de measure.ts — recorta a pintura pelo polígono
@@ -155,23 +163,19 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
           </mask>
         )}
         {gearMask && (
-          <mask id={`gm-${uid}`} style={{ maskType: 'alpha' }}>
+          <mask id={`gm-${uid}`} style={{ maskType: 'luminance' }}>
             {/* Perna e roda do trem (public/sprites/gearmasks/), pra não pintar com a cor da asa. */}
             <image href={gearMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
         )}
         {wingMask && (
-          <mask id={`wm-${uid}`} style={{ maskType: 'alpha' }} maskUnits="userSpaceOnUse" x="0" y="0" width={w} height={h}>
-            {/* Asa sem o motor nem o trem por cima (public/sprites/wingmasks/). Área
-                explícita em coordenadas absolutas: sem isso, o retângulo cobrindo
-                a imagem inteira (sem começar em bandBot) fica fora da região
-                padrão da máscara (relativa à caixa do próprio retângulo) e não
-                recorta nada. */}
+          <mask id={`wm-${uid}`} style={{ maskType: 'luminance' }}>
+            {/* Asa sem o motor nem o trem por cima (public/sprites/wingmasks/). */}
             <image href={wingMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
         )}
         {engineMask && (
-          <mask id={`egm-${uid}`} style={{ maskType: 'alpha' }} maskUnits="userSpaceOnUse" x="0" y="0" width={w} height={h}>
+          <mask id={`egm-${uid}`} style={{ maskType: 'luminance' }}>
             {/* Carenagem do motor, separada da asa (public/sprites/enginemasks/). */}
             <image href={engineMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
@@ -191,30 +195,10 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
           {/* fuselagem inteira */}
           <rect x="0" y="0" width={w} height={h} fill={livery.fuselage} />
 
-          {/* asa -- com máscara precisa (sem motor nem trem) quando existe,
-              senão cai no retângulo de sempre (tudo abaixo da fuselagem).
-              A máscara precisa sobe além de bandBot (o bocal do motor e a
-              raiz da asa entram na faixa das janelas), então o retângulo
-              cobre a imagem inteira nesse caso -- só o retângulo antigo,
-              sem máscara própria, ainda começa em bandBot. */}
-          <g mask={wingMask ? `url(#wm-${uid})` : undefined}>
-            <rect x="0" y={wingMask ? 0 : bandBot} width={w} height={h} fill={livery.wing} />
-          </g>
-
-          {/* carenagem do motor, setor de pintura próprio -- só onde a
-              máscara precisa existe (senão fica com a cor da asa, de antes) */}
-          {engineMask && (
-            <g mask={`url(#egm-${uid})`}>
-              <rect x="0" y="0" width={w} height={h} fill={livery.engine} />
-            </g>
-          )}
-
-          {/* trem de pouso, por cima da asa, só onde a máscara precisa existe */}
-          {gearMask && (
-            <g mask={`url(#gm-${uid})`}>
-              <rect x="0" y={bandBot} width={w} height={h} fill={livery.gear} />
-            </g>
-          )}
+          {/* Asa sem máscara própria: o retângulo de sempre, tudo abaixo da
+              fuselagem. Fica aqui, antes da barriga, porque sem recorte ele
+              cobriria a barriga inteira. */}
+          {!wingMask && <rect x="0" y={bandBot} width={w} height={h} fill={livery.wing} />}
 
           {/* barriga, dentro da faixa da fuselagem */}
           <rect x="0" y={bellyY} width={w} height={bandBot - bellyY} fill={livery.belly} />
@@ -229,6 +213,33 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
 
           {/* radome */}
           {noseColor && <rect x={planeX0 - 2} y={bandTop - 2} width={planeW * 0.06} height={bandH + 4} fill={noseColor} />}
+
+          {/*
+            Asa, motor e trem vêm DEPOIS da barriga e da faixa: na foto essas
+            peças estão na frente da fuselagem, então pintura de fuselagem não
+            pode passar por cima delas. Pintadas antes, a barriga cobria a asa
+            inteira no c919, e175, sj100, arj21 e b753, e cortava metade da do
+            a320 — a cor da asa simplesmente não aparecia.
+
+            Entre si a ordem é a da foto: o trem e o motor aparecem na frente da
+            asa. Só entram com máscara precisa; sem ela a asa cai no retângulo
+            acima e motor e trem ficam com a cor dela, como era antes.
+          */}
+          {wingMask && (
+            <g mask={`url(#wm-${uid})`}>
+              <rect x="0" y="0" width={w} height={h} fill={livery.wing} />
+            </g>
+          )}
+          {engineMask && (
+            <g mask={`url(#egm-${uid})`}>
+              <rect x="0" y="0" width={w} height={h} fill={livery.engine} />
+            </g>
+          )}
+          {gearMask && (
+            <g mask={`url(#gm-${uid})`}>
+              <rect x="0" y="0" width={w} height={h} fill={livery.gear} />
+            </g>
+          )}
 
           {/* deriva — com máscara precisa por cima da caixa, quando existe */}
           <g mask={preciseTail ? `url(#ft-${uid})` : undefined}>
