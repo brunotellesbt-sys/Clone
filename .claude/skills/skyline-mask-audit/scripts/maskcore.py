@@ -16,6 +16,30 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 
+# Todos os setores, e quem é subconjunto de quem. Bordo de ataque, dorso e
+# bordo de fuga são divisões da asa; a cabine fica dentro da fuselagem. Esses
+# pares se sobrepõem de propósito e não podem contar como disputa.
+SETORES = [
+    "fuselagemasks", "wingmasks", "enginemasks", "gearmasks", "tailmasks",
+    "wingletmasks", "cockpitmasks",
+    "leadingedgemasks", "wingtopmasks", "trailingedgemasks",
+]
+SUBSETOR_DE = {
+    "leadingedgemasks": "wingmasks",
+    "wingtopmasks": "wingmasks",
+    "trailingedgemasks": "wingmasks",
+    "cockpitmasks": "fuselagemasks",
+}
+# Setores gerados por geometria a partir de outro. Não se remendam: quando o
+# pai muda, se regeneram com derive_sectors.py.
+DERIVADOS = set(SUBSETOR_DE) | {"fuselagemasks"}
+
+
+def disputam(a, b):
+    """Dois setores disputam pixel, ou um contém o outro de propósito?"""
+    return SUBSETOR_DE.get(a) != b and SUBSETOR_DE.get(b) != a
+
+
 LIMIAR_FUNDO = 24  # distância de cor até o fundo para valer como avião
 LIMIAR_BORDA = 0.10  # gradiente normalizado que conta como contorno real
 TOLERANCIA = 1.5  # px: quanto a borda da máscara pode ficar longe do contorno

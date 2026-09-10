@@ -16,7 +16,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import maskcore as mc  # noqa: E402
 
-SETORES = ["wingmasks", "enginemasks", "gearmasks", "tailmasks", "wingletmasks"]
+SETORES = mc.SETORES
 
 # Sangrar para fora do avião e disputar pixel com o vizinho são erros objetivos.
 # Deslocamento só conta com ganho de aderência real, senão é ruído do gradiente.
@@ -77,7 +77,7 @@ def diagnosticar(raiz, setor, aids, fotos, cache):
         vizinhos = {}
         for v in vizinhos_dirs:
             p = os.path.join(raiz, v, f"{aid}.png")
-            if os.path.exists(p):
+            if os.path.exists(p) and mc.disputam(setor, v):
                 vizinhos[v] = mc.carregar_mask(p)
 
         m = mc.medir(mask, sil, forte, vizinhos)

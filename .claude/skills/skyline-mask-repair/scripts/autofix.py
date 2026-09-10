@@ -30,7 +30,8 @@ import maskcore as mc  # noqa: E402
 
 # Quem fica por cima quando dois setores disputam o mesmo pixel. Segue o que se
 # vê na foto: trem e motor aparecem na frente da asa, então a asa é que cede.
-PRIORIDADE = ["gearmasks", "enginemasks", "wingletmasks", "tailmasks", "wingmasks"]
+PRIORIDADE = ["gearmasks", "enginemasks", "wingletmasks", "tailmasks", "wingmasks",
+              "cockpitmasks", "fuselagemasks"]
 
 
 def aparar(mask, sil, **_):
@@ -129,7 +130,7 @@ def corrigir(raiz, setor, aid, fotos, cache, dry_run=False):
     vizinhos = {}
     for v in os.listdir(raiz):
         p = os.path.join(raiz, v, f"{aid}.png")
-        if v.endswith("masks") and v != setor and os.path.exists(p):
+        if v.endswith("masks") and v != setor and os.path.exists(p) and mc.disputam(setor, v):
             vizinhos[v] = mc.carregar_mask(p)
 
     mask = mc.carregar_mask(caminho)
@@ -166,7 +167,10 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
-    setores = [s for s in PRIORIDADE if os.path.isdir(os.path.join(args.root, s))]
+    # setor derivado se regenera com derive_sectors.py; remendar aqui só faria
+    # ele divergir do pai de que saiu
+    setores = [s for s in PRIORIDADE
+               if os.path.isdir(os.path.join(args.root, s)) and s not in mc.DERIVADOS]
     alvos = setores if args.all else [args.sector]
     if not alvos or alvos == [None]:
         raise SystemExit("use --sector <nome> ou --all")

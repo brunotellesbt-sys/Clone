@@ -84,6 +84,50 @@ Duas travas saíram disso, as duas já no código:
 A lição que fica: **a métrica escolhe onde mexer, o olho confirma se mexeu
 certo.** Uma sem a outra erra.
 
+## Setor derivado: não se remenda, se regenera
+
+Quatro setores saem de geometria e não precisam de SAM2 nenhum:
+
+```bash
+python3 .claude/skills/skyline-mask-repair/scripts/derive_sectors.py --all
+```
+
+- **fuselagem** = silhueta menos todas as peças. A asa corta a fuselagem em
+  frente e trás na vista lateral, então os dois pedaços contam — ficar só com o
+  maior perderia metade do corpo.
+- **cabine de comando** = o preto do nariz. As vidraças são quase pretas
+  (luminância 2 no a320); o contorno da porta dianteira, que cai na mesma
+  faixa, é bem mais claro. Daí o limiar apertado e o descarte de componente
+  fino: janela é chapa, contorno de porta é fio.
+- **bordo de ataque, dorso e bordo de fuga** = faixas de 18%/64%/18% da corda
+  da própria asa. A envergadura sai de uma PCA dos pixels da asa e a corda é a
+  perpendicular; a normalização é **estação por estação**, porque a asa afina
+  da raiz para a ponta e uma fração global daria bordo grosso na raiz e fino na
+  ponta.
+
+Sobre a orientação da corda, o que a medida mostrou: nestas fotos a asa está
+encurtada e o eixo da corda sai quase vertical em todos os modelos (componente
+horizontal de 0,06 no atr72 a 0,24 no b748). Ou seja, **o bordo de ataque é a
+aresta de cima da asa** e o de fuga a de baixo — que é o que se vê de uma asa
+fotografada um pouco por cima.
+
+Por serem derivados, esses quatro ficam de fora do `autofix`: quando o pai
+muda, rode o `derive_sectors.py` de novo. Remendar um derivado só faria ele
+divergir da peça de que saiu.
+
+## O winglet ainda não existe
+
+`wingletmasks` é o único setor sem máscara. As ferramentas já funcionam para
+ele — foi a medida que reprovou 38 de 54 candidatos de um lote antigo, alguns
+com mais de 30.000px flutuando fora do avião.
+
+Derivar o winglet por geometria foi tentado e **não** dá: acerta cerca de
+metade. Pegando a região além da ponta da asa, o a320neo, o a321neo, o c919 e
+o e190e2 saem plausíveis, mas o b38m e o tu204 saem vazios tendo winglet, e o
+a359 e o a320 engolem pedaço de fuselagem. O caminho que resta é o mesmo da
+asa: `sam2_region.py` aeronave por aeronave, com caixa e ponto lidos da foto, e
+conferência no `compare.py`.
+
 ## Quando o automático não resolve
 
 Os quatro consertos ajustam uma máscara que já está na peça certa. Quando a

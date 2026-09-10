@@ -128,6 +128,31 @@ perfil, inteiramente sobreposta pela nacela, e 98% do que o SAM2 acha ali já
 pertence ao motor (4.366 de 4.457px). Antes de chamar vazio de defeito, compare
 com o setor vizinho — se a sobreposição explica o vazio, o vazio é a resposta.
 
+## Os setores
+
+| pasta | peça | de onde vem |
+|---|---|---|
+| `fuselagemasks` | fuselagem | derivado: avião menos as peças |
+| `wingmasks` | asa | SAM2 |
+| `enginemasks` | motor | SAM2 |
+| `gearmasks` | trem de pouso | SAM2 |
+| `tailmasks` | cauda | SAM2 |
+| `wingletmasks` | winglet | SAM2 — **ainda não gerado** |
+| `cockpitmasks` | cabine de comando | derivado: o preto do nariz |
+| `leadingedgemasks` | bordo de ataque | derivado: faixa da asa |
+| `wingtopmasks` | dorso da asa | derivado: faixa da asa |
+| `trailingedgemasks` | bordo de fuga | derivado: faixa da asa |
+
+Quatro deles são **subconjuntos** de outro, de propósito: bordo de ataque,
+dorso e bordo de fuga saem da asa, e a cabine fica dentro da fuselagem. Esses
+pares se sobrepõem por construção e `maskcore.disputam` os exclui da conta de
+disputa — sem isso a auditoria acusaria 100% de sobreposição em todos.
+
+A medida não sabe nem precisa saber que peça é qual: a referência é sempre a
+mesma foto. Foi assim que ela reprovou 38 de 54 candidatos a winglet vindos de
+um lote antigo, vários com dezenas de milhares de pixels flutuando fora do
+avião — sem nenhuma regra específica de winglet.
+
 ## Onde o setor tem que parar
 
 - A **asa** termina na quebra do winglet. Aleta pequena, wingtip fence e ponta
