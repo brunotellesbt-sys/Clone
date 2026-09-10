@@ -167,11 +167,23 @@ def faixas_da_asa(asa, nariz, estacoes=60):
     # normalizado: 0 no bordo de fuga, 1 no bordo de ataque
     t = (c - cmin[bins]) / largura[bins]
 
-    saida = []
+    crus = []
     for sel in (t >= 1 - FRACAO_BORDO, (t > FRACAO_BORDO) & (t < 1 - FRACAO_BORDO), t <= FRACAO_BORDO):
         m = np.zeros_like(asa)
         m[ys[sel], xs[sel]] = True
-        saida.append(ndimage.binary_closing(m, iterations=1))
+        crus.append(m)
+
+    # O fechamento tapa o serrilhado que a divisão por estação deixa, mas cresce
+    # a faixa 1px para todo lado — e aí cada uma invade a vizinha, o que dava
+    # ~55px de disputa entre bandas adjacentes. As três são uma partição da asa,
+    # então o fechamento não pode entrar no que já é do vizinho.
+    saida = []
+    for i, m in enumerate(crus):
+        vizinhas = np.zeros_like(asa)
+        for j, o in enumerate(crus):
+            if j != i:
+                vizinhas |= o
+        saida.append(ndimage.binary_closing(m, iterations=1) & ~vizinhas)
     return (*saida, convencao)  # ataque, dorso, fuga, convenção usada
 
 
