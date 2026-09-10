@@ -61,6 +61,15 @@ def avaliar(m, sil, forte, asa, tx, ty):
         return med, f"aderência {med['ader']:.0%}"
     if ys.mean() > ty + 20:  # o dispositivo sobe a partir da ponta
         return med, "abaixo da ponta"
+
+    # Uma coisa que **não** funciona, para não ser tentada de novo: exigir que o
+    # recorte esteja cercado de fundo, na ideia de que winglet sobe para o céu.
+    # Na vista lateral o dispositivo fica na frente da fuselagem — o a319neo dá
+    # 0% de fundo em volta e está certo. O teste derrubava cinco dos confirmados.
+    #
+    # Aderência também não decide: uma tira de fuselagem marca 86% a 94% igual,
+    # porque fileira de janela e linha de painel são contorno forte. O portão
+    # daqui pega erro grosseiro; dizer se caiu na peça certa é olho.
     return med, None
 
 
@@ -81,23 +90,36 @@ def ponta_da_asa(asa):
     return int(xs[sel].mean()), int(ys[sel].mean())
 
 
-def semente(sil, asa, caixa):
+def semente(sil, asa, tx, ty, alcance=70, meia_largura=22):
     """Um pixel que está no dispositivo, para o SAM2 partir dele.
 
-    O que sobra da silhueta acima da ponta, tirada a asa, é o dispositivo. Não
-    precisa estar inteiro nem separado do resto — basta um ponto certo.
+    O dispositivo nasce **na ponta da asa** e sobe. Então o ponto sai de uma
+    coluna estreita em volta da ponta, subindo dentro da silhueta.
+
+    Pegar o terço de cima de uma caixa larga não serve: acima da ponta quase
+    sempre há fuselagem, o ponto cai nela e o SAM2 recorta uma tira de
+    fuselagem. Foi o que estragou metade do primeiro lote.
     """
-    bx0, by0, bx1, by1 = caixa
-    jan = np.zeros_like(sil)
-    jan[by0:by1, bx0:bx1] = True
-    resto = sil & ~ndimage.binary_dilation(asa, iterations=2) & jan
+    faixa = np.zeros_like(sil)
+    y0 = max(0, ty - alcance)
+    faixa[y0:ty + 6, max(0, tx - meia_largura):tx + meia_largura] = True
+    resto = sil & ~ndimage.binary_dilation(asa, iterations=2) & faixa
     if not resto.any():
         return None
-    ys, xs = np.where(resto)
-    # terço superior: o dispositivo sobe, e o que está colado na asa é asa
-    corte = np.percentile(ys, 35)
-    alto = ys <= corte
-    return int(np.median(xs[alto])), int(np.median(ys[alto]))
+
+    # só o pedaço que encosta na ponta: fuselagem solta acima não entra
+    rot, n = ndimage.label(resto)
+    perto = ndimage.binary_dilation(asa, iterations=10)
+    vivos = [i for i in range(1, n + 1) if ((rot == i) & perto).any() and (rot == i).sum() >= 40]
+    if not vivos:
+        return None
+    alvo = max(vivos, key=lambda i: (rot == i).sum())
+    ys, xs = np.where(rot == alvo)
+    meio = (ys.min() + ys.max()) // 2
+    perto_do_meio = np.abs(ys - meio) <= 3
+    if not perto_do_meio.any():
+        return int(np.median(xs)), int(np.median(ys))
+    return int(np.median(xs[perto_do_meio])), int(meio)
 
 
 def main():
@@ -130,8 +152,10 @@ def main():
         sil, forte = mc.silhueta(foto), mc.borda_forte(foto)
         tx, ty = ponta_da_asa(asa)
         h, w = asa.shape
-        caixa = (max(0, tx - 85), max(0, ty - 105), min(w, tx + 85), min(h, ty + 35))
-        pt = semente(sil, asa, caixa)
+        # caixa justa em volta da ponta: larga demais alcança a fuselagem e o
+        # SAM2 devolve uma tira dela em vez do dispositivo
+        caixa = (max(0, tx - 55), max(0, ty - 78), min(w, tx + 55), min(h, ty + 18))
+        pt = semente(sil, asa, tx, ty)
         if pt is None:
             print(f"[{i}/{len(aids)}] {aid:10s} sem dispositivo na ponta")
             continue
