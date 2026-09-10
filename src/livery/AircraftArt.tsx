@@ -4,7 +4,7 @@ import type { Livery } from '../game/types'
 import { artFor, DEFAULT_REGIONS, loadArtManifest, type ArtEntry } from './art'
 import { emblemHref } from './emblems'
 import { LiveryPlane } from './LiveryPlane'
-import { engineMaskHref, gearMaskHref, measure, measured, tailMaskHref, wingMaskHref, type Measured } from './measure'
+import { engineMaskHref, gearMaskHref, measure, measured, tailMaskHref, wingMaskHref, wingletMaskHref, type Measured } from './measure'
 import { FONT_STACK } from './silhouette'
 
 interface Props {
@@ -44,6 +44,7 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   const [gearMask, setGearMask] = useState<string | null>(null)
   const [wingMask, setWingMask] = useState<string | null>(null)
   const [engineMask, setEngineMask] = useState<string | null>(null)
+  const [wingletMask, setWingletMask] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -80,6 +81,14 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   useEffect(() => {
     let alive = true
     engineMaskHref(type.id).then((m) => alive && setEngineMask(m))
+    return () => {
+      alive = false
+    }
+  }, [type.id])
+
+  useEffect(() => {
+    let alive = true
+    wingletMaskHref(type.id).then((m) => alive && setWingletMask(m))
     return () => {
       alive = false
     }
@@ -180,6 +189,12 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
             <image href={engineMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
         )}
+        {wingletMask && (
+          <mask id={`wgm-${uid}`} style={{ maskType: 'luminance' }}>
+            {/* Dispositivo de ponta de asa (public/sprites/wingletmasks/). */}
+            <image href={wingletMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
+          </mask>
+        )}
         <linearGradient id={`tg-${uid}`} x1="0" y1="1" x2="1" y2="0">
           <stop offset="0%" stopColor={livery.tail} />
           <stop offset="100%" stopColor={livery.tailAccent} />
@@ -228,6 +243,14 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
           {wingMask && (
             <g mask={`url(#wm-${uid})`}>
               <rect x="0" y="0" width={w} height={h} fill={livery.wing} />
+            </g>
+          )}
+          {/* Winglet logo depois da asa: a máscara da asa termina na quebra, e o
+              dispositivo continua dali para cima. Sem isso o seletor de cor do
+              winglet não fazia nada na arte de foto — só no desenho vetorial. */}
+          {wingletMask && (
+            <g mask={`url(#wgm-${uid})`}>
+              <rect x="0" y="0" width={w} height={h} fill={livery.winglet} />
             </g>
           )}
           {engineMask && (
