@@ -1,122 +1,143 @@
 ---
 name: skyline-mask-audit
-description: Como conferir, pixel por pixel, se as máscaras de setor das aeronaves do Skyline Tycoon (public/sprites/wingmasks, enginemasks, gearmasks, tailmasks, wingletmasks) estão no lugar certo e cobrindo a peça inteira. Use quando a tarefa for revisar, auditar, validar ou "conferir se ficou bom" qualquer setorização ou recorte de aeronave, quando o relato for de máscara desalinhada, asa cortada antes da ponta, pintura vazando para a fuselagem, setor pegando o motor em vez da asa, ou quando alguém disser que a segmentação "está feia", "não está 100%" ou "tem coisa errada aí". Vale antes de commitar qualquer lote de máscara novo.
+description: Como medir, em pixel, se as máscaras de setor das aeronaves do Skyline Tycoon (public/sprites/wingmasks, enginemasks, gearmasks, tailmasks, wingletmasks) estão alinhadas com a foto — em qualquer peça: asa, motor, winglet, trem de pouso, cauda, fuselagem. Use quando a tarefa for revisar, auditar, validar ou "conferir se ficou bom" qualquer setorização ou recorte de aeronave, quando o relato for de máscara desalinhada, borda fora do lugar, asa cortada antes da ponta, pintura vazando para a fuselagem, setor pegando o motor em vez da asa, ou quando alguém disser que a segmentação "está feia", "não está 100%", "tem desalinhamento" ou "tem coisa errada aí". Vale antes de commitar qualquer lote de máscara novo.
 ---
 
 # Auditoria de setorização
 
-## O veredito é sempre o overlay na foto inteira
+## A foto é a régua
 
-A única verificação que decide é a borda da máscara desenhada sobre a foto
-real, **avião inteiro, sem recorte**:
+Julgar máscara no olho, sozinho, não escala e não pega erro pequeno: 2px numa
+imagem de 1536x1024 é invisível, e foi assim que um lote inteiro passou por
+"revisado" com a asa cortada em quase todos os modelos.
+
+O que resolve é que **a foto carrega duas referências objetivas**, e as duas
+saem dela sem nenhum julgamento:
+
+- a **silhueta** — o que é avião e o que é fundo;
+- o **mapa de borda** — onde estão os contornos reais das peças.
+
+Com isso, desalinhamento vira número em pixel. E aí o número diz **onde**
+olhar, e a imagem mostra **o quê**. Uma coisa não substitui a outra: a métrica
+sozinha se deixa enganar, o olho sozinho não vê 2px.
+
+## Extrair a silhueta num avião branco em fundo branco
+
+O fundo é sólido, então distância de cor até a média dos quatro cantos separa
+avião de fundo. Duas armadilhas, as duas já resolvidas em `maskcore.silhueta`:
+
+1. **O limiar tem que ser baixo.** O avião é branco em fundo branco; o que
+   marca a chapa é o sombreado, não a cor. No a320 a ponta da asa fica a 108
+   de distância e a barriga a 377 — mas há trechos bem mais fracos.
+2. **A sombra no chão engana o limiar.** Ela chega a 245, mais escura que a
+   ponta da asa. Limiar nenhum separa as duas. O que separa é a **nitidez**:
+   borda de avião marca gradiente de 0,16 a 0,93; borda de sombra fica em 0,05.
+   Então, coluna a coluna, o avião acaba na última borda nítida — o que estiver
+   abaixo disso é chão.
+
+Depois disso a silhueta cola no avião: nariz, deriva, ponta da asa, pneu.
+
+## As medidas
+
+`diagnose.py` calcula tudo e serve para qualquer setor:
 
 ```bash
-python3 .claude/skills/skyline-mask-audit/scripts/overlay.py \
-  public/sprites/wingmasks/a320.png \
-  public/sprites/aircraft/a320__cfm565b4.png /tmp/a320.png
+python3 .claude/skills/skyline-mask-audit/scripts/diagnose.py --all
+python3 .claude/skills/skyline-mask-audit/scripts/diagnose.py --sector tailmasks --json /tmp/d.json
 ```
 
-Isso não é preciosismo. Recorte centrado num ponto calculado — "a ponta da
-asa", "a raiz" — engana, e engana nos dois sentidos:
+| medida | o que é | quando é defeito |
+|---|---|---|
+| `fora` | pixels da máscara no fundo | acima de 30px |
+| `desvio` | distância média da borda útil até o contorno real | acima de ~1px, comparado com os pares |
+| `aderência` | fração da borda útil colada no contorno | quanto menor, pior |
+| `deslocada` | deslocamento inteiro que encaixa melhor | ganho ≥ 0,25px |
+| `disputa` | pixel reivindicado por dois setores | acima de 50px |
+| box-fill, fio fino | defeito grosseiro de recorte | sempre |
 
-- **Falso positivo.** No `a333` e no `arj21` o recorte mostrava a asa cinza
-  seguindo além do contorno vermelho; na foto inteira as duas estavam certas.
-  O que parecia asa era sombreado da curva da fuselagem.
-- **Falso negativo.** Um lote inteiro de recortes centrados na junção
-  asa/motor foi dado como revisado, e a ponta da asa — fora do recorte —
-  estava cortada em quase todos os 55 modelos.
+### Borda útil: o conceito que evita inventar defeito
 
-Contagem de pixel também não decide. Uma máscara com 25.000px pode ser a
-fuselagem inteira e uma com 1.900px pode ser a asa correta de um avião cuja
-asa aparece quase toda escondida atrás do motor.
+Nem toda borda de setor deveria coincidir com contorno. Onde o trem encosta na
+fuselagem, ou onde a asa foi cortada contra o motor, o limite é um **corte reto
+atravessando chapa lisa** — não existe contorno ali e nunca vai existir. Cobrar
+aderência desses trechos é fabricar defeito.
 
-## A ordem que funciona
+Por isso as medidas de alinhamento só olham a **borda útil**: a parte da borda
+que está a até 4px de algum contorno, ou seja, que está mesmo perseguindo
+alguma coisa. Confirmado no an148: a borda de cima do trem corre 8,6px longe de
+qualquer contorno, aparece vermelha no laudo, e está certa — é a divisa com a
+fuselagem.
 
-1. **`audit_masks.py`** — ordena por suspeita. Barato, sem SAM2, roda nos 55
-   em segundos. Serve para escolher por onde começar, não para aprovar.
-2. **`sheet.py`** — prancha de 4 aviões inteiros, para varrer o lote.
-3. **`overlay.py`** com `--crop` e `--zoom` — só depois que a prancha apontou
-   algo, para ver o pixel e ler coordenada.
+### Duas correções que a medida já sofreu
+
+Vale saber, porque são o tipo de viés que volta:
+
+- **Folga de 2px na silhueta.** A borda real é anti-serrilhada. No pneu tocando
+  o chão a silhueta corta no último contorno nítido e os 1-2px de transição
+  ficavam de fora — todo trem do catálogo aparecia sangrando ~100px. Era viés
+  da medida, não defeito da máscara.
+- **Maioria, não média, no deslocamento.** Perto do trem há bordas paralelas
+  (pneu, tampa, calço). Minimizar a distância média deixava um deslocamento
+  errado encaixar numa borda vizinha, melhorando a média enquanto piorava a
+  maioria dos pontos. No an148 isso tirava o contorno de cima do pneu. Agora um
+  deslocamento só vale se 60% da borda útil melhorar junto.
+
+## O laudo visual, guiado pela métrica
 
 ```bash
-python3 .claude/skills/skyline-mask-audit/scripts/audit_masks.py \
-  --masks public/sprites/wingmasks \
-  --against public/sprites/enginemasks --against public/sprites/gearmasks
+python3 .claude/skills/skyline-mask-audit/scripts/visual.py \
+  --aid an148 --sector gearmasks --out /tmp/laudo.png --zoom 7
 ```
 
-O script separa **achado** de **fila**. Achado é defeito com assinatura
-confiável. A fila só ordena por quanto do comprimento do avião a máscara cobre,
-da menor para a maior, para você escolher por onde abrir o overlay — cobertura
-baixa **não** é defeito: asa quase toda escondida atrás do motor cobre 8% do
-avião e está certa (`e190`, `il96`, `b763` são assim).
+Uma folha só, com a foto esmaecida para a cor saltar:
 
-Uma versão anterior deste script tratava cobertura baixa como achado e apontou
-11 falsos positivos em 13 — todos máscaras já conferidas e corretas. Por isso a
-separação existe: sinal barulhento faz a próxima pessoa desconfiar do que está
-bom e perder o que está ruim.
+- **borda colorida pelo desvio** — verde cola (≤1,5px), amarelo escorrega,
+  vermelho está solto (>3,5px). É o que torna visível o erro de 2px;
+- **magenta**: máscara fora do avião;
+- **ciano**: pixel disputado por dois setores;
+- **zoom guiado**: os piores pontos, recortados **pela própria métrica** e
+  ampliados em NEAREST.
 
-**Nenhum achado numérico não é aprovação.** O caso mais comum de todos — ponta
-cortada — não tem assinatura numérica confiável: a máscara continua conexa,
-bem-formada e com área plausível. Ela só termina cedo. Isso só o olho vê.
+O zoom ser escolhido pelo número é o ponto todo: o olho vai direto onde a
+medida acusou, em vez de vasculhar a imagem.
 
-## Os cinco defeitos, e como cada um se parece
+## Comparar antes e depois
 
-**1. Máscara na peça errada.** O setor pegou a nacela do motor, a carenagem do
-trem ou a barriga, e a asa ficou intacta. Foi o defeito mais grave e mais
-frequente: 14 dos 55 modelos. No overlay, o contorno abraça o motor e a
-superfície da asa acima dele está limpa.
-Assinatura numérica: sobreposição acima de 80% com `enginemasks` ou
-`gearmasks`. É a única classe que o script pega com confiança.
+O laudo escolhe os piores pontos sozinho, e eles mudam depois da correção — o
+que serve para achar defeito, mas não para comparar. Para julgar um conserto, a
+janela tem que ser fixa nos dois lados:
 
-**2. Ponta cortada.** A máscara para no meio do painel, antes da ponta real.
-Foi o defeito mais comum — cerca de 30 modelos. Sem assinatura numérica.
-Cuidado com o falso alarme: a asa deve parar **na quebra do winglet**, porque
-o winglet é setor próprio. Uma máscara que termina ali está certa, não curta.
+```bash
+python3 .claude/skills/skyline-mask-audit/scripts/compare.py \
+  --aid an148 --sector gearmasks --out /tmp/cmp.png
+```
 
-**3. Box-fill.** O SAM2 devolveu a caixa inteira: fuselagem, fileira de
-janela e tudo. A máscara vira um retângulo quase perfeito.
-Assinatura: preenche mais de 88% da própria caixa delimitadora, área grande,
-e o score da geração costuma vir abaixo de 0,75.
+Sem `--antes`, ele usa o `.bak` que o autofix deixou.
 
-**4. Fio de sombra.** Uma tira longa e fina sai da máscara e segue uma linha de
-sombreado da fuselagem por centenas de pixels. Como nasce grudada no borrão
-principal, o filtro de componente mínimo não remove.
-Assinatura: componente principal com mais de 300px de largura e espessura
-média abaixo de 6px.
+## Ferramentas menores
 
-**5. Fragmentada.** Vários pedaços soltos e serrilhados em vez de uma peça.
-Assinatura: mais de 3 componentes acima de 300px — mas **só no recorte cru**
-(`--raw`). No setor já composto, fragmentar é o esperado: o motor corta a asa
-em pedaço interno e externo. Cobrar isso do arquivo final dá falso positivo.
+- `overlay.py` — borda vermelha na foto, com `--crop` e `--zoom`. Imprime o
+  mapeamento de volta (`orig_x = x0 + tela_x/zoom`), que é como se lê
+  coordenada sem errar o eixo.
+- `sheet.py` — prancha de contato, 4 aviões inteiros, para varrer lote.
 
 ## Vazio pode ser o resultado certo
 
-O `q400` fica com a asa vazia e está correto. Naquele ângulo a asa aparece
-quase de perfil, inteiramente sobreposta pela nacela: não existe superfície de
-asa própria para pintar, e 99% do que o SAM2 acha ali já pertence ao motor
-(4.366 de 4.457px de sobreposição). Forçar captura só produziria máscara
-duplicada de motor.
+A asa do `q400` fica vazia e está correta: naquele ângulo ela aparece quase de
+perfil, inteiramente sobreposta pela nacela, e 98% do que o SAM2 acha ali já
+pertence ao motor (4.366 de 4.457px). Antes de chamar vazio de defeito, compare
+com o setor vizinho — se a sobreposição explica o vazio, o vazio é a resposta.
 
-Antes de chamar uma máscara vazia de defeito, compare com a máscara do motor:
-se a sobreposição explica o vazio, o vazio é a resposta.
+## Onde o setor tem que parar
 
-## Onde o setor deve parar
+- A **asa** termina na quebra do winglet. Aleta pequena, wingtip fence e ponta
+  raked são setor de winglet, não de asa.
+- **Setores não se sobrepõem.** Quem fica por cima segue a foto: trem e motor
+  aparecem na frente da asa, então a asa cede. `diagnose` mede isso em
+  `disputa`.
+- Asa alta (ATR, Q400, An-148/158) fica **acima** da faixa da fuselagem.
 
-A fronteira entre setores vizinhos é o que o jogador vê quando pinta:
+## Depois de medir
 
-- A **asa** termina na quebra do winglet — nunca sobe pela curva do winglet.
-  Em modelo sem winglet de verdade (wingtip fence, ponta raked, aleta pequena
-  tipo A319/E-Jet), o setor da asa também para na base da aleta: essa aleta é
-  do setor de winglet.
-- **Asa, motor e trem** não se sobrepõem: o setor da asa é composto subtraindo
-  motor e trem dilatados em 2px. Sobreposição residual vira cor dupla.
-- Modelo de asa alta (ATR, Q400, An-148/158) tem a asa **acima** da faixa da
-  fuselagem, não abaixo. Auditoria que só olha abaixo da linha da janela passa
-  batido por eles.
-
-## Depois de auditar
-
-Achado confirmado no overlay vai para a skill **skyline-mask-repair**, que
-tem as ferramentas de correção e a ordem de escalada. Auditar e corrigir são
-passos separados de propósito: a correção mexe no arquivo, e mexer sem ter o
-defeito confirmado visualmente foi o que gerou metade do retrabalho.
+Achado confirmado vai para a skill **skyline-mask-repair**, que corrige e só
+aceita o conserto que melhora estas mesmas medidas.
