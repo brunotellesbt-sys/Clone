@@ -115,18 +115,37 @@ Por serem derivados, esses quatro ficam de fora do `autofix`: quando o pai
 muda, rode o `derive_sectors.py` de novo. Remendar um derivado só faria ele
 divergir da peça de que saiu.
 
-## O winglet ainda não existe
+## Nem toda aeronave tem winglet
 
-`wingletmasks` é o único setor sem máscara. As ferramentas já funcionam para
-ele — foi a medida que reprovou 38 de 54 candidatos de um lote antigo, alguns
-com mais de 30.000px flutuando fora do avião.
+Antes de tentar recortar um dispositivo de ponta, veja `pontas.md`: ele lista,
+modelo a modelo, quem tem e quem não tem. **Sete não têm nada** — `atr42`,
+`atr72`, `b752`, `b753`, `b764`, `b77e` e o `q400` — e para esses a ausência de
+máscara é a resposta certa, não uma pendência. Contam como dispositivo o
+winglet, o sharklet, a wingtip fence, a ponta raked e a aleta pequena.
 
-Derivar o winglet por geometria foi tentado e **não** dá: acerta cerca de
-metade. Pegando a região além da ponta da asa, o a320neo, o a321neo, o c919 e
-o e190e2 saem plausíveis, mas o b38m e o tu204 saem vazios tendo winglet, e o
-a359 e o a320 engolem pedaço de fuselagem. O caminho que resta é o mesmo da
-asa: `sam2_region.py` aeronave por aeronave, com caixa e ponto lidos da foto, e
-conferência no `compare.py`.
+## Estado do setor de winglet
+
+Doze estão recortados e conferidos; trinta faltam; sete não têm nada; seis não
+foram classificados porque a ponta da asa não é achada de forma confiável neles
+(ver `pontas.md`).
+
+O lote automático (`winglet_batch.py`) acerta cerca de 40%, e o que sobra cai
+numa tira de fuselagem ou na nacela do motor. O portão pega erro grosseiro —
+tamanho, box-fill, sangramento — e vale muito: de dezessete aprovados no
+primeiro lote, sete eram box-fill. Mas **quem diz se caiu na peça certa é o
+olho**, e por isso só entra o que foi conferido.
+
+Duas medidas que pareciam resolver e não resolvem, para não serem tentadas de
+novo:
+
+- **Aderência não decide.** Uma tira de fuselagem marca 86% a 94% igual a um
+  winglet, porque fileira de janela e linha de painel são contorno forte.
+- **"Cercado de céu" não vale.** Na vista lateral o dispositivo fica na frente
+  da fuselagem: o `a319neo` dá 0% de fundo em volta e está certo. O teste
+  derrubava cinco dos confirmados.
+
+Derivar por geometria também foi tentado duas vezes — componente solto no
+resto da silhueta, e disco em volta da ponta — e não passa de metade.
 
 ## Quando o automático não resolve
 
