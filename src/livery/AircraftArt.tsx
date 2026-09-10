@@ -161,13 +161,17 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
           </mask>
         )}
         {wingMask && (
-          <mask id={`wm-${uid}`} style={{ maskType: 'alpha' }}>
-            {/* Asa sem o motor nem o trem por cima (public/sprites/wingmasks/). */}
+          <mask id={`wm-${uid}`} style={{ maskType: 'alpha' }} maskUnits="userSpaceOnUse" x="0" y="0" width={w} height={h}>
+            {/* Asa sem o motor nem o trem por cima (public/sprites/wingmasks/). Área
+                explícita em coordenadas absolutas: sem isso, o retângulo cobrindo
+                a imagem inteira (sem começar em bandBot) fica fora da região
+                padrão da máscara (relativa à caixa do próprio retângulo) e não
+                recorta nada. */}
             <image href={wingMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
         )}
         {engineMask && (
-          <mask id={`egm-${uid}`} style={{ maskType: 'alpha' }}>
+          <mask id={`egm-${uid}`} style={{ maskType: 'alpha' }} maskUnits="userSpaceOnUse" x="0" y="0" width={w} height={h}>
             {/* Carenagem do motor, separada da asa (public/sprites/enginemasks/). */}
             <image href={engineMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
@@ -188,16 +192,20 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
           <rect x="0" y="0" width={w} height={h} fill={livery.fuselage} />
 
           {/* asa -- com máscara precisa (sem motor nem trem) quando existe,
-              senão cai no retângulo de sempre (tudo abaixo da fuselagem) */}
+              senão cai no retângulo de sempre (tudo abaixo da fuselagem).
+              A máscara precisa sobe além de bandBot (o bocal do motor e a
+              raiz da asa entram na faixa das janelas), então o retângulo
+              cobre a imagem inteira nesse caso -- só o retângulo antigo,
+              sem máscara própria, ainda começa em bandBot. */}
           <g mask={wingMask ? `url(#wm-${uid})` : undefined}>
-            <rect x="0" y={bandBot} width={w} height={h} fill={livery.wing} />
+            <rect x="0" y={wingMask ? 0 : bandBot} width={w} height={h} fill={livery.wing} />
           </g>
 
           {/* carenagem do motor, setor de pintura próprio -- só onde a
               máscara precisa existe (senão fica com a cor da asa, de antes) */}
           {engineMask && (
             <g mask={`url(#egm-${uid})`}>
-              <rect x="0" y={bandBot} width={w} height={h} fill={livery.engine} />
+              <rect x="0" y="0" width={w} height={h} fill={livery.engine} />
             </g>
           )}
 
