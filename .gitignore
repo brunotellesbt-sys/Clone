@@ -7,3 +7,9 @@ dist
 # gerado por `npm run art` a partir da Wikimedia Commons
 public/aircraft/
 tsconfig.tsbuildinfo
+
+# cópias de segurança do autofix de máscara
+*.png.bak
+
+# cache do Python das skills
+__pycache__/

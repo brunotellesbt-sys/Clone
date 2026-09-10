@@ -78,4 +78,8 @@ Estão em `.claude/skills/`. Cada uma cobre uma área onde errar é caro:
 - **skyline-fleet-data** — catálogo de aeronaves, motorizações e aeroportos.
 - **skyline-livery** — silhueta vetorial, pintura e arte das aeronaves.
 - **meshy-assets** — geração de sprites e liveries pela API da Meshy.
+- **skyline-mask-audit** — medir o alinhamento das máscaras de setor contra a
+  foto, em pixel, em qualquer peça.
+- **skyline-mask-repair** — corrigir desalinhamento aceitando só o que melhora
+  a medida, e recortar de novo com SAM2 large quando não dá.
 - **skyline-qa** — o que rodar antes de dizer que terminou.
