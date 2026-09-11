@@ -278,6 +278,22 @@ para cima o recorte já está espalhando pelo pilone. Medido na fronteira —
 Entraram 38; nos outros 17 `enginecowlmasks` é a nacela inteira, igual a antes,
 sem regressão.
 
+## Janela de passageiro é setor, e o interruptor apaga a fileira
+
+```bash
+python3 .claude/skills/skyline-mask-repair/scripts/janelas.py --write
+```
+
+Mesma detecção da divisa da cabine — preto pequeno, compacto e **na fileira**,
+com limiar relativo à própria fuselagem. A vidraça do cockpit sai fora, que já
+tem setor próprio, e mancha isolada meia fuselagem acima também: a fileira é
+estreita em y, e o filtro usa desvio absoluto mediano em volta do centro dela.
+
+Com a máscara, os dois controles que o editor sempre teve passaram a valer:
+cor escolhida pinta a vidraça, e **desligar pinta a fileira com a cor da
+fuselagem** — que é literalmente como se apaga uma fileira de janela, o que se
+vê num cargueiro convertido.
+
 ## Pá de hélice também não leva cor
 
 Pelo mesmo motivo do pneu, e com um agravante: a pá fica **na frente** da asa na
@@ -326,15 +342,27 @@ Conferido nas 55: `tailmasks` é a **deriva e mais nada**. O estabilizador
 horizontal nunca teve setor próprio, então na arte de foto ele sai com a cor da
 fuselagem.
 
-`stab_batch.py` recorta com SAM2 a partir da raiz da deriva, e **ainda não
-converge**: o estabilizador é contínuo com a traseira da fuselagem na foto e o
-recorte leva as duas. Um ponto negativo no tubo da fuselagem melhora o `a388`
-(22.929px para 7.618) e piora o `b737` (14.546 para 21.926). Em cauda em T
-(`crj900`) o estabilizador está em cima da deriva e já cai dentro de
-`tailmasks` — é outro caso.
+`stab_batch.py` recorta com SAM2 a partir da deriva, e **não converge**. Três
+tentativas, e cada uma troca um erro por outro:
 
-Por isso a livery ainda **não** consome esse setor: melhor sem ele do que com
-metade dos modelos pintando fuselagem junto.
+| tentativa | caixa | o que sai |
+|---|---|---|
+| 1 | aberta para os dois lados da raiz | estabilizador **mais** a traseira da fuselagem, em 4 de 5 |
+| 2 | idem, com ponto negativo no tubo | melhora o `a388` (22.929px → 7.618) e **piora** o `b737` (14.546 → 21.926) |
+| 3 | só atrás da deriva | passa nos 6, mas pega **só a metade traseira** e leva o cone junto no `a320` e no `e190` |
+
+A raiz do problema é da foto, não do recorte: **na vista lateral o
+estabilizador é contínuo com o cone de cauda**, sem contorno entre os dois na
+raiz. Não há borda para o SAM2 encontrar, e não há borda para a métrica medir.
+
+Em cauda em T (`crj900`) é outro caso: o estabilizador fica em cima da deriva e
+já cai dentro de `tailmasks`.
+
+Por isso a livery **não** consome esse setor, e o controle "Estabilizador
+horizontal" do editor só tem efeito no desenho vetorial. Melhor assim do que
+com metade dos modelos pintando fuselagem junto. Quem for tentar de novo:
+o caminho que sobra é geométrico — extrapolar o contorno do cone a partir de
+uma estação à frente e chamar de estabilizador o que ficar fora dele.
 
 ## Nem toda aeronave tem winglet
 

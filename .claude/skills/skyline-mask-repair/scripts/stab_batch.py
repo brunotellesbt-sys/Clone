@@ -34,24 +34,30 @@ MAX_FORA = 60
 
 
 def caixa_do_estabilizador(deriva, sil, nariz):
-    """Abaixo da raiz da deriva, aberta para os dois lados."""
+    """Só o trecho **atrás da deriva**, abaixo da raiz dela.
+
+    Foi assim que a terceira tentativa funcionou. As duas primeiras abriam a
+    caixa para os dois lados da raiz e o SAM2 devolvia estabilizador **mais** a
+    traseira da fuselagem, porque na foto os dois são contínuos. Atrás da
+    deriva quase só existe estabilizador e a ponta do cone, então o recorte não
+    tem para onde escapar.
+    """
     ys, xs = np.where(deriva)
     raiz = ys.max()
-    largura = xs.max() - xs.min() + 1
     sy = np.where(sil.any(axis=1))[0]
     base = sy.max()
+    sx = np.where(sil.any(axis=0))[0]
 
-    # para a frente do avião o estabilizador avança pouco; para trás ele vai
-    # até a ponta da cauda
+    # atrás = o lado oposto ao nariz
     if nariz > 0:  # nariz à direita: a cauda é para a esquerda
-        x0 = max(0, xs.min() - int(0.55 * largura))
-        x1 = min(sil.shape[1] - 1, xs.max() + int(0.25 * largura))
+        x0 = int(sx.min())
+        x1 = int(xs.min() + 0.25 * (xs.max() - xs.min() + 1))
     else:
-        x0 = max(0, xs.min() - int(0.25 * largura))
-        x1 = min(sil.shape[1] - 1, xs.max() + int(0.55 * largura))
-    y0 = int(raiz - 0.06 * (base - raiz))
-    y1 = int(min(base, raiz + 0.75 * (base - raiz)))
-    return x0, max(0, y0), x1, y1
+        x0 = int(xs.max() - 0.25 * (xs.max() - xs.min() + 1))
+        x1 = int(sx.max())
+    y0 = int(raiz - 0.05 * (base - raiz))
+    y1 = int(min(base, raiz + 0.85 * (base - raiz)))
+    return max(0, x0), max(0, y0), min(sil.shape[1] - 1, x1), y1
 
 
 def semente(sil, deriva, caixa, outros):

@@ -29,6 +29,7 @@ SUBSETOR_DE = {
     "wingtopmasks": "wingmasks",
     "trailingedgemasks": "wingmasks",
     "cockpitmasks": "fuselagemasks",
+    "windowmasks": "fuselagemasks",
     # A carenagem é a nacela menos o núcleo metálico, e a perna do trem é o
     # trem menos o pneu: em ambos os casos o "pai" é a peça inteira, que fica
     # como referência de medida, e o filho é o que o jogo pinta.

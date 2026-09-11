@@ -79,19 +79,14 @@ function namedMaskHref(folder: string, id: string, base: string): Promise<string
 export const tailMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('tailmasks', id, base)
 
 /**
- * Máscara exata do trem de pouso (perna + roda), uma por modelo. Sem ela, o
- * trem cai dentro do retângulo "tudo abaixo da fuselagem" e pinta com a cor
- * da asa — visível principalmente quando asa e trem têm cores bem diferentes.
- *
- * Serve de referência e de recorte para a perna; **não** é o que o jogo pinta.
- */
-export const gearMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('gearmasks', id, base)
-
-/**
  * A perna do trem — amortecedor e viga do bogie, sem os pneus. É esta que
  * recebe a cor: pneu é borracha preta em qualquer companhia do mundo, e pintado
- * de azul ou vermelho o trem fica de brinquedo. Sai de gearmasks descontando o
- * maior círculo inscrito, que é a roda (derive_sectors.py --what gearstrut).
+ * de azul ou vermelho o trem fica de brinquedo. Sai de `gearmasks` descontando
+ * o maior círculo inscrito, que é a roda (derive_sectors.py --what gearstrut).
+ *
+ * `gearmasks` e `enginemasks` continuam no repositório como **referência de
+ * medida** e origem destes recortes, mas não têm carregador aqui: o jogo pinta
+ * a perna e a carenagem, nunca a peça inteira.
  */
 export const gearStrutMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('gearstrutmasks', id, base)
 
@@ -101,9 +96,6 @@ export const gearStrutMaskHref = (id: string, base = import.meta.env.BASE_URL) =
  * e trem com a cor da asa (setores de pintura diferentes na vida real).
  */
 export const wingMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('wingmasks', id, base)
-
-/** Máscara exata da carenagem do motor, separada da asa. */
-export const engineMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('enginemasks', id, base)
 
 /**
  * Máscara do dispositivo de ponta de asa — winglet, sharklet, wingtip fence ou
@@ -121,6 +113,13 @@ export const wingletMaskHref = (id: string, base = import.meta.env.BASE_URL) => 
  * para recortar esta; é esta aqui que o jogo pinta.
  */
 export const engineCowlMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('enginecowlmasks', id, base)
+
+/**
+ * A fileira de janela de passageiro. Sem ela os controles "Janelas" e "Cor das
+ * janelas" existiam no editor e não faziam nada na arte de foto: a janela vinha
+ * da foto e pronto.
+ */
+export const windowMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('windowmasks', id, base)
 
 /** Vidraça da cabine de comando (public/sprites/cockpitmasks/). */
 export const cockpitMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('cockpitmasks', id, base)
