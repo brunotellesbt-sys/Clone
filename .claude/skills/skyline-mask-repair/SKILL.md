@@ -164,6 +164,18 @@ Sulco tem vizinho dos dois lados; divisa com a fuselagem, não.
 O trem entra como **reserva**: reivindica os órfãos em volta dele mas não
 cresce, então a costura nunca pinta borracha.
 
+**A ordem importa, e errá-la custa uma auditoria inteira.** A costura faz as
+peças crescerem, e a fuselagem é derivada *das* peças — então a sequência é
+sempre:
+
+```
+mexer nas peças  →  derive --what wingbands  →  costurar  →  derive --what fuselage
+```
+
+Derivar a fuselagem antes de costurar deixa ela sobreposta ao que a asa e o
+motor acabaram de ganhar: numa rodada assim o `diagnose.py` saltou de 1 para 12
+disputas, todas contra `fuselagemasks`, e nenhuma delas era defeito de recorte.
+
 ### A traseira da nacela que ficava com a asa
 
 O recorte antigo do motor pegava a boca e deixava o cone de escape para a asa.
@@ -198,18 +210,26 @@ asa-vermelho/motor-verde. Na primeira passada aprovou as 55 e treze estavam
 erradas; numa segunda rodada, com caixa ajustada, aprovou as treze e sete ainda
 estavam erradas. **Nunca grave um lote de motor sem olhar a folha.**
 
-Quarenta e sete dos 55 estão recortados e conferidos. Os oito que faltam, e o
-que já foi tentado neles:
+Cinquenta dos 55 estão recortados e conferidos. Os cinco que faltam, e o que já
+foi tentado neles:
 
 | Modelo | O que acontece | Tentado |
 |---|---|---|
-| `atr42` `atr72` `q400` | a nacela come asa | caixa curta e sem esticar; a divisa nacela-asa é genuinamente confusa na vista lateral, e nos ATR a **própria máscara de asa** está errada — cobre a hélice |
-| `b748` `b752` `b753` | sobe até a fileira de janela e traz fatia de fuselagem | teto baixo e caixa sem esticar; o `b748` passou a reprovar no portão em vez de errar |
-| `crj900` | reprova por tamanho nas três granularidades | conservador e sem esticar |
-| `crj700` | box-fill parcial: o terço traseiro sai retângulo, passando do cone para a fuselagem | conservador e sem esticar; **passou na conferência visual e foi o `diagnose.py` que pegou** (94% da caixa) |
+| `b748` | a nacela pega intradorso de asa nos quatro motores | conservador e sem esticar |
+| `b753` | uma tira fina sobe até a fileira de janela | teto baixo e caixa sem esticar |
+| `crj900` | reprova por tamanho, e a máscara atual tem fuselagem dentro | conservador e sem esticar |
+| `crj700` `b752` | nada: o recorte original já cobre a nacela inteira | refazer piorava — o `crj700` saiu box-fill de 94% da caixa e foi revertido |
 
-Nesses sete o recorte antigo ficou. Antes de mexer nos ATR, conserte a máscara
-de asa deles primeiro — recortar o motor contra uma asa errada não converge.
+
+Nesses cinco o recorte antigo ficou — e vale lembrar que **máscara antiga não é
+sinônimo de errada**: no `crj700`, `b752` e `b753` o recorte original já cobre a
+nacela inteira, e a tentativa de refazer é que piorava.
+
+Um caso pedia inversão, não conserto: o `q400` tinha a **asa rotulada como
+motor** e `wingmasks` vazia. A banda em cima da fuselagem, que numa asa alta é
+tudo o que se vê da asa, estava em `enginemasks`; a nacela de verdade fica atrás
+do spinner e não tinha máscara nenhuma. Foi recortada à mão e as duas trocaram
+de lugar.
 
 ### Para que lado esticar a caixa
 
@@ -232,6 +252,25 @@ diferentes, e nenhuma das duas sozinha basta.
 Contar janela dentro da máscara ajuda a triar mas não decide: pega `atr72`
 (6 janelas), `an148` (4) e `an158` (3), e passa batido em `arj21` e `atr42`,
 que erram sem encostar em janela nenhuma.
+
+## Pá de hélice também não leva cor
+
+Pelo mesmo motivo do pneu, e com um agravante: a pá fica **na frente** da asa na
+foto, então nem asa é. No `atr42` e no `atr72` um terço da máscara de asa era
+hélice — 7.288px e 4.772px —, e no `q400` a pá tinha entrado na máscara de motor.
+
+```bash
+python3 .claude/skills/skyline-mask-repair/scripts/tirar_helice.py --write
+```
+
+O que identifica a pá é ser escura **e rala**: ela cobre menos de 60% da própria
+caixa, porque é uma lasca curva atravessando o retângulo na diagonal. Chapa
+pintada, por mais escura de sombra que esteja, é cheia. Só o limiar de cor não
+serviria — a sombra sob a asa cai na mesma faixa de luminância.
+
+Tirar a hélice é **pré-requisito** para recortar a nacela de turboélice: com a
+pá dentro da asa, o recorte do motor não converge. Com ela fora, o `atr42` e o
+`atr72` saíram no primeiro lote.
 
 ## Pneu não leva cor
 
