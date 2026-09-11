@@ -192,22 +192,46 @@ Trem e cauda são descontados antes de medir. Eles ficam na frente da nacela na
 foto e o SAM2 os traz junto — no `a220100` o recorte engolia a roda inteira, e
 sem descontar antes o portão aprovava um motor com pneu dentro.
 
-**O portão aprovou as 55 e treze estavam erradas.** Como no winglet: ele pega
-erro grosseiro, quem diz se caiu na peça certa é o olho, e a folha de contato de
-asa-vermelho/motor-verde mostra os treze de uma vez. Entraram 42; o motor antigo
-ficou nos outros. Os que falham têm um padrão:
+**O portão aprova o que o olho reprova.** Como no winglet: ele pega erro
+grosseiro, quem diz se caiu na peça certa é a folha de contato de
+asa-vermelho/motor-verde. Na primeira passada aprovou as 55 e treze estavam
+erradas; numa segunda rodada, com caixa ajustada, aprovou as treze e sete ainda
+estavam erradas. **Nunca grave um lote de motor sem olhar a folha.**
 
-- **motor na cauda** (`arj21`, `crj700`, `crj900`, `crj1000`, `an148`, `an158`):
-  a nacela está encostada na fuselagem, então esticar a caixa para trás cai
-  direto nela. Nesses o alongamento tem que ser para a frente, ou nenhum;
-- **turboélice** (`atr42`, `atr72`, `q400`): a divisa entre nacela e asa é
-  genuinamente confusa na vista lateral, e o recorte come asa;
-- **`b748`, `b752`, `b753`, `tu204`**: o recorte subiu até a fileira de janela e
-  trouxe uma fatia de fuselagem.
+Quarenta e sete dos 55 estão recortados e conferidos. Os oito que faltam, e o
+que já foi tentado neles:
 
-Contar janela dentro da máscara ajuda mas não fecha: pega `atr72` (6 janelas),
-`an148` (4) e `an158` (3), e passa batido em `arj21` e `atr42`, que erram sem
-encostar em janela nenhuma.
+| Modelo | O que acontece | Tentado |
+|---|---|---|
+| `atr42` `atr72` `q400` | a nacela come asa | caixa curta e sem esticar; a divisa nacela-asa é genuinamente confusa na vista lateral, e nos ATR a **própria máscara de asa** está errada — cobre a hélice |
+| `b748` `b752` `b753` | sobe até a fileira de janela e traz fatia de fuselagem | teto baixo e caixa sem esticar; o `b748` passou a reprovar no portão em vez de errar |
+| `crj900` | reprova por tamanho nas três granularidades | conservador e sem esticar |
+| `crj700` | box-fill parcial: o terço traseiro sai retângulo, passando do cone para a fuselagem | conservador e sem esticar; **passou na conferência visual e foi o `diagnose.py` que pegou** (94% da caixa) |
+
+Nesses sete o recorte antigo ficou. Antes de mexer nos ATR, conserte a máscara
+de asa deles primeiro — recortar o motor contra uma asa errada não converge.
+
+### Para que lado esticar a caixa
+
+Depende de onde o motor está montado, e isso sai da medida: a posição do motor
+no comprimento da fuselagem (0 no nariz, 1 na cauda) dá **0,34 a 0,49** em todo
+mundo de asa e salta para **0,70 a 0,74** no `arj21` e na família CRJ. Não há
+nada no meio, então o corte em 0,60 é seguro e `na_cauda()` decide sozinho.
+
+No motor de asa falta a traseira; no de cauda, a traseira já é fuselagem.
+Mas **esticar para a frente no motor de cauda dá box-fill** — a caixa passa a
+conter a lateral limpa da fuselagem e o SAM2 devolve o retângulo. O que
+funcionou nos de cauda foi `--conservador`, e mesmo assim só no `arj21` e no
+`crj1000`.
+
+E o olho também erra: o `crj700` foi aprovado na folha de contato e o
+`diagnose.py` derrubou depois, por box-fill de 94% da caixa. **Rode a auditoria
+depois de gravar o lote, não só a folha antes** — as duas pegam coisas
+diferentes, e nenhuma das duas sozinha basta.
+
+Contar janela dentro da máscara ajuda a triar mas não decide: pega `atr72`
+(6 janelas), `an148` (4) e `an158` (3), e passa batido em `arj21` e `atr42`,
+que erram sem encostar em janela nenhuma.
 
 ## Pneu não leva cor
 

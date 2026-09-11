@@ -38,29 +38,54 @@ CFG = os.environ.get("SAM2_CFG", "configs/sam2.1/sam2.1_hiera_l.yaml")
 MIN_CONTEM = 0.80
 MAX_SILHUETA = 0.18
 MAX_FORA = 40
+MAX_RAZAO = 4.0  # crescer mais que isto já não é traseira de nacela
 
 
-def caixa_da_nacela(motor, sil, nariz):
-    """Caixa em volta do motor antigo, esticada para trás.
+def na_cauda(motor, sil, nariz):
+    """O motor está montado na cauda?
 
-    O que falta é sempre a traseira: o cone de escape sai atrás da boca. Esticar
-    para trás é o que dá ao SAM2 a peça inteira; esticar para cima alcançaria a
-    fileira de janela e devolveria a seção de fuselagem, que é o erro clássico
-    aqui (ver a nota de box-fill na SKILL).
+    Medido nas 55: a posição do motor no comprimento da fuselagem (0 no nariz,
+    1 na cauda) dá 0,34 a 0,49 em todo mundo de asa e salta para 0,70-0,74 no
+    `arj21` e na família CRJ. Não há nada no meio, então o corte em 0,60 é
+    seguro. Serve para saber **para que lado** esticar a caixa: no motor de
+    cauda, esticar para trás cai direto na fuselagem.
+    """
+    ys, xs = np.where(sil)
+    x0, x1 = xs.min(), xs.max()
+    ex = np.where(motor.any(axis=0))[0]
+    centro = (ex.min() + ex.max()) / 2
+    pos = (x1 - centro) / (x1 - x0) if nariz > 0 else (centro - x0) / (x1 - x0)
+    return pos > 0.60
+
+
+def caixa_da_nacela(motor, sil, nariz, conservador=False, estica_frac=None):
+    """Caixa em volta do motor antigo, esticada no sentido da peça que falta.
+
+    No motor de asa o que falta é a **traseira**: o cone de escape sai atrás da
+    boca. No motor de cauda a traseira já é fuselagem, e o que falta é a frente.
+
+    Para cima a caixa alcançaria a fileira de janela e devolveria a seção
+    inteira da fuselagem, que é o erro clássico aqui (ver a nota de box-fill na
+    SKILL) — por isso ela quase não sobe.
     """
     ys, xs = np.where(motor)
     x0, x1, y0, y1 = xs.min(), xs.max(), ys.min(), ys.max()
     comp = x1 - x0 + 1
-    if nariz > 0:  # nariz à direita: a traseira é para a esquerda
-        x0 = max(0, x0 - int(0.55 * comp))
+    frac = estica_frac if estica_frac is not None else (0.25 if conservador else 0.55)
+    estica = int(frac * comp)
+    # para a frente no motor de cauda, para trás no de asa
+    para_tras = not na_cauda(motor, sil, nariz)
+    if (nariz > 0) == para_tras:
+        x0 = max(0, x0 - estica)
     else:
-        x1 = min(sil.shape[1] - 1, x1 + int(0.55 * comp))
+        x1 = min(sil.shape[1] - 1, x1 + estica)
     alt = y1 - y0 + 1
-    return (int(x0), int(max(0, y0 - 0.10 * alt)),
+    sobe = 0.04 if conservador else 0.10
+    return (int(x0), int(max(0, y0 - sobe * alt)),
             int(x1), int(min(sil.shape[0] - 1, y1 + 0.18 * alt)))
 
 
-def avaliar(novo, velho, sil, teto):
+def avaliar(novo, velho, sil, teto, max_silhueta=MAX_SILHUETA):
     if not novo.any():
         return "vazio"
     contem = (novo & velho).sum() / velho.sum()
@@ -68,8 +93,10 @@ def avaliar(novo, velho, sil, teto):
         return f"perde o motor antigo (fica com {contem:.0%})"
     if novo.sum() <= velho.sum():
         return "não cresce"
-    if novo.sum() / sil.sum() > MAX_SILHUETA:
+    if novo.sum() / sil.sum() > max_silhueta:
         return f"grande demais ({novo.sum() / sil.sum():.0%} da silhueta)"
+    if novo.sum() / velho.sum() > MAX_RAZAO:
+        return f"cresce {novo.sum() / velho.sum():.1f}x"
     ys, _ = np.where(novo)
     if ys.min() < teto:
         return "sobe até a fileira de janela"
@@ -78,7 +105,7 @@ def avaliar(novo, velho, sil, teto):
     return None
 
 
-def teto_da_janela(sil, motor):
+def teto_da_janela(sil, motor, conservador=False):
     """Onde a nacela não pode passar.
 
     A fileira de janela fica na metade de cima da fuselagem; a nacela, embaixo
@@ -88,7 +115,7 @@ def teto_da_janela(sil, motor):
     """
     ys, _ = np.where(motor)
     alt = ys.max() - ys.min() + 1
-    return int(ys.min() - 0.55 * alt)
+    return int(ys.min() - (0.15 if conservador else 0.55) * alt)
 
 
 def main():
@@ -97,6 +124,10 @@ def main():
     ap.add_argument("--photos", default="public/sprites/aircraft")
     ap.add_argument("--out", required=True)
     ap.add_argument("--only")
+    ap.add_argument("--estica", type=float,
+                    help="fração do comprimento do motor a esticar na caixa (0 = não estica)")
+    ap.add_argument("--conservador", action="store_true",
+                    help="caixa curta e teto baixo, para quem trouxe fuselagem junto")
     args = ap.parse_args()
 
     import torch  # noqa: F401
@@ -123,8 +154,9 @@ def main():
         foto = mc.achar_foto(args.photos, aid)
         sil = mc.silhueta(foto)
         nariz = lado_do_nariz(sil, args.root, aid)
-        caixa = caixa_da_nacela(velho, sil, nariz)
-        teto = teto_da_janela(sil, velho)
+        caixa = caixa_da_nacela(velho, sil, nariz, args.conservador, args.estica)
+        teto = teto_da_janela(sil, velho, args.conservador)
+        max_sil = 0.11 if args.conservador else MAX_SILHUETA
 
         ys, xs = np.where(velho)
         pt = (int(np.median(xs)), int(np.median(ys)))
@@ -157,7 +189,7 @@ def main():
             if n_ > 1:  # descontar o trem pode soltar lascas
                 tam = ndimage.sum(m, rot, range(1, n_ + 1))
                 m = np.isin(rot, [j + 1 for j, t in enumerate(tam) if t >= 200])
-            motivo = avaliar(m, velho, sil, teto)
+            motivo = avaliar(m, velho, sil, teto, max_sil)
             if motivo:
                 motivos.append(motivo)
             else:
