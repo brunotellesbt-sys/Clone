@@ -225,19 +225,35 @@ function analyse(img: HTMLImageElement): Measured | null {
   }
 
   // A deriva é o que sobra acima da fuselagem: acha o intervalo em x.
-  // Massa acima da fuselagem em cada extremidade: onde tiver mais, é a cauda.
-  let leftMass = 0
-  let rightMass = 0
   const colAbove = new Int32Array(w)
   for (let y = y0; y < fy0; y++) {
     for (let x = x0; x <= x1; x++) {
       if (!isFg((y * w + x) * 4)) continue
       colAbove[x]++
-      if (x < x0 + planeW * 0.3) leftMass++
-      else if (x > x0 + planeW * 0.7) rightMass++
     }
   }
-  const noseLeft = rightMass >= leftMass
+
+  // De que lado está a cauda: **o ponto mais alto do avião é a deriva**, em
+  // todo airliner, inclusive nos de cauda em T.
+  //
+  // Antes isto saía de comparar a massa acima da fuselagem nas duas pontas, e
+  // errava no a388: o convés superior avança até o nariz, joga massa para o
+  // lado errado e invertia a resposta. A caixa da deriva ia parar na ponta
+  // oposta à máscara e o resultado era uma deriva **sem pintura nenhuma** —
+  // interseção vazia. Conferido nas 55 contra a máscara de cauda: o ponto mais
+  // alto acerta todas.
+  const topBand = y0 + Math.max(2, Math.round((fy1 - y0) * 0.05))
+  let topSum = 0
+  let topCount = 0
+  for (let y = y0; y <= topBand; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (!isFg((y * w + x) * 4)) continue
+      topSum += x
+      topCount++
+    }
+  }
+  const tailCx = topCount ? topSum / topCount : (x0 + x1) / 2
+  const noseLeft = tailCx > (x0 + x1) / 2
 
   // A deriva ocupa só a ponta da cauda. Asa alta e estabilizador também ficam
   // acima da fuselagem, então limita a busca ao terço da traseira.

@@ -284,8 +284,12 @@ if (existsSync(spritesDir)) {
     const entry = { file: `sprites/aircraft/${file}`, w, h }
     const key = engineId ? `${id}:${engineId}` : id
     manifest[key] = entry
-    // Chave-base (`id` puro) como reserva, para quem consultar sem motor.
-    if (engineId && !manifest[id]) manifest[id] = entry
+    // Chave-base (`id` puro) como reserva, para quem consultar sem motor. Tem
+    // que vencer a entrada da Commons, senão o id puro segue apontando para o
+    // desenho genérico — e aí o jogo desenha uma imagem **diferente** daquela
+    // de onde as máscaras de setor foram recortadas, com a cauda no lado
+    // oposto. Era exatamente o caso do a388: a deriva dele não pintava nada.
+    if (engineId && !manifest[id]?.file?.startsWith('sprites/aircraft/')) manifest[id] = entry
     const i = misses.indexOf(id)
     if (i >= 0) misses.splice(i, 1)
     if (!localSprites.includes(id)) localSprites.push(id)

@@ -305,12 +305,14 @@ winglet, o sharklet, a wingtip fence, a ponta raked e a aleta pequena.
 
 ## Estado do setor de winglet
 
-Doze estão recortados e conferidos; trinta faltam; sete não têm nada; seis não
-foram classificados porque a ponta da asa não é achada de forma confiável neles
-(ver `pontas.md`).
+Dezesseis estão recortados e conferidos; trinta e dois faltam; sete não têm
+nada. A lista modelo a modelo está em `pontas.md`, e a categoria "ponta não
+encontrada" deixou de existir: era asa mal recortada, não falha do detector.
 
-O lote automático (`winglet_batch.py`) acerta cerca de 40%, e o que sobra cai
-numa tira de fuselagem ou na nacela do motor. O portão pega erro grosseiro —
+O lote automático (`winglet_batch.py`) tem rendimento **baixo**, e a segunda
+rodada mediu quanto: de 36 candidatos o portão aprovou 24 e só **4** estavam
+certos. O que sobra cai numa tira de fuselagem, na nacela do motor, num
+retângulo de céu ou numa tira do bordo de ataque inteiro. O portão pega erro grosseiro —
 tamanho, box-fill, sangramento — e vale muito: de dezessete aprovados no
 primeiro lote, sete eram box-fill. Mas **quem diz se caiu na peça certa é o
 olho**, e por isso só entra o que foi conferido.
