@@ -6,7 +6,7 @@ import { emblemHref } from './emblems'
 import { LiveryPlane } from './LiveryPlane'
 import {
   cockpitMaskHref, engineCowlMaskHref, fuseBands, gearStrutMaskHref, leadingEdgeMaskHref, measure, measured,
-  tailMaskHref, trailingEdgeMaskHref, wingMaskHref, wingTopMaskHref, wingletMaskHref,
+  tailMaskHref, trailingEdgeMaskHref, windowMaskHref, wingMaskHref, wingTopMaskHref, wingletMaskHref,
   type FuseBands, type Measured,
 } from './measure'
 import { FONT_STACK } from './silhouette'
@@ -54,6 +54,7 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   const [topMask, setTopMask] = useState<string | null>(null)
   const [teMask, setTeMask] = useState<string | null>(null)
   const [bands, setBands] = useState<FuseBands | null>(null)
+  const [windowMask, setWindowMask] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -99,6 +100,7 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
     let alive = true
     wingletMaskHref(type.id).then((m) => alive && setWingletMask(m))
     cockpitMaskHref(type.id).then((m) => alive && setCockpitMask(m))
+    windowMaskHref(type.id).then((m) => alive && setWindowMask(m))
     fuseBands().then((b) => alive && setBands(b[type.id] ?? null))
     leadingEdgeMaskHref(type.id).then((m) => alive && setLeMask(m))
     wingTopMaskHref(type.id).then((m) => alive && setTopMask(m))
@@ -215,6 +217,12 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
             <image href={wingletMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
         )}
+        {windowMask && (
+          <mask id={`jm-${uid}`} style={{ maskType: 'luminance' }}>
+            {/* Fileira de janela de passageiro (public/sprites/windowmasks/). */}
+            <image href={windowMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
+          </mask>
+        )}
         {cockpitMask && livery.cockpit && (
           <mask id={`cpm-${uid}`} style={{ maskType: 'luminance' }}>
             <image href={cockpitMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
@@ -285,6 +293,18 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
 
           {/* radome */}
           {noseColor && <rect x={planeX0 - 2} y={bandTop - 2} width={planeW * 0.06} height={bandH + 4} fill={noseColor} />}
+
+          {/* A fileira de janela, depois da faixa: numa livery de verdade a
+              faixa passa atrás da janela, nunca por cima dela.
+
+              O interruptor "Janelas" ganha sentido aqui: desligado, a fileira é
+              pintada com a cor da fuselagem, que é literalmente como se apaga
+              uma fileira de janela — é o que se vê num cargueiro convertido. */}
+          {windowMask && (
+            <g mask={`url(#jm-${uid})`}>
+              <rect x="0" y="0" width={w} height={h} fill={livery.windows ? livery.windowColor : livery.fuselage} />
+            </g>
+          )}
 
           {/* Vidraça da cabine, depois da faixa para o listrado não cobri-la.
               Sem cor escolhida não pinta nada e a foto aparece, como antes. */}
