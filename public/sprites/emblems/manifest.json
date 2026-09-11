@@ -158,5 +158,245 @@
     "credits": 9,
     "prompt": "a single flat vector emblem icon for a fictional airline, two curved laurel-like branch shapes framing a small circle between them, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
     "generated_at": "2026-09-09T09:19:38.809Z"
+  },
+  {
+    "id": "deltaform",
+    "task": "01a09178-4721-772e-9f0d-af477a62320f",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, three solid delta triangles in arrowhead formation, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:16:51.826Z"
+  },
+  {
+    "id": "comet",
+    "task": "01a09178-4793-77e5-8699-f1fbc205f755",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a comet with a long tapering trail of three streaks, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:16:51.871Z"
+  },
+  {
+    "id": "jetstream",
+    "task": "01a09178-478f-7600-8544-bacb9c568d7a",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, three parallel swept speed lines curving upward, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:16:55.955Z"
+  },
+  {
+    "id": "thunderbolt",
+    "task": "01a09178-db36-75c3-81e4-6a7808461041",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a single angular lightning bolt, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:17:30.238Z"
+  },
+  {
+    "id": "contrail",
+    "task": "01a09178-dbb5-7792-b742-f865327bd605",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a looping contrail ribbon forming an open circle, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:17:33.475Z"
+  },
+  {
+    "id": "skylinearc",
+    "task": "01a09178-eb54-7265-a743-122b29e23e3d",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a row of tower blocks of different heights under a wide arc, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:17:33.683Z"
+  },
+  {
+    "id": "trident",
+    "task": "01a09179-7de2-7365-be2d-09365e611149",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a three pronged trident head, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:18:11.483Z"
+  },
+  {
+    "id": "sailwing",
+    "task": "01a09179-7eb3-76e1-81ea-03d5051e3557",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a taut triangular sail curved by wind, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:18:12.317Z"
+  },
+  {
+    "id": "meridian",
+    "task": "01a09179-713e-76da-aa92-5894bc1f33a7",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a globe crossed by one meridian line and one equator line, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:18:12.634Z"
+  },
+  {
+    "id": "aurora",
+    "task": "01a0917a-1258-72fe-a6f9-e17c91519537",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, three stacked wavy bands of increasing width, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:18:48.988Z"
+  },
+  {
+    "id": "chevronarc",
+    "task": "01a0917a-159b-73a6-abb5-87681642a966",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, three nested chevrons pointing upward, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:18:50.139Z"
+  },
+  {
+    "id": "clarion",
+    "task": "01a0917a-16da-7049-aac3-4781a28bb119",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a flared herald trumpet seen from the side, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:18:54.373Z"
+  },
+  {
+    "id": "beacon",
+    "task": "01a0917a-a4dc-750a-a2c4-363d78cb26a0",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a lighthouse tower with two spreading beams of light, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:19:30.957Z"
+  },
+  {
+    "id": "sextant",
+    "task": "01a0917a-a95b-76a4-9d43-44273a5685cc",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a sextant arc with a straight index arm, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:19:36.000Z"
+  },
+  {
+    "id": "condor",
+    "task": "01a0917b-48cd-7075-83a7-09cd6b1ec245",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a soaring bird with long flat outstretched wings and fingered wingtips, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:20:12.765Z"
+  },
+  {
+    "id": "dragonfly",
+    "task": "01a0917b-5c81-7082-b17c-86ac46748745",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a dragonfly with four narrow wings spread flat, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:20:13.666Z"
+  },
+  {
+    "id": "helix",
+    "task": "01a0917b-efa0-749d-a547-9df13edd797f",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, two ribbons twisted around each other in a double helix, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:20:51.461Z"
+  },
+  {
+    "id": "spiral",
+    "task": "01a09181-4022-7762-925c-d7c07934d7d7",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a spiral ribbon of three open turns, thick even stroke, wide empty gaps between the turns, solid pure black shape on empty background, the negative space between parts must be fully transparent and empty, not filled, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:26:39.973Z"
+  },
+  {
+    "id": "astrolabe",
+    "task": "01a0917b-f3a5-7474-99d6-5c882e083a4f",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a ringed disc crossed by two perpendicular bars, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:20:55.409Z"
+  },
+  {
+    "id": "prism",
+    "task": "01a0917c-8345-72fa-b63a-8e51ee28d9c6",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a triangular prism splitting into three straight rays, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:21:29.263Z"
+  },
+  {
+    "id": "keystone",
+    "task": "01a0917c-8f1e-755f-90c7-33ed11106fc3",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a keystone block at the top of a stone arch, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:21:36.331Z"
+  },
+  {
+    "id": "obelisk",
+    "task": "01a0917c-92b0-73f2-97c5-d9cbf9ebf7a0",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a tall tapering obelisk on a stepped base, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:21:37.237Z"
+  },
+  {
+    "id": "tessera",
+    "task": "01a09181-4055-7044-96ba-b846f75ad849",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, four separate square tiles tilted 45 degrees arranged as a larger diamond, wide empty gaps between the four tiles, solid pure black shape on empty background, the negative space between parts must be fully transparent and empty, not filled, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:26:39.874Z"
+  },
+  {
+    "id": "rosette",
+    "task": "01a0917d-3615-73c6-93f0-aa79952987c5",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, an eight petal geometric rosette, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:22:15.017Z"
+  },
+  {
+    "id": "zenith",
+    "task": "01a0917d-16f0-74ca-aec1-58e77712da14",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, an upward pointing arrow enclosed in a thick ring, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:22:15.100Z"
+  },
+  {
+    "id": "spearhead",
+    "task": "01a0917d-c54b-77c6-aed3-5678c94375cf",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a leaf shaped spear tip on a short shaft, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:22:52.280Z"
+  },
+  {
+    "id": "bridgearch",
+    "task": "01a0917d-c9a7-734f-86a1-ed9de0daa6a6",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a single span arch bridge with vertical supports, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:22:52.596Z"
+  },
+  {
+    "id": "citadel",
+    "task": "01a0917d-ca23-764e-917d-83678a3337a3",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a fortress silhouette with three crenellated towers, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:22:56.986Z"
+  },
+  {
+    "id": "pennant",
+    "task": "01a0917e-5b39-736f-a64d-4340ad243b9c",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a swallow tail pennant flag streaming from a pole, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:23:34.183Z"
+  },
+  {
+    "id": "trefoil",
+    "task": "01a0917e-5c77-768c-bed3-36adbac90f01",
+    "model": "gpt-image-2",
+    "credits": 9,
+    "prompt": "a single flat vector emblem icon for a fictional airline, a three lobed geometric trefoil knot, solid pure black silhouette only, no gradient, no shading, no text, no letters, no wordmark, no country flag, simple geometric shape, centered, symmetric, bold clean lines, high contrast, isolated on transparent background, game asset icon",
+    "generated_at": "2026-09-11T17:23:34.319Z"
   }
 ]
