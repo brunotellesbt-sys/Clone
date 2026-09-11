@@ -253,6 +253,31 @@ Contar janela dentro da máscara ajuda a triar mas não decide: pega `atr72`
 (6 janelas), `an148` (4) e `an158` (3), e passa batido em `arj21` e `atr42`,
 que erram sem encostar em janela nenhuma.
 
+## Núcleo do motor também não leva cor
+
+O que a livery pinta numa nacela é a **carenagem**. O bocal de escape, o plug e
+o fan são metal exposto — mesma regra do pneu e da pá.
+
+```bash
+python3 .claude/skills/skyline-mask-repair/scripts/engine_core_batch.py --out /tmp/core
+```
+
+Duas medidas mais baratas foram tentadas antes e **não** generalizam:
+
+- **cor**: o bocal é escuro, mas a sombra da barriga da nacela e a do pilone
+  também, e essas são chapa pintável; a temperatura (`R-B`) fica em zero no
+  `a333`, no `b788` e no `crj900`;
+- **degrau de altura por coluna** — carenagem é platô, bocal é degrau — acerta
+  no `b737` e no `a320` e falha em 11 dos 55, porque o pilone entra na máscara
+  do motor e quebra o perfil.
+
+Com SAM2 o portão aprovou as 55, e de novo o olho reprovou parte. O que separa
+objetivamente é a **altura do núcleo contra a da nacela**: até 0,67 é bocal; daí
+para cima o recorte já está espalhando pelo pilone. Medido na fronteira —
+`b38m` 0,67 e `b78x` 0,66 são bocal; `e195` 0,68 e `a321` 0,75 são pilone.
+Entraram 38; nos outros 17 `enginecowlmasks` é a nacela inteira, igual a antes,
+sem regressão.
+
 ## Pá de hélice também não leva cor
 
 Pelo mesmo motivo do pneu, e com um agravante: a pá fica **na frente** da asa na
@@ -294,6 +319,22 @@ alternativas foram medidas e não servem, para não serem tentadas de novo:
 
 `gearmasks` continua sendo a referência de medida e a origem do recorte;
 `gearstrutmasks` é o que o jogo pinta.
+
+## O estabilizador horizontal não tem máscara
+
+Conferido nas 55: `tailmasks` é a **deriva e mais nada**. O estabilizador
+horizontal nunca teve setor próprio, então na arte de foto ele sai com a cor da
+fuselagem.
+
+`stab_batch.py` recorta com SAM2 a partir da raiz da deriva, e **ainda não
+converge**: o estabilizador é contínuo com a traseira da fuselagem na foto e o
+recorte leva as duas. Um ponto negativo no tubo da fuselagem melhora o `a388`
+(22.929px para 7.618) e piora o `b737` (14.546 para 21.926). Em cauda em T
+(`crj900`) o estabilizador está em cima da deriva e já cai dentro de
+`tailmasks` — é outro caso.
+
+Por isso a livery ainda **não** consome esse setor: melhor sem ele do que com
+metade dos modelos pintando fuselagem junto.
 
 ## Nem toda aeronave tem winglet
 

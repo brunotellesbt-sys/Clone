@@ -29,6 +29,11 @@ SUBSETOR_DE = {
     "wingtopmasks": "wingmasks",
     "trailingedgemasks": "wingmasks",
     "cockpitmasks": "fuselagemasks",
+    # A carenagem é a nacela menos o núcleo metálico, e a perna do trem é o
+    # trem menos o pneu: em ambos os casos o "pai" é a peça inteira, que fica
+    # como referência de medida, e o filho é o que o jogo pinta.
+    "enginecowlmasks": "enginemasks",
+    "gearstrutmasks": "gearmasks",
 }
 # Setores gerados por geometria a partir de outro. Não se remendam: quando o
 # pai muda, se regeneram com derive_sectors.py.
