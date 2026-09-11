@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AIRCRAFT, acLabel, FAMILY_OF, type AircraftType } from '../game/data/aircraft'
+import { AIRCRAFT_ALL, acLabel, ehCargueiro, FAMILY_OF, type AircraftType } from '../game/data/aircraft'
 import { engineLabel, type Engine } from '../game/data/engines'
 import { cabinLength, defaultCabin, rowLayout, sumSeats } from '../game/cabin'
 import { leaseMonthly, marketPrice } from '../game/economy'
@@ -11,6 +11,7 @@ import { Card } from './components/Bits'
 
 const FAMILY_LABEL: Record<string, string> = {
   turboprop: 'Turboélice', regional: 'Regional', narrowbody: 'Corredor único', widebody: 'Fuselagem larga',
+  freighter: 'Cargueiro',
 }
 
 export function MarketView() {
@@ -20,12 +21,12 @@ export function MarketView() {
   const [engineId, setEngineId] = useState<string | null>(null)
   const year = state.startYear + state.day / 365
 
-  const model = AIRCRAFT.find((a) => a.id === selId) ?? AIRCRAFT[0]
+  const model = AIRCRAFT_ALL.find((a) => a.id === selId) ?? AIRCRAFT_ALL[0]
   const options = enginesOf(model)
   const chosen = options.find((e) => e.id === engineId) ?? options[0]
   const sel = withEngine(model, chosen?.id)
 
-  const list = useMemo(() => AIRCRAFT.filter((a) => fam === 'todos' || a.family === fam), [fam])
+  const list = useMemo(() => AIRCRAFT_ALL.filter((a) => fam === 'todos' || a.family === fam), [fam])
 
   function pick(t: AircraftType) {
     setSelId(t.id)
@@ -48,7 +49,7 @@ export function MarketView() {
         title="Catálogo"
         right={
           <div className="row tight">
-            {['todos', 'turboprop', 'regional', 'narrowbody', 'widebody'].map((f) => (
+            {['todos', 'turboprop', 'regional', 'narrowbody', 'widebody', 'freighter'].map((f) => (
               <button key={f} className={`btn sm ${fam === f ? 'primary' : ''}`} onClick={() => setFam(f)}>
                 {f === 'todos' ? 'Todos' : FAMILY_LABEL[f]}
               </button>
@@ -60,7 +61,7 @@ export function MarketView() {
           <table>
             <thead>
               <tr>
-                <th>Modelo</th><th>Família</th><th className="r">Máx.</th><th className="r">Fileira</th>
+                <th>Modelo</th><th>Família</th><th className="r">Máx. / carga</th><th className="r">Fileira</th>
                 <th className="r">Alcance</th><th className="r">Pista</th><th className="r">Consumo</th><th className="r">Preço</th>
               </tr>
             </thead>
@@ -74,8 +75,9 @@ export function MarketView() {
                       {!ok && <span className="chip bad" style={{ marginLeft: 6 }}>{a.since}</span>}
                     </td>
                     <td className="muted">{FAMILY_OF[a.id] ?? ''}</td>
-                    <td className="r">{a.maxSeats}</td>
-                    <td className="r">{rowLayout(a, 'y')}</td>
+                    {/* Cargueiro não tem assento nem fileira: o que o define é a carga paga. */}
+                    <td className="r">{ehCargueiro(a) ? `${a.payload} t` : a.maxSeats}</td>
+                    <td className="r">{ehCargueiro(a) ? '—' : rowLayout(a, 'y')}</td>
                     <td className="r">{num(a.range)} nm</td>
                     <td className="r">{num(a.runway)} ft</td>
                     <td className="r">{num(a.burn)} kg/h</td>
@@ -104,10 +106,21 @@ export function MarketView() {
             <div><span className="muted">Velocidade</span><br />{num(sel.speed)} kt</div>
             <div><span className="muted">Pista</span><br />{num(sel.runway)} ft</div>
             <div><span className="muted">Consumo</span><br />{num(sel.burn)} kg/h</div>
-            <div><span className="muted">Limite de saídas</span><br />{model.maxSeats} passageiros</div>
-            <div><span className="muted">Econômica</span><br />{rowLayout(model, 'y')}</div>
-            <div><span className="muted">Executiva</span><br />{rowLayout(model, 'c')}</div>
-            <div><span className="muted">Cabine útil</span><br />{(cabinLength(model) / 39.37).toFixed(1)} m</div>
+            {/* Um cargueiro não tem cabine: mostrar assento e fileira nele seria
+                inventar número. O que descreve a peça é a carga paga. */}
+            {ehCargueiro(model) ? (
+              <>
+                <div><span className="muted">Carga paga</span><br />{model.payload} t</div>
+                <div><span className="muted">Cabine</span><br />sem cabine</div>
+              </>
+            ) : (
+              <>
+                <div><span className="muted">Limite de saídas</span><br />{model.maxSeats} passageiros</div>
+                <div><span className="muted">Econômica</span><br />{rowLayout(model, 'y')}</div>
+                <div><span className="muted">Executiva</span><br />{rowLayout(model, 'c')}</div>
+                <div><span className="muted">Cabine útil</span><br />{(cabinLength(model) / 39.37).toFixed(1)} m</div>
+              </>
+            )}
           </div>
         </Card>
 
@@ -137,9 +150,9 @@ export function MarketView() {
             <b className="num">{money(lease)}/mês <span className="muted" style={{ fontWeight: 400 }}>+ 2 meses de caução</span></b>
           </div>
           <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
-            Entra com {sumSeats(cabin.seats)} assentos
-            {cabin.seats.c > 0 ? `, ${cabin.seats.c} na executiva` : ', em classe única'}. A cabine
-            se remonta depois, na tela da frota.
+            {ehCargueiro(model)
+              ? `Leva até ${model.payload} t de carga paga e só voa em rota de carga.`
+              : `Entra com ${sumSeats(cabin.seats)} assentos${cabin.seats.c > 0 ? `, ${cabin.seats.c} na executiva` : ', em classe única'}. A cabine se remonta depois, na tela da frota.`}
           </p>
           <div className="row">
             <button className="btn primary" disabled={!available || state.airline.cash < price} onClick={() => acquire(false)}>

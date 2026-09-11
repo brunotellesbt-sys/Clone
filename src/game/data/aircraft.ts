@@ -5,7 +5,7 @@
 // manutenção estão arredondados e balanceados para o jogo, não para despacho.
 import { ENGINES } from './engines'
 
-export type Family = 'turboprop' | 'regional' | 'narrowbody' | 'widebody'
+export type Family = 'turboprop' | 'regional' | 'narrowbody' | 'widebody' | 'freighter'
 
 export interface AircraftType {
   id: string
@@ -38,6 +38,13 @@ export interface AircraftType {
   since: number
   /** Motorizações oferecidas de fábrica; a primeira é a de série. */
   engines: string[]
+  /**
+   * Carga paga máxima, em toneladas. **Só os cargueiros têm.** A presença deste
+   * campo é o que define que a aeronave voa carga e não gente: cargueiro não
+   * tem cabine, então `maxSeats` nele é 0 e nenhuma conta de passageiro se
+   * aplica.
+   */
+  payload?: number
   /** Diâmetro do fan instalado, em metros — define o tamanho da nacela no desenho. */
   fan: number
   /** Dimensões reais, usadas para desenhar a silhueta fiel do modelo. */
@@ -72,6 +79,22 @@ const A = (
   // Regra real: um comissário para cada 50 assentos.
   crew: Math.max(1, Math.ceil(maxSeats / 50)),
   maint, comfort, turn, since, engines,
+  fan: ENGINES[engines[0]]?.fan ?? 1.6,
+  shape,
+})
+
+/**
+ * Cargueiro. Mesma ficha do avião de passageiro, com `payload` no lugar dos
+ * assentos: `maxSeats` é 0 e a tripulação é de dois pilotos e mais ninguém —
+ * não há comissário num cargueiro.
+ */
+const F = (
+  id: string, name: string, maker: string, payload: number,
+  range: number, speed: number, burn: number, price: number, runway: number, maint: number,
+  turn: number, since: number, engines: string[], shape: Shape,
+): AircraftType => ({
+  id, name, maker, family: 'freighter', maxSeats: 0, abreast: 0, range, speed, burn, price,
+  runway, crew: 0, maint, comfort: 1, turn, since, engines, payload,
   fan: ENGINES[engines[0]]?.fan ?? 1.6,
   shape,
 })
@@ -274,15 +297,70 @@ export const AIRCRAFT: AircraftType[] = [
     S(38.9, 3.95, 11.95, 35.81, 'low', 'conv', 2, 'wing', false, 'single', 'sharklet')),
 ]
 
+// --------------------------------------------------------------- cargueiros
+// Carga paga e alcance vêm das fichas dos fabricantes. Consumo e preço estão
+// na mesma régua dos aviões de passageiro: um convertido custa bem menos que o
+// equivalente novo de linha, porque é isso que se paga por um de segunda mão
+// com porta de carga.
+export const FREIGHTERS: AircraftType[] = [
+  F('atr72f', 'ATR 72-600F', 'ATR', 9.0, 900, 275, 650, 28, 4400, 0.86, 30, 2020,
+    ['pw127xt'],
+    S(27.17, 2.87, 7.65, 27.05, 'high', 'ttail', 2, 'wing', true, 'single', 'none')),
+  F('b737f', '737-800BCF', 'Boeing', 23.9, 2000, 455, 2450, 52, 7500, 1.08, 45, 2018,
+    ['cfm567b26'],
+    S(39.5, 3.76, 12.55, 35.79, 'low', 'conv', 2, 'wing', false, 'single', 'blended')),
+  F('a321f', 'A321P2F', 'Airbus', 27.9, 2300, 455, 2550, 58, 7400, 1.06, 45, 2021,
+    ['cfm565b3', 'v2533a5'],
+    S(44.51, 3.95, 11.76, 35.8, 'low', 'conv', 2, 'wing', false, 'single', 'sharklet')),
+  F('b752f', '757-200PCF', 'Boeing', 32.8, 3000, 470, 3300, 47, 7500, 1.14, 50, 2001,
+    ['rb211535e4'],
+    S(47.32, 3.76, 13.56, 38.05, 'low', 'conv', 2, 'wing', false, 'single', 'blended')),
+  F('tu204f', 'Tu-204-100C', 'Tupolev', 27.0, 2200, 430, 3100, 33, 7900, 1.3, 55, 1999,
+    ['ps90a'],
+    S(46.14, 3.8, 13.9, 41.8, 'low', 'conv', 2, 'wing', false, 'single', 'blended')),
+  F('b763f', '767-300BDSF', 'Boeing', 51.7, 3200, 470, 5000, 62, 8100, 1.18, 70, 2005,
+    ['cf680c2', 'pw4062'],
+    S(54.94, 5.03, 15.85, 47.57, 'low', 'conv', 2, 'wing', false, 'single', 'raked')),
+  F('a332f', 'A330-200F', 'Airbus', 70.0, 4000, 470, 5600, 106, 8400, 1.16, 75, 2010,
+    ['trent772b', 'pw4170'],
+    S(58.82, 5.64, 16.9, 60.3, 'low', 'conv', 2, 'wing', false, 'single', 'blended')),
+  F('il96f', 'Il-96-400T', 'Ilyushin', 92.0, 3100, 450, 7800, 72, 8500, 1.38, 85, 2007,
+    ['ps90a'],
+    S(63.94, 6.08, 15.72, 60.11, 'low', 'conv', 4, 'wing', false, 'single', 'blended')),
+  F('b748f', '747-8F', 'Boeing', 137.7, 4390, 490, 8600, 186, 10200, 1.24, 95, 2011,
+    ['genx2b67'],
+    S(76.25, 6.5, 19.4, 68.4, 'low', 'conv', 4, 'wing', false, 'hump', 'raked')),
+  F('an124', 'An-124-100', 'Antonov', 120.0, 2420, 430, 12100, 98, 9800, 1.55, 120, 1986,
+    ['d18t'],
+    S(68.96, 6.4, 20.78, 73.3, 'high', 'conv', 4, 'wing', false, 'single', 'none')),
+  F('an225', 'An-225 Mriya', 'Antonov', 250.0, 2500, 430, 17000, 240, 11500, 1.9, 180, 1988,
+    ['d18t'],
+    S(84.0, 6.4, 18.1, 88.4, 'high', 'conv', 4, 'wing', false, 'single', 'none')),
+  F('belugaxl', 'BelugaXL', 'Airbus', 51.0, 2200, 470, 5600, 118, 8400, 1.34, 90, 2020,
+    ['trent772b'],
+    S(63.1, 8.8, 18.9, 60.3, 'low', 'conv', 2, 'wing', false, 'hump', 'blended')),
+]
+
+/**
+ * Catálogo completo, passageiro e carga. Os cargueiros entram aqui para o
+ * mercado, a frota e a arte tratarem todos do mesmo jeito; quem precisa
+ * separar usa `ehCargueiro`.
+ */
+export const AIRCRAFT_ALL: AircraftType[] = [...AIRCRAFT, ...FREIGHTERS]
+
 export const AIRCRAFT_BY_ID: Record<string, AircraftType> = Object.fromEntries(
-  AIRCRAFT.map((a) => [a.id, a]),
+  AIRCRAFT_ALL.map((a) => [a.id, a]),
 )
+
+/** Cargueiro não tem cabine: é `payload` que manda, não `maxSeats`. */
+export const ehCargueiro = (t: AircraftType) => t.payload !== undefined
 
 /** Designação completa, com fabricante: "Boeing 737-800", mas sem repetir "ATR ATR 72". */
 export const acLabel = (t: AircraftType) =>
   t.name.startsWith(t.maker) ? t.name : `${t.maker} ${t.name}`
 
 /** Família comercial, para agrupar o catálogo na tela de mercado. */
+
 export const FAMILY_OF: Record<string, string> = {
   atr42: 'ATR', atr72: 'ATR', q400: 'Dash 8',
   crj700: 'CRJ', crj900: 'CRJ', crj1000: 'CRJ',
@@ -302,4 +380,7 @@ export const FAMILY_OF: Record<string, string> = {
   b748: '747', a388: 'A380',
   an148: 'An-148', an158: 'An-158', il96: 'Il-96', sj100: 'SJ-100', tu204: 'Tu-204',
   arj21: 'ARJ21', c919: 'C919',
+  atr72f: 'ATR', b737f: '737 NG', a321f: 'A320ceo', b752f: '757', tu204f: 'Tu-204',
+  b763f: '767', a332f: 'A330ceo', il96f: 'Il-96', b748f: '747',
+  an124: 'An-124', an225: 'An-225', belugaxl: 'Beluga',
 }

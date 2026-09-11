@@ -42,6 +42,47 @@ Vale entender o caminho de um passageiro antes de mexer em qualquer ponta:
    `SELLABLE`, tira `DISTRIBUTION_RATE` da receita, paga custo fixo, envelhece
    a frota, roda a IA, grava no `ledger`.
 
+## Carga é um mercado à parte
+
+Desde os cargueiros, `advanceDay` tem **dois caminhos**: a rota de passageiro e
+a rota de carga, decididas por `Route.cargo`. Elas não se cruzam — um cargueiro
+não entra em rota de passageiro e vice-versa, e o motor recusa a alocação.
+
+A curva de carga (`cargoDemand`) é outra, de propósito:
+
+| | passageiro | carga |
+|---|---|---|
+| escala do decaimento | 700 nm, expoente 1,35 | 2.200 nm, expoente 0,75 |
+| etapa curta | ponte aérea cheia | abaixo de 600 nm quase não existe |
+| doméstico | bônus de 1,55 | **penalidade** de 0,72 (caminhão compete) |
+| sazonalidade | verão dos dois hemisférios | pico único de fim de ano antecipado |
+| fim de semana | cai | quase não cai: a carga se acumula |
+
+E a régua de margem, medida em GRU e que deve ser refeita a cada mexida:
+
+```
+GRU-JFK 4.138 nm | carga 31% (747F) a 41% (767F) | passageiro 41,5% (787-9)
+GRU-MIA 3.600 nm | carga 14% (737F) a 23% (A321F) | passageiro 38,0% (737-800)
+```
+
+As duas linhas são o desenho: **no longo curso a carga empata com o passageiro
+ou fica pouco abaixo; no curto ela não paga.** Cargueiro é aposta de longo
+curso, e comprar um para etapa curta tem que ser erro.
+
+Duas alavancas, e elas não são intercambiáveis: `KC` mexe no **tamanho** do
+mercado (quantos cargueiros a rota sustenta) e `refRate` mexe na **margem**.
+Num avião que já voa cheio só o `refRate` tem efeito — foi assim que o 767F
+foi calibrado, porque ele enche antes de a demanda acabar.
+
+Para conferir ponta a ponta, sem depender da previsão:
+
+```bash
+npx tsx scripts/cargo-check.ts GRU MIA a332f
+```
+
+Ele compra, abre, aloca, roda 60 dias e lê o resultado do **tick**. Também
+confere as duas travas de alocação.
+
 ## Os números que governam tudo
 
 Antes de inventar uma constante nova, veja se um destes já é a alavanca certa:
@@ -57,6 +98,9 @@ Antes de inventar uma constante nova, veja se um destes já é a alavanca certa:
 | `DISTRIBUTION_RATE = 0.085` | `economy.ts` | comissão sobre a receita |
 | `marketPrice` (`price * 0.45`) | `economy.ts` | ninguém paga preço de tabela; governa o ritmo de expansão da frota |
 | `START_CASH`, `HQ_DAILY_BASE` | `engine.ts` | quão apertado é o começo |
+| `KC = 46` | `demand.ts` | escala do mercado de carga: quantos cargueiros o par sustenta |
+| `refRate` (`170 + 0,45·dist`) | `demand.ts` | frete por tonelada — é aqui que a **margem** de carga se calibra |
+| `CARGO_SELLABLE = 0.94` | `economy.ts` | teto de ocupação do cargueiro, acima do 0,9 do passageiro |
 
 Preferir ajustar uma destas a espalhar fatores novos pelo código: quem vier
 depois precisa achar a alavanca, e cinco multiplicadores anônimos escondem

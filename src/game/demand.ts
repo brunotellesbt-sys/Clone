@@ -22,6 +22,28 @@ export interface MarketDemand {
 }
 
 const K = 1750
+/**
+ * Escala global da carga, o análogo do `K` do passageiro, e a tarifa de
+ * referência por tonelada. Os dois foram calibrados juntos contra a régua do
+ * passageiro, medida em GRU:
+ *
+ * | etapa | cargueiro | passageiro |
+ * |---|---|---|
+ * | GRU-JFK 4.138 nm | 31% (747F) a 41% (767F) | 41,5% (787-9) |
+ * | GRU-MIA 3.600 nm | 14% (737F) a 23% (A321F) | 38,0% (737-800) |
+ *
+ * As duas linhas são o desenho, não acidente: no longo curso a carga empata
+ * com o passageiro ou fica um pouco abaixo, e no curto ela **não paga** — que
+ * é o que acontece de verdade, porque ali o caminhão ganha. Cargueiro no jogo
+ * é aposta de longo curso, e comprar um para voar etapa curta é erro.
+ *
+ * `KC` mexe no tamanho do mercado (quantos cargueiros a rota sustenta);
+ * `refRate` mexe na margem. Num avião que já voa cheio só o `refRate` tem
+ * efeito — foi assim que o 767F foi calibrado.
+ */
+const KC = 46
+/** A carga não cai no fim de semana como o passageiro: ela se acumula nele. */
+const WEEKDAY_CARGO = [0.82, 1.1, 1.08, 1.06, 1.05, 1.09, 0.8]
 
 /** Demanda estrutural de um par O&D, antes de preço e concorrência. */
 export function baseDemand(from: string, to: string, day: number, dayOfYear: number): MarketDemand {
@@ -70,6 +92,59 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
 
   const refFare = (34 + 0.088 * dist) * (0.68 + 0.5 * gdp)
   return { pax, total, refFare, distance: dist }
+}
+
+export interface CargoDemand {
+  /** Toneladas por dia, nos dois sentidos somados. */
+  tons: number
+  /** Tarifa de referência por tonelada. */
+  refRate: number
+  distance: number
+}
+
+/**
+ * Demanda de carga aérea de um par O&D. É um mercado **próprio**, não um
+ * acréscimo sobre o de passageiro: quem move carga é comércio, não turismo.
+ *
+ * Três coisas separam esta curva da de passageiro, e são o que faz cargueiro
+ * ter sentido no jogo:
+ *
+ * - **a distância pesa muito menos**. Caminhão e trem ganham do avião no curto;
+ *   o que sobra para a carga aérea é o longo curso. O decaimento usa 2.200 nm
+ *   de escala contra 700 nm do passageiro, e expoente 0,75 contra 1,35;
+ *
+ * - **abaixo de 600 nm o mercado quase não existe** — a carga vai de caminhão.
+ *   É o contrário do passageiro, que tem ponte aérea curta cheia;
+ *
+ * - **a sazonalidade é outra**: carga não tem verão, tem pico de fim de ano
+ *   antecipado (a encomenda voa em novembro para chegar em dezembro).
+ *
+ * O turismo não entra. O PIB entra com expoente alto porque o que gera carga
+ * aérea é indústria e consumo, não população pura.
+ */
+export function cargoDemand(from: string, to: string, day: number, dayOfYear: number): CargoDemand {
+  const a = AIRPORT_BY_IATA[from]
+  const b = AIRPORT_BY_IATA[to]
+  const dist = distanceBetween(from, to)
+  const mass = Math.sqrt(a.pop * b.pop)
+  const gdp = (a.gdp + b.gdp) / 2
+  const sameCountry = a.cc === b.cc ? 0.72 : 1 // no doméstico o caminhão compete
+  const hubBonus = 1 + 0.09 * (a.tier + b.tier - 4) // carga concentra em hub
+  const decay = 1 / (1 + Math.pow(dist / 2200, 0.75))
+  const curto = dist < 600 ? 0.25 + (0.75 * dist) / 600 : 1
+  const pico = 1 + 0.22 * Math.exp(-(((dayOfYear - 320) % 365) ** 2) / 900)
+  const noise = 0.85 + 0.3 * hashStr(`C${odKey(from, to)}`)
+  const growth = 1 + day * 0.00016 // o mercado de carga cresce mais rápido
+
+  const tons = Math.max(
+    0,
+    KC * Math.pow(mass, 0.75) * Math.pow(gdp, 1.6) * decay * curto * sameCountry *
+      hubBonus * pico * noise * growth * WEEKDAY_CARGO[(day + 4) % 7],
+  )
+  // Por tonelada-quilômetro a carga aérea cobra bem menos que passageiro, mas a
+  // tonelada rende mais que o assento: uma tonelada ocupa o lugar de ~10 pax.
+  const refRate = (170 + 0.45 * dist) * (0.75 + 0.4 * gdp)
+  return { tons, refRate, distance: dist }
 }
 
 export const CLASS_FARE_MULT: Record<CabinClass, number> = { y: 1, w: 1.75, c: 3, f: 6.5 }

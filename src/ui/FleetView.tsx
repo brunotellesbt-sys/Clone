@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AIRCRAFT_BY_ID, acLabel } from '../game/data/aircraft'
+import { AIRCRAFT_BY_ID, acLabel, ehCargueiro } from '../game/data/aircraft'
 import { ENGINES, engineLabel } from '../game/data/engines'
 import {
   abreastOf, cabinLength, checkCabin, clampPitch, crewFor, LAYOUTS, PITCH_RANGE,
@@ -48,8 +48,13 @@ export function FleetView() {
                       <td>{acLabel(t)}</td>
                       <td className="muted" style={{ fontSize: 12 }}>{eng?.name ?? '—'}</td>
                       <td className="r">
-                        {sumCabins(a.seats)}{' '}
-                        <span className="muted" style={{ fontSize: 11 }}>{premium || 'classe única'}</span>
+                        {/* Cargueiro não tem cabine: o número que descreve ele é a carga paga. */}
+                        {ehCargueiro(t) ? (
+                          <>{t.payload} t <span className="muted" style={{ fontSize: 11 }}>carga</span></>
+                        ) : (
+                          <>{sumCabins(a.seats)}{' '}
+                            <span className="muted" style={{ fontSize: 11 }}>{premium || 'classe única'}</span></>
+                        )}
                       </td>
                       <td className="r">{a.age.toFixed(1)} a</td>
                       <td className="r" style={{ minWidth: 78 }}>
@@ -59,7 +64,9 @@ export function FleetView() {
                         {grounded ? <span className="chip bad">hangar</span> : route ? `${route.from}–${route.to}` : <span className="muted">parado</span>}
                       </td>
                       <td className="r">
-                        <button className="btn sm" onClick={(e) => { e.stopPropagation(); setConfig(a) }}>Cabine</button>
+                        {ehCargueiro(t)
+                          ? <span className="muted" style={{ fontSize: 11 }}>sem cabine</span>
+                          : <button className="btn sm" onClick={(e) => { e.stopPropagation(); setConfig(a) }}>Cabine</button>}
                       </td>
                     </tr>
                   )
