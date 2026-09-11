@@ -2,17 +2,18 @@ import { AIRCRAFT_BY_ID, type AircraftType } from './data/aircraft'
 import { SAVE_VERSION } from './save'
 import { AIRPORT_BY_IATA } from './data/airports'
 import { BLANK_LIVERY } from '../livery/presets'
-import { baseDemand, CLASS_FARE_MULT } from './demand'
+import { baseDemand, cargoDemand, CLASS_FARE_MULT } from './demand'
 import { cabinComfort, checkCabin, clampPitch, crewFor, defaultCabin } from './cabin'
 import { engineIdFor, withEngine } from './spec'
 import {
-  addCabins, allocateMarket, blockHours, DISTRIBUTION_RATE, emptyCabins,
-  flightCost, leaseMonthly, marketPrice, maxDailyFrequency, resaleValue, SELLABLE,
-  sumCabins, ticketRevenue, type Carrier,
+  addCabins, allocateCargoMarket, allocateMarket, blockHours, CARGO_SELLABLE,
+  DISTRIBUTION_RATE, emptyCabins, flightCost, leaseMonthly, marketPrice,
+  maxDailyFrequency, resaleValue, SELLABLE, sumCabins, ticketRevenue,
+  type CargoCarrier, type Carrier,
 } from './economy'
 import { distanceBetween, odKey } from './geo'
 import { createCompetitors, stepCompetitors } from './ai'
-import { between, chance, makeRng, type Rng } from './rng'
+import { between, chance, hashStr, makeRng, type Rng } from './rng'
 import {
   CABINS, type Aircraft, type Cabins, type DayResult, type GameState, type Livery,
   type Notice, type Route,
@@ -183,7 +184,12 @@ export function routeSlotCost(from: string, to: string, freq: number): number {
   return (a.tier ** 2 + b.tier ** 2) * 42000 * Math.max(1, freq) * 0.25 + 180000
 }
 
-export function openRoute(s: GameState, from: string, to: string): string | null {
+/**
+ * Abre uma rota. `cargo` decide o mercado que ela disputa, e é escolha do
+ * jogador na abertura — não dá para deduzir da aeronave, porque a rota nasce
+ * sem nenhuma alocada.
+ */
+export function openRoute(s: GameState, from: string, to: string, cargo = false): string | null {
   if (from === to) return 'Origem e destino iguais.'
   if (!s.airline.hubs.includes(from) && !s.airline.hubs.includes(to))
     return 'Toda rota precisa tocar em uma das suas bases.'
@@ -202,10 +208,11 @@ export function openRoute(s: GameState, from: string, to: string): string | null
     aircraftIds: [],
     freq: [1, 1, 1, 1, 1, 1, 1],
     fare: { y: 1, w: 1, c: 1, f: 1 },
+    ...(cargo ? { cargo: true } : {}),
     openedDay: s.day,
     history: [],
   })
-  notify(s, 'good', `Rota ${from}–${to} aberta (${Math.round(dist)} nm).`)
+  notify(s, 'good', `Rota ${cargo ? 'de carga ' : ''}${from}–${to} aberta (${Math.round(dist)} nm).`)
   return null
 }
 
@@ -223,6 +230,12 @@ export function assignAircraft(s: GameState, acId: string, routeId: string): str
   const r = routeOf(s, routeId)
   if (!ac || !r) return 'Seleção inválida.'
   const t = typeOf(ac)
+  // Cargueiro não tem cabine e avião de passageiro não tem porta de carga: um
+  // não substitui o outro, e misturar os dois na mesma rota faria metade dos
+  // voos disputar um mercado que a rota não atende.
+  const cargueiro = t.payload !== undefined
+  if (cargueiro && !r.cargo) return `${t.name} é cargueiro e só voa em rota de carga.`
+  if (!cargueiro && r.cargo) return `${t.name} não tem porta de carga: rota de carga pede cargueiro.`
   if (t.range < r.distance) return `${t.name} não alcança ${Math.round(r.distance)} nm (limite ${t.range} nm).`
   const from = AIRPORT_BY_IATA[r.from]
   const to = AIRPORT_BY_IATA[r.to]
@@ -373,6 +386,7 @@ export function advanceDay(s: GameState): GameState {
   // 1) O que a companhia coloca no ar hoje.
   const perRoute: RouteDay[] = []
   const carriersByOd = new Map<string, Carrier[]>()
+  const perCargo: { route: Route; flights: number; tons: number }[] = []
   const playerQuality = (0.72 + 0.55 * s.airline.reputation) * (1 + Math.min(0.12, s.airline.marketing / 2.4e6))
 
   for (const r of s.airline.routes) {
@@ -381,6 +395,17 @@ export function advanceDay(s: GameState): GameState {
     const limit = acs.reduce((sum, a) => sum + maxDailyFrequency(typeOf(a), r.distance) / 2, 0)
     const flights = Math.max(0, Math.min(Math.floor(limit), r.freq[dow]))
     if (flights === 0) continue
+
+    // Rota de carga não tem cabine: sai por outro caminho, com outro mercado.
+    if (r.cargo) {
+      let tons = 0
+      for (let i = 0; i < flights; i++) {
+        const t = typeOf(acs[i % acs.length])
+        tons += (t.payload ?? 0) * 2 * CARGO_SELLABLE
+      }
+      if (tons > 0) perCargo.push({ route: r, flights, tons })
+      continue
+    }
 
     // Distribui os voos entre as aeronaves alocadas (rodízio).
     let seats: Cabins = emptyCabins()
@@ -496,6 +521,67 @@ export function advanceDay(s: GameState): GameState {
     today.pax = addCabins(today.pax, pax)
     today.flights += dayRes.flights
     today.seats += dayRes.seats
+    today.revenue += dayRes.revenue
+    today.cost += dayRes.cost
+  }
+
+  // 3b) Rotas de carga. Mercado próprio, apurado do mesmo jeito.
+  for (const cd of perCargo) {
+    const r = cd.route
+    const key = odKey(r.from, r.to)
+    const demandaC = cargoDemand(r.from, r.to, s.day, doy)
+
+    // Quem já estava no par. Sem isto o jogador seria monopolista de carga em
+    // toda rota que abrisse, e o mercado deixaria de ter preço.
+    const incumbentes: CargoCarrier[] = [{
+      id: `I:${key}`,
+      tons: demandaC.tons * 0.8,
+      freq: 1 + Math.floor(3 * hashStr(`F${key}`)),
+      rateMult: 0.95 + 0.2 * hashStr(`R${key}`),
+      quality: 0.9 + 0.25 * hashStr(`Q${key}`),
+    }]
+    const meu: CargoCarrier = {
+      id: `P:${r.id}`,
+      tons: cd.tons,
+      freq: cd.flights,
+      rateMult: r.fare.y,
+      quality: playerQuality,
+    }
+    const allocC = allocateCargoMarket(demandaC, [meu, ...incumbentes])
+    const tons = allocC.find((a) => a.id === meu.id)?.tons ?? 0
+    s.lastShare[key] = allocC.find((a) => a.id === meu.id)?.share ?? 0
+
+    const revenue = tons * demandaC.refRate * r.fare.y * (1 - DISTRIBUTION_RATE)
+
+    const acs = availableAircraft(s, r)
+    let cost = 0
+    for (let i = 0; i < cd.flights; i++) {
+      const ac = acs[i % acs.length]
+      const t = typeOf(ac)
+      // Sem passageiro não há comissaria nem comissário: os dois entram zerados.
+      const c = flightCost(t, r.distance, r.from, r.to, s.fuelPrice, ac.age, 0, 0, 0)
+      cost += c.total * 2
+      ac.hours += c.blockH * 2
+      ac.cycles += 2
+      ac.condition = Math.max(0, ac.condition - (0.00055 + c.blockH * 0.00013))
+    }
+
+    const dayRes: DayResult = {
+      day: s.day,
+      pax: emptyCabins(),
+      flights: cd.flights,
+      seats: 0,
+      revenue,
+      cost,
+      profit: revenue - cost,
+      loadFactor: cd.tons > 0 ? tons / cd.tons : 0,
+      tons,
+      tonsOffered: cd.tons,
+    }
+    r.history.push(dayRes)
+    if (r.history.length > HISTORY_KEEP) r.history.shift()
+
+    today.flights += dayRes.flights
     today.revenue += dayRes.revenue
     today.cost += dayRes.cost
   }
@@ -627,18 +713,41 @@ export function period(s: GameState, days: number) {
 }
 
 export function routeEconomics(s: GameState, r: Route) {
-  const demand = baseDemand(r.from, r.to, s.day, dayOfYear(s))
   const last = r.history.slice(-14)
   const revenue = last.reduce((x, d) => x + d.revenue, 0)
   const cost = last.reduce((x, d) => x + d.cost, 0)
+  const base = {
+    share: s.lastShare[odKey(r.from, r.to)] ?? 0,
+    revenue, cost, profit: revenue - cost,
+    days: last.length,
+  }
+
+  // Em rota de carga a unidade é a tonelada, e o mercado é outro. A tela lê
+  // daqui, então ela não precisa saber de qual dos dois veio o número.
+  if (r.cargo) {
+    const dc = cargoDemand(r.from, r.to, s.day, dayOfYear(s))
+    const tons = last.reduce((x, d) => x + (d.tons ?? 0), 0)
+    const oferta = last.reduce((x, d) => x + (d.tonsOffered ?? 0), 0)
+    return {
+      ...base,
+      demand: { pax: emptyCabins(), total: dc.tons, refFare: dc.refRate, distance: dc.distance },
+      pax: tons,
+      loadFactor: oferta ? tons / oferta : 0,
+      cargo: true,
+      unidade: 't',
+    }
+  }
+
+  const demand = baseDemand(r.from, r.to, s.day, dayOfYear(s))
   const pax = last.reduce((x, d) => x + sumCabins(d.pax), 0)
   const seats = last.reduce((x, d) => x + d.seats, 0)
   return {
+    ...base,
     demand,
-    share: s.lastShare[odKey(r.from, r.to)] ?? 0,
-    revenue, cost, profit: revenue - cost, pax,
+    pax,
     loadFactor: seats ? pax / seats : 0,
-    days: last.length,
+    cargo: false,
+    unidade: 'pax',
   }
 }
 
@@ -646,9 +755,16 @@ export function fareInDollars(r: Route, cabin: keyof Cabins, refFare: number) {
   return refFare * CLASS_FARE_MULT[cabin] * r.fare[cabin]
 }
 
+/**
+ * Previsão mostrada antes de abrir a rota. Precisa usar a **mesma regra** do
+ * tick, senão o jogador aprende a desconfiar da própria tela — por isso a
+ * estimativa de carga repete o caminho de `advanceDay`, com o mesmo mercado e
+ * a mesma frota incumbente.
+ */
 export function estimateRoute(s: GameState, from: string, to: string, typeId: string, freq: number) {
   const t: AircraftType = AIRCRAFT_BY_ID[typeId]
   const dist = distanceBetween(from, to)
+  if (t.payload !== undefined) return estimateCargoRoute(s, from, to, t, freq, dist)
   const demand = baseDemand(from, to, s.day, dayOfYear(s))
   const seats = defaultCabin(t, 1).seats
   const offered = sumCabins(seats) * freq * 2 * SELLABLE
@@ -662,6 +778,33 @@ export function estimateRoute(s: GameState, from: string, to: string, typeId: st
     flightCost(t, dist, from, to, s.fuelPrice, 2, pax / Math.max(1, freq * 2), premiumPax / Math.max(1, freq * 2))
       .total * 2 * freq
   return { dist, demand, offered, pax, revenue, cost, profit: revenue - cost, rivals: rivals.length, blockH: blockHours(t, dist) }
+}
+
+function estimateCargoRoute(
+  s: GameState, from: string, to: string, t: AircraftType, freq: number, dist: number,
+) {
+  const demandaC = cargoDemand(from, to, s.day, dayOfYear(s))
+  const key = odKey(from, to)
+  const offered = (t.payload ?? 0) * freq * 2 * CARGO_SELLABLE
+  const incumbentes: CargoCarrier[] = [{
+    id: `I:${key}`,
+    tons: demandaC.tons * 0.8,
+    freq: 1 + Math.floor(3 * hashStr(`F${key}`)),
+    rateMult: 0.95 + 0.2 * hashStr(`R${key}`),
+    quality: 0.9 + 0.25 * hashStr(`Q${key}`),
+  }]
+  const meu: CargoCarrier = { id: 'P', tons: offered, freq, rateMult: 1, quality: 1 }
+  const tons = allocateCargoMarket(demandaC, [meu, ...incumbentes]).find((a) => a.id === 'P')?.tons ?? 0
+  const revenue = tons * demandaC.refRate * (1 - DISTRIBUTION_RATE)
+  const cost = flightCost(t, dist, from, to, s.fuelPrice, 2, 0, 0, 0).total * 2 * freq
+  return {
+    dist,
+    demand: { pax: emptyCabins(), total: demandaC.tons, refFare: demandaC.refRate, distance: dist },
+    offered, pax: tons, revenue, cost, profit: revenue - cost,
+    rivals: incumbentes.length,
+    blockH: blockHours(t, dist),
+    cargo: true as const,
+  }
 }
 
 export const CABIN_KEYS = CABINS

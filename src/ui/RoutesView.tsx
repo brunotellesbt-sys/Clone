@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { AIRCRAFT_BY_ID, acLabel } from '../game/data/aircraft'
+import { AIRCRAFT_BY_ID, acLabel, ehCargueiro } from '../game/data/aircraft'
 import { AIRPORTS, AIRPORT_BY_IATA } from '../game/data/airports'
-import { baseDemand, CLASS_FARE_MULT } from '../game/demand'
+import { baseDemand, cargoDemand, CLASS_FARE_MULT } from '../game/demand'
 import { sumCabins } from '../game/economy'
 import { distanceBetween, odKey } from '../game/geo'
 import {
@@ -78,9 +78,9 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
       <Card title={`${route.from} → ${route.to} · ${AIRPORT_BY_IATA[route.to].city}`}>
         <div className="grid g2" style={{ gap: 8, fontSize: 13, marginBottom: 10 }}>
           <div><span className="muted">Distância</span><br />{num(route.distance)} nm</div>
-          <div><span className="muted">Mercado hoje</span><br />{num(e.demand.total)} pax/dia</div>
+          <div><span className="muted">Mercado hoje</span><br />{num(e.demand.total)} {e.unidade}/dia</div>
           <div><span className="muted">Sua fatia</span><br />{pct(e.share, 1)}</div>
-          <div><span className="muted">Tarifa base</span><br />${e.demand.refFare.toFixed(0)}</div>
+          <div><span className="muted">{e.cargo ? 'Frete base' : 'Tarifa base'}</span><br />${e.demand.refFare.toFixed(0)}{e.cargo ? '/t' : ''}</div>
         </div>
         <Spark values={hist.length > 1 ? hist : [0, 0]} w={330} h={44} color={e.profit >= 0 ? '#34d399' : '#fb7185'} />
         <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -96,7 +96,7 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
           if (!ac) return null
           return (
             <div key={id} className="row" style={{ justifyContent: 'space-between', padding: '4px 0' }}>
-              <span>{ac.reg} · {acLabel(typeOf(ac))} <span className="muted">{sumCabins(ac.seats)} assentos</span></span>
+              <span>{ac.reg} · {acLabel(typeOf(ac))} <span className="muted">{ehCargueiro(typeOf(ac)) ? `${typeOf(ac).payload} t` : `${sumCabins(ac.seats)} assentos`}</span></span>
               <button className="btn sm" onClick={() => act((s) => unassignAircraft(s, id))}>Retirar</button>
             </div>
           )
@@ -177,6 +177,9 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
   const [hub, setHub] = useState(state.airline.hubs[0])
   const [q, setQ] = useState('')
   const [dest, setDest] = useState<string | null>(null)
+  // Passageiro ou carga é escolha da abertura: a rota nasce sem aeronave, então
+  // não dá para deduzir da frota alocada.
+  const [carga, setCarga] = useState(false)
   const doy = dayOfYear(state)
 
   const options = useMemo(() => {
@@ -184,7 +187,11 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
     return AIRPORTS.filter((a) => a.iata !== hub && !open.has(odKey(hub, a.iata)))
       .map((a) => {
         const dist = distanceBetween(hub, a.iata)
-        const d = baseDemand(hub, a.iata, state.day, doy)
+        const dp = baseDemand(hub, a.iata, state.day, doy)
+        const dc = cargoDemand(hub, a.iata, state.day, doy)
+        const d = carga
+          ? { ...dp, total: dc.tons, refFare: dc.refRate }
+          : dp
         const rivals = state.competitors.reduce(
           (n, c) => n + c.routes.filter((r) => r.key === odKey(hub, a.iata)).length, 0)
         return { a, dist, demand: d, rivals }
@@ -193,18 +200,25 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
       .filter((o) => !q || `${o.a.iata} ${o.a.city} ${o.a.country}`.toLowerCase().includes(q.toLowerCase()))
       .sort((x, y) => y.demand.total - x.demand.total)
       .slice(0, 90)
-  }, [hub, q, state, doy])
+  }, [hub, q, state, doy, carga])
 
   const chosen = options.find((o) => o.a.iata === dest) ?? null
   const usable = chosen
     ? Object.values(AIRCRAFT_BY_ID).filter(
-        (t) => t.range >= chosen.dist && t.runway <= Math.min(AIRPORT_BY_IATA[hub].runway, chosen.a.runway) &&
+        (t) => ehCargueiro(t) === carga &&
+          t.range >= chosen.dist && t.runway <= Math.min(AIRPORT_BY_IATA[hub].runway, chosen.a.runway) &&
           state.startYear + state.day / 365 >= t.since,
       )
     : []
   const best = chosen && usable.length
     ? usable
-        .map((t) => ({ t, est: estimateRoute(state, hub, chosen.a.iata, t.id, Math.max(1, Math.round(chosen.demand.total / (t.maxSeats * 3)))) }))
+        .map((t) => ({
+          t,
+          // Frequência de partida: encher o avião umas três vezes. No cargueiro
+          // a conta é a mesma, com a carga paga no lugar do assento.
+          est: estimateRoute(state, hub, chosen.a.iata, t.id,
+            Math.max(1, Math.round(chosen.demand.total / ((t.maxSeats || (t.payload ?? 1)) * 3)))),
+        }))
         .sort((x, y) => y.est.profit - x.est.profit)
         .slice(0, 4)
     : []
@@ -212,6 +226,14 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
   return (
     <Modal title="Abrir nova rota" onClose={onClose} wide>
       <div className="row" style={{ marginBottom: 12 }}>
+        <div className="row tight" style={{ flex: '0 0 auto' }}>
+          <button className={`btn sm ${carga ? '' : 'primary'}`} onClick={() => { setCarga(false); setDest(null) }}>
+            Passageiro
+          </button>
+          <button className={`btn sm ${carga ? 'primary' : ''}`} onClick={() => { setCarga(true); setDest(null) }}>
+            Carga
+          </button>
+        </div>
         <label className="field" style={{ flex: '0 0 200px', marginBottom: 0 }}>
           <span>Saindo de</span>
           <select value={hub} onChange={(e) => setHub(e.target.value)}>
@@ -273,7 +295,7 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
                         <span className={est.profit >= 0 ? 'good' : 'bad'}>{money(est.profit)}/dia</span>
                       </div>
                       <span className="muted" style={{ fontSize: 12 }}>
-                        {est.blockH.toFixed(1)} h de voo · {num(est.pax)} pax/dia · receita {money(est.revenue)}
+                        {est.blockH.toFixed(1)} h de voo · {num(est.pax)} {carga ? 't/dia' : 'pax/dia'} · receita {money(est.revenue)}
                       </span>
                       <Bar value={est.revenue ? Math.max(0, est.profit / est.revenue) : 0} />
                     </div>
@@ -284,7 +306,7 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
                 className="btn primary"
                 style={{ width: '100%', marginTop: 12 }}
                 onClick={() => {
-                  const err = act((s) => openRoute(s, hub, chosen.a.iata))
+                  const err = act((s) => openRoute(s, hub, chosen.a.iata, carga))
                   if (err) return toast(err, 'error')
                   const r = state.airline.routes[state.airline.routes.length - 1]
                   onOpened(r.id)

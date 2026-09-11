@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AIRCRAFT, acLabel, AIRCRAFT_BY_ID } from '../game/data/aircraft'
+import { AIRCRAFT_ALL, acLabel, AIRCRAFT_BY_ID } from '../game/data/aircraft'
 import type { Livery } from '../game/types'
 import { AircraftArt } from '../livery/AircraftArt'
 import { creditLine, creditSource } from '../livery/art'
@@ -124,7 +124,7 @@ export function LiveryEditor() {
         right={
           <div className="row tight">
             <select value={preview} onChange={(e) => setPreview(e.target.value)} style={{ width: 230 }}>
-              {AIRCRAFT.map((a) => (
+              {AIRCRAFT_ALL.map((a) => (
                 <option key={a.id} value={a.id}>{acLabel(a)}</option>
               ))}
             </select>

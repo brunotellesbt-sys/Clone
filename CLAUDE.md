@@ -43,6 +43,7 @@ regra mais importante do repositório.
 | `npm run sim -- GRU 2920` | joga sozinho 8 anos a partir de um hub e imprime a evolução financeira |
 | `npm run nose -- b737 a321neo` | render da silhueta para conferir o desenho (`FULL=1` para o avião inteiro) |
 | `npm run cabines` | confere as configurações de cabine |
+| `npx tsx scripts/cargo-check.ts GRU MIA a332f` | roda uma rota de carga de ponta a ponta no tick |
 | `npm run smoke` | abre o jogo num navegador headless e joga sozinho |
 | `npm run shots` | fotos das telas para o README |
 

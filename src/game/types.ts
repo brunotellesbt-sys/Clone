@@ -172,6 +172,10 @@ export interface DayResult {
   cost: number
   profit: number
   loadFactor: number
+  /** Toneladas embarcadas, só em rota de carga. */
+  tons?: number
+  /** Toneladas oferecidas, só em rota de carga — o denominador do load factor. */
+  tonsOffered?: number
 }
 
 export interface Route {
@@ -182,8 +186,18 @@ export interface Route {
   aircraftIds: string[]
   /** Frequências por dia da semana (0 = domingo). */
   freq: number[]
-  /** Multiplicador de tarifa por classe (1 = tarifa de referência). */
+  /**
+   * Multiplicador de tarifa por classe (1 = tarifa de referência). Em rota de
+   * carga só `y` é lido: é o multiplicador do frete por tonelada, e não há
+   * classe nenhuma para as outras três representarem.
+   */
   fare: Cabins
+  /**
+   * Rota de carga. Decidida na abertura, pela aeronave: cargueiro não tem
+   * cabine, então a rota dele disputa o mercado de carga e não o de passageiro.
+   * Ausente nas rotas antigas, que são todas de passageiro.
+   */
+  cargo?: boolean
   openedDay: number
   history: DayResult[]
 }

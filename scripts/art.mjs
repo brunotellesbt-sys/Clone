@@ -272,8 +272,16 @@ for (const [id, model] of Object.entries(models)) {
 // arte feita para o jogo vence a genérica) e saem da lista de "sem imagem
 // livre" se tivessem caído lá.
 const localSprites = []
-const spritesDir = join(ROOT, 'public', 'sprites', 'aircraft')
+// `aircraft/` são os aviões de passageiro e `freighters/` os cargueiros. As duas
+// pastas entram do mesmo jeito: sprite próprio vence qualquer resultado da
+// Commons para o mesmo id.
+const spriteDirs = [
+  join(ROOT, 'public', 'sprites', 'aircraft'),
+  join(ROOT, 'public', 'sprites', 'freighters'),
+]
+for (const spritesDir of spriteDirs) {
 if (existsSync(spritesDir)) {
+  const pasta = spritesDir.endsWith('freighters') ? 'freighters' : 'aircraft'
   for (const file of readdirSync(spritesDir)) {
     if (!file.endsWith('.png')) continue
     const stem = file.slice(0, -4)
@@ -281,7 +289,7 @@ if (existsSync(spritesDir)) {
     const bytes = readFileSync(join(spritesDir, file))
     const w = bytes.readUInt32BE(16)
     const h = bytes.readUInt32BE(20)
-    const entry = { file: `sprites/aircraft/${file}`, w, h }
+    const entry = { file: `sprites/${pasta}/${file}`, w, h }
     const key = engineId ? `${id}:${engineId}` : id
     manifest[key] = entry
     // Chave-base (`id` puro) como reserva, para quem consultar sem motor. Tem
@@ -295,6 +303,7 @@ if (existsSync(spritesDir)) {
     if (!localSprites.includes(id)) localSprites.push(id)
     console.log(`  ★ ${key}: sprite próprio (${w}×${h})`)
   }
+}
 }
 
 if (dry) {

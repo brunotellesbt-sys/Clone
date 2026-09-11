@@ -60,9 +60,14 @@ export function flightCost(
   const ageFactor = 0.86 + 0.045 * Math.min(age, 28)
   const maintenance = t.maint * (420 + t.price * 11) * blockH * ageFactor
 
-  const landing = (tier: number) => (1.4 + 0.5 * tier) * t.maxSeats * 2.2
+  // Taxa de pouso e handling vão pelo **porte**, não pelo assento. Num
+  // cargueiro `maxSeats` é 0, e sem isto a rota de carga sairia sem custo
+  // nenhum de aeroporto. Uma tonelada de carga paga ocupa o lugar de cerca de
+  // dez assentos em peso, que é a régua usada aqui.
+  const porte = t.maxSeats || (t.payload ?? 0) * 10
+  const landing = (tier: number) => (1.4 + 0.5 * tier) * porte * 2.2
   const fees = landing(a.tier) + landing(b.tier) + pax * (4.5 + 0.8 * ((a.tier + b.tier) / 2))
-  const handling = 700 + 5.5 * t.maxSeats
+  const handling = 700 + 5.5 * porte
   const catering = (pax - premiumPax) * (2 + 0.0022 * distNm) + premiumPax * (16 + 0.013 * distNm)
 
   const total = (fuel + crew + maintenance + fees + handling + catering) * COST_TUNING
@@ -73,6 +78,14 @@ export function flightCost(
 export const DISTRIBUTION_RATE = 0.085
 
 /** Nem todo assento é vendável: horário errado, no-show, desequilíbrio de sentido. */
+/**
+ * Teto de ocupação de um cargueiro. Mais alto que o do passageiro (0,9) porque
+ * carga se acomoda: palete de tamanhos diferentes fecha o porão melhor do que
+ * gente fecha uma cabine. Ainda não é 1 — porão cheio de volume leve estoura o
+ * espaço antes do peso.
+ */
+export const CARGO_SELLABLE = 0.94
+
 export const SELLABLE = 0.9
 
 export interface Carrier {
@@ -81,6 +94,73 @@ export interface Carrier {
   freq: number
   fareMult: number
   quality: number
+}
+
+export interface CargoCarrier {
+  id: string
+  /** Toneladas oferecidas por dia. */
+  tons: number
+  freq: number
+  rateMult: number
+  quality: number
+}
+
+export interface CargoAllocation {
+  id: string
+  tons: number
+  share: number
+}
+
+/**
+ * Reparte a demanda de carga. Mesmo logit do passageiro, com dois ajustes que
+ * vêm de como o mercado de carga se comporta de verdade:
+ *
+ * - **preço pesa mais** (`-2.4` contra `-2.1` da econômica): quem embarca carga
+ *   compara frete e não tem fidelidade;
+ * - **frequência pesa menos** (`0.38` contra `0.62`): um palete espera o próximo
+ *   voo sem reclamar, um passageiro não.
+ *
+ * A sobra também é reoferecida, e numa fração maior — 75% contra 55%. Carga que
+ * não embarcou hoje continua no armazém esperando; passageiro que não achou
+ * assento desiste da viagem.
+ */
+export function allocateCargoMarket(
+  demand: { tons: number },
+  carriers: CargoCarrier[],
+): CargoAllocation[] {
+  if (carriers.length === 0) return []
+  const avgRate = carriers.reduce((s, c) => s + c.rateMult, 0) / carriers.length
+  const total = demand.tons * priceElasticity(avgRate)
+  const out: CargoAllocation[] = carriers.map((c) => ({ id: c.id, tons: 0, share: 0 }))
+  if (total <= 0) return out
+
+  const attract = carriers.map((c) =>
+    c.tons > 0
+      ? Math.pow(Math.max(0.4, c.freq), 0.38) * Math.pow(Math.max(0.4, c.rateMult), -2.4) * c.quality
+      : 0,
+  )
+  const sum = attract.reduce((s, v) => s + v, 0)
+  if (sum <= 0) return out
+
+  let spill = 0
+  const left: number[] = []
+  for (let i = 0; i < carriers.length; i++) {
+    const want = (total * attract[i]) / sum
+    const got = Math.min(want, carriers[i].tons)
+    spill += want - got
+    out[i].tons = got
+    left.push(carriers[i].tons - got)
+  }
+  if (spill > 0.01) {
+    const leftSum = left.reduce((s, v) => s + v, 0)
+    if (leftSum > 0) {
+      const redistributable = Math.min(spill * 0.75, leftSum)
+      for (let i = 0; i < carriers.length; i++) out[i].tons += (redistributable * left[i]) / leftSum
+    }
+  }
+  const embarcado = out.reduce((s, o) => s + o.tons, 0)
+  for (const o of out) o.share = embarcado > 0 ? o.tons / embarcado : 0
+  return out
 }
 
 export interface Allocation {
