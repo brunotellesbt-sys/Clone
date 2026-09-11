@@ -5,8 +5,9 @@ import { artFor, DEFAULT_REGIONS, loadArtManifest, type ArtEntry } from './art'
 import { emblemHref } from './emblems'
 import { LiveryPlane } from './LiveryPlane'
 import {
-  cockpitMaskHref, engineMaskHref, gearStrutMaskHref, leadingEdgeMaskHref, measure, measured,
-  tailMaskHref, trailingEdgeMaskHref, wingMaskHref, wingTopMaskHref, wingletMaskHref, type Measured,
+  cockpitMaskHref, engineCowlMaskHref, fuseBands, gearStrutMaskHref, leadingEdgeMaskHref, measure, measured,
+  tailMaskHref, trailingEdgeMaskHref, wingMaskHref, wingTopMaskHref, wingletMaskHref,
+  type FuseBands, type Measured,
 } from './measure'
 import { FONT_STACK } from './silhouette'
 
@@ -52,6 +53,7 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   const [leMask, setLeMask] = useState<string | null>(null)
   const [topMask, setTopMask] = useState<string | null>(null)
   const [teMask, setTeMask] = useState<string | null>(null)
+  const [bands, setBands] = useState<FuseBands | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -87,7 +89,7 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
 
   useEffect(() => {
     let alive = true
-    engineMaskHref(type.id).then((m) => alive && setEngineMask(m))
+    engineCowlMaskHref(type.id).then((m) => alive && setEngineMask(m))
     return () => {
       alive = false
     }
@@ -97,6 +99,7 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
     let alive = true
     wingletMaskHref(type.id).then((m) => alive && setWingletMask(m))
     cockpitMaskHref(type.id).then((m) => alive && setCockpitMask(m))
+    fuseBands().then((b) => alive && setBands(b[type.id] ?? null))
     leadingEdgeMaskHref(type.id).then((m) => alive && setLeMask(m))
     wingTopMaskHref(type.id).then((m) => alive && setTopMask(m))
     trailingEdgeMaskHref(type.id).then((m) => alive && setTeMask(m))
@@ -246,6 +249,23 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
         <g mask={`url(#m-${uid})`}>
           {/* fuselagem inteira */}
           <rect x="0" y="0" width={w} height={h} fill={livery.fuselage} />
+
+          {/* As três faixas horizontais da fuselagem: dorso acima da fileira
+              de janela, cabine no meio, ventre abaixo da linha do motor. As
+              duas divisas vêm medidas por aeronave (fusebands.json). São
+              retângulos sobre a silhueta inteira, não máscaras recortadas —
+              recortar por fuselagemasks abriria anel de foto crua na divisa de
+              cada peça. Sem cor escolhida não pintam nada e a fuselagem segue
+              de uma cor só, como antes. */}
+          {bands && livery.crown && (
+            <rect x="0" y="0" width={w} height={h * bands.crown} fill={livery.crown} />
+          )}
+          {bands && livery.cabin && (
+            <rect x="0" y={h * bands.crown} width={w} height={h * (bands.belly - bands.crown)} fill={livery.cabin} />
+          )}
+          {bands && livery.lowerBody && (
+            <rect x="0" y={h * bands.belly} width={w} height={h} fill={livery.lowerBody} />
+          )}
 
           {/* Asa sem máscara própria: o retângulo de sempre, tudo abaixo da
               fuselagem. Fica aqui, antes da barriga, porque sem recorte ele
@@ -497,6 +517,119 @@ function Cheat({
           fill={fill}
         />
       )
+    case 'chevron': {
+      // galões apontando para o nariz, repetidos ao longo da fuselagem
+      const n = 5
+      const passo = planeW / n
+      const alt = height * 1.5
+      return (
+        <>
+          {Array.from({ length: n }, (_, i) => {
+            const bx = x0 + passo * i
+            return (
+              <path
+                key={i}
+                d={`M ${bx} ${mid - alt} L ${bx + passo * 0.55} ${mid} L ${bx} ${mid + alt} ` +
+                   `L ${bx + passo * 0.28} ${mid + alt} L ${bx + passo * 0.83} ${mid} ` +
+                   `L ${bx + passo * 0.28} ${mid - alt} Z`}
+                fill={i % 2 ? livery.cheat2 : livery.cheat}
+              />
+            )
+          })}
+        </>
+      )
+    }
+    case 'delta':
+      // cunha que sobe da barriga no nariz até o topo na cauda
+      return (
+        <path
+          d={`M ${x0 - planeW * 0.05} ${bandBot} L ${x0 + planeW * 1.05} ${bandTop} ` +
+             `L ${x0 + planeW * 1.05} ${bandBot} Z`}
+          fill={fill}
+        />
+      )
+    case 'diagonal':
+      // faixa única inclinada, subindo para a cauda
+      return (
+        <path
+          d={`M ${x0 - planeW * 0.05} ${mid + height * 1.8} L ${x0 + planeW * 1.05} ${mid - height * 1.8} ` +
+             `L ${x0 + planeW * 1.05} ${mid - height * 0.4} L ${x0 - planeW * 0.05} ${mid + height * 3.2} Z`}
+          fill={fill}
+        />
+      )
+    case 'ribbon':
+      // duas diagonais que se cruzam no meio da fuselagem
+      return (
+        <>
+          <path
+            d={`M ${x0 - planeW * 0.05} ${mid + height * 1.6} L ${x0 + planeW * 1.05} ${mid - height * 1.6} ` +
+               `L ${x0 + planeW * 1.05} ${mid - height * 0.5} L ${x0 - planeW * 0.05} ${mid + height * 2.7} Z`}
+            fill={livery.cheat}
+          />
+          <path
+            d={`M ${x0 - planeW * 0.05} ${mid - height * 1.6} L ${x0 + planeW * 1.05} ${mid + height * 1.6} ` +
+               `L ${x0 + planeW * 1.05} ${mid + height * 2.7} L ${x0 - planeW * 0.05} ${mid - height * 0.5} Z`}
+            fill={livery.cheat2}
+          />
+        </>
+      )
+    case 'triband': {
+      // três filetes finos, o do meio na segunda cor
+      const e = height * 0.3
+      return (
+        <>
+          <rect x="0" y={mid - height} width={w} height={e} fill={livery.cheat} />
+          <rect x="0" y={mid - e / 2} width={w} height={e} fill={livery.cheat2} />
+          <rect x="0" y={mid + height - e} width={w} height={e} fill={livery.cheat} />
+        </>
+      )
+    }
+    case 'checker': {
+      // fileira de losangos, alternando as duas cores
+      const n = 9
+      const passo = planeW / n
+      const r = height * 0.9
+      return (
+        <>
+          {Array.from({ length: n }, (_, i) => {
+            const cx = x0 + passo * (i + 0.5)
+            return (
+              <path
+                key={i}
+                d={`M ${cx} ${mid - r} L ${cx + r} ${mid} L ${cx} ${mid + r} L ${cx - r} ${mid} Z`}
+                fill={i % 2 ? livery.cheat2 : livery.cheat}
+              />
+            )
+          })}
+        </>
+      )
+    }
+    case 'billboard':
+      // bloco cheio na traseira, do topo à base da fuselagem
+      return (
+        <rect x={x0 + planeW * 0.55} y={bandTop} width={planeW * 0.55} height={bandBot - bandTop} fill={fill} />
+      )
+    case 'sunray': {
+      // leque de raios saindo da cauda, abrindo para o nariz
+      const n = 6
+      const origem = { x: x0 + planeW * 1.02, y: mid }
+      return (
+        <>
+          {Array.from({ length: n }, (_, i) => {
+            const t = (i - (n - 1) / 2) / n
+            const y1 = mid + t * height * 7
+            const y2 = mid + t * height * 7 + height * 0.55
+            return (
+              <path
+                key={i}
+                d={`M ${origem.x} ${origem.y} L ${x0 - planeW * 0.05} ${y1} L ${x0 - planeW * 0.05} ${y2} Z`}
+                fill={i % 2 ? livery.cheat2 : livery.cheat}
+              />
+            )
+          })}
+        </>
+      )
+    }
     default:
       return null
   }

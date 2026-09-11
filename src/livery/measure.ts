@@ -114,6 +114,14 @@ export const engineMaskHref = (id: string, base = import.meta.env.BASE_URL) => n
  */
 export const wingletMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('wingletmasks', id, base)
 
+/**
+ * A carenagem do motor — a chapa que leva tinta. O bocal de escape, o plug e o
+ * fan ficam de fora: são metal exposto e nenhuma companhia os pinta, mesma
+ * razão do pneu. `enginemasks` continua sendo a nacela inteira, para medir e
+ * para recortar esta; é esta aqui que o jogo pinta.
+ */
+export const engineCowlMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('enginecowlmasks', id, base)
+
 /** Vidraça da cabine de comando (public/sprites/cockpitmasks/). */
 export const cockpitMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('cockpitmasks', id, base)
 
@@ -126,6 +134,32 @@ export const cockpitMaskHref = (id: string, base = import.meta.env.BASE_URL) => 
 export const leadingEdgeMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('leadingedgemasks', id, base)
 export const wingTopMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('wingtopmasks', id, base)
 export const trailingEdgeMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('trailingedgemasks', id, base)
+
+/**
+ * As duas divisas que cortam a fuselagem em dorso, cabine e ventre, em fração
+ * da altura da imagem. Medidas por aeronave (topo da fileira de janela e centro
+ * da nacela) em `faixas_fuselagem.py`.
+ *
+ * São **linhas**, não máscaras, e de propósito: a arte pinta a fuselagem como
+ * retângulo recortado pela silhueta inteira, então faixa reta encaixa nesse
+ * mesmo desenho. Faixa recortada por `fuselagemasks` abriria um anel de foto
+ * crua na divisa de cada peça — 1,4% a 2,2% da silhueta, já medido.
+ */
+export interface FuseBands {
+  crown: number
+  belly: number
+}
+
+let bandsPromise: Promise<Record<string, FuseBands>> | null = null
+
+export function fuseBands(base = import.meta.env.BASE_URL): Promise<Record<string, FuseBands>> {
+  if (!bandsPromise) {
+    bandsPromise = fetch(`${base}sprites/fusebands.json`)
+      .then((r) => (r.ok ? r.json() : {}))
+      .catch(() => ({}))
+  }
+  return bandsPromise
+}
 
 export function measured(href: string): Measured | null | undefined {
   return cache.get(href)

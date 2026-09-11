@@ -7,7 +7,17 @@ export const CABIN_SHORT: Record<CabinClass, string> = { y: 'Y', w: 'W', c: 'C',
 
 export type Cabins = Record<CabinClass, number>
 
-export type CheatStyle = 'none' | 'straight' | 'wide' | 'double' | 'wave' | 'split' | 'fade'
+/**
+ * Desenho da pintura na fuselagem. Os sete primeiros são faixas; os oito
+ * últimos são formas geométricas que ocupam a fuselagem de outro jeito —
+ * cunha, diagonal, chevron, xadrez, blocos. Todos desenhados em coordenadas do
+ * avião (`x0` e `planeW`), não da imagem, para caírem no mesmo lugar relativo
+ * em qualquer modelo.
+ */
+export type CheatStyle =
+  | 'none' | 'straight' | 'wide' | 'double' | 'wave' | 'split' | 'fade'
+  | 'chevron' | 'delta' | 'diagonal' | 'ribbon' | 'triband' | 'checker'
+  | 'billboard' | 'sunray'
 export type TailStyle = 'solid' | 'stripes' | 'swoosh' | 'gradient' | 'split' | 'chevron'
 export type NoseStyle = 'body' | 'dark' | 'custom'
 export type TitleFont = 'sans' | 'wide' | 'serif' | 'mono'
@@ -36,6 +46,18 @@ export interface Livery {
   /** Radome. */
   nose: string
   noseStyle: NoseStyle
+  /**
+   * As três faixas horizontais da fuselagem: dorso (acima da fileira de
+   * janela), cabine (a faixa das janelas) e ventre (abaixo da linha do motor).
+   * As duas divisas são medidas por aeronave em `public/sprites/fusebands.json`.
+   *
+   * Nulo herda a cor principal, e é o padrão: pintadas sempre, as três cobririam
+   * a fuselagem inteira e o seletor "Cor principal" perderia o efeito — a mesma
+   * razão das três faixas da asa serem opcionais.
+   */
+  crown: string | null
+  cabin: string | null
+  lowerBody: string | null
 
   // ---- faixa
   cheat: string
@@ -50,7 +72,11 @@ export interface Livery {
   tail: string
   tailAccent: string
   tailStyle: TailStyle
-  /** Estabilizador horizontal. */
+  /**
+   * Estabilizador horizontal, setor próprio. Na arte de foto ele só existe
+   * desde que passou a ter máscara: antes saía com a cor da fuselagem, porque
+   * `tailmasks` é a deriva e mais nada.
+   */
   stab: string
   /** Emblema fictício sobre a deriva, além do `tailStyle`. */
   emblem: EmblemId
@@ -68,8 +94,13 @@ export interface Livery {
   wingTop: string | null
   trailingEdge: string | null
   winglet: string
+  /**
+   * Nacela. Pinta só a **carenagem**: o bocal de escape, o plug e o fan ficam
+   * com a cor da foto, porque são metal exposto e nenhuma companhia os pinta —
+   * mesma razão do pneu e da pá de hélice.
+   */
   engine: string
-  /** Aro do bocal e cone. */
+  /** Aro do bocal e cone, só no desenho vetorial. */
   engineCowl: string
   gear: string
 

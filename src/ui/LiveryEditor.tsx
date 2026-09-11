@@ -31,7 +31,8 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'detalhes', label: 'Detalhes' },
 ]
 
-type OptColorKey = Extract<keyof Livery, 'leadingEdge' | 'wingTop' | 'trailingEdge' | 'cockpit'>
+type OptColorKey = Extract<keyof Livery,
+  'leadingEdge' | 'wingTop' | 'trailingEdge' | 'cockpit' | 'crown' | 'cabin' | 'lowerBody'>
 
 type ColorKey = Extract<
   keyof Livery,
@@ -166,6 +167,12 @@ export function LiveryEditor() {
           {section === 'fuselagem' && (
             <>
               <Color k="fuselage" label="Cor principal" />
+              {/* As três faixas horizontais. Nulo herda a cor principal: sem
+                  isso elas cobririam a fuselagem inteira e "Cor principal"
+                  deixaria de ter efeito visível. */}
+              <OptColor k="crown" label="Dorso (acima das janelas)" herdaDe="cor principal" herdaCor={livery.fuselage} />
+              <OptColor k="cabin" label="Faixa da cabine" herdaDe="cor principal" herdaCor={livery.fuselage} />
+              <OptColor k="lowerBody" label="Ventre (abaixo do motor)" herdaDe="cor principal" herdaCor={livery.fuselage} />
               <Color k="belly" label="Barriga" />
               <Slider
                 label="Onde a barriga começa"
@@ -190,7 +197,7 @@ export function LiveryEditor() {
           {section === 'faixa' && (
             <>
               <Select
-                label="Desenho da faixa"
+                label="Desenho da pintura"
                 value={livery.cheatStyle}
                 options={[
                   { v: 'none', label: 'Sem faixa' },
@@ -198,8 +205,16 @@ export function LiveryEditor() {
                   { v: 'wide', label: 'Larga, descendo até a barriga' },
                   { v: 'double', label: 'Dupla, com duas cores' },
                   { v: 'wave', label: 'Onda subindo para a cauda' },
-                  { v: 'split', label: 'Diagonal' },
+                  { v: 'split', label: 'Meia-fuselagem em diagonal' },
                   { v: 'fade', label: 'Degradê ao longo do avião' },
+                  { v: 'chevron', label: 'Galões repetidos' },
+                  { v: 'delta', label: 'Cunha subindo para a cauda' },
+                  { v: 'diagonal', label: 'Faixa inclinada' },
+                  { v: 'ribbon', label: 'Fitas cruzadas' },
+                  { v: 'triband', label: 'Três filetes' },
+                  { v: 'checker', label: 'Fileira de losangos' },
+                  { v: 'billboard', label: 'Bloco na traseira' },
+                  { v: 'sunray', label: 'Leque de raios' },
                 ]}
                 onChange={(v) => set('cheatStyle', v as Livery['cheatStyle'])}
               />
