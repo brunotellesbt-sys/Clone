@@ -308,7 +308,7 @@ export function LiveryEditor() {
 
           {section === 'texto' && (
             <>
-              <Color k="titles" label="Letreiro" />
+              <Color k="titles" label="Cor da letra" />
               <Select
                 label="Tipografia"
                 value={livery.titleFont}
@@ -351,7 +351,7 @@ export function LiveryEditor() {
               {/* A bandeira é a do país da primeira matrícula de cada aeronave,
                   não a da base de hoje: um avião comprado no Brasil continua
                   com a bandeira do Brasil depois que a companhia muda de base. */}
-              <Toggle label="Bandeira do país da matrícula" value={livery.flag} onChange={(v) => set('flag', v)} />
+              <Toggle label="Bandeira ao lado do prefixo" value={livery.flag} onChange={(v) => set('flag', v)} />
               <p className="dim">
                 {bandeiraDoHub
                   ? `Aeronave comprada com base em ${state.airline.hubs[0]} nasce com a bandeira de ${paisDoHub}.`

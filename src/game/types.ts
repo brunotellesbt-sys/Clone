@@ -101,11 +101,11 @@ export interface Livery {
    * chapa de asa vai pintada de cinza de fábrica ou nada na maioria das
    * companhias, e é o que se vê olhando um pátio.
    *
-   * **Motor e trem não estão aqui, e não é esquecimento.** Nacela, perna,
-   * pneu e hélice ficam com a cor de origem, sem tinta de companhia. Era
-   * possível pintá-los e o resultado não convencia: a nacela pintada de cor
-   * chapada perde o torneado da peça, e o trem colorido deixa o avião com cara
-   * de brinquedo.
+   * **Motor e trem não estão aqui, e não é esquecimento.** Nacela, perna, roda
+   * e hélice ficam com a cor de origem: a arte desenha a própria foto, opaca,
+   * por cima delas. Pintá-las foi tentado de dois jeitos e nenhum convence —
+   * cor chapada mata o torneado da nacela e deixa o trem com cara de brinquedo,
+   * e o preto de borracha ainda recebia o borrão de sombra da foto por cima.
    */
   leadingEdge: string | null
   wingTop: string | null
