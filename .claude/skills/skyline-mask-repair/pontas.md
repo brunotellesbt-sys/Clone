@@ -40,6 +40,31 @@ conforme combinado: só fica de fora quem não tem nada.
 `a388` `b37m` `b39m` `b739` `b73g` `b748` `b779` `b77w` `b789` `b78x` `c919`
 `crj1000` `e170` `e175` `e190` `e195e2` `sj100`
 
+### Terceiro lote: 16 aprovados pelo portão, **zero** certos
+
+Rodado de novo com as máscaras de asa já corrigidas e encaixadas — a hipótese
+era a de sempre, "ponta mal achada é asa mal recortada". Não era. Dos 27
+pendentes: 7 não acharam semente, 4 o portão reprovou, **16 passaram e nenhum é
+winglet**. Conferido um a um em zoom: onze são retângulo ou borrão de fuselagem
+acima da ponta, três são tira ao longo da aresta de cima da asa, um é a cunha do
+intradorso do `b779` e um é um ponto solto.
+
+O motivo é estrutural e vale escrever: **na vista lateral o winglet está dentro
+da silhueta da fuselagem**, encostado nela, sem borda de fundo entre os dois. A
+semente do `winglet_batch.py` procura "silhueta acima da ponta que não é asa" —
+e isso é a fuselagem, quase sempre. O portão não tem como salvar: ele mede
+tamanho, box-fill, sangramento e aderência, e uma tira de fuselagem passa em
+todos.
+
+O que sobra, para quem for tentar de novo: a única evidência do winglet é o
+**contorno interno** que ele desenha por cima da fuselagem no mapa de borda.
+Semente tirada da silhueta nunca vai achá-lo; o caminho é crescer região a
+partir da ponta contida pelas bordas, ou dar ao SAM2 pontos ao longo de um raio
+curto subindo da ponta e escolher o recorte cuja borda case com o mapa de borda
+sem tocar a fileira de janela. Enquanto isso não existir, estes trinta e dois
+continuam sem setor — e sem setor é melhor do que com tira de fuselagem pintada
+de cor de winglet.
+
 ## A ponta voltou a ser achada depois que a asa foi consertada
 
 `an148` `an158` `arj21` `b310m` `b38m` `il96` estavam nesta lista como "ponta

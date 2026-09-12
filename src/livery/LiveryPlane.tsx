@@ -2,7 +2,7 @@ import { useId, useMemo } from 'react'
 import type { AircraftType } from '../game/data/aircraft'
 import type { Livery } from '../game/types'
 import { emblemHref } from './emblems'
-import { FONT_STACK, geometry, VIEW_H, VIEW_W, type Geometry } from './silhouette'
+import { FONT_STACK, geometry, LARGURA_GLIFO, VIEW_H, VIEW_W, type Geometry } from './silhouette'
 
 interface Props {
   type: AircraftType
@@ -43,8 +43,20 @@ export function LiveryPlane({ type, livery, titles, registration, className, sho
   const cheatH = Math.max(1, g.D * livery.cheatWidth)
   const noseColor = livery.noseStyle === 'body' ? null : livery.noseStyle === 'dark' ? '#1e293b' : livery.nose
 
-  const titleSize = Math.max(8, g.D * livery.titleSize)
-  const titleX = g.noseEnd + (g.tailStart - g.noseEnd) * livery.titleAt
+  // Mesma caixa do desenho de foto: o letreiro vive no dorso, acima da fileira
+  // de janela, e não passa da raiz da asa. Aqui a fileira já é geometria
+  // conhecida — é a própria lista de janelas — e a raiz da asa é a carenagem.
+  const fileira = g.upperWindows[0] ?? g.windows[0]
+  const janelaY = fileira ? fileira.y : top + g.D * 0.42
+  const dorso = Math.max(1, janelaY - top)
+  const vaoFim = g.noseEnd + (g.tailStart - g.noseEnd) * 0.52
+  const vao = Math.max(1, vaoFim - g.noseEnd)
+  const glifo = LARGURA_GLIFO[livery.titleFont] ?? 0.55
+  const cabe = titles?.length ? (vao * 0.98) / (titles.length * glifo) : Infinity
+  const titleSize = Math.max(8, Math.min(g.D * livery.titleSize, dorso * 0.86, cabe))
+  const titleY = (top + janelaY) / 2
+  const folga = Math.max(0, vao - (titles?.length ?? 0) * glifo * titleSize)
+  const titleX = g.noseEnd + (livery.titleAt / 0.75) * folga
 
   return (
     <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className={className} role="img" aria-label={`${type.maker} ${type.name}`}>
@@ -239,7 +251,7 @@ export function LiveryPlane({ type, livery, titles, registration, className, sho
 
       {titles && (
         <text
-          x={titleX} y={top + g.D * 0.23} fill={livery.titles}
+          x={titleX} y={titleY} fill={livery.titles}
           fontFamily={FONT_STACK[livery.titleFont]} fontSize={titleSize}
           fontWeight={livery.titleFont === 'wide' ? 900 : 700}
           letterSpacing={livery.titleFont === 'wide' ? '0.04em' : '0'}

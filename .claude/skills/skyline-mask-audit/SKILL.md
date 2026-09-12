@@ -142,11 +142,23 @@ com o setor vizinho — se a sobreposição explica o vazio, o vazio é a respos
 | `leadingedgemasks` | bordo de ataque | derivado: faixa da asa |
 | `wingtopmasks` | dorso da asa | derivado: faixa da asa |
 | `trailingedgemasks` | bordo de fuga | derivado: faixa da asa |
+| `windowmasks` | fileira de janela | subconjunto da fuselagem |
+| `tyremasks` | pneu | subconjunto do trem, cor fixa |
+| `propmasks` | hélice | fora da disputa: foi tirada de asa e motor |
+| `planemasks` | avião inteiro | fora da disputa: é o recorte da pintura |
 
-Quatro deles são **subconjuntos** de outro, de propósito: bordo de ataque,
-dorso e bordo de fuga saem da asa, e a cabine fica dentro da fuselagem. Esses
-pares se sobrepõem por construção e `maskcore.disputam` os exclui da conta de
-disputa — sem isso a auditoria acusaria 100% de sobreposição em todos.
+Vários são **subconjuntos** de outro, de propósito: bordo de ataque, dorso e
+bordo de fuga saem da asa, a cabine e a fileira de janela ficam dentro da
+fuselagem, o pneu sai do trem. Esses pares se sobrepõem por construção e
+`maskcore.disputam` os exclui da conta de disputa — sem isso a auditoria
+acusaria 100% de sobreposição em todos.
+
+Duas pastas não são setor rival de ninguém e estão em `FORA_DA_DISPUTA`:
+`planemasks`, que é a silhueta do avião inteiro e portanto contém todos, e
+`propmasks`, que é a hélice retirada de asa e motor. Quem varre
+`public/sprites/*masks/` sem essa lista conta o setor inteiro como disputado —
+38.221px no b737 — e o `autofix` passa a aceitar conserto que só "melhora"
+porque reduziu uma disputa que nunca existiu.
 
 A medida não sabe nem precisa saber que peça é qual: a referência é sempre a
 mesma foto. Foi assim que ela reprovou 38 de 54 candidatos a winglet vindos de

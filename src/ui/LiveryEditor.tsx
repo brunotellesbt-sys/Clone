@@ -302,11 +302,11 @@ export function LiveryEditor() {
                 ]}
                 onChange={(v) => set('titleFont', v as Livery['titleFont'])}
               />
-              <Slider
-                label="Tamanho"
-                value={livery.titleSize} min={0.12} max={0.7} step={0.01}
-                display={`${Math.round(livery.titleSize * 100)}% da fuselagem`}
-                onChange={(v) => set('titleSize', v)}
+              <Select
+                label="Tamanho da letra"
+                value={String(tamanhoDoLetreiro(livery.titleSize))}
+                options={TAMANHOS_DE_LETREIRO.map((t) => ({ v: String(t.v), label: t.label }))}
+                onChange={(v) => set('titleSize', +v)}
               />
               <Slider
                 label="Posição ao longo da fuselagem"
@@ -433,6 +433,29 @@ function ColorField({
       )}
     </div>
   )
+}
+
+/**
+ * Tamanhos de letreiro, em fração da altura da fuselagem.
+ *
+ * Era um controle contínuo de 12% a 70%, e continuar assim não faz sentido: a
+ * arte limita o letreiro ao dorso (entre o topo da fuselagem e a fileira de
+ * janela) e ao vão até a asa, então metade do curso do controle não mudava
+ * nada — o número subia e a letra ficava igual, presa no teto da caixa. Cinco
+ * degraus nomeados dizem o que se ganha, e o maior deles é o que a caixa
+ * aguenta em qualquer aeronave da frota.
+ */
+const TAMANHOS_DE_LETREIRO = [
+  { v: 0.16, label: 'Discreto' },
+  { v: 0.22, label: 'Pequeno' },
+  { v: 0.28, label: 'Médio' },
+  { v: 0.36, label: 'Grande' },
+  { v: 0.48, label: 'Enorme' },
+]
+
+/** O degrau mais perto do valor guardado — pinturas antigas caem no vizinho. */
+function tamanhoDoLetreiro(v: number): number {
+  return TAMANHOS_DE_LETREIRO.reduce((a, b) => (Math.abs(b.v - v) < Math.abs(a.v - v) ? b : a)).v
 }
 
 function Slider({

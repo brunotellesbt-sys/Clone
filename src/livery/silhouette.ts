@@ -684,3 +684,16 @@ export const FONT_STACK: Record<string, string> = {
   serif: 'Georgia, "Times New Roman", serif',
   mono: '"JetBrains Mono", "SFMono-Regular", Consolas, monospace',
 }
+
+/**
+ * Largura média de um glifo, em frações do corpo da fonte, uma por pilha do
+ * `FONT_STACK`. Serve para saber se o letreiro cabe no vão **antes** de
+ * desenhá-lo: medir texto de verdade exigiria o DOM, e a conta só precisa
+ * acertar o bastante para a letra não passar da asa.
+ */
+export const LARGURA_GLIFO: Record<string, number> = {
+  sans: 0.55,
+  wide: 0.62,
+  serif: 0.52,
+  mono: 0.6,
+}

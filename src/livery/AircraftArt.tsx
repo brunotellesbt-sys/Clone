@@ -9,7 +9,7 @@ import {
   bodyMaskHref, pieceBox, planeMaskHref, propMaskHref, tailMaskHref, trailingEdgeMaskHref, tyreMaskHref,
   windowMaskHref, wingMaskHref, wingTopMaskHref, wingletMaskHref, type FuseBands, type Measured, type PieceBox,
 } from './measure'
-import { FONT_STACK } from './silhouette'
+import { FONT_STACK, LARGURA_GLIFO } from './silhouette'
 
 interface Props {
   type: AircraftType
@@ -51,6 +51,7 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   const [failed, setFailed] = useState(false)
   const [preciseTail, setPreciseTail] = useState<string | null>(null)
   const [tailBox, setTailBox] = useState<PieceBox | null>(null)
+  const [wingBox, setWingBox] = useState<PieceBox | null>(null)
   const [gearMask, setGearMask] = useState<string | null>(null)
   const [wingMask, setWingMask] = useState<string | null>(null)
   const [engineMask, setEngineMask] = useState<string | null>(null)
@@ -108,7 +109,12 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
 
   useEffect(() => {
     let alive = true
-    wingMaskHref(type.id).then((m) => alive && setWingMask(m))
+    wingMaskHref(type.id).then((m) => {
+      if (!alive) return
+      setWingMask(m)
+      // A caixa da asa delimita o vão do letreiro — ver o cálculo mais abaixo.
+      if (m) pieceBox(m).then((b) => alive && setWingBox(b))
+    })
     return () => {
       alive = false
     }
@@ -175,18 +181,43 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   const cheatH = Math.max(1, bandH * livery.cheatWidth)
   const noseColor = livery.noseStyle === 'body' ? null : livery.noseStyle === 'dark' ? '#1e293b' : livery.nose
 
-  // O letreiro mora no dorso, entre o topo da fuselagem e a fileira de janela —
-  // é ali que ele fica em qualquer companhia, e a divisa da fileira já está
-  // medida por aeronave (fusebands.json). Sem a medida, cai na fração de sempre.
-  // O tamanho é do jogador, mas não passa da altura do dorso: com a faixa da
-  // fuselagem medida direito, o padrão de 0,34 cruzava a janela.
+  // O letreiro tem uma caixa, e ele não sai dela.
+  //
+  // Em cima, o dorso: entre o topo da fuselagem e a fileira de janela, divisa
+  // medida por aeronave (fusebands.json). É onde o letreiro fica em qualquer
+  // companhia do mundo, e é o que impede letra em cima de janela.
+  //
+  // Ao longo, do nariz até onde a asa começa (caixa de `wingmasks`). Letra
+  // atravessando a asa não existe em avião nenhum, e no jogo ficava pior ainda:
+  // a asa é pintada por cima, então o letreiro saía cortado no meio.
+  //
+  // O tamanho é do jogador — mas a caixa manda. Passou da altura do dorso ou do
+  // comprimento disponível, encolhe até caber.
   const crownY = bands ? h * bands.crown : bandTop + bandH * 0.42
   const dorsoH = Math.max(1, crownY - bandTop)
-  const titleSize = Math.max(8, Math.min(bandH * livery.titleSize, dorsoH * 0.86))
   const titleY = bands ? (bandTop + crownY) / 2 : bandTop + bandH * 0.3
+
+  // Onde a asa começa, contado do nariz em fração do comprimento do avião.
+  const asaFrac = wingBox
+    ? box?.noseLeft === false
+      ? (planeX0 + planeW - wingBox.box[2] * w) / planeW
+      : (wingBox.box[0] * w - planeX0) / planeW
+    : 0.62
+  const vaoIni = 0.04
+  const vaoFim = Math.max(vaoIni + 0.12, asaFrac - 0.02)
+  const vao = (vaoFim - vaoIni) * planeW
+
+  const texto = titles ?? ''
+  const largura = LARGURA_GLIFO[livery.titleFont]
+  const cabe = texto.length ? (vao * 0.98) / (texto.length * largura) : Infinity
+  const titleSize = Math.max(8, Math.min(bandH * livery.titleSize, dorsoH * 0.86, cabe))
+  const textoW = texto.length * largura * titleSize
+
   // As âncoras contam a partir do NARIZ, que no arquivo original pode estar
   // à direita — por isso a posição é medida no sentido do avião, não da imagem.
-  const along = 0.08 + livery.titleAt * 0.55
+  // O controle de posição desliza o letreiro dentro do vão, e não para fora.
+  const folga = Math.max(0, vao - textoW)
+  const along = vaoIni + (livery.titleAt / 0.75) * (folga / planeW)
   const titleXImg = flip ? planeX0 + planeW * (1 - along) : planeX0 + planeW * along
   const regXImg = flip ? w * tx1 + w * 0.01 : w * tx0 - w * 0.01
   // Espelhar o grupo inverteria as letras; então cada texto é contra-espelhado
