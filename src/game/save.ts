@@ -1,5 +1,6 @@
 import { migrateLivery } from '../livery/presets'
 import { AIRCRAFT_BY_ID } from './data/aircraft'
+import { AIRPORT_BY_IATA } from './data/airports'
 import { clampPitch, defaultCabin } from './cabin'
 import { engineIdFor } from './spec'
 import type { Aircraft, GameState } from './types'
@@ -15,6 +16,24 @@ const RENAMED: Record<string, string> = { a220: 'a220300' }
  */
 function migrate(s: GameState): GameState | null {
   if (!s || (s.version !== 1 && s.version !== SAVE_VERSION)) return null
+  if (!s.airline || !s.airline.hubs?.some((h) => AIRPORT_BY_IATA[h])) return null
+
+  // Save de versão anterior pode não ter listas que o jogo de hoje percorre sem
+  // checar, ou pode citar aeroporto que saiu do catálogo. Faltando uma lista, a
+  // tela quebra no primeiro `.map()` e o jogador vê tela preta — foi o que
+  // motivou a barreira de erro em `Boundary.tsx`. Aqui o save chega inteiro ou
+  // não chega.
+  s.airline.hubs = s.airline.hubs.filter((h) => AIRPORT_BY_IATA[h])
+  s.airline.fleet = s.airline.fleet ?? []
+  s.airline.routes = (s.airline.routes ?? []).filter(
+    (r) => AIRPORT_BY_IATA[r.from] && AIRPORT_BY_IATA[r.to],
+  )
+  s.airline.loans = s.airline.loans ?? []
+  s.competitors = s.competitors ?? []
+  s.ledger = s.ledger ?? []
+  s.notices = s.notices ?? []
+  s.lastShare = s.lastShare ?? {}
+
   s.airline.livery = migrateLivery(s.airline.livery)
   s.airline.fleet = s.airline.fleet.flatMap((raw): Aircraft[] => {
     const ac = raw as Aircraft
@@ -24,6 +43,8 @@ function migrate(s: GameState): GameState | null {
     ac.engineId = engineIdFor(t, ac.engineId)
     ac.pitch = clampPitch(ac.pitch)
     if (!ac.seats || typeof ac.seats.y !== 'number') ac.seats = defaultCabin(t).seats
+    // Save antigo não guardava o país da matrícula: cai no da base de hoje.
+    ac.cc = ac.cc || AIRPORT_BY_IATA[s.airline.hubs[0]]?.cc || 'BR'
     return [ac]
   })
   s.version = SAVE_VERSION

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { AIRCRAFT_ALL, acLabel, ehCargueiro, FAMILY_OF, type AircraftType } from '../game/data/aircraft'
+import { AIRPORT_BY_IATA } from '../game/data/airports'
 import { engineLabel, type Engine } from '../game/data/engines'
 import { cabinLength, defaultCabin, rowLayout, sumSeats } from '../game/cabin'
 import { leaseMonthly, marketPrice } from '../game/economy'
@@ -99,6 +100,7 @@ export function MarketView() {
             <AircraftArt
               type={sel} engineId={chosen?.id} livery={state.airline.livery}
               titles={state.airline.name} registration={state.airline.code}
+              flagCC={AIRPORT_BY_IATA[state.airline.hubs[0]]?.cc}
             />
           </div>
           <div className="grid g2" style={{ gap: 8, fontSize: 13 }}>

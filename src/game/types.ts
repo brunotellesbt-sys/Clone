@@ -21,6 +21,15 @@ export type CheatStyle =
 export type TailStyle = 'solid' | 'stripes' | 'swoosh' | 'gradient' | 'split' | 'chevron'
 export type NoseStyle = 'body' | 'dark' | 'custom'
 export type TitleFont = 'sans' | 'wide' | 'serif' | 'mono'
+
+/**
+ * Três degraus de tamanho, os mesmos para letreiro, emblema e prefixo.
+ *
+ * Três e não um controle contínuo porque a arte limita cada um à sua caixa — o
+ * letreiro ao dorso, o emblema à largura da deriva — e num controle contínuo
+ * metade do curso não mudava nada.
+ */
+export type PieceSize = 'small' | 'medium' | 'large'
 /**
  * Emblema fictício aplicado sobre a deriva, além do desenho do `tailStyle`.
  * `'none'` é a única string com significado especial; o catálogo de verdade
@@ -82,27 +91,26 @@ export interface Livery {
   emblem: EmblemId
   emblemColor: string
   emblemAccent: string
+  /** Tamanho do emblema na deriva, em três degraus. */
+  emblemSize: PieceSize
 
-  // ---- asa e motores
-  wing: string
+  // ---- bordos da asa
   /**
-   * Bordo de ataque, dorso e bordo de fuga: setores próprios dentro da asa.
-   * Nulo herda a cor da asa, que é o padrão — sem isso as três faixas cobririam
-   * a asa inteira e o seletor "Asa" não teria mais efeito visível.
+   * Bordo de ataque, dorso e bordo de fuga: as três faixas da asa, cada uma um
+   * setor. Nulo deixa a asa como ela é na foto — que é o padrão, e o certo:
+   * chapa de asa vai pintada de cinza de fábrica ou nada na maioria das
+   * companhias, e é o que se vê olhando um pátio.
+   *
+   * **Motor e trem não estão aqui, e não é esquecimento.** Nacela, perna,
+   * pneu e hélice ficam com a cor de origem, sem tinta de companhia. Era
+   * possível pintá-los e o resultado não convencia: a nacela pintada de cor
+   * chapada perde o torneado da peça, e o trem colorido deixa o avião com cara
+   * de brinquedo.
    */
   leadingEdge: string | null
   wingTop: string | null
   trailingEdge: string | null
   winglet: string
-  /**
-   * Nacela. Pinta só a **carenagem**: o bocal de escape, o plug e o fan ficam
-   * com a cor da foto, porque são metal exposto e nenhuma companhia os pinta —
-   * mesma razão do pneu e da pá de hélice.
-   */
-  engine: string
-  /** Aro do bocal e cone, só no desenho vetorial. */
-  engineCowl: string
-  gear: string
 
   // ---- texto
   titles: string
@@ -113,6 +121,14 @@ export interface Livery {
   titleAt: number
   regColor: string
   showReg: boolean
+  /** Tamanho do prefixo (matrícula) na traseira. */
+  regSize: PieceSize
+  /**
+   * Bandeira do país onde a aeronave foi matriculada primeiro — na prática, o
+   * país da base da companhia quando ela comprou o avião. Desenhada em vetor,
+   * simplificada de propósito: ver `flags.ts`.
+   */
+  flag: boolean
 
   // ---- detalhes
   windows: boolean
@@ -144,6 +160,12 @@ export interface Aircraft {
   /** Motorização instalada — muda consumo, oficina, alcance e pista. */
   engineId: string
   reg: string
+  /**
+   * País da **primeira** matrícula — o da base da companhia no dia da compra.
+   * Guardado na aeronave, e não lido do hub atual, porque matrícula não muda
+   * quando a companhia troca de base: é o que a bandeira na fuselagem diz.
+   */
+  cc: string
   seats: Cabins
   /** Passo de poltrona por classe, em polegadas. */
   pitch: Cabins

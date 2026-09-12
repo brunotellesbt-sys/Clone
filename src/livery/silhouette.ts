@@ -678,6 +678,22 @@ function makeWinglet(kind: Shape['winglet'], x: number, y: number, chordRaw: num
   }
 }
 
+/**
+ * Cores de origem das peças que a companhia **não** pinta: chapa de asa,
+ * nacela, aro do bocal e perna do trem.
+ *
+ * Eram cor de livery e deixaram de ser. Na arte de foto essas peças agora ficam
+ * com a cor que têm na foto; no desenho vetorial não existe foto, então a cor
+ * vem daqui — alumínio claro na chapa, metal mais escuro no bocal e cinza de
+ * amortecedor no trem. Ver `Livery` em `types.ts` para o porquê.
+ */
+export const NATURAL = {
+  chapa: '#dfe5ec',
+  nacela: '#e6eaf0',
+  metal: '#8b95a5',
+  trem: '#7b8798',
+}
+
 export const FONT_STACK: Record<string, string> = {
   sans: '"Inter", "Helvetica Neue", Arial, sans-serif',
   wide: '"Archivo Black", "Arial Black", Impact, sans-serif',

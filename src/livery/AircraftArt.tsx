@@ -1,13 +1,14 @@
 import { useEffect, useId, useState } from 'react'
 import type { AircraftType } from '../game/data/aircraft'
-import type { Livery } from '../game/types'
+import type { Livery, PieceSize } from '../game/types'
 import { artFor, DEFAULT_REGIONS, loadArtManifest, type ArtEntry } from './art'
 import { emblemHref } from './emblems'
+import { Bandeira } from './Flag'
 import { LiveryPlane } from './LiveryPlane'
 import {
-  cockpitMaskHref, engineCowlMaskHref, fuseBands, gearStrutMaskHref, leadingEdgeMaskHref, measure, measured,
-  bodyMaskHref, pieceBox, planeMaskHref, propMaskHref, tailMaskHref, trailingEdgeMaskHref, tyreMaskHref,
-  windowMaskHref, wingMaskHref, wingTopMaskHref, wingletMaskHref, type FuseBands, type Measured, type PieceBox,
+  bodyMaskHref, cockpitMaskHref, fuseBands, leadingEdgeMaskHref, measure, measured, pieceBox, pieceSpan,
+  planeMaskHref, propMaskHref, tailMaskHref, trailingEdgeMaskHref, tyreMaskHref, windowMaskHref, wingMaskHref,
+  wingTopMaskHref, wingletMaskHref, type FuseBands, type Measured, type PieceBox,
 } from './measure'
 import { FONT_STACK, LARGURA_GLIFO } from './silhouette'
 
@@ -16,6 +17,12 @@ interface Props {
   livery: Livery
   titles?: string
   registration?: string
+  /**
+   * País da primeira matrícula da aeronave, para a bandeira. Vem da aeronave
+   * (`Aircraft.cc`), não do hub atual: matrícula não muda de país quando a
+   * companhia troca de base.
+   */
+  flagCC?: string
   className?: string
   /** Motor instalado, quando relevante para a arte (a nacela muda com ele). */
   engineId?: string | null
@@ -36,6 +43,11 @@ export function AircraftArt(props: Props) {
   return <MaskedArt {...props} entry={entry} />
 }
 
+/** Os três degraus do emblema, em fração da caixa segura da deriva. */
+const ESCALA_EMBLEMA: Record<PieceSize, number> = { small: 0.6, medium: 0.8, large: 1 }
+/** Os três degraus do prefixo, em fração da altura da fuselagem. */
+const ESCALA_PREFIXO: Record<PieceSize, number> = { small: 0.11, medium: 0.16, large: 0.22 }
+
 /** Preto de pneu. Não é escolha de livery: nenhuma companhia pinta borracha. */
 const BORRACHA = '#15181c'
 /** Grafite de pá de hélice, pela mesma razão do pneu: já sai preta da fábrica. */
@@ -44,7 +56,7 @@ const HELICE = '#22252b'
 const hrefOf = (entry: ArtEntry) =>
   /^https?:\/\//.test(entry.file) ? entry.file : `${import.meta.env.BASE_URL}${entry.file.replace(/^\//, '')}`
 
-function MaskedArt({ type, livery, titles, registration, className, entry }: Props & { entry: ArtEntry }) {
+function MaskedArt({ type, livery, titles, registration, flagCC, className, entry }: Props & { entry: ArtEntry }) {
   const uid = useId().replace(/:/g, '')
   const href = hrefOf(entry)
   const [box, setBox] = useState<Measured | null | undefined>(() => measured(href))
@@ -52,9 +64,7 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   const [preciseTail, setPreciseTail] = useState<string | null>(null)
   const [tailBox, setTailBox] = useState<PieceBox | null>(null)
   const [wingBox, setWingBox] = useState<PieceBox | null>(null)
-  const [gearMask, setGearMask] = useState<string | null>(null)
-  const [wingMask, setWingMask] = useState<string | null>(null)
-  const [engineMask, setEngineMask] = useState<string | null>(null)
+  const [titleSpan, setTitleSpan] = useState<[number, number] | null>(null)
   const [wingletMask, setWingletMask] = useState<string | null>(null)
   const [cockpitMask, setCockpitMask] = useState<string | null>(null)
   const [leMask, setLeMask] = useState<string | null>(null)
@@ -98,7 +108,6 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
 
   useEffect(() => {
     let alive = true
-    gearStrutMaskHref(type.id).then((m) => alive && setGearMask(m))
     tyreMaskHref(type.id).then((m) => alive && setTyreMask(m))
     propMaskHref(type.id).then((m) => alive && setPropMask(m))
     bodyMaskHref(type.id).then((m) => alive && setBodyMask(m))
@@ -109,20 +118,11 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
 
   useEffect(() => {
     let alive = true
+    // A máscara da asa não pinta mais nada — a chapa fica com a cor da foto —,
+    // mas a caixa dela delimita o vão do letreiro. Ver o cálculo mais abaixo.
     wingMaskHref(type.id).then((m) => {
-      if (!alive) return
-      setWingMask(m)
-      // A caixa da asa delimita o vão do letreiro — ver o cálculo mais abaixo.
-      if (m) pieceBox(m).then((b) => alive && setWingBox(b))
+      if (alive && m) pieceBox(m).then((b) => alive && setWingBox(b))
     })
-    return () => {
-      alive = false
-    }
-  }, [type.id])
-
-  useEffect(() => {
-    let alive = true
-    engineCowlMaskHref(type.id).then((m) => alive && setEngineMask(m))
     return () => {
       alive = false
     }
@@ -141,6 +141,32 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
       alive = false
     }
   }, [type.id])
+
+  /**
+   * Onde a faixa de letras cabe inteira dentro do tubo.
+   *
+   * A medida é da **faixa do texto**, não do dorso todo, e isso é o que faz ela
+   * servir: o topo do tubo sobe e desce ao longo do avião, então a interseção
+   * de uma faixa alta colapsa no trecho do meio — medido no b737, sobrava uma
+   * janela de 16px e o letreiro ia para cima da asa. Com a faixa na altura das
+   * letras, o intervalo é o tubo de verdade naquela altura.
+   */
+  useEffect(() => {
+    if (!bodyMask) {
+      setTitleSpan(null)
+      return
+    }
+    let alive = true
+    const fus = entry.regions?.fuselage ?? box?.fuselage ?? DEFAULT_REGIONS.fuselage
+    const crown = bands?.crown ?? fus[0] + 0.42 * (fus[1] - fus[0])
+    const dorso = Math.max(0.01, crown - fus[0])
+    const alto = Math.min(livery.titleSize * (fus[1] - fus[0]), dorso * 0.86)
+    const base = crown - dorso * 0.07
+    pieceSpan(bodyMask, Math.max(0, base - alto), base).then((v) => alive && setTitleSpan(v))
+    return () => {
+      alive = false
+    }
+  }, [bodyMask, bands, box, entry, livery.titleSize])
 
   if (failed) {
     return <LiveryPlane type={type} livery={livery} titles={titles} registration={registration} className={className} />
@@ -177,8 +203,20 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   const flipTransform = `translate(${view[0] * 2 + view[2]} 0) scale(-1 1)`
 
   const bellyY = bandTop + bandH * livery.bellyAt
-  const cheatMid = bandTop + bandH * livery.cheatAt
   const cheatH = Math.max(1, bandH * livery.cheatWidth)
+  // A faixa não sobe até a janela.
+  //
+  // Desenho de faixa (filete, duplo, tríplice, degradê) é coisa de metade de
+  // baixo da fuselagem: passando da fileira de janela ele cobre a janela e o
+  // letreiro, e o que era listra vira bloco. As formas geométricas — cunha,
+  // diagonal, chevron, xadrez, bloco — não entram nessa regra, porque nelas
+  // ocupar a fuselagem inteira **é** o desenho.
+  const cheatLivre = (['chevron', 'delta', 'diagonal', 'ribbon', 'checker', 'billboard', 'sunray'] as const)
+    .includes(livery.cheatStyle as never)
+  const cheatTeto = (bands ? h * bands.crown : bandTop + bandH * 0.42) + cheatH / 2
+  const cheatMid = cheatLivre
+    ? bandTop + bandH * livery.cheatAt
+    : Math.max(cheatTeto, bandTop + bandH * livery.cheatAt)
   const noseColor = livery.noseStyle === 'body' ? null : livery.noseStyle === 'dark' ? '#1e293b' : livery.nose
 
   // O letreiro tem uma caixa, e ele não sai dela.
@@ -203,8 +241,23 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
       ? (planeX0 + planeW - wingBox.box[2] * w) / planeW
       : (wingBox.box[0] * w - planeX0) / planeW
     : 0.62
-  const vaoIni = 0.04
-  const vaoFim = Math.max(vaoIni + 0.12, asaFrac - 0.02)
+
+  // E onde o **tubo** comporta a faixa de letras inteira: `titleSpan` mede a
+  // interseção das linhas do dorso na máscara de fuselagem, então a letra nunca
+  // sai do contorno. Sem essa medida bastava o nariz afinar para a primeira
+  // letra passar por fora, e era o que se via.
+  const tuboIni = titleSpan
+    ? box?.noseLeft === false
+      ? (planeX0 + planeW - titleSpan[1] * w) / planeW
+      : (titleSpan[0] * w - planeX0) / planeW
+    : 0.04
+  const tuboFim = titleSpan
+    ? box?.noseLeft === false
+      ? (planeX0 + planeW - titleSpan[0] * w) / planeW
+      : (titleSpan[1] * w - planeX0) / planeW
+    : 0.96
+  const vaoIni = Math.max(0.02, tuboIni + 0.01)
+  const vaoFim = Math.max(vaoIni + 0.1, Math.min(asaFrac - 0.02, tuboFim - 0.01))
   const vao = (vaoFim - vaoIni) * planeW
 
   const texto = titles ?? ''
@@ -219,6 +272,8 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   const folga = Math.max(0, vao - textoW)
   const along = vaoIni + (livery.titleAt / 0.75) * (folga / planeW)
   const titleXImg = flip ? planeX0 + planeW * (1 - along) : planeX0 + planeW * along
+  const regFont = Math.max(6, bandH * ESCALA_PREFIXO[livery.regSize])
+  const regY = bandBot - bandH * 0.12
   const regXImg = flip ? w * tx1 + w * 0.01 : w * tx0 - w * 0.01
   // Espelhar o grupo inverteria as letras; então cada texto é contra-espelhado
   // em torno da própria âncora, e a posição sai exata dos dois lados.
@@ -261,18 +316,6 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
             <image href={preciseTail} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
         )}
-        {gearMask && (
-          <mask id={`gm-${uid}`} style={{ maskType: 'luminance' }}>
-            {/*
-              Só a perna (public/sprites/gearstrutmasks/). O pneu fica de fora
-              de propósito: borracha é preta em qualquer companhia, e pintada
-              com a cor da livery o trem vira brinquedo. Sem a máscara, o trem
-              ainda cairia no retângulo "tudo abaixo da fuselagem" e sairia com
-              a cor da asa.
-            */}
-            <image href={gearMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
-          </mask>
-        )}
         {tyreMask && (
           <mask id={`pm-${uid}`} style={{ maskType: 'luminance' }}>
             {/* O pneu (public/sprites/tyremasks/), que não é setor de livery. */}
@@ -290,18 +333,6 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
           <mask id={`hm-${uid}`} style={{ maskType: 'luminance' }}>
             {/* Pá e cone da hélice (public/sprites/propmasks/), idem. */}
             <image href={propMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
-          </mask>
-        )}
-        {wingMask && (
-          <mask id={`wm-${uid}`} style={{ maskType: 'luminance' }}>
-            {/* Asa sem o motor nem o trem por cima (public/sprites/wingmasks/). */}
-            <image href={wingMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
-          </mask>
-        )}
-        {engineMask && (
-          <mask id={`egm-${uid}`} style={{ maskType: 'luminance' }}>
-            {/* Carenagem do motor, separada da asa (public/sprites/enginemasks/). */}
-            <image href={engineMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
         )}
         {wingletMask && (
@@ -368,11 +399,6 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
             <rect x="0" y={h * bands.belly} width={w} height={h} fill={livery.lowerBody} />
           )}
 
-          {/* Asa sem máscara própria: o retângulo de sempre, tudo abaixo da
-              fuselagem. Fica aqui, antes da barriga, porque sem recorte ele
-              cobriria a barriga inteira. */}
-          {!wingMask && <rect x="0" y={bandBot} width={w} height={h} fill={livery.wing} />}
-
           {/* barriga, dentro da faixa da fuselagem */}
           <rect x="0" y={bellyY} width={w} height={bandBot - bellyY} fill={livery.belly} />
 
@@ -414,20 +440,13 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
             peças estão na frente da fuselagem, então pintura de fuselagem não
             pode passar por cima delas. Pintadas antes, a barriga cobria a asa
             inteira no c919, e175, sj100, arj21 e b753, e cortava metade da do
-            a320 — a cor da asa simplesmente não aparecia.
+            a320.
 
-            Entre si a ordem é a da foto: o trem e o motor aparecem na frente da
-            asa. Só entram com máscara precisa; sem ela a asa cai no retângulo
-            acima e motor e trem ficam com a cor dela, como era antes.
+            A **chapa** da asa não é mais pintada: fica com a cor da foto, que é
+            o que se vê num pátio de verdade. O que a companhia pinta na asa são
+            os bordos, e é isso que vem abaixo — cada faixa só quando tem cor
+            escolhida.
           */}
-          {wingMask && (
-            <g mask={`url(#wm-${uid})`}>
-              <rect x="0" y="0" width={w} height={h} fill={livery.wing} />
-            </g>
-          )}
-          {/* As três faixas da asa vêm logo depois dela, e só quando têm cor
-              própria: são uma partição da asa, então pintadas sempre cobririam a
-              cor da asa inteira e o seletor "Asa" perderia efeito. */}
           {leMask && livery.leadingEdge && (
             <g mask={`url(#lem-${uid})`}>
               <rect x="0" y="0" width={w} height={h} fill={livery.leadingEdge} />
@@ -452,20 +471,13 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
               <rect x="0" y="0" width={w} height={h} fill={livery.winglet} />
             </g>
           )}
-          {engineMask && (
-            <g mask={`url(#egm-${uid})`}>
-              <rect x="0" y="0" width={w} height={h} fill={livery.engine} />
-            </g>
-          )}
-          {gearMask && (
-            <g mask={`url(#gm-${uid})`}>
-              <rect x="0" y="0" width={w} height={h} fill={livery.gear} />
-            </g>
-          )}
-          {/* O pneu, depois da perna e com cor fixa: borracha é preta em
-              qualquer companhia. Precisa ser pintado, e não apenas deixado de
-              fora da perna, porque a foto é de um avião branco de fábrica e
-              entra por multiply a 30% — sem tinta própria a roda saía cinza. */}
+          {/* Nacela e perna do trem **não** são pintadas: ficam com a cor de
+              origem da foto. A tinta chapada na nacela matava o torneado da
+              peça e o trem colorido deixava o avião com cara de brinquedo.
+
+              O pneu, por outro lado, precisa de tinta própria: a foto é de um
+              avião branco de fábrica e entra por multiply a 30%, então sem
+              pintar a roda saía cinza. */}
           {tyreMask && (
             <g mask={`url(#pm-${uid})`}>
               <rect x="0" y="0" width={w} height={h} fill={BORRACHA} />
@@ -555,11 +567,24 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
         {livery.showReg && registration && (
           <g transform={unflip(regXImg)}>
             <text
-              x={regXImg} y={bandBot - bandH * 0.12} fill={livery.regColor}
-              fontFamily={FONT_STACK.mono} fontSize={Math.max(6, bandH * 0.16)} textAnchor="end"
+              x={regXImg} y={regY} fill={livery.regColor}
+              fontFamily={FONT_STACK.mono} fontSize={regFont} textAnchor="end"
             >
               {registration}
             </text>
+          </g>
+        )}
+        {/* A bandeira do país da primeira matrícula, à frente do prefixo. Fica
+            fora do grupo espelhado pelo mesmo motivo dos textos: espelhada, a
+            bandeira sai invertida, e bandeira invertida é outra bandeira. */}
+        {livery.flag && flagCC && (
+          <g transform={unflip(regXImg)}>
+            <Bandeira
+              cc={flagCC}
+              x={regXImg - (registration && livery.showReg ? regFont * 0.62 * (registration.length + 1) : 0) - regFont * 1.9}
+              y={regY - regFont * 0.78}
+              h={regFont * 0.95}
+            />
           </g>
         )}
       </g>
@@ -585,7 +610,9 @@ function Emblem({
   const uid = useId().replace(/:/g, '')
   const href = emblemHref(livery.emblem)
   if (!href) return null
-  const size = Math.min(region.maxW * w, region.maxH * h)
+  // Três degraus dentro da caixa segura da deriva: "grande" é o que a peça
+  // comporta, e não um tamanho maior que ela.
+  const size = Math.min(region.maxW * w, region.maxH * h) * ESCALA_EMBLEMA[livery.emblemSize]
   const cx = region.cx * w
   const cy = region.cy * h
   return (
