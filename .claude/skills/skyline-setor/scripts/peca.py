@@ -95,6 +95,62 @@ def linha_de_painel(img, m, nariz_esq=True):
     return x0 + col if nariz_esq else x0 + col
 
 
+def boca_da_turbina(img, m, nariz_esq=True):
+    """A boca: o lábio de entrada, no bico da nacela. **Não** é pintável.
+
+    Num avião de verdade o lábio da tomada sai em metal polido ou anticongelante,
+    e a livery começa depois dele. Em vista lateral a boca aparece como a faixa
+    entre o bico e a primeira divisa de painel.
+
+    Devolve a coluna onde a pintura pode começar, ou None quando não há divisa
+    clara — aí quem chama apara uma fatia pequena e fixa, que é o mal menor:
+    deixar a boca pintada é erro visível, aparar 4% a mais não é.
+    """
+    ys, xs = np.where(m)
+    x0, x1 = int(xs.min()), int(xs.max())
+    y0, y1 = int(ys.min()), int(ys.max())
+    comp = x1 - x0
+    if comp < 40:
+        return None
+    faixa = cv2.cvtColor(img[y0:y1 + 1, x0:x1 + 1], cv2.COLOR_RGB2GRAY).astype(np.float32)
+    dentro = m[y0:y1 + 1, x0:x1 + 1]
+    grad = np.abs(cv2.Sobel(faixa, cv2.CV_32F, 1, 0, ksize=3))
+    grad[~dentro] = 0
+    perfil = grad.sum(axis=0) / np.maximum(1, dentro.sum(axis=0))
+    n = len(perfil)
+    # a divisa do lábio fica logo atrás do bico: entre 3% e 18% do comprimento
+    ini, fim = max(2, int(n * 0.03)), max(6, int(n * 0.18))
+    if fim - ini < 3:
+        return None
+    janela = perfil[ini:fim]
+    pico = int(np.argmax(janela))
+    if janela[pico] < perfil.mean() * 1.3:
+        return None
+    return x0 + ini + pico if nariz_esq else x1 - (ini + pico)
+
+
+def fechar_no_pe(m, nac):
+    """Estende a peça até o pé da nacela, coluna por coluna.
+
+    O lábio de baixo do capô fica em sombra na foto, e tanto a inundação de 1 bit
+    quanto o SAM o largavam de fora — no b737 sobrava uma faixa cinza de 13 px ao
+    longo de toda a base. Aqui, dentro das colunas que a peça já ocupa, o que
+    estiver entre ela e o fundo da nacela entra junto.
+    """
+    if not m.any() or not nac.any():
+        return m
+    out = m.copy()
+    cols = np.where(m.any(axis=0))[0]
+    for x in cols:
+        alvo = np.where(nac[:, x])[0]
+        meu = np.where(m[:, x])[0]
+        if not len(alvo) or not len(meu):
+            continue
+        if alvo.max() > meu.max():
+            out[meu.max():alvo.max() + 1, x] = True
+    return out
+
+
 def _alvo_motor(aid, img, nac, fracao, nariz_esq):
     """A área pintável do motor.
 
@@ -141,22 +197,41 @@ def por_sam(aid, caminho, nome_peca, trabalho, nariz_esq=True):
         return inteira, 'peça inteira'
 
     corte, motivo = _alvo_motor(aid, img, inteira, cfg.get('fracao', 0.58), nariz_esq)
-    if corte is None:
-        return inteira, motivo
+    capo = inteira
+    if corte is not None:
+        ys, xs = np.where(inteira)
+        x0, x1, y0, y1 = int(xs.min()), int(xs.max()), int(ys.min()), int(ys.max())
+        caixa = np.array([x0 - 3, y0 - 3, corte, y1 + 3], float)
+        meio = np.array([[(x0 + corte) / 2, (y0 + y1) / 2]])
+        # negativos no que vem depois da divisa: é o que faz o modelo parar ali
+        # em vez de seguir pela nacela toda quando a linha de painel é fraca
+        neg = np.array([[x1 - (x1 - corte) * 0.35, (y0 + y1) / 2],
+                        [x1 - (x1 - corte) * 0.12, (y0 + y1) / 2]])
+        with torch.inference_mode():
+            m, _, _ = p.predict(point_coords=np.vstack([meio, neg]),
+                                point_labels=np.array([1, 0, 0]),
+                                box=caixa[None, :], multimask_output=False)
+        capo = (m[0] > 0.5) & inteira
+
+    # o pé do capô entra: em sombra na foto, ele ficava de fora
+    capo = fechar_no_pe(capo, inteira)
+
+    # e a boca da turbina sai: lábio de entrada não recebe a livery
+    ini = boca_da_turbina(img, inteira, nariz_esq)
     ys, xs = np.where(inteira)
-    x0, x1, y0, y1 = int(xs.min()), int(xs.max()), int(ys.min()), int(ys.max())
-    caixa = np.array([x0 - 3, y0 - 3, corte, y1 + 3], float)
-    meio = np.array([[(x0 + corte) / 2, (y0 + y1) / 2]])
-    # negativos no que vem depois da divisa: é o que faz o modelo parar ali em
-    # vez de seguir pela nacela toda quando a linha de painel é fraca
-    neg = np.array([[x1 - (x1 - corte) * 0.35, (y0 + y1) / 2],
-                    [x1 - (x1 - corte) * 0.12, (y0 + y1) / 2]])
-    pts = np.vstack([meio, neg])
-    rot = np.array([1, 0, 0])
-    with torch.inference_mode():
-        m, _, _ = p.predict(point_coords=pts, point_labels=rot,
-                            box=caixa[None, :], multimask_output=False)
-    return (m[0] > 0.5) & inteira, motivo
+    nx0, nx1 = int(xs.min()), int(xs.max())
+    if ini is None:
+        apara = max(3, int((nx1 - nx0) * 0.04))
+        ini = nx0 + apara if nariz_esq else nx1 - apara
+        motivo += '; boca aparada em 4% (sem divisa de lábio visível)'
+    else:
+        motivo += '; boca achada na foto'
+    fora = np.zeros_like(capo)
+    if nariz_esq:
+        fora[:, :int(ini)] = True
+    else:
+        fora[:, int(ini) + 1:] = True
+    return capo & ~fora, motivo
 
 
 def por_grounded(aid, caminho, nome_peca, trabalho):
