@@ -105,35 +105,13 @@ export function planeMaskHref(file: string, base = import.meta.env.BASE_URL): Pr
 }
 
 /**
- * O pneu, recortado do trem (`tyremasks` = `gearmasks` menos `gearstrutmasks`).
- * Não é setor de livery: a cor é fixa na arte, porque borracha é preta em
- * qualquer companhia. Existe como máscara porque deixar a peça **sem** pintura
- * não a torna preta — a foto é de um avião branco de fábrica e entra por
- * `multiply` a 30%, então o resultado nunca desce de ~70% de luminância. Era
- * por isso que a roda saía cinza.
- */
-export const tyreMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('tyremasks', id, base)
-
-/**
- * A hélice dos turboélices (atr42, atr72, q400), pá e cone. Como o pneu, cor
- * fixa na arte. `tirar_helice.py` já tinha expulsado a pá dos setores de asa e
- * motor, com razão — pá não é chapa pintável —, mas peça que não é de ninguém
- * fica com a cor de fundo da silhueta: com o recorte novo, que cobre o avião
- * inteiro, o atr42 ganhou uma hélice branca.
+ * A hélice dos turboélices (atr42, atr72, q400), pá e cone — a terceira peça de
+ * cor original, junto com motor e trem. `tirar_helice.py` já a tinha expulsado
+ * dos setores de asa e motor, com razão (pá não é chapa pintável), mas peça que
+ * não é de ninguém fica com a cor de fundo da silhueta: sem este recorte o
+ * atr42 saía com hélice branca.
  */
 export const propMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('propmasks', id, base)
-
-/**
- * A perna do trem — amortecedor e viga do bogie, sem os pneus. É esta que
- * recebe a cor: pneu é borracha preta em qualquer companhia do mundo, e pintado
- * de azul ou vermelho o trem fica de brinquedo. Sai de `gearmasks` descontando
- * o maior círculo inscrito, que é a roda (derive_sectors.py --what gearstrut).
- *
- * `gearmasks` e `enginemasks` continuam no repositório como **referência de
- * medida** e origem destes recortes, mas não têm carregador aqui: o jogo pinta
- * a perna e a carenagem, nunca a peça inteira.
- */
-export const gearStrutMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('gearstrutmasks', id, base)
 
 /**
  * Máscara exata da asa, sem o motor nem o trem por cima — sem ela, a asa
@@ -152,12 +130,23 @@ export const wingMaskHref = (id: string, base = import.meta.env.BASE_URL) => nam
 export const wingletMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('wingletmasks', id, base)
 
 /**
- * A carenagem do motor — a chapa que leva tinta. O bocal de escape, o plug e o
- * fan ficam de fora: são metal exposto e nenhuma companhia os pinta, mesma
- * razão do pneu. `enginemasks` continua sendo a nacela inteira, para medir e
- * para recortar esta; é esta aqui que o jogo pinta.
+ * A nacela inteira e o trem inteiro — as peças de **cor original**.
+ *
+ * Voltaram a ter carregador aqui, e por um motivo novo: a livery não pinta mais
+ * nenhuma das duas, e o jogo desenha a foto opaca em cima delas para que a peça
+ * fique exatamente como ela é. Antes eram só referência de medida; agora são o
+ * recorte de onde a pintura **não** vai.
  */
-export const engineCowlMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('enginecowlmasks', id, base)
+export const gearMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('gearmasks', id, base)
+export const engineMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('enginemasks', id, base)
+
+/*
+ * `enginecowlmasks`, `gearstrutmasks` e `tyremasks` seguem no repositório —
+ * são referência de medida e origem dos recortes — mas não têm carregador
+ * aqui: desde que motor e trem passaram a ficar com a cor original, a livery
+ * não pinta nenhuma das três, e a arte usa a peça **inteira** para saber onde
+ * não pintar.
+ */
 
 /**
  * A fileira de janela de passageiro. Sem ela os controles "Janelas" e "Cor das

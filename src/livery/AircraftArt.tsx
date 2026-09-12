@@ -7,7 +7,8 @@ import { Bandeira } from './Flag'
 import { LiveryPlane } from './LiveryPlane'
 import {
   bodyMaskHref, cockpitMaskHref, fuseBands, leadingEdgeMaskHref, measure, measured, pieceBox, pieceSpan,
-  planeMaskHref, propMaskHref, tailMaskHref, trailingEdgeMaskHref, tyreMaskHref, windowMaskHref, wingMaskHref,
+  engineMaskHref, gearMaskHref, planeMaskHref, propMaskHref, tailMaskHref, trailingEdgeMaskHref,
+  windowMaskHref, wingMaskHref,
   wingTopMaskHref, wingletMaskHref, type FuseBands, type Measured, type PieceBox,
 } from './measure'
 import { FONT_STACK, LARGURA_GLIFO } from './silhouette'
@@ -48,11 +49,6 @@ const ESCALA_EMBLEMA: Record<PieceSize, number> = { small: 0.6, medium: 0.8, lar
 /** Os três degraus do prefixo, em fração da altura da fuselagem. */
 const ESCALA_PREFIXO: Record<PieceSize, number> = { small: 0.11, medium: 0.16, large: 0.22 }
 
-/** Preto de pneu. Não é escolha de livery: nenhuma companhia pinta borracha. */
-const BORRACHA = '#15181c'
-/** Grafite de pá de hélice, pela mesma razão do pneu: já sai preta da fábrica. */
-const HELICE = '#22252b'
-
 const hrefOf = (entry: ArtEntry) =>
   /^https?:\/\//.test(entry.file) ? entry.file : `${import.meta.env.BASE_URL}${entry.file.replace(/^\//, '')}`
 
@@ -65,6 +61,7 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
   const [tailBox, setTailBox] = useState<PieceBox | null>(null)
   const [wingBox, setWingBox] = useState<PieceBox | null>(null)
   const [titleSpan, setTitleSpan] = useState<[number, number] | null>(null)
+  const [windowBox, setWindowBox] = useState<PieceBox | null>(null)
   const [wingletMask, setWingletMask] = useState<string | null>(null)
   const [cockpitMask, setCockpitMask] = useState<string | null>(null)
   const [leMask, setLeMask] = useState<string | null>(null)
@@ -73,7 +70,8 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
   const [bands, setBands] = useState<FuseBands | null>(null)
   const [windowMask, setWindowMask] = useState<string | null>(null)
   const [planeMask, setPlaneMask] = useState<string | null>(null)
-  const [tyreMask, setTyreMask] = useState<string | null>(null)
+  const [gearMask, setGearMask] = useState<string | null>(null)
+  const [engineMask, setEngineMask] = useState<string | null>(null)
   const [propMask, setPropMask] = useState<string | null>(null)
   const [bodyMask, setBodyMask] = useState<string | null>(null)
 
@@ -108,7 +106,8 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
 
   useEffect(() => {
     let alive = true
-    tyreMaskHref(type.id).then((m) => alive && setTyreMask(m))
+    gearMaskHref(type.id).then((m) => alive && setGearMask(m))
+    engineMaskHref(type.id).then((m) => alive && setEngineMask(m))
     propMaskHref(type.id).then((m) => alive && setPropMask(m))
     bodyMaskHref(type.id).then((m) => alive && setBodyMask(m))
     return () => {
@@ -132,7 +131,15 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
     let alive = true
     wingletMaskHref(type.id).then((m) => alive && setWingletMask(m))
     cockpitMaskHref(type.id).then((m) => alive && setCockpitMask(m))
-    windowMaskHref(type.id).then((m) => alive && setWindowMask(m))
+    windowMaskHref(type.id).then((m) => {
+      if (!alive) return
+      setWindowMask(m)
+      // A caixa da fileira de janela dá a linha de baixo dela, que é o teto do
+      // prefixo. `fusebands.crown` não serve nos de dois andares: no b748 ela é
+      // a divisa do convés **superior**, e o prefixo caía em cima da fileira do
+      // andar de baixo.
+      if (m) pieceBox(m).then((b) => alive && setWindowBox(b))
+    })
     fuseBands().then((b) => alive && setBands(b[type.id] ?? null))
     leadingEdgeMaskHref(type.id).then((m) => alive && setLeMask(m))
     wingTopMaskHref(type.id).then((m) => alive && setTopMask(m))
@@ -273,7 +280,36 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
   const along = vaoIni + (livery.titleAt / 0.75) * (folga / planeW)
   const titleXImg = flip ? planeX0 + planeW * (1 - along) : planeX0 + planeW * along
   const regFont = Math.max(6, bandH * ESCALA_PREFIXO[livery.regSize])
-  const regY = bandBot - bandH * 0.12
+  /**
+   * O prefixo fica **acima** da faixa, não em cima dela.
+   *
+   * Ele morava a 12% da base da fuselagem, que é onde a faixa costuma passar —
+   * e prefixo escrito por cima de listra não se lê. Num avião de verdade ele
+   * vai na traseira, entre a fileira de janela e a faixa, e é essa a ordem
+   * aqui: base do texto logo acima do topo da faixa, nunca acima da janela e
+   * nunca abaixo do fim do tubo. Nos desenhos geométricos, que ocupam a
+   * fuselagem inteira de propósito, não há "acima da faixa" — ali o prefixo
+   * volta para a traseira baixa.
+   */
+  const janelaY = windowBox
+    ? windowBox.box[3] * h
+    : bands
+      ? h * bands.crown
+      : bandTop + bandH * 0.42
+  const faixaTopo = cheatMid - cheatH / 2
+  const faixaBase = livery.cheatStyle === 'wide' ? bandBot : cheatMid + cheatH / 2
+  // Duas faixas livres na traseira: entre a janela e a faixa, e entre a faixa e
+  // o fim do tubo. A de cima é a preferida — é onde o prefixo vai num avião de
+  // verdade — mas se a faixa estiver alta e não sobrar altura, o texto desce
+  // para a de baixo em vez de ficar por cima da listra.
+  const alturaAcima = faixaTopo - (janelaY + regFont * 0.8)
+  const alturaAbaixo = bandBot - bandH * 0.04 - (faixaBase + regFont * 0.8)
+  const regAcima = alturaAcima >= regFont * 0.2 || alturaAcima >= alturaAbaixo
+  const regY = cheatLivre
+    ? bandBot - bandH * 0.06
+    : regAcima
+      ? faixaTopo - regFont * 0.5
+      : Math.min(bandBot - bandH * 0.03, faixaBase + regFont * 0.95)
   const regXImg = flip ? w * tx1 + w * 0.01 : w * tx0 - w * 0.01
   // Espelhar o grupo inverteria as letras; então cada texto é contra-espelhado
   // em torno da própria âncora, e a posição sai exata dos dois lados.
@@ -316,10 +352,17 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
             <image href={preciseTail} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
         )}
-        {tyreMask && (
-          <mask id={`pm-${uid}`} style={{ maskType: 'luminance' }}>
-            {/* O pneu (public/sprites/tyremasks/), que não é setor de livery. */}
-            <image href={tyreMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
+        {(engineMask || gearMask || propMask) && (
+          <mask id={`nm-${uid}`} style={{ maskType: 'luminance' }}>
+            {/*
+              As peças de **cor original**, numa máscara só: nacela inteira,
+              trem inteiro (perna, pneu e tampa) e hélice.
+              As três imagens são branco-no-preto, então desenhadas juntas
+              somam — é a união das peças, que é o que se quer.
+            */}
+            {engineMask && <image href={engineMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />}
+            {gearMask && <image href={gearMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />}
+            {propMask && <image href={propMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />}
           </mask>
         )}
         {bodyMask && (
@@ -327,12 +370,6 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
             {/* O tubo da fuselagem (public/sprites/fuselagemasks/), que recorta
                 a faixa para ela não respingar no intradorso da asa. */}
             <image href={bodyMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
-          </mask>
-        )}
-        {propMask && (
-          <mask id={`hm-${uid}`} style={{ maskType: 'luminance' }}>
-            {/* Pá e cone da hélice (public/sprites/propmasks/), idem. */}
-            <image href={propMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
         )}
         {wingletMask && (
@@ -471,26 +508,6 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
               <rect x="0" y="0" width={w} height={h} fill={livery.winglet} />
             </g>
           )}
-          {/* Nacela e perna do trem **não** são pintadas: ficam com a cor de
-              origem da foto. A tinta chapada na nacela matava o torneado da
-              peça e o trem colorido deixava o avião com cara de brinquedo.
-
-              O pneu, por outro lado, precisa de tinta própria: a foto é de um
-              avião branco de fábrica e entra por multiply a 30%, então sem
-              pintar a roda saía cinza. */}
-          {tyreMask && (
-            <g mask={`url(#pm-${uid})`}>
-              <rect x="0" y="0" width={w} height={h} fill={BORRACHA} />
-            </g>
-          )}
-          {/* A hélice, pela mesma razão do pneu, e depois da asa e do motor:
-              na foto ela passa na frente dos dois. */}
-          {propMask && (
-            <g mask={`url(#hm-${uid})`}>
-              <rect x="0" y="0" width={w} height={h} fill={HELICE} />
-            </g>
-          )}
-
           {/* deriva — com máscara precisa por cima da caixa, quando existe */}
           <g mask={preciseTail ? `url(#ft-${uid})` : undefined}>
             <rect
@@ -548,6 +565,22 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
           href={href} x="0" y="0" width={w} height={h} crossOrigin="anonymous"
           style={{ mixBlendMode: 'multiply' }} opacity="0.3"
         />
+
+        {/*
+          Motor, trem, roda e hélice em **cor original**: a foto, opaca, por
+          cima de tudo, recortada pelas peças.
+          Não pintar não bastava e pintar de preto também não. Sem tinta, a
+          região ficava com a cor da fuselagem por baixo e a foto entrava a 30%,
+          o que nunca desce de ~70% de luminância — a roda saía cinza. Pintada
+          de preto, o borrão de sombra da foto ficava por cima do preto chapado,
+          e aí a peça saía borrada. Com a foto opaca no lugar, a peça fica
+          exatamente como ela é: metal com brilho, pneu preto, pá escura.
+        */}
+        {(engineMask || gearMask || propMask) && (
+          <g mask={`url(#nm-${uid})`}>
+            <image href={href} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
+          </g>
+        )}
       </g>
 
       <g transform={flip ? flipTransform : undefined}>
@@ -581,9 +614,9 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
           <g transform={unflip(regXImg)}>
             <Bandeira
               cc={flagCC}
-              x={regXImg - (registration && livery.showReg ? regFont * 0.62 * (registration.length + 1) : 0) - regFont * 1.9}
-              y={regY - regFont * 0.78}
-              h={regFont * 0.95}
+              x={regXImg - (registration && livery.showReg ? regFont * 0.62 * (registration.length + 1) : 0) - regFont * 1.6}
+              y={regY - regFont * 0.82}
+              h={regFont * 0.82}
             />
           </g>
         )}

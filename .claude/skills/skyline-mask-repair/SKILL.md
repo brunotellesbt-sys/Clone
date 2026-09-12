@@ -1,6 +1,6 @@
 ---
 name: skyline-mask-repair
-description: Como corrigir desalinhamento e defeito de máscara de setor de aeronave do Skyline Tycoon, em qualquer peça — asa, motor, winglet, trem de pouso, cauda, fuselagem —, e também a silhueta do avião inteiro e as peças de cor fixa (pneu, hélice). Cobre correção automática medida (aparar sangramento, soltar pixel disputado, deslocar 1-3px, encaixar a borda no contorno) e recorte manual com SAM2 large quando a máscara está na peça errada. Use quando o pedido for "conserta a máscara", "corrige o desalinhamento", "refaz essa asa", "setoriza direito", "pixel por pixel", quando a pintura aparecer borrada, com mancha escura ou buraco no meio da peça, ou quando aparecer SAM2, sam2.1_hiera_large, segmentação, recorte por caixa e ponto, planemasks, wingmasks, enginemasks, gearmasks, tyremasks, propmasks, tailmasks ou wingletmasks.
+description: Como corrigir desalinhamento e defeito de máscara de setor de aeronave do Skyline Tycoon, em qualquer peça — asa, motor, winglet, trem de pouso, cauda, fuselagem —, e também a silhueta do avião inteiro e as peças de cor original (motor, trem, roda, hélice). Cobre correção automática medida (aparar sangramento, soltar pixel disputado, deslocar 1-3px, encaixar a borda no contorno) e recorte manual com SAM2 large quando a máscara está na peça errada. Use quando o pedido for "conserta a máscara", "corrige o desalinhamento", "refaz essa asa", "setoriza direito", "pixel por pixel", quando a pintura aparecer borrada, com mancha escura ou buraco no meio da peça, ou quando aparecer SAM2, sam2.1_hiera_large, segmentação, recorte por caixa e ponto, planemasks, wingmasks, enginemasks, gearmasks, tyremasks, propmasks, tailmasks ou wingletmasks.
 ---
 
 # Correção de máscara
@@ -180,22 +180,34 @@ Três coisas que o lote resolve e valem lembrar:
   vertical de 41px na faixa de baixo, e o que forma peça quatro vezes mais larga
   que alta. Conferido peça a peça nos 100: só sai laje, nenhuma roda encolhe.
 
-## Peça que não é de ninguém fica com a cor de quem não é dono
+## Cor original: a foto opaca por cima, não tinta
 
-Com a silhueta cobrindo o avião inteiro, "não pintar" deixou de ser uma opção
-neutra: quem não é reivindicado por setor nenhum recebe a cor da fuselagem. A
-hélice do atr42 ficou **branca**. E mesmo antes, sem tinta própria, o pneu já
-saía cinza — a foto é de um avião branco de fábrica e entra na tela por
-`multiply` a 30%, ou seja `base × (0,7 + 0,3 × foto)`, que sobre fuselagem clara
-nunca desce de ~70% de luminância. **Não pintar jamais produz preto.**
+Motor, trem, roda e hélice **não levam tinta de companhia** — e chegar nisso
+custou três tentativas, que vale registrar porque cada uma parecia resolver:
+
+| tentativa | o que saía |
+|---|---|
+| não pintar a peça | a região ficava com a cor da fuselagem por baixo e a foto entrava a 30%: `base × (0,7 + 0,3 × foto)`, que sobre fuselagem clara nunca desce de ~70% de luminância. **A roda saía cinza.** |
+| pintar de preto | o borrão de sombra da foto ficava por cima do preto chapado, e a peça saía **borrada** |
+| foto opaca por cima | a peça fica exatamente como ela é: metal com brilho, pneu preto, pá escura |
+
+A terceira é a que está no jogo: depois de toda a pintura e depois da camada de
+`multiply`, a arte desenha **a própria foto, opaca**, recortada pela união de
+`enginemasks`, `gearmasks` e `propmasks`. O que a livery pinta então é fuselagem,
+cauda e bordos da asa; o resto é foto.
+
+A lição é geral e vale para a próxima peça que aparecer: **não pintar não é
+neutro** quando existe uma camada de foto multiplicada em cima. Ou a peça tem
+tinta própria, ou tem a foto opaca por cima — meio caminho dá cinza ou borrão.
 
 ```bash
 python3 .claude/skills/skyline-mask-repair/scripts/pecas_cruas.py
 ```
 
-Grava `tyremasks` e `propmasks`, que a arte pinta com cor fixa (`BORRACHA` e
-`HELICE` em `AircraftArt.tsx`) — não são setores de livery, a companhia não
-escolhe a cor da borracha. Duas medidas objetivas sustentam o recorte:
+Grava `tyremasks` e `propmasks`. A hélice é a única das duas que o jogo precisa
+como recorte próprio hoje (a roda entra pelo `gearmasks` inteiro), mas as duas
+seguem sendo geradas: `tyremasks` é a medida que separa borracha de chapa, e é
+dela que sai a conferência do trem. Duas medidas objetivas sustentam o recorte:
 
 - **O pneu é escuro.** `gearmasks` menos `gearstrutmasks` não é só pneu: em 28
   dos 55 ela abocanha também a porta do poço do trem do nariz. A luminância
