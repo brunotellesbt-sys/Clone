@@ -251,38 +251,196 @@ export function pieceBox(href: string): Promise<PieceBox | null> {
     })
 }
 
-const spanCache = new Map<string, [number, number] | null>()
+/** Uma linha do perfil: todas as corridas contínuas dela, em fração da largura. */
+export type ProfileRow = Array<[number, number]>
+
+const perfilCache = new Map<string, ProfileRow[] | null>()
 
 /**
- * Onde uma faixa horizontal de linhas cabe **inteira** dentro da máscara.
+ * O perfil é medido na resolução **nativa** da máscara, e não reduzido a
+ * `SAMPLE_W` como o resto.
  *
- * Devolve o intervalo em x, em fração da largura, que está dentro da peça em
- * **todas** as linhas da faixa — a interseção, não a união. É isso que garante
- * que o letreiro não saia da fuselagem: perto do nariz o tubo afina e desce, e
- * um intervalo medido só na linha do meio deixaria a letra passar por fora do
- * contorno em cima.
+ * Reduzir é o que as outras medidas fazem porque só precisam de uma caixa. Aqui
+ * a pergunta é "esta linha está inteira dentro do tubo?", e reduzir responde
+ * errado: o `drawImage` reduzido interpola, uma linha de destino cobre três da
+ * origem, e uma lasca de tubo no meio dessas três passava de linha cheia. Era
+ * assim que o topo da caixa do letreiro terminava acima do dorso no b78x e no
+ * a339 — 21% e 31% da área fora, medidos, com a faixa aprovada.
+ *
+ * O teto existe para não ler uma imagem absurda; os sprites têm 1536 de largura.
  */
-export function pieceSpan(href: string, y0: number, y1: number): Promise<[number, number] | null> {
-  const chave = `${href}|${y0.toFixed(3)}|${y1.toFixed(3)}`
-  if (spanCache.has(chave)) return Promise.resolve(spanCache.get(chave)!)
+const PERFIL_MAX_W = 2048
+
+/**
+ * Perfil da peça: para cada linha amostrada, **todas** as corridas contínuas
+ * dela em x.
+ *
+ * Substitui medir uma faixa por vez. Faixa por vez obriga uma medição nova a
+ * cada mudança de livery — o prefixo sobe e desce com a listra, o letreiro
+ * muda de altura com o tamanho da letra —, e medição assíncrona no meio do
+ * desenho pisca. Com o perfil na mão, qualquer faixa se resolve na hora:
+ * `entre()` cruza as linhas dela.
+ *
+ * Todas as corridas, e não a maior de cada linha: numa asa alta a asa corta o
+ * tubo em duas na mesma linha, e qual pedaço é o maior muda de linha para
+ * linha — no an148 a linha de cima tem a maior corrida atrás da asa e a de
+ * baixo na frente dela. Guardando só a maior, cruzar as duas dava um intervalo
+ * que não está dentro de nenhuma das duas, e o letreiro saía em cima da asa.
+ */
+export function tubeProfile(href: string): Promise<ProfileRow[] | null> {
+  if (perfilCache.has(href)) return Promise.resolve(perfilCache.get(href)!)
   return carregar(href)
     .then((img) => {
       if (!img) return null
       try {
-        return medirFaixa(img, y0, y1)
+        return medirPerfil(img)
       } catch {
         return null
       }
     })
     .then((v) => {
-      spanCache.set(chave, v)
+      perfilCache.set(href, v)
       return v
     })
 }
 
-function medirFaixa(img: HTMLImageElement, y0: number, y1: number): [number, number] | null {
-  const w = SAMPLE_W
-  const h = Math.max(1, Math.round((img.naturalHeight / img.naturalWidth) * SAMPLE_W))
+function medirPerfil(img: HTMLImageElement): ProfileRow[] {
+  const w = Math.min(PERFIL_MAX_W, img.naturalWidth)
+  const h = Math.max(1, Math.round((img.naturalHeight / img.naturalWidth) * w))
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return []
+  ctx.drawImage(img, 0, 0, w, h)
+  const { data } = ctx.getImageData(0, 0, w, h)
+  const linhas: ProfileRow[] = []
+  for (let y = 0; y < h; y++) {
+    const corridas: ProfileRow = []
+    let ini = -1
+    for (let x = 0; x <= w; x++) {
+      const dentro = x < w && data[(y * w + x) * 4] > 128
+      if (dentro && ini < 0) ini = x
+      if (!dentro && ini >= 0) {
+        corridas.push([ini / w, x / w])
+        ini = -1
+      }
+    }
+    linhas.push(corridas)
+  }
+  return linhas
+}
+
+/**
+ * A primeira e a última linha não vazia de um perfil, em fração da altura.
+ *
+ * Serve para a fileira de janela, e existe em vez de `pieceBox` porque a caixa
+ * é medida reduzida a `SAMPLE_W`: janela tem 6 px de altura, e reduzida a menos
+ * de um pixel a borda de baixo se perde. A diferença chegava a 13 px no b737 —
+ * e 13 px é exatamente o que fazia a onda encostar na janela com o teto dela
+ * respeitado.
+ */
+export function faixaDoPerfil(perfil: ProfileRow[] | null): [number, number] | null {
+  if (!perfil || !perfil.length) return null
+  const n = perfil.length
+  let de = -1
+  let ate = -1
+  for (let y = 0; y < n; y++) {
+    if (!perfil[y].length) continue
+    if (de < 0) de = y
+    ate = y
+  }
+  return de < 0 ? null : [de / n, (ate + 1) / n]
+}
+
+/** Interseção de duas listas de intervalos ordenadas. */
+function cruzar(a: ProfileRow, b: ProfileRow): ProfileRow {
+  const out: ProfileRow = []
+  let i = 0
+  let j = 0
+  while (i < a.length && j < b.length) {
+    const ini = Math.max(a[i][0], b[j][0])
+    const fim = Math.min(a[i][1], b[j][1])
+    if (fim > ini) out.push([ini, fim])
+    if (a[i][1] < b[j][1]) i++
+    else j++
+  }
+  return out
+}
+
+/**
+ * Como `entre`, mas devolve **todas** as corridas livres da faixa, da maior
+ * para a menor. Serve para escolher onde pôr a peça quando a maior corrida não
+ * é a que interessa — o prefixo quer a de trás, o letreiro a da frente.
+ */
+export function entreTodas(
+  perfil: ProfileRow[] | null,
+  y0: number,
+  y1: number,
+): ProfileRow | null {
+  if (!perfil || !perfil.length) return null
+  const n = perfil.length
+  // Faixa que sai da imagem é faixa inválida, não faixa aparada: aparar aceitaria
+  // texto desenhado acima do avião só porque a parte de cima não tem linha.
+  if (y0 < 0 || y1 > 1 || y1 <= y0) return null
+  // Toda linha que a caixa **toca**, arredondando para fora. Arredondar para o
+  // mais próximo deixava a linha da borda de fora da conta.
+  const de = Math.max(0, Math.floor(y0 * n))
+  const ate = Math.min(n - 1, Math.ceil(y1 * n) - 1)
+  if (ate < de) return null
+  let atual: ProfileRow | null = null
+  for (let y = de; y <= ate; y++) {
+    const l = perfil[y]
+    if (!l.length) return null
+    atual = atual ? cruzar(atual, l) : l.slice()
+    if (!atual.length) return null
+  }
+  if (!atual || !atual.length) return null
+  return atual.slice().sort((a, b) => b[1] - b[0] - (a[1] - a[0]))
+}
+
+const runCache = new Map<string, [number, number] | null>()
+
+/**
+ * O trecho mais longo de fileira de janela **sem porta**, em fração da largura.
+ *
+ * Serve para achar onde o letreiro cabe bem. A fileira de janela é interrompida
+ * exatamente onde há porta e saída de emergência, então o maior trecho contínuo
+ * de janelas é o maior pano de fuselagem limpo que existe — é ali que a
+ * companhia escreve o nome, e é ali que ele não cai em cima de porta.
+ *
+ * O vão entre duas janelas vizinhas conta como janela: janela é retângulo
+ * isolado, e sem fechar esses vãos cada janela seria um "trecho" de 6px. Fecha-se
+ * até três vezes a largura de uma janela; porta é bem mais larga que isso.
+ */
+export function windowSpan(href: string): Promise<[number, number] | null> {
+  if (runCache.has(href)) return Promise.resolve(runCache.get(href)!)
+  return carregar(href)
+    .then((img) => {
+      if (!img) return null
+      try {
+        return medirCorrida(img)
+      } catch {
+        return null
+      }
+    })
+    .then((v) => {
+      runCache.set(href, v)
+      return v
+    })
+}
+
+/**
+ * Também em resolução nativa, e pelo mesmo motivo do perfil — aqui o motivo é
+ * pior ainda: janela tem 6 px de largura, e reduzida a um quarto de pixel ela
+ * sobrevive ou desaparece conforme a fase do arredondamento. Com metade das
+ * janelas perdidas a mediana mente, todo vão parece porta, e o trecho "limpo"
+ * do b764 dava 45 px — 3% do avião. Não sobrando vão nenhum para o letreiro, a
+ * arte caía no palpite e escrevia acima do dorso.
+ */
+function medirCorrida(img: HTMLImageElement): [number, number] | null {
+  const w = Math.min(PERFIL_MAX_W, img.naturalWidth)
+  const h = Math.max(1, Math.round((img.naturalHeight / img.naturalWidth) * w))
   const canvas = document.createElement('canvas')
   canvas.width = w
   canvas.height = h
@@ -290,28 +448,56 @@ function medirFaixa(img: HTMLImageElement, y0: number, y1: number): [number, num
   if (!ctx) return null
   ctx.drawImage(img, 0, 0, w, h)
   const { data } = ctx.getImageData(0, 0, w, h)
-  const dentro = (x: number, y: number) => data[(y * w + x) * 4] > 128
 
-  const de = Math.max(0, Math.min(h - 1, Math.round(y0 * h)))
-  const ate = Math.max(de, Math.min(h - 1, Math.round(y1 * h)))
-  let esq = 0
-  let dir = w - 1
-  let achou = false
-  for (let y = de; y <= ate; y++) {
-    let lx = -1
-    let rx = -1
-    for (let x = 0; x < w; x++) {
-      if (!dentro(x, y)) continue
-      if (lx < 0) lx = x
-      rx = x
+  const tem = new Array<boolean>(w).fill(false)
+  for (let x = 0; x < w; x++) {
+    for (let y = 0; y < h; y++) {
+      if (data[(y * w + x) * 4] > 128) {
+        tem[x] = true
+        break
+      }
     }
-    if (lx < 0) continue
-    esq = achou ? Math.max(esq, lx) : lx
-    dir = achou ? Math.min(dir, rx) : rx
-    achou = true
   }
-  if (!achou || dir <= esq) return null
-  return [esq / w, (dir + 1) / w]
+
+  // largura típica de uma janela: a mediana das corridas cheias
+  const cheias: number[] = []
+  let n = 0
+  for (let x = 0; x <= w; x++) {
+    if (x < w && tem[x]) n++
+    else if (n) {
+      cheias.push(n)
+      n = 0
+    }
+  }
+  if (!cheias.length) return null
+  cheias.sort((a, b) => a - b)
+  const janela = Math.max(1, cheias[Math.floor(cheias.length / 2)])
+
+  // fecha vão de até três janelas: o que sobrar aberto é porta
+  const fechado = tem.slice()
+  let vazio = 0
+  for (let x = 0; x < w; x++) {
+    if (!tem[x]) {
+      vazio++
+      continue
+    }
+    if (vazio > 0 && vazio <= janela * 3) {
+      for (let k = x - vazio; k < x; k++) fechado[k] = true
+    }
+    vazio = 0
+  }
+
+  let melhor: [number, number] | null = null
+  let ini = -1
+  for (let x = 0; x <= w; x++) {
+    const dentro = x < w && fechado[x]
+    if (dentro && ini < 0) ini = x
+    if (!dentro && ini >= 0) {
+      if (!melhor || x - ini > melhor[1] - melhor[0]) melhor = [ini, x]
+      ini = -1
+    }
+  }
+  return melhor ? [melhor[0] / w, melhor[1] / w] : null
 }
 
 function medirPeca(img: HTMLImageElement): PieceBox | null {
