@@ -80,6 +80,10 @@ Estão em `.claude/skills/`. Cada uma cobre uma área onde errar é caro:
 - **skyline-fleet-data** — catálogo de aeronaves, motorizações e aeroportos.
 - **skyline-livery** — silhueta vetorial, pintura e arte das aeronaves.
 - **meshy-assets** — geração de sprites e liveries pela API da Meshy.
+- **skyline-setor** — **o gerador oficial das máscaras de setor.** Silhueta com
+  BiRefNet, peça com SAM 2.1 (titular) ou Grounded SAM 2 (segunda opinião),
+  acabamento com ViTMatte, e um juiz que mede na **foto**, não em outra máscara.
+  Máscara que não saiu daí não foi medida e não entra no jogo.
 - **skyline-mask-audit** — medir o alinhamento das máscaras de setor contra a
   foto, em pixel, em qualquer peça.
 - **skyline-mask-repair** — corrigir desalinhamento aceitando só o que melhora
