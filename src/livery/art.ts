@@ -52,13 +52,24 @@ export function loadArtManifest(base = import.meta.env.BASE_URL): Promise<ArtMan
 }
 
 /**
- * Chave composta `id:motor` primeiro — o motor muda o tamanho da nacela e às
- * vezes o desenho inteiro (mesmo padrão de chave que `spec.ts` já usa para a
- * ficha efetiva). Sem entrada por motor, cai na entrada só do modelo; sem
- * nenhuma das duas, cai no vetor.
+ * A entrada do **modelo** primeiro; a de motor só existe para quem não tem a
+ * do modelo.
+ *
+ * A ordem já foi a contrária, com a chave `id:motor` na frente, e estava
+ * errada: as máscaras de setor são por modelo, recortadas sobre um sprite só —
+ * o mesmo que a entrada-base aponta —, enquanto cada motorização tem um render
+ * próprio. E render próprio não quer dizer "a mesma foto com outra nacela":
+ * medida a silhueta de uma variante contra a da outra, a interseção sobre a
+ * união fica em 0,80 na mediana e chega a 0,52. Com a chave de motor na frente,
+ * a pintura de um a388 com Trent caía sobre a máscara recortada no GP7270 e a
+ * deriva saía pintada pela metade, em paralelogramo.
+ *
+ * Ou seja: trocar o sprite por motorização custa o alinhamento de **todos** os
+ * setores para ganhar uma nacela um pouco diferente. Enquanto as máscaras forem
+ * por modelo, a arte tem que ser a do modelo.
  */
 export const artFor = (id: string, engineId?: string | null): ArtEntry | undefined =>
-  (engineId && cache?.[`${id}:${engineId}`]) || cache?.[id]
+  cache?.[id] || (engineId ? cache?.[`${id}:${engineId}`] : undefined)
 
 /** Linha de crédito exigida pela licença, quando a imagem vem de terceiros. */
 export function creditLine(id: string, engineId?: string | null): string | null {

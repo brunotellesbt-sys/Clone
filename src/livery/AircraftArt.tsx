@@ -6,8 +6,8 @@ import { emblemHref } from './emblems'
 import { LiveryPlane } from './LiveryPlane'
 import {
   cockpitMaskHref, engineCowlMaskHref, fuseBands, gearStrutMaskHref, leadingEdgeMaskHref, measure, measured,
-  planeMaskHref, propMaskHref, tailMaskHref, trailingEdgeMaskHref, tyreMaskHref, windowMaskHref, wingMaskHref,
-  wingTopMaskHref, wingletMaskHref, type FuseBands, type Measured,
+  bodyMaskHref, pieceBox, planeMaskHref, propMaskHref, tailMaskHref, trailingEdgeMaskHref, tyreMaskHref,
+  windowMaskHref, wingMaskHref, wingTopMaskHref, wingletMaskHref, type FuseBands, type Measured, type PieceBox,
 } from './measure'
 import { FONT_STACK } from './silhouette'
 
@@ -50,6 +50,7 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   const [box, setBox] = useState<Measured | null | undefined>(() => measured(href))
   const [failed, setFailed] = useState(false)
   const [preciseTail, setPreciseTail] = useState<string | null>(null)
+  const [tailBox, setTailBox] = useState<PieceBox | null>(null)
   const [gearMask, setGearMask] = useState<string | null>(null)
   const [wingMask, setWingMask] = useState<string | null>(null)
   const [engineMask, setEngineMask] = useState<string | null>(null)
@@ -63,6 +64,7 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   const [planeMask, setPlaneMask] = useState<string | null>(null)
   const [tyreMask, setTyreMask] = useState<string | null>(null)
   const [propMask, setPropMask] = useState<string | null>(null)
+  const [bodyMask, setBodyMask] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -82,7 +84,12 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
 
   useEffect(() => {
     let alive = true
-    tailMaskHref(type.id).then((m) => alive && setPreciseTail(m))
+    tailMaskHref(type.id).then((m) => {
+      if (!alive) return
+      setPreciseTail(m)
+      // A caixa da deriva sai da máscara dela, não da dedução de measure.ts.
+      if (m) pieceBox(m).then((b) => alive && setTailBox(b))
+    })
     return () => {
       alive = false
     }
@@ -93,6 +100,7 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
     gearStrutMaskHref(type.id).then((m) => alive && setGearMask(m))
     tyreMaskHref(type.id).then((m) => alive && setTyreMask(m))
     propMaskHref(type.id).then((m) => alive && setPropMask(m))
+    bodyMaskHref(type.id).then((m) => alive && setBodyMask(m))
     return () => {
       alive = false
     }
@@ -136,7 +144,10 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   const base = box ?? DEFAULT_REGIONS
   const region = { ...DEFAULT_REGIONS, ...base, ...(entry.regions ?? {}) }
   const [fy0, fy1] = region.fuselage
-  const [tx0, ty0, tx1, ty1] = region.tail
+  // Com máscara de deriva, a caixa e a zona do emblema são as da peça medida;
+  // sem ela, as deduzidas em measure.ts.
+  const [tx0, ty0, tx1, ty1] = tailBox?.box ?? region.tail
+  const emblemZone = tailBox?.emblem ?? region.emblem
 
   // Zonas da fuselagem em pixels da imagem.
   const bandTop = h * fy0
@@ -164,7 +175,15 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   const cheatH = Math.max(1, bandH * livery.cheatWidth)
   const noseColor = livery.noseStyle === 'body' ? null : livery.noseStyle === 'dark' ? '#1e293b' : livery.nose
 
-  const titleSize = Math.max(8, bandH * livery.titleSize)
+  // O letreiro mora no dorso, entre o topo da fuselagem e a fileira de janela —
+  // é ali que ele fica em qualquer companhia, e a divisa da fileira já está
+  // medida por aeronave (fusebands.json). Sem a medida, cai na fração de sempre.
+  // O tamanho é do jogador, mas não passa da altura do dorso: com a faixa da
+  // fuselagem medida direito, o padrão de 0,34 cruzava a janela.
+  const crownY = bands ? h * bands.crown : bandTop + bandH * 0.42
+  const dorsoH = Math.max(1, crownY - bandTop)
+  const titleSize = Math.max(8, Math.min(bandH * livery.titleSize, dorsoH * 0.86))
+  const titleY = bands ? (bandTop + crownY) / 2 : bandTop + bandH * 0.3
   // As âncoras contam a partir do NARIZ, que no arquivo original pode estar
   // à direita — por isso a posição é medida no sentido do avião, não da imagem.
   const along = 0.08 + livery.titleAt * 0.55
@@ -227,6 +246,13 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
           <mask id={`pm-${uid}`} style={{ maskType: 'luminance' }}>
             {/* O pneu (public/sprites/tyremasks/), que não é setor de livery. */}
             <image href={tyreMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
+          </mask>
+        )}
+        {bodyMask && (
+          <mask id={`fm-${uid}`} style={{ maskType: 'luminance' }}>
+            {/* O tubo da fuselagem (public/sprites/fuselagemasks/), que recorta
+                a faixa para ela não respingar no intradorso da asa. */}
+            <image href={bodyMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
         )}
         {propMask && (
@@ -319,12 +345,14 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
           {/* barriga, dentro da faixa da fuselagem */}
           <rect x="0" y={bellyY} width={w} height={bandBot - bellyY} fill={livery.belly} />
 
-          {/* faixa */}
+          {/* faixa, recortada pelo tubo quando ele existe: ver bodyMaskHref */}
           {livery.cheatStyle !== 'none' && (
-            <Cheat
-              livery={livery} w={w} x0={planeX0} planeW={planeW}
-              bandTop={bandTop} bandBot={bandBot} mid={cheatMid} height={cheatH} gradId={`cg-${uid}`}
-            />
+            <g mask={bodyMask ? `url(#fm-${uid})` : undefined}>
+              <Cheat
+                livery={livery} w={w} x0={planeX0} planeW={planeW}
+                bandTop={bandTop} bandBot={bandBot} mid={cheatMid} height={cheatH} gradId={`cg-${uid}`}
+              />
+            </g>
           )}
 
           {/* radome */}
@@ -468,7 +496,7 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
           </g>
 
           {livery.emblem !== 'none' && (
-            <Emblem livery={livery} region={region.emblem} w={w} h={h} />
+            <Emblem livery={livery} region={emblemZone} w={w} h={h} />
           )}
         </g>
 
@@ -483,7 +511,7 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
         {titles && (
           <g transform={unflip(titleXImg)}>
             <text
-              x={titleXImg} y={bandTop + bandH * 0.3} fill={livery.titles}
+              x={titleXImg} y={titleY} fill={livery.titles}
               fontFamily={FONT_STACK[livery.titleFont]} fontSize={titleSize}
               fontWeight={livery.titleFont === 'wide' ? 900 : 700}
               letterSpacing={livery.titleFont === 'wide' ? '0.04em' : '0'}

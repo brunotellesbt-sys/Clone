@@ -166,6 +166,20 @@ export const engineCowlMaskHref = (id: string, base = import.meta.env.BASE_URL) 
  */
 export const windowMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('windowmasks', id, base)
 
+/**
+ * O tubo da fuselagem (`fuselagemasks`), usado para recortar a **faixa**.
+ *
+ * A faixa é desenho de fuselagem e não tem o que fazer embaixo da asa: pintada
+ * sobre a silhueta inteira, ela vaza pelas frestas que as máscaras de asa e
+ * motor deixam entre si e aparece como respingo de cor no intradorso. Recortada
+ * pelo tubo, some o respingo e no tubo nada muda.
+ *
+ * A cor de fundo da fuselagem continua sendo pintada sobre a silhueta inteira,
+ * e é de propósito: é ela que garante que nenhum pedaço do avião fique sem
+ * tinta. Recortar **ela** pelo tubo é que abriria buraco.
+ */
+export const bodyMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('fuselagemasks', id, base)
+
 /** Vidraça da cabine de comando (public/sprites/cockpitmasks/). */
 export const cockpitMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('cockpitmasks', id, base)
 
@@ -209,28 +223,144 @@ export function measured(href: string): Measured | null | undefined {
   return cache.get(href)
 }
 
-export function measure(href: string): Promise<Measured | null> {
+/** Caixa de uma peça e onde o emblema cabe dentro dela, em fração da imagem. */
+export interface PieceBox {
+  box: [number, number, number, number]
+  emblem: { cx: number; cy: number; maxW: number; maxH: number }
+}
+
+const pieceCache = new Map<string, PieceBox | null>()
+
+/**
+ * Mede a caixa da deriva na **própria máscara** dela.
+ *
+ * A caixa vinha de `analyse()`, que a deduz do que sobra acima da faixa da
+ * fuselagem. É dedução frágil e acoplada: melhorar a medida da faixa move a
+ * caixa da cauda junto, e no a388 — convés superior alto, faixa alta — a caixa
+ * passou a começar depois do bordo de ataque, deixando metade da deriva branca.
+ * Com `tailmasks` conferida para as 55, a caixa não precisa ser deduzida: ela é
+ * o contorno da peça.
+ *
+ * Serve também para o emblema, pela mesma razão de sempre — a deriva é um
+ * trapézio, não um retângulo, então o tamanho seguro sai da **linha mais
+ * estreita** da faixa onde o emblema vai, não da largura da caixa.
+ */
+export function pieceBox(href: string): Promise<PieceBox | null> {
+  if (pieceCache.has(href)) return Promise.resolve(pieceCache.get(href)!)
+  return carregar(href)
+    .then((img) => {
+      if (!img) return null
+      try {
+        return medirPeca(img)
+      } catch {
+        return null
+      }
+    })
+    .then((b) => {
+      pieceCache.set(href, b)
+      return b
+    })
+}
+
+function medirPeca(img: HTMLImageElement): PieceBox | null {
+  const w = SAMPLE_W
+  const h = Math.max(1, Math.round((img.naturalHeight / img.naturalWidth) * SAMPLE_W))
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return null
+  ctx.drawImage(img, 0, 0, w, h)
+  const { data } = ctx.getImageData(0, 0, w, h)
+  const dentro = (x: number, y: number) => data[(y * w + x) * 4] > 128
+
+  let x0 = w, x1 = -1, y0 = h, y1 = -1
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!dentro(x, y)) continue
+      if (x < x0) x0 = x
+      if (x > x1) x1 = x
+      if (y < y0) y0 = y
+      if (y > y1) y1 = y
+    }
+  }
+  if (x1 < 0) return null
+
+  const alt = Math.max(1, y1 - y0)
+  const de = Math.round(y0 + alt * 0.35)
+  const ate = Math.round(y0 + alt * 0.65)
+  let menorW = x1 - x0 + 1
+  let cx = (x0 + x1) / 2
+  let medido = false
+  for (let y = de; y <= ate; y++) {
+    let lx = -1
+    let rx = -1
+    for (let x = x0; x <= x1; x++) {
+      if (!dentro(x, y)) continue
+      if (lx < 0) lx = x
+      rx = x
+    }
+    if (lx < 0) continue
+    const larg = rx - lx + 1
+    if (!medido || larg < menorW) {
+      menorW = larg
+      cx = (lx + rx) / 2
+      medido = true
+    }
+  }
+  const emblemW = menorW * 0.72
+  return {
+    box: [x0 / w, y0 / h, (x1 + 1) / w, (y1 + 1) / h],
+    emblem: { cx: cx / w, cy: (y0 + alt * 0.5) / h, maxW: emblemW / w, maxH: Math.min(emblemW, alt * 0.4) / h },
+  }
+}
+
+function carregar(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = () => resolve(null)
+    img.src = src
+  })
+}
+
+/**
+ * Mede sobre o **recorte**, não sobre a foto, quando o recorte existe.
+ *
+ * Todas as zonas daqui saem do mesmo teste de primeiro plano, e ele erra pelo
+ * mesmo motivo que errava a silhueta: no sprite branco em fundo branco, chapa
+ * clara não alcança `COLOR_TOL`. A caixa da deriva saía menor que a deriva, e
+ * como a pintura da cauda é um retângulo recortado pela máscara, o que sobrava
+ * de fora ficava com a cor da fuselagem — o fio branco no bordo de ataque e a
+ * mordida na ponta. A faixa da fuselagem e a caixa do emblema saíam do mesmo
+ * teste e do mesmo jeito.
+ *
+ * Medido sobre `planemasks/<sprite>.png` o problema some sozinho: ali o avião é
+ * branco sólido sobre preto sólido, e o mesmo teste acerta cada pixel. A foto
+ * continua sendo o caminho de quem não tem recorte (a arte da Commons).
+ */
+export function measure(href: string, base = import.meta.env.BASE_URL): Promise<Measured | null> {
   if (cache.has(href)) return Promise.resolve(cache.get(href)!)
   const running = inFlight.get(href)
   if (running) return running
 
-  const job = new Promise<Measured | null>((resolve) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
+  const job = planeMaskHref(href, base)
+    .then((recorte) => (recorte ? carregar(recorte) : null))
+    .then((img) => img ?? carregar(href))
+    .then((img) => {
+      if (!img) return null
       try {
-        resolve(analyse(img))
+        return analyse(img)
       } catch {
-        resolve(null) // canvas contaminado ou imagem estranha: segue sem medir
+        return null // canvas contaminado ou imagem estranha: segue sem medir
       }
-    }
-    img.onerror = () => resolve(null)
-    img.src = href
-  }).then((m) => {
-    cache.set(href, m)
-    inFlight.delete(href)
-    return m
-  })
+    })
+    .then((m) => {
+      cache.set(href, m)
+      inFlight.delete(href)
+      return m
+    })
 
   inFlight.set(href, job)
   return job

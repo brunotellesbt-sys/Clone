@@ -192,6 +192,43 @@ junção asa-fuselagem, e o atr42 saía com um risco preto asa afora. Limitada �
 vizinhança da nacela e ficando com a maior peça (as pás se encontram no cone),
 sai a hélice e mais nada.
 
+## A máscara é por modelo, então a arte também tem que ser
+
+Cada motorização tem um sprite próprio, e a chave `id:motor` do manifesto vinha
+na frente da chave do modelo — mas as máscaras de setor são recortadas sobre
+**um** sprite, o que a entrada-base aponta. Variante não é "a mesma foto com
+outra nacela": medida a silhueta de uma contra a da outra, a interseção sobre a
+união fica em **0,80 na mediana e chega a 0,52**. Um a388 com Trent pintava com
+a máscara recortada no GP7270 e a deriva saía pela metade, em paralelogramo.
+
+Corrigido invertendo a ordem em `artFor` (`src/livery/art.ts`): entrada do
+modelo primeiro, a de motor só para quem não tem a do modelo. Enquanto o recorte
+for por modelo, a arte tem que ser a do modelo — e quem quiser voltar a mostrar
+a nacela certa por motorização precisa recortar as dez pastas por sprite, não
+por aeronave.
+
+## Medir na foto mede errado; medir no recorte mede certo
+
+`measure.ts` deduz do sprite a caixa do avião, a faixa da fuselagem, a caixa da
+deriva e onde o emblema cabe — tudo com o mesmo teste de primeiro plano que
+falhava na silhueta, e pelo mesmo motivo (chapa clara em fundo branco). A caixa
+da deriva saía **menor que a deriva**, e como a cauda é pintada como retângulo
+recortado pela máscara, o que ficava de fora aparecia como um fio de cor de
+fuselagem no bordo de ataque e uma mordida na ponta.
+
+Duas correções, as duas em `src/livery/`:
+
+- **medir sobre `planemasks`**, não sobre a foto: no recorte o avião é branco
+  sólido em fundo preto sólido e o mesmo teste acerta cada pixel;
+- **a caixa da deriva sai da máscara da deriva** (`pieceBox`), não de dedução.
+  Deduzir acopla as duas medidas: ao melhorar a faixa da fuselagem, a caixa da
+  cauda do a388 — convés superior alto — passou a começar depois do bordo de
+  ataque.
+
+Com a faixa medida direito, o letreiro passou a caber onde ele mora de verdade:
+no dorso, entre o topo da fuselagem e a fileira de janela, que `fusebands.json`
+já tinha medido por aeronave.
+
 ## Dois defeitos que só aparecem pintado
 
 Nenhum dos dois o `diagnose.py` acusa: as duas máscaras estão coladas em
@@ -212,6 +249,30 @@ Reconhece a tira por três coisas juntas: fina, cobrindo quase toda a extensão
 horizontal, e no topo da peça. Tampa de poço e viga de bogie não têm as três.
 Não dá para parar na primeira linha que falha o teste: a linha de cima da tira
 vem serrilhada e cobre menos que o limiar. Saíram 25.685px.
+
+### A franja do motor no intradorso da asa
+
+Terminada a caçada ao cone de escape (abaixo), sobrou o contrário: a máscara de
+motor **passa** da nacela. Em quase todos os modelos ela segue para trás e para
+fora, cobrindo pilone, carenagem de trilho de flape e um pedaço do intradorso,
+com borda esfarrapada. O `diagnose.py` não acusa, e não é falha dele: a franja
+acompanha contorno de verdade, o da carenagem de flape, então a aderência fica
+alta. O que está errado não é a borda, é a peça.
+
+```bash
+python3 .claude/skills/skyline-mask-repair/scripts/aparar_nacela.py --write
+```
+
+Separa pela forma: nacela é corpo **gordo** — em vista lateral cabe um disco
+grande dentro dela — e a franja é magra. Fica o que sobrevive a uma abertura por
+disco de 45% do raio máximo da própria peça, sem número fixo em pixel, porque
+hélice de turboélice, nacela de regional e Trent do a388 têm raios muito
+diferentes. Saíram 105.000px no total, 7,4% da nacela na mediana.
+
+O efeito na tela é grande: aquela área era pintada de cor de motor, ao lado de
+cor de asa e de cor de fuselagem, cada pedaço com borda serrilhada — o retalho
+sob a raiz da asa. Devolvida à fuselagem (que é derivada do que sobra), vira uma
+cor só.
 
 ### O sulco entre vizinhos
 
@@ -411,6 +472,22 @@ alternativas foram medidas e não servem, para não serem tentadas de novo:
 resto dela, ver "Peça que não é de ninguém" acima — é o que o jogo pinta de
 preto. Tirar o pneu do setor não basta: sem tinta própria ele sai cinza.
 
+## A deriva precisa fechar até o contorno
+
+Dois defeitos da máscara de deriva que o `diagnose.py` não acusa e que a tela
+mostra na hora, porque a deriva costuma ser a peça mais colorida da livery:
+falta um fio de 1 a 3px no bordo de ataque e na ponta (a fuselagem aparece por
+baixo, contornando a peça), e a raiz é serrilhada, porque ali não existe
+contorno nenhum para o recorte seguir.
+
+```bash
+python3 .claude/skills/skyline-mask-repair/scripts/aparar_deriva.py --write
+```
+
+Uma medida resolve as duas: **acima da raiz, tudo é deriva**. Para cada coluna,
+alisa-se a linha de raiz com mediana de 21px e preenche-se dali para cima com o
+que for avião. Entraram 35.047px nas 55 e a aderência subiu de 92% para 93%.
+
 ## O estabilizador horizontal não tem máscara
 
 Conferido nas 55: `tailmasks` é a **deriva e mais nada**. O estabilizador
@@ -425,6 +502,14 @@ tentativas, e cada uma troca um erro por outro:
 | 1 | aberta para os dois lados da raiz | estabilizador **mais** a traseira da fuselagem, em 4 de 5 |
 | 2 | idem, com ponto negativo no tubo | melhora o `a388` (22.929px → 7.618) e **piora** o `b737` (14.546 → 21.926) |
 | 3 | só atrás da deriva | passa nos 6, mas pega **só a metade traseira** e leva o cone junto no `a320` e no `e190` |
+| 4 | nenhuma: envelope monótono do cone | não acha nada — ver abaixo |
+
+A quarta não usou SAM2: a ideia era geométrica, achar o que escapa do cone. Com
+a deriva descontada, o topo do cone só desce e a base só sobe indo para a cauda,
+então o que passasse desse envelope monótono seria estabilizador. **Não passa
+nada**: na vista lateral o estabilizador fica *dentro* do envelope, abaixo da
+linha do topo do cone na mesma estação. O que a medida encontrou foram os
+poucos pixels da ponta, depois que o cone já acabou. Não repetir.
 
 A raiz do problema é da foto, não do recorte: **na vista lateral o
 estabilizador é contínuo com o cone de cauda**, sem contorno entre os dois na
