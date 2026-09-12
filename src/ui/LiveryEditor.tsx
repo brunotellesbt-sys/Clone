@@ -5,6 +5,9 @@ import { AircraftArt } from '../livery/AircraftArt'
 import { creditLine, creditSource } from '../livery/art'
 import { EMBLEMS } from '../livery/emblems'
 import { BLANK_LIVERY, LIVERY_PRESETS } from '../livery/presets'
+import { NATURAL } from '../livery/silhouette'
+import { AIRPORT_BY_IATA } from '../game/data/airports'
+import { temBandeira } from '../livery/flags'
 import { useGame } from '../store/useGame'
 import { Card } from './components/Bits'
 
@@ -26,7 +29,7 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'fuselagem', label: 'Fuselagem' },
   { id: 'faixa', label: 'Faixa' },
   { id: 'cauda', label: 'Cauda' },
-  { id: 'asa', label: 'Asa e motores' },
+  { id: 'asa', label: 'Bordos da asa' },
   { id: 'texto', label: 'Texto' },
   { id: 'detalhes', label: 'Detalhes' },
 ]
@@ -37,7 +40,7 @@ type OptColorKey = Extract<keyof Livery,
 type ColorKey = Extract<
   keyof Livery,
   | 'fuselage' | 'belly' | 'nose' | 'cheat' | 'cheat2' | 'tail' | 'tailAccent' | 'stab'
-  | 'wing' | 'winglet' | 'engine' | 'engineCowl' | 'gear' | 'titles' | 'regColor' | 'windowColor'
+  | 'winglet' | 'titles' | 'regColor' | 'windowColor'
   | 'emblemColor' | 'emblemAccent'
 >
 
@@ -48,6 +51,9 @@ export function LiveryEditor() {
   const [openField, setOpenField] = useState<ColorKey | OptColorKey | null>('fuselage')
   const livery = state.airline.livery
   const type = AIRCRAFT_BY_ID[preview]
+  const hub = AIRPORT_BY_IATA[state.airline.hubs[0]]
+  const paisDoHub = hub?.country ?? ''
+  const bandeiraDoHub = !!hub && temBandeira(hub.cc)
   // Sem escolha de motor nesta tela: mostra a arte do motor de série.
   const previewEngineId = type.engines[0]
 
@@ -139,6 +145,7 @@ export function LiveryEditor() {
             livery={livery}
             titles={state.airline.name}
             registration={`${state.airline.code}-ABC`}
+            flagCC={hub?.cc}
           />
         </div>
         {creditLine(preview, previewEngineId) && (
@@ -269,6 +276,16 @@ export function LiveryEditor() {
                 <>
                   <Color k="emblemColor" label="Cor do emblema" />
                   <Color k="emblemAccent" label="Cor de destaque do emblema" />
+                  <Select
+                    label="Tamanho do emblema"
+                    value={livery.emblemSize}
+                    options={[
+                      { v: 'small', label: 'Pequeno' },
+                      { v: 'medium', label: 'Médio' },
+                      { v: 'large', label: 'Grande' },
+                    ]}
+                    onChange={(v) => set('emblemSize', v as Livery['emblemSize'])}
+                  />
                 </>
               )}
             </>
@@ -276,15 +293,16 @@ export function LiveryEditor() {
 
           {section === 'asa' && (
             <>
-              <Color k="wing" label="Asa" />
-              <OptColor k="leadingEdge" label="Bordo de ataque" herdaDe="cor da asa" herdaCor={livery.wing} />
-              <OptColor k="wingTop" label="Dorso da asa" herdaDe="cor da asa" herdaCor={livery.wing} />
-              <OptColor k="trailingEdge" label="Bordo de fuga" herdaDe="cor da asa" herdaCor={livery.wing} />
+              {/* A chapa da asa, a nacela e o trem não entram: ficam com a cor
+                  de origem. O que a companhia pinta na asa são os bordos. */}
+              <OptColor k="leadingEdge" label="Bordo de ataque" herdaDe="chapa da asa" herdaCor={NATURAL.chapa} />
+              <OptColor k="wingTop" label="Dorso da asa" herdaDe="chapa da asa" herdaCor={NATURAL.chapa} />
+              <OptColor k="trailingEdge" label="Bordo de fuga" herdaDe="chapa da asa" herdaCor={NATURAL.chapa} />
               <Color k="winglet" label="Winglet" />
-              <Color k="engine" label="Nacela do motor" />
-              <Color k="engineCowl" label="Aro do bocal" />
-              {/* só a perna: o pneu é preto e não entra na livery */}
-              <Color k="gear" label="Perna do trem" />
+              <p className="dim" style={{ marginTop: 12 }}>
+                Motor, trem de pouso, pneu e hélice ficam com a cor de origem, sem tinta de
+                companhia — é o que se vê num pátio de verdade.
+              </p>
             </>
           )}
 
@@ -302,11 +320,11 @@ export function LiveryEditor() {
                 ]}
                 onChange={(v) => set('titleFont', v as Livery['titleFont'])}
               />
-              <Slider
-                label="Tamanho"
-                value={livery.titleSize} min={0.12} max={0.7} step={0.01}
-                display={`${Math.round(livery.titleSize * 100)}% da fuselagem`}
-                onChange={(v) => set('titleSize', v)}
+              <Select
+                label="Tamanho da letra"
+                value={String(tamanhoDoLetreiro(livery.titleSize))}
+                options={TAMANHOS_DE_LETREIRO.map((t) => ({ v: String(t.v), label: t.label }))}
+                onChange={(v) => set('titleSize', +v)}
               />
               <Slider
                 label="Posição ao longo da fuselagem"
@@ -314,8 +332,31 @@ export function LiveryEditor() {
                 display={livery.titleAt < 0.25 ? 'à frente' : livery.titleAt < 0.5 ? 'no meio' : 'atrás'}
                 onChange={(v) => set('titleAt', v)}
               />
-              <Toggle label="Mostrar matrícula" value={livery.showReg} onChange={(v) => set('showReg', v)} />
-              {livery.showReg && <Color k="regColor" label="Cor da matrícula" />}
+              <Toggle label="Mostrar prefixo" value={livery.showReg} onChange={(v) => set('showReg', v)} />
+              {livery.showReg && (
+                <>
+                  <Color k="regColor" label="Cor do prefixo" />
+                  <Select
+                    label="Tamanho do prefixo"
+                    value={livery.regSize}
+                    options={[
+                      { v: 'small', label: 'Pequeno' },
+                      { v: 'medium', label: 'Médio' },
+                      { v: 'large', label: 'Grande' },
+                    ]}
+                    onChange={(v) => set('regSize', v as Livery['regSize'])}
+                  />
+                </>
+              )}
+              {/* A bandeira é a do país da primeira matrícula de cada aeronave,
+                  não a da base de hoje: um avião comprado no Brasil continua
+                  com a bandeira do Brasil depois que a companhia muda de base. */}
+              <Toggle label="Bandeira do país da matrícula" value={livery.flag} onChange={(v) => set('flag', v)} />
+              <p className="dim">
+                {bandeiraDoHub
+                  ? `Aeronave comprada com base em ${state.airline.hubs[0]} nasce com a bandeira de ${paisDoHub}.`
+                  : 'A base de hoje não tem bandeira desenhada — as aeronaves de lá saem sem bandeira.'}
+              </p>
             </>
           )}
 
@@ -346,15 +387,15 @@ export function LiveryEditor() {
 
           <Card title="Peças pintadas">
             <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
-              Cada parte tem cor própria. A faixa e o letreiro ainda têm posição e espessura ajustáveis.
+              A companhia pinta fuselagem, cauda e bordos da asa. Motor, trem, pneu e hélice ficam com a
+              cor de origem — e é assim que se vê num pátio.
             </p>
             <div className="row tight">
               {(
                 [
                   ['fuselage', 'fuselagem'], ['belly', 'barriga'], ['nose', 'radome'], ['cheat', 'faixa'],
-                  ['tail', 'deriva'], ['stab', 'estabilizador'], ['wing', 'asa'], ['winglet', 'winglet'],
-                  ['engine', 'nacela'], ['engineCowl', 'bocal'], ['gear', 'trem'], ['titles', 'letreiro'],
-                  ['windowColor', 'janelas'],
+                  ['tail', 'deriva'], ['stab', 'estabilizador'], ['winglet', 'winglet'],
+                  ['titles', 'letreiro'], ['windowColor', 'janelas'],
                 ] as [ColorKey, string][]
               ).map(([k, label]) => (
                 <span key={k} className="chip grey" style={{ gap: 6 }}>
@@ -435,6 +476,27 @@ function ColorField({
   )
 }
 
+/**
+ * Tamanhos de letreiro, em fração da altura da fuselagem — três, os mesmos
+ * três degraus do emblema e do prefixo.
+ *
+ * Era um controle contínuo de 12% a 70%, e não fazia sentido: a arte limita o
+ * letreiro ao dorso (entre o topo da fuselagem e a fileira de janela) e ao vão
+ * até a asa, então metade do curso não mudava nada — o número subia e a letra
+ * ficava presa no teto da caixa. "Grande" é o que a caixa aguenta em qualquer
+ * aeronave da frota.
+ */
+const TAMANHOS_DE_LETREIRO = [
+  { v: 0.2, label: 'Pequeno' },
+  { v: 0.28, label: 'Médio' },
+  { v: 0.4, label: 'Grande' },
+]
+
+/** O degrau mais perto do valor guardado — pinturas antigas caem no vizinho. */
+function tamanhoDoLetreiro(v: number): number {
+  return TAMANHOS_DE_LETREIRO.reduce((a, b) => (Math.abs(b.v - v) < Math.abs(a.v - v) ? b : a)).v
+}
+
 function Slider({
   label, value, min, max, step, display, onChange,
 }: { label: string; value: number; min: number; max: number; step: number; display: string; onChange: (v: number) => void }) {
@@ -488,7 +550,12 @@ function randomLivery(): Livery {
     noseStyle: pick(['body', 'dark', 'custom'] as const),
     cheat: brand,
     cheat2: accent,
-    cheatStyle: pick(['straight', 'wide', 'double', 'wave', 'split', 'fade'] as const),
+    // Todos os quinze desenhos entram no sorteio, não só as faixas: é o que dá
+    // companhia com cara diferente a cada partida.
+    cheatStyle: pick([
+      'straight', 'wide', 'double', 'wave', 'split', 'fade', 'chevron', 'delta',
+      'diagonal', 'ribbon', 'triband', 'checker', 'billboard', 'sunray',
+    ] as const),
     cheatAt: 0.45 + Math.random() * 0.35,
     cheatWidth: 0.08 + Math.random() * 0.22,
     tail: brand,
@@ -498,14 +565,16 @@ function randomLivery(): Livery {
     emblem: pick(['none', 'none', ...EMBLEMS.filter((e) => e.id !== 'none').map((e) => e.id)]),
     emblemColor: accent,
     emblemAccent: dark ? '#f8fafc' : brand,
-    wing: dark ? '#1e293b' : '#e2e8f0',
+    emblemSize: pick(['small', 'medium', 'large'] as const),
     winglet: brand,
-    engine: dark ? '#1e293b' : '#e2e8f0',
-    engineCowl: brand,
+    leadingEdge: Math.random() < 0.4 ? brand : null,
+    trailingEdge: Math.random() < 0.25 ? accent : null,
     titles: dark ? '#f8fafc' : brand,
     titleFont: pick(['wide', 'sans', 'serif', 'mono'] as const),
-    titleSize: 0.26 + Math.random() * 0.18,
-    titleAt: Math.random() * 0.3,
+    titleSize: pick(TAMANHOS_DE_LETREIRO.map((t) => t.v)),
+    titleAt: Math.random() * 0.6,
+    regSize: pick(['small', 'medium'] as const),
+    flag: Math.random() < 0.35,
     windowColor: dark ? '#93c5fd' : '#1e293b',
   }
 }

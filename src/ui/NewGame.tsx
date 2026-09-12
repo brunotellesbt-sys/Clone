@@ -71,7 +71,10 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
           <div className="card">
             <h3>Pintura inicial</h3>
             <div className="plane-frame" style={{ marginBottom: 10 }}>
-              <AircraftArt type={AIRCRAFT_BY_ID.a320} livery={livery} titles={name} registration={code} />
+              <AircraftArt
+                type={AIRCRAFT_BY_ID.a320} livery={livery} titles={name} registration={code}
+                flagCC={AIRPORTS.find((a) => a.iata === hub)?.cc}
+              />
             </div>
             <div className="row tight">
               {LIVERY_PRESETS.map((p, i) => (

@@ -49,8 +49,18 @@ DERIVADOS = set(SUBSETOR_DE) | {"fuselagemasks"}
 FAIXAS = {"leadingedgemasks", "wingtopmasks", "trailingedgemasks"}
 
 
+# Pastas que não são setor rival de ninguém, e por isso não entram em disputa:
+# `planemasks` é a silhueta do avião inteiro, superconjunto de todos os setores,
+# e `propmasks` é a hélice, que foi **retirada** de asa e motor de propósito.
+# Sem esta lista, quem varre `public/sprites/*masks/` conta sobreposição com a
+# silhueta como defeito — 38.221px no b737, o setor inteiro.
+FORA_DA_DISPUTA = {"planemasks", "propmasks"}
+
+
 def disputam(a, b):
     """Dois setores disputam pixel, ou um contém o outro de propósito?"""
+    if a in FORA_DA_DISPUTA or b in FORA_DA_DISPUTA:
+        return False
     return SUBSETOR_DE.get(a) != b and SUBSETOR_DE.get(b) != a
 
 

@@ -115,7 +115,24 @@ def encaixar(mask, forte, alcance=4.0, sigma=6.0, **_):
     return novo
 
 
-CONSERTOS = [("aparar", aparar), ("soltar", soltar), ("deslocar", deslocar), ("encaixar", encaixar)]
+# Escalas do encaixe, da mais grossa para a mais fina. `sigma` é o quanto o
+# deslocamento medido num ponto da borda se espalha pelos vizinhos: 6px trata a
+# borda como uma curva só e corrige tendência; 1,5px deixa cada trecho seguir o
+# seu próprio contorno, que é o que fecha o último pixel.
+#
+# Rodar da grossa para a fina, e não só a fina, é o que faz funcionar: sozinha,
+# a fina persegue ruído de contorno e a medida a reprova. Cada escala é medida e
+# revertida em separado, então o que fica é o que mediu melhor.
+ESCALAS = [(4.0, 6.0), (3.0, 3.0), (2.0, 1.5)]
+
+CONSERTOS = (
+    [("aparar", aparar), ("soltar", soltar), ("deslocar", deslocar)]
+    + [
+        (f"encaixar{'' if i == 0 else f'-{s:g}'}",
+         (lambda a, s: lambda **kw: encaixar(alcance=a, sigma=s, **kw))(alc, s))
+        for i, (alc, s) in enumerate(ESCALAS)
+    ]
+)
 
 
 def corrigir(raiz, setor, aid, fotos, cache, dry_run=False):

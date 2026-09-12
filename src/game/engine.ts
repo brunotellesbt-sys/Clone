@@ -143,6 +143,7 @@ export function buyAircraft(s: GameState, typeId: string, lease: boolean, opts: 
     typeId,
     engineId,
     reg: registration(rng, hubCc),
+    cc: hubCc,
     seats: cabin.seats,
     pitch: cabin.pitch,
     age: lease ? between(rng, 0.5, 6) : 0,

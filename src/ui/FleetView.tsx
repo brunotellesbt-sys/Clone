@@ -85,6 +85,7 @@ export function FleetView() {
                 <AircraftArt
                   type={typeOf(sel)} engineId={sel.engineId}
                   livery={state.airline.livery} titles={state.airline.name} registration={sel.reg}
+                  flagCC={sel.cc}
                 />
               </div>
               <div className="grid g2" style={{ gap: 8, fontSize: 13 }}>

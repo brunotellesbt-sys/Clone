@@ -262,6 +262,69 @@ export function pieceBox(href: string): Promise<PieceBox | null> {
     })
 }
 
+const spanCache = new Map<string, [number, number] | null>()
+
+/**
+ * Onde uma faixa horizontal de linhas cabe **inteira** dentro da máscara.
+ *
+ * Devolve o intervalo em x, em fração da largura, que está dentro da peça em
+ * **todas** as linhas da faixa — a interseção, não a união. É isso que garante
+ * que o letreiro não saia da fuselagem: perto do nariz o tubo afina e desce, e
+ * um intervalo medido só na linha do meio deixaria a letra passar por fora do
+ * contorno em cima.
+ */
+export function pieceSpan(href: string, y0: number, y1: number): Promise<[number, number] | null> {
+  const chave = `${href}|${y0.toFixed(3)}|${y1.toFixed(3)}`
+  if (spanCache.has(chave)) return Promise.resolve(spanCache.get(chave)!)
+  return carregar(href)
+    .then((img) => {
+      if (!img) return null
+      try {
+        return medirFaixa(img, y0, y1)
+      } catch {
+        return null
+      }
+    })
+    .then((v) => {
+      spanCache.set(chave, v)
+      return v
+    })
+}
+
+function medirFaixa(img: HTMLImageElement, y0: number, y1: number): [number, number] | null {
+  const w = SAMPLE_W
+  const h = Math.max(1, Math.round((img.naturalHeight / img.naturalWidth) * SAMPLE_W))
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return null
+  ctx.drawImage(img, 0, 0, w, h)
+  const { data } = ctx.getImageData(0, 0, w, h)
+  const dentro = (x: number, y: number) => data[(y * w + x) * 4] > 128
+
+  const de = Math.max(0, Math.min(h - 1, Math.round(y0 * h)))
+  const ate = Math.max(de, Math.min(h - 1, Math.round(y1 * h)))
+  let esq = 0
+  let dir = w - 1
+  let achou = false
+  for (let y = de; y <= ate; y++) {
+    let lx = -1
+    let rx = -1
+    for (let x = 0; x < w; x++) {
+      if (!dentro(x, y)) continue
+      if (lx < 0) lx = x
+      rx = x
+    }
+    if (lx < 0) continue
+    esq = achou ? Math.max(esq, lx) : lx
+    dir = achou ? Math.min(dir, rx) : rx
+    achou = true
+  }
+  if (!achou || dir <= esq) return null
+  return [esq / w, (dir + 1) / w]
+}
+
 function medirPeca(img: HTMLImageElement): PieceBox | null {
   const w = SAMPLE_W
   const h = Math.max(1, Math.round((img.naturalHeight / img.naturalWidth) * SAMPLE_W))

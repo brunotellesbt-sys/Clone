@@ -1,8 +1,8 @@
 import { useId, useMemo } from 'react'
 import type { AircraftType } from '../game/data/aircraft'
-import type { Livery } from '../game/types'
+import type { Livery, PieceSize } from '../game/types'
 import { emblemHref } from './emblems'
-import { FONT_STACK, geometry, VIEW_H, VIEW_W, type Geometry } from './silhouette'
+import { FONT_STACK, geometry, LARGURA_GLIFO, NATURAL, VIEW_H, VIEW_W, type Geometry } from './silhouette'
 
 interface Props {
   type: AircraftType
@@ -14,6 +14,9 @@ interface Props {
 }
 
 const OUTLINE = 'rgba(6,12,24,.45)'
+/** Os mesmos três degraus da arte de foto, para o desenho não divergir dela. */
+const ESCALA_EMBLEMA: Record<PieceSize, number> = { small: 0.72, medium: 1, large: 1.28 }
+const ESCALA_PREFIXO: Record<PieceSize, number> = { small: 0.1, medium: 0.14, large: 0.19 }
 
 /**
  * Desenho vetorial pintado peça por peça: nariz, fuselagem, barriga, faixa,
@@ -43,8 +46,20 @@ export function LiveryPlane({ type, livery, titles, registration, className, sho
   const cheatH = Math.max(1, g.D * livery.cheatWidth)
   const noseColor = livery.noseStyle === 'body' ? null : livery.noseStyle === 'dark' ? '#1e293b' : livery.nose
 
-  const titleSize = Math.max(8, g.D * livery.titleSize)
-  const titleX = g.noseEnd + (g.tailStart - g.noseEnd) * livery.titleAt
+  // Mesma caixa do desenho de foto: o letreiro vive no dorso, acima da fileira
+  // de janela, e não passa da raiz da asa. Aqui a fileira já é geometria
+  // conhecida — é a própria lista de janelas — e a raiz da asa é a carenagem.
+  const fileira = g.upperWindows[0] ?? g.windows[0]
+  const janelaY = fileira ? fileira.y : top + g.D * 0.42
+  const dorso = Math.max(1, janelaY - top)
+  const vaoFim = g.noseEnd + (g.tailStart - g.noseEnd) * 0.52
+  const vao = Math.max(1, vaoFim - g.noseEnd)
+  const glifo = LARGURA_GLIFO[livery.titleFont] ?? 0.55
+  const cabe = titles?.length ? (vao * 0.98) / (titles.length * glifo) : Infinity
+  const titleSize = Math.max(8, Math.min(g.D * livery.titleSize, dorso * 0.86, cabe))
+  const titleY = (top + janelaY) / 2
+  const folga = Math.max(0, vao - (titles?.length ?? 0) * glifo * titleSize)
+  const titleX = g.noseEnd + (livery.titleAt / 0.75) * folga
 
   return (
     <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className={className} role="img" aria-label={`${type.maker} ${type.name}`}>
@@ -111,7 +126,7 @@ export function LiveryPlane({ type, livery, titles, registration, className, sho
       {/* 1. trem de pouso — a perna nasce dentro da asa e da fuselagem */}
       {g.gear.map((p, i) => (
         <g key={`g${i}`}>
-          <path d={p.strut} fill={livery.gear} stroke={OUTLINE} strokeWidth="0.9" strokeLinejoin="round" />
+          <path d={p.strut} fill={NATURAL.trem} stroke={OUTLINE} strokeWidth="0.9" strokeLinejoin="round" />
           {p.wheels.map((wl, j) => (
             <g key={j}>
               <circle cx={wl.cx} cy={wl.cy} r={wl.r} fill="#232b3a" />
@@ -123,10 +138,10 @@ export function LiveryPlane({ type, livery, titles, registration, className, sho
 
       {/* 2. pilone e canoas de flape, escondidos pela asa que vem em seguida */}
       {g.nacelles.map((e, i) => (
-        <path key={`py${i}`} d={e.pylon} fill={livery.wing} stroke={OUTLINE} strokeWidth="0.8" strokeLinejoin="round" />
+        <path key={`py${i}`} d={e.pylon} fill={NATURAL.chapa} stroke={OUTLINE} strokeWidth="0.8" strokeLinejoin="round" />
       ))}
       {g.flapTracks.map((d, i) => (
-        <path key={`ft${i}`} d={d} fill={livery.wing} stroke={OUTLINE} strokeWidth="0.8" strokeLinejoin="round" />
+        <path key={`ft${i}`} d={d} fill={NATURAL.chapa} stroke={OUTLINE} strokeWidth="0.8" strokeLinejoin="round" />
       ))}
 
       {/* 4. empenagem: filete dorsal, deriva e estabilizador */}
@@ -159,7 +174,7 @@ export function LiveryPlane({ type, livery, titles, registration, className, sho
       <path d={g.fuselage} fill="none" stroke={OUTLINE} strokeWidth="1.3" strokeLinejoin="round" />
 
       {/* 7. asa: passa à frente do corpo, com o traço apagado onde cruza */}
-      <path d={g.wing} fill={livery.wing} />
+      <path d={g.wing} fill={NATURAL.chapa} />
       <g clipPath={`url(#${wingClip})`}>
         <rect x={g.x0 - 20} y={g.top - g.D} width={g.L + 60} height={g.D * 4} fill={`url(#${wingShade})`} />
       </g>
@@ -183,15 +198,15 @@ export function LiveryPlane({ type, livery, titles, registration, className, sho
       {/* 10. nacelas: penduradas à frente da asa */}
       {g.nacelles.map((e, i) => (
         <g key={`e${i}`}>
-          <path d={e.cowl} fill={livery.engine} stroke={OUTLINE} strokeWidth="1" strokeLinejoin="round" />
+          <path d={e.cowl} fill={NATURAL.nacela} stroke={OUTLINE} strokeWidth="1" strokeLinejoin="round" />
           <clipPath id={`ec${uid}${i}`}><path d={e.cowl} /></clipPath>
           <g clipPath={`url(#ec${uid}${i})`}>
             <rect x={e.fx - e.fr * 4} y={e.fy - e.fr * 2} width={e.fr * 12} height={e.fr * 4} fill={`url(#${engShade})`} />
           </g>
-          <path d={e.plug} fill={livery.engineCowl} stroke={OUTLINE} strokeWidth="0.8" strokeLinejoin="round" />
+          <path d={e.plug} fill={NATURAL.metal} stroke={OUTLINE} strokeWidth="0.8" strokeLinejoin="round" />
           {/* a admissão é escura: vê-se o fan lá dentro */}
           <ellipse cx={e.fx} cy={e.fy} rx={Math.max(1.2, e.fr * 0.22)} ry={e.fr} fill="rgba(11,17,30,.72)" />
-          <path d={e.lip} fill={livery.engineCowl} stroke={OUTLINE} strokeWidth="0.8" strokeLinejoin="round" />
+          <path d={e.lip} fill={NATURAL.metal} stroke={OUTLINE} strokeWidth="0.8" strokeLinejoin="round" />
         </g>
       ))}
       {g.props.map((p, i) => (
@@ -200,7 +215,7 @@ export function LiveryPlane({ type, livery, titles, registration, className, sho
             cx={p.cx} cy={p.cy} rx={Math.max(1.4, p.r * 0.045)} ry={p.r}
             fill="rgba(203,218,240,.2)" stroke="rgba(226,238,255,.42)" strokeWidth="0.7"
           />
-          <ellipse cx={p.cx} cy={p.cy} rx={Math.max(1.8, p.r * 0.09)} ry={p.r * 0.16} fill={livery.engineCowl} stroke={OUTLINE} strokeWidth="0.7" />
+          <ellipse cx={p.cx} cy={p.cy} rx={Math.max(1.8, p.r * 0.09)} ry={p.r * 0.16} fill={NATURAL.metal} stroke={OUTLINE} strokeWidth="0.7" />
         </g>
       ))}
 
@@ -239,7 +254,7 @@ export function LiveryPlane({ type, livery, titles, registration, className, sho
 
       {titles && (
         <text
-          x={titleX} y={top + g.D * 0.23} fill={livery.titles}
+          x={titleX} y={titleY} fill={livery.titles}
           fontFamily={FONT_STACK[livery.titleFont]} fontSize={titleSize}
           fontWeight={livery.titleFont === 'wide' ? 900 : 700}
           letterSpacing={livery.titleFont === 'wide' ? '0.04em' : '0'}
@@ -251,7 +266,7 @@ export function LiveryPlane({ type, livery, titles, registration, className, sho
       {livery.showReg && registration && (
         <text
           x={g.tailStart - g.L * 0.02} y={g.cy + g.D * 0.34} fill={livery.regColor}
-          fontFamily={FONT_STACK.mono} fontSize={Math.max(6, g.D * 0.14)} textAnchor="end"
+          fontFamily={FONT_STACK.mono} fontSize={Math.max(6, g.D * ESCALA_PREFIXO[livery.regSize])} textAnchor="end"
         >
           {registration}
         </text>
@@ -326,7 +341,7 @@ function TailEmblem({ g, livery }: { g: Geometry; livery: Livery }) {
   const href = emblemHref(livery.emblem)
   if (!href) return null
   const b = g.finBase
-  const size = Math.min(b.w, b.h) * 0.42
+  const size = Math.min(b.w, b.h) * 0.42 * ESCALA_EMBLEMA[livery.emblemSize]
   const cx = b.x + b.w * 0.52
   const cy = b.y + b.h * 0.5
   return (

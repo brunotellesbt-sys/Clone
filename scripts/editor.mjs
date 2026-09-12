@@ -13,7 +13,7 @@ await page.goto('http://localhost:4176/',{waitUntil:'networkidle'})
 await page.getByRole('button',{name:'Decolar'}).click(); await page.waitForTimeout(500)
 await page.getByRole('button',{name:'Pintura'}).click(); await page.waitForTimeout(500)
 await page.screenshot({path:'/tmp/editor-fuselagem.png'})
-for (const tab of ['Faixa','Cauda','Asa e motores','Texto']) {
+for (const tab of ['Faixa','Cauda','Bordos da asa','Texto']) {
   await page.getByRole('button',{name:tab,exact:true}).click(); await page.waitForTimeout(250)
 }
 await page.screenshot({path:'/tmp/editor-texto.png'})

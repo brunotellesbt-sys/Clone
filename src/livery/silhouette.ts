@@ -678,9 +678,38 @@ function makeWinglet(kind: Shape['winglet'], x: number, y: number, chordRaw: num
   }
 }
 
+/**
+ * Cores de origem das peças que a companhia **não** pinta: chapa de asa,
+ * nacela, aro do bocal e perna do trem.
+ *
+ * Eram cor de livery e deixaram de ser. Na arte de foto essas peças agora ficam
+ * com a cor que têm na foto; no desenho vetorial não existe foto, então a cor
+ * vem daqui — alumínio claro na chapa, metal mais escuro no bocal e cinza de
+ * amortecedor no trem. Ver `Livery` em `types.ts` para o porquê.
+ */
+export const NATURAL = {
+  chapa: '#dfe5ec',
+  nacela: '#e6eaf0',
+  metal: '#8b95a5',
+  trem: '#7b8798',
+}
+
 export const FONT_STACK: Record<string, string> = {
   sans: '"Inter", "Helvetica Neue", Arial, sans-serif',
   wide: '"Archivo Black", "Arial Black", Impact, sans-serif',
   serif: 'Georgia, "Times New Roman", serif',
   mono: '"JetBrains Mono", "SFMono-Regular", Consolas, monospace',
+}
+
+/**
+ * Largura média de um glifo, em frações do corpo da fonte, uma por pilha do
+ * `FONT_STACK`. Serve para saber se o letreiro cabe no vão **antes** de
+ * desenhá-lo: medir texto de verdade exigiria o DOM, e a conta só precisa
+ * acertar o bastante para a letra não passar da asa.
+ */
+export const LARGURA_GLIFO: Record<string, number> = {
+  sans: 0.55,
+  wide: 0.62,
+  serif: 0.52,
+  mono: 0.6,
 }

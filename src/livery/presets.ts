@@ -23,20 +23,19 @@ export const BLANK_LIVERY: Livery = {
   emblem: 'none',
   emblemColor: '#f8fafc',
   emblemAccent: '#1d4ed8',
-  wing: '#e2e8f0',
+  emblemSize: 'medium',
   leadingEdge: null,
   wingTop: null,
   trailingEdge: null,
   winglet: '#1d4ed8',
-  engine: '#e2e8f0',
-  engineCowl: '#334155',
-  gear: '#7b8798',
   titles: '#1d4ed8',
   titleFont: 'wide',
-  titleSize: 0.34,
+  titleSize: 0.28,
   titleAt: 0.16,
   regColor: '#475569',
   showReg: true,
+  regSize: 'small',
+  flag: false,
   windows: true,
   windowColor: '#1e293b',
   cockpit: null,
@@ -52,9 +51,7 @@ export const LIVERY_PRESETS: { name: string; livery: Livery }[] = [
     livery: make({
       fuselage: '#ffffff', belly: '#e2e8f0', bellyAt: 0.66,
       cheat: '#16a34a', cheat2: '#facc15', cheatStyle: 'wave', cheatAt: 0.6, cheatWidth: 0.2,
-      tail: '#facc15', tailAccent: '#16a34a', tailStyle: 'swoosh', stab: '#facc15',
-      wing: '#f1f5f9', winglet: '#16a34a', engine: '#f1f5f9', engineCowl: '#166534',
-      titles: '#166534', titleFont: 'sans',
+      tail: '#facc15', tailAccent: '#16a34a', tailStyle: 'swoosh', stab: '#facc15', winglet: '#16a34a', titles: '#166534', titleFont: 'sans',
     }),
   },
   {
@@ -62,9 +59,7 @@ export const LIVERY_PRESETS: { name: string; livery: Livery }[] = [
     livery: make({
       fuselage: '#0f172a', belly: '#020617', bellyAt: 0.7, nose: '#020617', noseStyle: 'custom',
       cheat: '#38bdf8', cheat2: '#0ea5e9', cheatStyle: 'double', cheatAt: 0.58, cheatWidth: 0.1,
-      tail: '#0f172a', tailAccent: '#38bdf8', tailStyle: 'chevron', stab: '#0f172a',
-      wing: '#1e293b', winglet: '#38bdf8', engine: '#1e293b', engineCowl: '#38bdf8',
-      titles: '#e2e8f0', windowColor: '#93c5fd', regColor: '#94a3b8',
+      tail: '#0f172a', tailAccent: '#38bdf8', tailStyle: 'chevron', stab: '#0f172a', winglet: '#38bdf8', titles: '#e2e8f0', windowColor: '#93c5fd', regColor: '#94a3b8',
     }),
   },
   {
@@ -72,9 +67,7 @@ export const LIVERY_PRESETS: { name: string; livery: Livery }[] = [
     livery: make({
       fuselage: '#fef3c7', belly: '#fde68a', bellyAt: 0.58,
       cheat: '#b45309', cheat2: '#f59e0b', cheatStyle: 'wide', cheatAt: 0.66, cheatWidth: 0.26,
-      tail: '#b45309', tailAccent: '#fef3c7', tailStyle: 'stripes', stab: '#b45309',
-      wing: '#fde68a', winglet: '#b45309', engine: '#fde68a', engineCowl: '#7c2d12',
-      titles: '#7c2d12', titleFont: 'serif',
+      tail: '#b45309', tailAccent: '#fef3c7', tailStyle: 'stripes', stab: '#b45309', winglet: '#b45309', titles: '#7c2d12', titleFont: 'serif',
     }),
   },
   {
@@ -82,9 +75,7 @@ export const LIVERY_PRESETS: { name: string; livery: Livery }[] = [
     livery: make({
       fuselage: '#94a3b8', belly: '#64748b', bellyAt: 0.5, nose: '#0f172a', noseStyle: 'dark',
       cheat: '#0f172a', cheat2: '#dc2626', cheatStyle: 'split', cheatAt: 0.6, cheatWidth: 0.14,
-      tail: '#dc2626', tailAccent: '#0f172a', tailStyle: 'gradient', stab: '#dc2626',
-      wing: '#94a3b8', winglet: '#dc2626', engine: '#475569', engineCowl: '#0f172a',
-      titles: '#0f172a', titleFont: 'mono',
+      tail: '#dc2626', tailAccent: '#0f172a', tailStyle: 'gradient', stab: '#dc2626', winglet: '#dc2626', titles: '#0f172a', titleFont: 'mono',
     }),
   },
   {
@@ -92,9 +83,7 @@ export const LIVERY_PRESETS: { name: string; livery: Livery }[] = [
     livery: make({
       fuselage: '#ffffff', belly: '#ede9fe', bellyAt: 0.68,
       cheat: '#7c3aed', cheat2: '#22d3ee', cheatStyle: 'fade', cheatAt: 0.6, cheatWidth: 0.22,
-      tail: '#7c3aed', tailAccent: '#22d3ee', tailStyle: 'gradient', stab: '#7c3aed',
-      wing: '#f5f3ff', winglet: '#22d3ee', engine: '#ede9fe', engineCowl: '#5b21b6',
-      titles: '#5b21b6', titleFont: 'sans',
+      tail: '#7c3aed', tailAccent: '#22d3ee', tailStyle: 'gradient', stab: '#7c3aed', winglet: '#22d3ee', titles: '#5b21b6', titleFont: 'sans',
     }),
   },
   {
@@ -102,9 +91,7 @@ export const LIVERY_PRESETS: { name: string; livery: Livery }[] = [
     livery: make({
       fuselage: '#ffffff', belly: '#dbeafe', bellyAt: 0.72,
       cheat: '#15803d', cheat2: '#facc15', cheatStyle: 'double', cheatAt: 0.64, cheatWidth: 0.09,
-      tail: '#15803d', tailAccent: '#facc15', tailStyle: 'split', stab: '#15803d',
-      wing: '#eff6ff', winglet: '#facc15', engine: '#e2e8f0', engineCowl: '#15803d',
-      titles: '#15803d', titleFont: 'wide',
+      tail: '#15803d', tailAccent: '#facc15', tailStyle: 'split', stab: '#15803d', winglet: '#facc15', titles: '#15803d', titleFont: 'wide',
     }),
   },
 ]
@@ -130,7 +117,6 @@ export function migrateLivery(old: Livery | LiveryV1 | undefined | null): Livery
     tailAccent: v1.tailAccent ?? BLANK_LIVERY.tailAccent,
     tailStyle: (v1.tailStyle as Livery['tailStyle']) ?? 'solid',
     stab: v1.tail ?? BLANK_LIVERY.stab,
-    engine: v1.engine ?? BLANK_LIVERY.engine,
     winglet: v1.winglet ?? BLANK_LIVERY.winglet,
     titles: v1.titles ?? BLANK_LIVERY.titles,
     titleFont: (v1.titleFont as Livery['titleFont']) ?? 'wide',

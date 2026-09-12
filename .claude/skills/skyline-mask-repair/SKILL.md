@@ -65,6 +65,27 @@ o conjunto da borda acerta. Onde não há contorno por perto — divisa com o se
 vizinho, corte reto na chapa lisa — o deslocamento é zero e a borda fica onde
 está.
 
+O encaixe roda em **três escalas**, da grossa para a fina — `sigma` 6, 3 e 1,5
+px, o quanto o deslocamento medido num ponto se espalha pelos vizinhos. A grossa
+trata a borda como uma curva só e corrige tendência; a fina deixa cada trecho
+seguir o seu próprio contorno, e é ela que fecha o último pixel. Cada escala é
+medida e revertida em separado, então o que fica é o que mediu melhor.
+
+Rodar as três, e não só a fina, é o que faz funcionar: sozinha, a fina persegue
+ruído de contorno e a medida a reprova. No lote das dez pastas foram **97
+máscaras** aceitas — trem 93%→97% de aderência, deriva 93%→94%, fuselagem
+90%→91%, winglet 86%→88%, e desvios como o do trem do `q400` caindo de 0,46 para
+0,28px.
+
+**Depois do encaixe, refaça o fechamento da deriva.** O encaixe otimiza
+aderência ao contorno e às vezes assenta a borda 1px para dentro; no bordo de
+ataque da deriva isso reabre o fio de cor de fuselagem. `aparar_deriva.py`
+devolve, e a ordem completa fica:
+
+```
+autofix  →  aparar_deriva  →  derive --what wingbands  →  costurar  →  derive --what fuselage
+```
+
 ## A armadilha que custou caro: métrica enganada
 
 No `an148/gearmasks` o `deslocar` propôs descer 2px. A medida aprovou com
@@ -556,7 +577,17 @@ novo:
   derrubava cinco dos confirmados.
 
 Derivar por geometria também foi tentado duas vezes — componente solto no
-resto da silhueta, e disco em volta da ponta — e não passa de metade.
+resto da silhueta, e disco em volta da ponta — e não passa de metade. Na
+terceira, com as máscaras de asa já encaixadas e a silhueta nova, o disco em
+volta da ponta trouxe 10.000 a 14.000px de fuselagem em todos os seis testados.
+
+E o terceiro lote automático fechou a conta: **16 aprovados pelo portão, zero
+certos**. O detalhe está em `pontas.md`, mas a lição cabe aqui: na vista lateral
+o winglet fica **dentro** da silhueta da fuselagem, encostado nela, sem borda de
+fundo entre os dois. Semente tirada da silhueta acha fuselagem, não winglet. A
+única evidência da peça é o contorno interno que ela desenha no mapa de borda —
+enquanto o recorte não partir dali, esses trinta e dois ficam sem setor, que é
+melhor do que com uma tira de fuselagem pintada de cor de winglet.
 
 ## Quando o automático não resolve
 
