@@ -79,6 +79,51 @@ function namedMaskHref(folder: string, id: string, base: string): Promise<string
 export const tailMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('tailmasks', id, base)
 
 /**
+ * A silhueta do avião inteiro — o recorte de toda a pintura.
+ *
+ * Vem de arquivo (`public/sprites/planemasks/<sprite>.png`, um por sprite, não
+ * por modelo: as variantes de motor são renders diferentes) porque a silhueta
+ * calculada aqui no navegador não serve para estes desenhos. `analyse()` chama
+ * de avião o pixel que estiver a mais de `COLOR_TOL` do fundo, e o sprite é um
+ * avião **branco em fundo branco**: dorso da fuselagem, meio da nacela e dorso
+ * da asa passam de 245 de luminância e não alcançam o limiar. Medido no b737:
+ * 164.743px reconhecidos contra 241.166px de avião — **32% ficava fora**, sem
+ * tinta, deixando o fundo da página aparecer no meio da peça. Era a mancha
+ * escura no motor; e a rampa de transição de 40 níveis do mesmo teste, cruzando
+ * chapa clara, era o aspecto borrado da fuselagem.
+ *
+ * A regra certa é inundação a partir da borda (o fundo é o que encosta na
+ * moldura), que é o que `maskcore.silhueta()` faz — e roda uma vez, fora do
+ * jogo, em `silhueta_batch.py`. Sem o arquivo, cai na cópia com alfa sintético
+ * de `analyse()`, que ainda é o caminho da arte da Commons.
+ */
+export function planeMaskHref(file: string, base = import.meta.env.BASE_URL): Promise<string | null> {
+  if (/^https?:\/\//.test(file)) return Promise.resolve(null)
+  const nome = file.split('/').pop()?.replace(/\.png$/i, '')
+  if (!nome) return Promise.resolve(null)
+  return namedMaskHref('planemasks', nome, base)
+}
+
+/**
+ * O pneu, recortado do trem (`tyremasks` = `gearmasks` menos `gearstrutmasks`).
+ * Não é setor de livery: a cor é fixa na arte, porque borracha é preta em
+ * qualquer companhia. Existe como máscara porque deixar a peça **sem** pintura
+ * não a torna preta — a foto é de um avião branco de fábrica e entra por
+ * `multiply` a 30%, então o resultado nunca desce de ~70% de luminância. Era
+ * por isso que a roda saía cinza.
+ */
+export const tyreMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('tyremasks', id, base)
+
+/**
+ * A hélice dos turboélices (atr42, atr72, q400), pá e cone. Como o pneu, cor
+ * fixa na arte. `tirar_helice.py` já tinha expulsado a pá dos setores de asa e
+ * motor, com razão — pá não é chapa pintável —, mas peça que não é de ninguém
+ * fica com a cor de fundo da silhueta: com o recorte novo, que cobre o avião
+ * inteiro, o atr42 ganhou uma hélice branca.
+ */
+export const propMaskHref = (id: string, base = import.meta.env.BASE_URL) => namedMaskHref('propmasks', id, base)
+
+/**
  * A perna do trem — amortecedor e viga do bogie, sem os pneus. É esta que
  * recebe a cor: pneu é borracha preta em qualquer companhia do mundo, e pintado
  * de azul ou vermelho o trem fica de brinquedo. Sai de `gearmasks` descontando

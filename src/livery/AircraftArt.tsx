@@ -6,8 +6,8 @@ import { emblemHref } from './emblems'
 import { LiveryPlane } from './LiveryPlane'
 import {
   cockpitMaskHref, engineCowlMaskHref, fuseBands, gearStrutMaskHref, leadingEdgeMaskHref, measure, measured,
-  tailMaskHref, trailingEdgeMaskHref, windowMaskHref, wingMaskHref, wingTopMaskHref, wingletMaskHref,
-  type FuseBands, type Measured,
+  planeMaskHref, propMaskHref, tailMaskHref, trailingEdgeMaskHref, tyreMaskHref, windowMaskHref, wingMaskHref,
+  wingTopMaskHref, wingletMaskHref, type FuseBands, type Measured,
 } from './measure'
 import { FONT_STACK } from './silhouette'
 
@@ -36,6 +36,11 @@ export function AircraftArt(props: Props) {
   return <MaskedArt {...props} entry={entry} />
 }
 
+/** Preto de pneu. Não é escolha de livery: nenhuma companhia pinta borracha. */
+const BORRACHA = '#15181c'
+/** Grafite de pá de hélice, pela mesma razão do pneu: já sai preta da fábrica. */
+const HELICE = '#22252b'
+
 const hrefOf = (entry: ArtEntry) =>
   /^https?:\/\//.test(entry.file) ? entry.file : `${import.meta.env.BASE_URL}${entry.file.replace(/^\//, '')}`
 
@@ -55,6 +60,17 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   const [teMask, setTeMask] = useState<string | null>(null)
   const [bands, setBands] = useState<FuseBands | null>(null)
   const [windowMask, setWindowMask] = useState<string | null>(null)
+  const [planeMask, setPlaneMask] = useState<string | null>(null)
+  const [tyreMask, setTyreMask] = useState<string | null>(null)
+  const [propMask, setPropMask] = useState<string | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    planeMaskHref(entry.file).then((m) => alive && setPlaneMask(m))
+    return () => {
+      alive = false
+    }
+  }, [entry.file])
 
   useEffect(() => {
     let alive = true
@@ -75,6 +91,8 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   useEffect(() => {
     let alive = true
     gearStrutMaskHref(type.id).then((m) => alive && setGearMask(m))
+    tyreMaskHref(type.id).then((m) => alive && setTyreMask(m))
+    propMaskHref(type.id).then((m) => alive && setPropMask(m))
     return () => {
       alive = false
     }
@@ -159,15 +177,21 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
   return (
     <svg viewBox={view.join(' ')} className={className} role="img" aria-label={`${type.maker} ${type.name}`}>
       <defs>
-        <mask id={`m-${uid}`} style={{ maskType: 'alpha' }}>
+        <mask id={`m-${uid}`} style={{ maskType: planeMask ? 'luminance' : 'alpha' }}>
           {/*
             A silhueta vira o recorte: tudo que for pintado fica dentro do avião.
-            O arquivo publicado tem fundo branco sólido — a máscara usa uma cópia
-            com alfa calculado em memória (`box.maskHref`, de measure.ts), nunca o
-            arquivo em si; sem medição ainda, cai no próprio arquivo como recorte
-            provisório (mostra tudo, corrige no primeiro re-render).
+            Quando existe o recorte conferido do sprite (public/sprites/planemasks/)
+            é ele que manda — ver `planeMaskHref` em measure.ts para o porquê: a
+            silhueta calculada aqui perdia 32% do avião, justamente a chapa clara,
+            e era esse buraco que deixava o fundo da página aparecer no meio do
+            motor. Sem o arquivo (a arte da Commons, por exemplo), cai na cópia
+            com alfa sintético de measure.ts; sem medição ainda, cai no próprio
+            arquivo como recorte provisório (mostra tudo, corrige no re-render).
           */}
-          <image href={box?.maskHref || href} x="0" y="0" width={w} height={h} crossOrigin="anonymous" onError={() => setFailed(true)} />
+          <image
+            href={planeMask ?? (box?.maskHref || href)} x="0" y="0" width={w} height={h}
+            crossOrigin="anonymous" onError={() => setFailed(true)}
+          />
         </mask>
         {/*
           As máscaras de arquivo abaixo são `luminance`, não `alpha`, e isso não é
@@ -197,6 +221,18 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
               a cor da asa.
             */}
             <image href={gearMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
+          </mask>
+        )}
+        {tyreMask && (
+          <mask id={`pm-${uid}`} style={{ maskType: 'luminance' }}>
+            {/* O pneu (public/sprites/tyremasks/), que não é setor de livery. */}
+            <image href={tyreMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
+          </mask>
+        )}
+        {propMask && (
+          <mask id={`hm-${uid}`} style={{ maskType: 'luminance' }}>
+            {/* Pá e cone da hélice (public/sprites/propmasks/), idem. */}
+            <image href={propMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
         )}
         {wingMask && (
@@ -365,6 +401,22 @@ function MaskedArt({ type, livery, titles, registration, className, entry }: Pro
           {gearMask && (
             <g mask={`url(#gm-${uid})`}>
               <rect x="0" y="0" width={w} height={h} fill={livery.gear} />
+            </g>
+          )}
+          {/* O pneu, depois da perna e com cor fixa: borracha é preta em
+              qualquer companhia. Precisa ser pintado, e não apenas deixado de
+              fora da perna, porque a foto é de um avião branco de fábrica e
+              entra por multiply a 30% — sem tinta própria a roda saía cinza. */}
+          {tyreMask && (
+            <g mask={`url(#pm-${uid})`}>
+              <rect x="0" y="0" width={w} height={h} fill={BORRACHA} />
+            </g>
+          )}
+          {/* A hélice, pela mesma razão do pneu, e depois da asa e do motor:
+              na foto ela passa na frente dos dois. */}
+          {propMask && (
+            <g mask={`url(#hm-${uid})`}>
+              <rect x="0" y="0" width={w} height={h} fill={HELICE} />
             </g>
           )}
 

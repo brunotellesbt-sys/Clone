@@ -35,6 +35,10 @@ SUBSETOR_DE = {
     # como referência de medida, e o filho é o que o jogo pinta.
     "enginecowlmasks": "enginemasks",
     "gearstrutmasks": "gearmasks",
+    # O pneu é o outro pedaço do trem: `gearmasks` menos a perna. Não é setor de
+    # livery (cor fixa na arte, ver pecas_cruas.py), mas é subconjunto declarado
+    # para não virar disputa quando alguém medir a pasta.
+    "tyremasks": "gearmasks",
 }
 # Setores gerados por geometria a partir de outro. Não se remendam: quando o
 # pai muda, se regeneram com derive_sectors.py.

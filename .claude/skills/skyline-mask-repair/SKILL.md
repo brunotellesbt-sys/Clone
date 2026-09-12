@@ -1,6 +1,6 @@
 ---
 name: skyline-mask-repair
-description: Como corrigir desalinhamento e defeito de máscara de setor de aeronave do Skyline Tycoon, em qualquer peça — asa, motor, winglet, trem de pouso, cauda, fuselagem. Cobre correção automática medida (aparar sangramento, soltar pixel disputado, deslocar 1-3px, encaixar a borda no contorno) e recorte manual com SAM2 large quando a máscara está na peça errada. Use quando o pedido for "conserta a máscara", "corrige o desalinhamento", "refaz essa asa", "setoriza direito", "pixel por pixel", ou quando aparecer SAM2, sam2.1_hiera_large, segmentação, recorte por caixa e ponto, wingmasks, enginemasks, gearmasks, tailmasks ou wingletmasks.
+description: Como corrigir desalinhamento e defeito de máscara de setor de aeronave do Skyline Tycoon, em qualquer peça — asa, motor, winglet, trem de pouso, cauda, fuselagem —, e também a silhueta do avião inteiro e as peças de cor fixa (pneu, hélice). Cobre correção automática medida (aparar sangramento, soltar pixel disputado, deslocar 1-3px, encaixar a borda no contorno) e recorte manual com SAM2 large quando a máscara está na peça errada. Use quando o pedido for "conserta a máscara", "corrige o desalinhamento", "refaz essa asa", "setoriza direito", "pixel por pixel", quando a pintura aparecer borrada, com mancha escura ou buraco no meio da peça, ou quando aparecer SAM2, sam2.1_hiera_large, segmentação, recorte por caixa e ponto, planemasks, wingmasks, enginemasks, gearmasks, tyremasks, propmasks, tailmasks ou wingletmasks.
 ---
 
 # Correção de máscara
@@ -122,6 +122,75 @@ fotografada um pouco por cima.
 Por serem derivados, esses quatro ficam de fora do `autofix`: quando o pai
 muda, rode o `derive_sectors.py` de novo. Remendar um derivado só faria ele
 divergir da peça de que saiu.
+
+## A silhueta é arquivo, não conta feita no navegador
+
+Antes de qualquer setor vem o recorte do avião inteiro: é ele que decide o que
+recebe tinta. Durante muito tempo esse recorte era calculado em tempo de
+execução, em `measure.ts`, chamando de avião o pixel que estivesse a mais de 60
+(soma dos três canais) da cor do fundo. O sprite é um avião **branco em fundo
+branco**, então isso não funciona: dorso da fuselagem, meio da nacela e dorso da
+asa passam de 245 de luminância e ficam abaixo do limiar.
+
+Medido no b737: **164.743px reconhecidos contra 241.166px de avião — 32% fora**.
+Fora da máscara não é "sem pintura", é **buraco**: nada é desenhado ali e o
+fundo da página aparece no meio da peça. Era essa a mancha escura no meio do
+motor. A rampa de transição de 40 níveis do mesmo teste, cruzando chapa clara,
+era o aspecto borrado da fuselagem. Os 100 sprites recuperam de 2% a 54% de
+área, mediana 35%.
+
+```bash
+python3 .claude/skills/skyline-mask-repair/scripts/silhueta_batch.py \
+  --out public/sprites/planemasks
+```
+
+Três coisas que o lote resolve e valem lembrar:
+
+- **Limiar de cor não separa avião branco de fundo branco; inundação a partir da
+  borda separa.** O fundo é a região que encosta na moldura; o que estiver
+  cercado pelo contorno é avião, por mais claro que seja. Com limiar 24 e
+  inundação, falta 0,03% do avião; com o limiar 60 de antes, faltavam 27,9%.
+- **Uma máscara por sprite, não por modelo.** As variantes de motor são renders
+  diferentes — `a320__cfm565b4` e `a320__v2527` diferem em 13,7% dos pixels — e
+  a silhueta tem que ser a do arquivo que está na tela.
+- **A sombra no chão sai aqui.** Ela é pintável desde sempre e ninguém tinha
+  visto: a laje de contato tem borda dura e passa pela regra de nitidez do
+  `maskcore`. Duas medidas dão conta — o que não sobrevive a uma abertura
+  vertical de 41px na faixa de baixo, e o que forma peça quatro vezes mais larga
+  que alta. Conferido peça a peça nos 100: só sai laje, nenhuma roda encolhe.
+
+## Peça que não é de ninguém fica com a cor de quem não é dono
+
+Com a silhueta cobrindo o avião inteiro, "não pintar" deixou de ser uma opção
+neutra: quem não é reivindicado por setor nenhum recebe a cor da fuselagem. A
+hélice do atr42 ficou **branca**. E mesmo antes, sem tinta própria, o pneu já
+saía cinza — a foto é de um avião branco de fábrica e entra na tela por
+`multiply` a 30%, ou seja `base × (0,7 + 0,3 × foto)`, que sobre fuselagem clara
+nunca desce de ~70% de luminância. **Não pintar jamais produz preto.**
+
+```bash
+python3 .claude/skills/skyline-mask-repair/scripts/pecas_cruas.py
+```
+
+Grava `tyremasks` e `propmasks`, que a arte pinta com cor fixa (`BORRACHA` e
+`HELICE` em `AircraftArt.tsx`) — não são setores de livery, a companhia não
+escolhe a cor da borracha. Duas medidas objetivas sustentam o recorte:
+
+- **O pneu é escuro.** `gearmasks` menos `gearstrutmasks` não é só pneu: em 28
+  dos 55 ela abocanha também a porta do poço do trem do nariz. A luminância
+  separa com folga — 112 peças escuras entre 37 e 124, 28 claras entre 130 e
+  198, ninguém no meio. Circularidade não serve: o bogie de seis rodas do a332 é
+  tão alongado quanto uma porta.
+- **A roda que falta se acha sozinha.** Em 12 modelos o trem do nariz nunca
+  entrou em `gearmasks`. Procurar disco escuro na faixa de baixo, fora de asa,
+  motor e fuselagem, e ficar só com o **círculo inscrito**, acha todos sem pegar
+  a perna junto.
+
+Para a hélice vale a mesma medida do `tirar_helice.py` — escura e rala — com uma
+correção de alcance: solta no avião inteiro ela também pega o filete escuro da
+junção asa-fuselagem, e o atr42 saía com um risco preto asa afora. Limitada à
+vizinhança da nacela e ficando com a maior peça (as pás se encontram no cone),
+sai a hélice e mais nada.
 
 ## Dois defeitos que só aparecem pintado
 
@@ -313,6 +382,10 @@ Tirar a hélice é **pré-requisito** para recortar a nacela de turboélice: com
 pá dentro da asa, o recorte do motor não converge. Com ela fora, o `atr42` e o
 `atr72` saíram no primeiro lote.
 
+Tirar dos setores é metade do serviço: a outra metade é `propmasks`, que dá cor
+própria à pá — ver "Peça que não é de ninguém" acima. Enquanto ela não existiu,
+a hélice saiu **branca**, com a cor da fuselagem.
+
 ## Pneu não leva cor
 
 O que a livery pinta no trem é a perna — amortecedor e viga do bogie. Pneu é
@@ -334,7 +407,9 @@ alternativas foram medidas e não servem, para não serem tentadas de novo:
   largura máxima.
 
 `gearmasks` continua sendo a referência de medida e a origem do recorte;
-`gearstrutmasks` é o que o jogo pinta.
+`gearstrutmasks` é o que o jogo pinta **de cor de livery**, e `tyremasks` — o
+resto dela, ver "Peça que não é de ninguém" acima — é o que o jogo pinta de
+preto. Tirar o pneu do setor não basta: sem tinta própria ele sai cinza.
 
 ## O estabilizador horizontal não tem máscara
 
