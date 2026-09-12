@@ -249,6 +249,20 @@ produto de terceiros.
 Código sob licença MIT. As imagens carregadas da Wikimedia Commons mantêm a
 licença de seus autores, listada em `public/aircraft/CREDITS.md`.
 
+A lista de aeroportos — 3.085 destinos em 231 países, todo aeroporto com serviço
+regular, sigla IATA e pista para um ATR 72 — é montada a partir de dois conjuntos
+públicos, e nenhum arquivo deles é redistribuído aqui: o que está versionado é a
+tabela derivada, em `src/game/data/airports.ts`.
+
+- [**OurAirports**](https://ourairports.com/data/) · domínio público (CC0) ·
+  sigla IATA, cidade, país, coordenada, serviço regular e pista.
+- [**GeoNames**](https://www.geonames.org/) (`cities15000`) · CC BY 4.0 ·
+  população das cidades, de onde sai a bacia de captação de cada aeroporto.
+
+Poder de compra, atratividade turística e o degrau de porte (`tier`) não vêm
+dessas fontes: são valor de balanceamento, escrito à mão ou derivado — o
+cabeçalho do arquivo diz exatamente como.
+
 ## Desenvolvimento assistido
 
 `CLAUDE.md` registra a stack, a fronteira entre simulação e UI, os comandos e a

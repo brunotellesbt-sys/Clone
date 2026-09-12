@@ -6,10 +6,12 @@ import { emblemHref } from './emblems'
 import { Bandeira } from './Flag'
 import { LiveryPlane } from './LiveryPlane'
 import {
-  bodyMaskHref, cockpitMaskHref, fuseBands, leadingEdgeMaskHref, measure, measured, pieceBox, pieceSpan,
+  bodyMaskHref, cockpitMaskHref, entreTodas, faixaDoPerfil, fuseBands, leadingEdgeMaskHref, measure,
+  measured, pieceBox, tubeProfile,
   engineMaskHref, gearMaskHref, planeMaskHref, propMaskHref, tailMaskHref, trailingEdgeMaskHref,
-  windowMaskHref, wingMaskHref,
+  windowMaskHref, windowSpan, wingMaskHref,
   wingTopMaskHref, wingletMaskHref, type FuseBands, type Measured, type PieceBox,
+  type ProfileRow,
 } from './measure'
 import { FONT_STACK, LARGURA_GLIFO } from './silhouette'
 
@@ -49,6 +51,63 @@ const ESCALA_EMBLEMA: Record<PieceSize, number> = { small: 0.6, medium: 0.8, lar
 /** Os três degraus do prefixo, em fração da altura da fuselagem. */
 const ESCALA_PREFIXO: Record<PieceSize, number> = { small: 0.11, medium: 0.16, large: 0.22 }
 
+/**
+ * Quanto a caixa de um texto sobe e desce da âncora, em múltiplos do corpo.
+ *
+ * Números medidos no navegador (`scripts/textos.mjs` imprime a razão), não
+ * deduzidos: com `dominant-baseline: middle` a caixa do letreiro vai 0,66 corpo
+ * para cima e 0,48 para baixo; o prefixo, ancorado na linha de base, vai 0,96
+ * para cima e 0,27 para baixo. A conferência da faixa usa estes valores com uma
+ * folga pequena — errar para o lado generoso só encolhe a letra, errar para o
+ * outro põe texto fora do tubo.
+ */
+const CX_ACIMA = 0.7
+const CX_ABAIXO = 0.52
+const CX_REG_ACIMA = 0.99
+const CX_REG_ABAIXO = 0.31
+
+/**
+ * Quanto cada desenho de filete sobe acima do centro da faixa, em espessuras.
+ *
+ * Sai da geometria de `Cheat`, não de estimativa: `straight` e `fade` são um
+ * retângulo centrado (meia espessura), `double` e `triband` põem o filete de
+ * cima em `mid - height`, e a onda chega a `mid - 1,5·height` na altura em que
+ * a fileira de janela acaba (o ápice dela, na cauda, é mais alto ainda, mas lá
+ * não há janela nenhuma para cobrir).
+ *
+ * Existe porque o teto da faixa era calculado com meia espessura para todos, e
+ * então a dupla, a tríplice, a meia-fuselagem e a onda passavam por cima da
+ * fileira de janela mesmo com o teto respeitado. As formas geométricas valem
+ * zero: nelas cobrir a fuselagem inteira **é** o desenho, e a fileira de janela
+ * é pintada depois, por cima.
+ */
+const SUBIDA_FAIXA: Record<Livery['cheatStyle'], number> = {
+  none: 0,
+  straight: 0.5,
+  fade: 0.5,
+  wide: 0.5,
+  double: 1,
+  triband: 1,
+  split: 1,
+  wave: 1.5,
+  chevron: 0,
+  delta: 0,
+  diagonal: 0,
+  ribbon: 0,
+  checker: 0,
+  billboard: 0,
+  sunray: 0,
+}
+
+/** O primeiro resultado não vazio de uma fila de tentativas. */
+function primeiroNaoVazio<T>(...tentativas: Array<() => T[]>): T[] | null {
+  for (const t of tentativas) {
+    const v = t()
+    if (v.length) return v
+  }
+  return null
+}
+
 const hrefOf = (entry: ArtEntry) =>
   /^https?:\/\//.test(entry.file) ? entry.file : `${import.meta.env.BASE_URL}${entry.file.replace(/^\//, '')}`
 
@@ -60,8 +119,9 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
   const [preciseTail, setPreciseTail] = useState<string | null>(null)
   const [tailBox, setTailBox] = useState<PieceBox | null>(null)
   const [wingBox, setWingBox] = useState<PieceBox | null>(null)
-  const [titleSpan, setTitleSpan] = useState<[number, number] | null>(null)
-  const [windowBox, setWindowBox] = useState<PieceBox | null>(null)
+  const [tubo, setTubo] = useState<ProfileRow[] | null>(null)
+  const [windowBand, setWindowBand] = useState<[number, number] | null>(null)
+  const [windowRun, setWindowRun] = useState<[number, number] | null>(null)
   const [wingletMask, setWingletMask] = useState<string | null>(null)
   const [cockpitMask, setCockpitMask] = useState<string | null>(null)
   const [leMask, setLeMask] = useState<string | null>(null)
@@ -109,11 +169,28 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
     gearMaskHref(type.id).then((m) => alive && setGearMask(m))
     engineMaskHref(type.id).then((m) => alive && setEngineMask(m))
     propMaskHref(type.id).then((m) => alive && setPropMask(m))
-    bodyMaskHref(type.id).then((m) => alive && setBodyMask(m))
+    bodyMaskHref(type.id).then((m) => {
+      if (!alive) return
+      setBodyMask(m)
+      // O perfil do tubo, linha por linha: com ele qualquer faixa de texto se
+      // resolve na hora, sem medição nova a cada mudança de livery.
+      if (m) {
+        tubeProfile(m).then((v) => alive && setTubo(v))
+        return
+      }
+      // Sem máscara de fuselagem — é o caso dos doze cargueiros e dos outsize,
+      // que têm sprite próprio e ainda não têm setor —, o perfil sai da
+      // silhueta do avião inteiro. É medida mais fraca: asa e empenagem contam
+      // como "dentro". Mas é medida, e o que ela substitui é o palpite, que
+      // escrevia acima do dorso.
+      planeMaskHref(entry.file).then((p) => {
+        if (p && alive) tubeProfile(p).then((v) => alive && setTubo(v))
+      })
+    })
     return () => {
       alive = false
     }
-  }, [type.id])
+  }, [type.id, entry.file])
 
   useEffect(() => {
     let alive = true
@@ -134,11 +211,15 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
     windowMaskHref(type.id).then((m) => {
       if (!alive) return
       setWindowMask(m)
-      // A caixa da fileira de janela dá a linha de baixo dela, que é o teto do
-      // prefixo. `fusebands.crown` não serve nos de dois andares: no b748 ela é
-      // a divisa do convés **superior**, e o prefixo caía em cima da fileira do
+      // A faixa de altura da fileira de janela: o topo dela é de onde o
+      // letreiro pende, a base é o teto da listra e do prefixo.
+      // `fusebands.crown` não serve nos de dois andares — no b748 ela é a divisa
+      // do convés **superior**, e a listra passava reto por cima da fileira do
       // andar de baixo.
-      if (m) pieceBox(m).then((b) => alive && setWindowBox(b))
+      if (m) {
+        tubeProfile(m).then((v) => alive && setWindowBand(faixaDoPerfil(v)))
+        windowSpan(m).then((v) => alive && setWindowRun(v))
+      }
     })
     fuseBands().then((b) => alive && setBands(b[type.id] ?? null))
     leadingEdgeMaskHref(type.id).then((m) => alive && setLeMask(m))
@@ -148,32 +229,6 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
       alive = false
     }
   }, [type.id])
-
-  /**
-   * Onde a faixa de letras cabe inteira dentro do tubo.
-   *
-   * A medida é da **faixa do texto**, não do dorso todo, e isso é o que faz ela
-   * servir: o topo do tubo sobe e desce ao longo do avião, então a interseção
-   * de uma faixa alta colapsa no trecho do meio — medido no b737, sobrava uma
-   * janela de 16px e o letreiro ia para cima da asa. Com a faixa na altura das
-   * letras, o intervalo é o tubo de verdade naquela altura.
-   */
-  useEffect(() => {
-    if (!bodyMask) {
-      setTitleSpan(null)
-      return
-    }
-    let alive = true
-    const fus = entry.regions?.fuselage ?? box?.fuselage ?? DEFAULT_REGIONS.fuselage
-    const crown = bands?.crown ?? fus[0] + 0.42 * (fus[1] - fus[0])
-    const dorso = Math.max(0.01, crown - fus[0])
-    const alto = Math.min(livery.titleSize * (fus[1] - fus[0]), dorso * 0.86)
-    const base = crown - dorso * 0.07
-    pieceSpan(bodyMask, Math.max(0, base - alto), base).then((v) => alive && setTitleSpan(v))
-    return () => {
-      alive = false
-    }
-  }, [bodyMask, bands, box, entry, livery.titleSize])
 
   if (failed) {
     return <LiveryPlane type={type} livery={livery} titles={titles} registration={registration} className={className} />
@@ -220,7 +275,22 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
   // ocupar a fuselagem inteira **é** o desenho.
   const cheatLivre = (['chevron', 'delta', 'diagonal', 'ribbon', 'checker', 'billboard', 'sunray'] as const)
     .includes(livery.cheatStyle as never)
-  const cheatTeto = (bands ? h * bands.crown : bandTop + bandH * 0.42) + cheatH / 2
+  // O teto sai da **caixa da fileira de janela**, não da divisa do fusebands:
+  // no b748 e no a388 aquela divisa é a do convés superior, e a listra passava
+  // reto por cima das janelas do andar de baixo.
+  const janelaBase = windowBand ? windowBand[1] * h : bands ? h * bands.crown : bandTop + bandH * 0.42
+  /** A linha que o filete não passa: logo abaixo da última janela. */
+  const linhaJanela = janelaBase + bandH * 0.02
+  /**
+   * O teto conta a subida do próprio desenho (`SUBIDA_FAIXA`), e ainda é limitado
+   * a meia espessura acima da base da fuselagem: na espessura máxima, uma onda
+   * que ficasse inteira abaixo da janela sairia do avião por baixo. Nesse extremo
+   * o recorte apara a crista, que é o mal menor — a alternativa é faixa nenhuma.
+   */
+  const cheatTeto = Math.min(
+    bandBot - cheatH * 0.5,
+    linhaJanela + cheatH * SUBIDA_FAIXA[livery.cheatStyle],
+  )
   const cheatMid = cheatLivre
     ? bandTop + bandH * livery.cheatAt
     : Math.max(cheatTeto, bandTop + bandH * livery.cheatAt)
@@ -240,7 +310,24 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
   // comprimento disponível, encolhe até caber.
   const crownY = bands ? h * bands.crown : bandTop + bandH * 0.42
   const dorsoH = Math.max(1, crownY - bandTop)
-  const titleY = bands ? (bandTop + crownY) / 2 : bandTop + bandH * 0.3
+  /**
+   * O letreiro é **pendurado na linha de cima da janela**, e não centrado no
+   * dorso.
+   *
+   * Centrado no dorso ele subia demais em quem tem dorso alto: no b748 o dorso
+   * vai do topo da corcova até a janela do convés superior, e a caixa do texto
+   * terminava **acima** do tubo — 67% da área fora, medido. Pendurado na
+   * janela, o texto encosta no tubo justamente onde o tubo é mais largo, que é
+   * também onde a companhia escreve o nome num avião de verdade.
+   *
+   * A altura desce em degraus até a faixa caber inteira dentro do tubo. O laço
+   * é curto e roda no render: cinco tentativas, sem medição nova.
+   */
+  const janelaTopo = windowBand ? windowBand[0] * h : crownY
+  const folgaJanela = bandH * 0.04
+  const altoPedido = Math.min(bandH * livery.titleSize, dorsoH * 0.86)
+  const glifo = LARGURA_GLIFO[livery.titleFont]
+  const letras = (titles ?? '').length
 
   // Onde a asa começa, contado do nariz em fração do comprimento do avião.
   const asaFrac = wingBox
@@ -249,35 +336,120 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
       : (wingBox.box[0] * w - planeX0) / planeW
     : 0.62
 
-  // E onde o **tubo** comporta a faixa de letras inteira: `titleSpan` mede a
-  // interseção das linhas do dorso na máscara de fuselagem, então a letra nunca
-  // sai do contorno. Sem essa medida bastava o nariz afinar para a primeira
-  // letra passar por fora, e era o que se via.
-  const tuboIni = titleSpan
-    ? box?.noseLeft === false
-      ? (planeX0 + planeW - titleSpan[1] * w) / planeW
-      : (titleSpan[0] * w - planeX0) / planeW
-    : 0.04
-  const tuboFim = titleSpan
-    ? box?.noseLeft === false
-      ? (planeX0 + planeW - titleSpan[0] * w) / planeW
-      : (titleSpan[1] * w - planeX0) / planeW
-    : 0.96
-  const vaoIni = Math.max(0.02, tuboIni + 0.01)
-  const vaoFim = Math.max(vaoIni + 0.1, Math.min(asaFrac - 0.02, tuboFim - 0.01))
+  /**
+   * O vão do letreiro sai de três medidas, todas em pixel de máscara:
+   *
+   * - **o tubo**, na faixa de altura das próprias letras (`entreTodas(tubo, …)`):
+   *   é o que impede a letra de sair do contorno quando o nariz afina e o que a
+   *   desvia do buraco da asa alta e da nacela;
+   * - **o trecho de janela sem porta** (`windowRun`): a fileira de janela é
+   *   interrompida onde há porta, então o maior trecho contínuo de janelas é o
+   *   maior pano limpo de fuselagem — é ali que companhia nenhuma escreve por
+   *   cima de porta;
+   * - **o começo da asa**, como antes.
+   *
+   * Tudo é convertido para "fração do comprimento a partir do nariz", que é o
+   * sentido em que o jogador pensa e o único que funciona nos dois espelhamentos.
+   */
+  const aoLongo = (xImg: number) =>
+    box?.noseLeft === false ? (planeX0 + planeW - xImg) / planeW : (xImg - planeX0) / planeW
+  const paraFrac = (span: [number, number] | null, padrao: [number, number]): [number, number] => {
+    if (!span) return padrao
+    const a = aoLongo(span[0] * w)
+    const b = aoLongo(span[1] * w)
+    return a <= b ? [a, b] : [b, a]
+  }
+  const [janIni, janFim] = paraFrac(windowRun, [0, 1])
+
+  /**
+   * As corridas livres de uma faixa, recortadas e ordenadas da frente para trás.
+   *
+   * Dois recortes entram como **preferência, não regra**, e cedem nesta ordem:
+   * o começo da asa, e depois o trecho de janela sem porta. Em asa alta a asa é
+   * o dorso, e cortar ali não deixaria letreiro nenhum — foi assim que o do
+   * an148 foi desenhado em cima da asa. O do trecho de janela cede depois:
+   * medida ruim de janela já esvaziou o vão inteiro e a arte caiu no palpite,
+   * que escreve acima do dorso, o pior dos mundos.
+   *
+   * O único recorte que **não** cede é o tubo: texto fora da fuselagem não é
+   * alternativa, é o defeito que se está corrigindo. Sem corrida nenhuma dentro
+   * do tubo a faixa é descartada e o laço tenta uma letra menor.
+   */
+  const vaosUteis = (faixas: ProfileRow): Array<[number, number]> => {
+    const corta = (limite: number, jan: [number, number]) => {
+      const out: Array<[number, number]> = []
+      for (const f of faixas) {
+        const [a, b] = paraFrac(f, [0, 1])
+        const ini = Math.max(0.02, a + 0.012, jan[0])
+        const fim = Math.min(limite, b - 0.012, jan[1])
+        if (fim - ini > 0.05) out.push([ini, fim])
+      }
+      return out.sort((p, q) => p[0] - q[0])
+    }
+    const janela: [number, number] = [janIni, janFim]
+    const tudo: [number, number] = [0, 1]
+    return (
+      primeiroNaoVazio(
+        () => corta(asaFrac - 0.02, janela),
+        () => corta(0.98, janela),
+        () => corta(asaFrac - 0.02, tudo),
+        () => corta(0.98, tudo),
+      ) ?? []
+    )
+  }
+
+  /**
+   * Procura a maior altura de letra que **cabe** no dorso, de cima da janela
+   * para cima: para cada altura candidata, mede o tubo naquela faixa e pergunta
+   * se o texto inteiro entra em alguma das corridas livres dela. Doze degraus,
+   * do pedido do jogador até um dorso bem fino, e fica o primeiro que serve.
+   *
+   * O laço existe porque dorso é coisa que varia muito de avião para avião. No
+   * b748 ele vai do topo da corcova até a janela do convés superior e é enorme;
+   * no atr72 a janela é alta e sobra pouco. Antes disso o tamanho vinha de uma
+   * fração fixa da fuselagem e a caixa do texto terminava fora do tubo — 82% da
+   * área fora no atr72, medido. Entre corridas que servem fica a mais à frente,
+   * que é onde a companhia escreve o nome. Sem nenhuma que sirva, o texto fica
+   * na maior corrida da última faixa medida e encolhe pela largura, nunca solto
+   * sobre o avião.
+   */
+  const padraoVao: [number, number] = [0.052, Math.max(0.14, Math.min(asaFrac - 0.02, 0.948))]
+  let tituloAlto = altoPedido
+  let titleY = janelaTopo - folgaJanela - altoPedido * 0.5
+  let vaoTitulo: [number, number] | null = null
+  for (let i = 0; i < 12; i++) {
+    const a = altoPedido * (1 - i * 0.075)
+    if (a < bandH * 0.05) break
+    const yc = janelaTopo - folgaJanela - a * 0.5
+    const faixas = entreTodas(tubo, (yc - a * CX_ACIMA) / h, (yc + a * CX_ABAIXO) / h)
+    if (!faixas) continue
+    const livres = vaosUteis(faixas)
+    if (!livres.length) continue
+    const serve = letras
+      ? livres.find((v) => (v[1] - v[0]) * planeW >= letras * glifo * a)
+      : livres[0]
+    // guarda sempre a última faixa que existe, mesmo que o texto não caiba
+    tituloAlto = a
+    titleY = yc
+    vaoTitulo = serve ?? livres.reduce((p, q) => (q[1] - q[0] > p[1] - p[0] ? q : p))
+    if (serve) break
+  }
+
+  const [vaoIni, vaoFim] = vaoTitulo ?? padraoVao
   const vao = (vaoFim - vaoIni) * planeW
 
   const texto = titles ?? ''
-  const largura = LARGURA_GLIFO[livery.titleFont]
+  const largura = glifo
   const cabe = texto.length ? (vao * 0.98) / (texto.length * largura) : Infinity
-  const titleSize = Math.max(8, Math.min(bandH * livery.titleSize, dorsoH * 0.86, cabe))
+  const titleSize = Math.max(8, Math.min(tituloAlto, cabe))
   const textoW = texto.length * largura * titleSize
 
   // As âncoras contam a partir do NARIZ, que no arquivo original pode estar
   // à direita — por isso a posição é medida no sentido do avião, não da imagem.
   // O controle de posição desliza o letreiro dentro do vão, e não para fora.
   const folga = Math.max(0, vao - textoW)
-  const along = vaoIni + (livery.titleAt / 0.75) * (folga / planeW)
+  const desliza = Math.min(1, Math.max(0, livery.titleAt / 0.75))
+  const along = vaoIni + desliza * (folga / planeW)
   const titleXImg = flip ? planeX0 + planeW * (1 - along) : planeX0 + planeW * along
   const regFont = Math.max(6, bandH * ESCALA_PREFIXO[livery.regSize])
   /**
@@ -291,18 +463,20 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
    * fuselagem inteira de propósito, não há "acima da faixa" — ali o prefixo
    * volta para a traseira baixa.
    */
-  const janelaY = windowBox
-    ? windowBox.box[3] * h
-    : bands
-      ? h * bands.crown
-      : bandTop + bandH * 0.42
-  const faixaTopo = cheatMid - cheatH / 2
+  // O topo da faixa é o do **desenho**, não o do retângulo central: a dupla, a
+  // tríplice e a onda sobem mais que meia espessura, e com meia espessura o
+  // prefixo era posto por cima do filete de cima. O recorte apara a faixa na
+  // linha da janela, então o topo visível nunca passa dela.
+  const faixaTopo = Math.max(
+    linhaJanela,
+    cheatMid - cheatH * Math.max(0.5, SUBIDA_FAIXA[livery.cheatStyle]),
+  )
   const faixaBase = livery.cheatStyle === 'wide' ? bandBot : cheatMid + cheatH / 2
   // Duas faixas livres na traseira: entre a janela e a faixa, e entre a faixa e
   // o fim do tubo. A de cima é a preferida — é onde o prefixo vai num avião de
   // verdade — mas se a faixa estiver alta e não sobrar altura, o texto desce
   // para a de baixo em vez de ficar por cima da listra.
-  const alturaAcima = faixaTopo - (janelaY + regFont * 0.8)
+  const alturaAcima = faixaTopo - (janelaBase + regFont * 0.8)
   const alturaAbaixo = bandBot - bandH * 0.04 - (faixaBase + regFont * 0.8)
   const regAcima = alturaAcima >= regFont * 0.2 || alturaAcima >= alturaAbaixo
   const regY = cheatLivre
@@ -310,7 +484,57 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
     : regAcima
       ? faixaTopo - regFont * 0.5
       : Math.min(bandBot - bandH * 0.03, faixaBase + regFont * 0.95)
-  const regXImg = flip ? w * tx1 + w * 0.01 : w * tx0 - w * 0.01
+  /**
+   * O prefixo e a bandeira **dentro do tubo**, na altura deles.
+   *
+   * A âncora era a caixa da deriva, e por isso o texto saía voando: na altura
+   * do prefixo o cone de cauda já afinou, e o que é "logo antes da deriva" em
+   * cima está do lado de fora embaixo. Aqui a âncora é o fim do tubo **na
+   * faixa de altura do próprio texto**, e o conjunto texto + bandeira encolhe
+   * se não couber entre a janela e esse fim.
+   */
+  const regTexto = livery.showReg && registration ? registration.length * 0.62 : 0
+  const regBand = livery.flag && flagCC ? 1.5 * 0.82 + 0.5 : 0
+  const regLargo = regTexto + regBand
+
+  /**
+   * O prefixo e a bandeira encolhem até caber, e a caixa deles é medida no
+   * tubo na própria altura em que ficam.
+   *
+   * Três coisas os prendiam mal antes: a âncora vinha da caixa da deriva (na
+   * altura do prefixo o cone já afinou, e "logo antes da deriva" em cima está
+   * fora embaixo), a altura não respeitava a caixa da fileira de janela — só a
+   * linha dela — e o tamanho não cedia. Aqui o laço tenta do tamanho pedido
+   * para baixo e aceita o primeiro que fica **abaixo da janela**, dentro do
+   * tubo e com largura para texto e bandeira.
+   */
+  let regF = regFont
+  let regFaixa: [number, number] | null = null
+  for (let i = 0; i < 10; i++) {
+    const f = regFont * (1 - i * 0.09)
+    if (f < 5) break
+    const topo = regY - f * CX_REG_ACIMA
+    const faixas = entreTodas(tubo, topo / h, (regY + f * CX_REG_ABAIXO) / h)
+    if (!faixas || !faixas.length) continue
+    // A corrida de **trás**, não a maior: o prefixo vai na traseira, e a maior
+    // corrida de uma linha cortada pela asa é quase sempre a da frente.
+    const faixa = faixas.reduce((p, q) =>
+      (flip ? Math.min(q[0], p[0]) === q[0] : Math.max(q[1], p[1]) === q[1]) ? q : p,
+    )
+    regF = f
+    regFaixa = faixa
+    const abaixoDaJanela = topo >= janelaBase - bandH * 0.005
+    const cabeNaLargura = (faixa[1] - faixa[0]) * w >= regLargo * f
+    if (abaixoDaJanela && cabeNaLargura) break
+  }
+  const regFimImg = regFaixa
+    ? flip
+      ? regFaixa[0] * w + regF * 0.4
+      : regFaixa[1] * w - regF * 0.4
+    : flip
+      ? w * tx1 + w * 0.01
+      : w * tx0 - w * 0.01
+  const regXImg = regFimImg
   // Espelhar o grupo inverteria as letras; então cada texto é contra-espelhado
   // em torno da própria âncora, e a posição sai exata dos dois lados.
   const unflip = (x: number) => (flip ? `translate(${2 * x} 0) scale(-1 1)` : undefined)
@@ -372,6 +596,14 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
             <image href={bodyMask} x="0" y="0" width={w} height={h} crossOrigin="anonymous" />
           </mask>
         )}
+        {/* Da linha logo abaixo da última janela para baixo: é onde o filete
+            pode desenhar. Recorte, e não só posicionamento, porque cada desenho
+            sobe uma coisa diferente acima do centro — a onda sobe três vezes
+            mais que a reta — e é o recorte que faz "nada em cima de janela"
+            valer para os quinze, inclusive os que vierem depois. */}
+        <clipPath id={`fj-${uid}`}>
+          <rect x="0" y={linhaJanela} width={w} height={Math.max(1, h - linhaJanela)} />
+        </clipPath>
         {wingletMask && (
           <mask id={`wgm-${uid}`} style={{ maskType: 'luminance' }}>
             {/* Dispositivo de ponta de asa (public/sprites/wingletmasks/). */}
@@ -439,9 +671,16 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
           {/* barriga, dentro da faixa da fuselagem */}
           <rect x="0" y={bellyY} width={w} height={bandBot - bellyY} fill={livery.belly} />
 
-          {/* faixa, recortada pelo tubo quando ele existe: ver bodyMaskHref */}
+          {/* faixa, recortada pelo tubo quando ele existe: ver bodyMaskHref.
+              Nos filetes entra um segundo recorte, `fj-`, que é a garantia dura
+              de que nenhum deles toca a fileira de janela: `SUBIDA_FAIXA` põe o
+              desenho no lugar, e o recorte cobre o que a tabela subestimar. */}
           {livery.cheatStyle !== 'none' && (
-            <g mask={bodyMask ? `url(#fm-${uid})` : undefined}>
+            <g
+              data-peca="faixa"
+              mask={bodyMask ? `url(#fm-${uid})` : undefined}
+              clipPath={cheatLivre ? undefined : `url(#fj-${uid})`}
+            >
               <Cheat
                 livery={livery} w={w} x0={planeX0} planeW={planeW}
                 bandTop={bandTop} bandBot={bandBot} mid={cheatMid} height={cheatH} gradId={`cg-${uid}`}
@@ -601,7 +840,7 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
           <g transform={unflip(regXImg)}>
             <text
               x={regXImg} y={regY} fill={livery.regColor}
-              fontFamily={FONT_STACK.mono} fontSize={regFont} textAnchor="end"
+              fontFamily={FONT_STACK.mono} fontSize={regF} textAnchor="end"
             >
               {registration}
             </text>
@@ -614,9 +853,9 @@ function MaskedArt({ type, livery, titles, registration, flagCC, className, entr
           <g transform={unflip(regXImg)}>
             <Bandeira
               cc={flagCC}
-              x={regXImg - (registration && livery.showReg ? regFont * 0.62 * (registration.length + 1) : 0) - regFont * 1.6}
-              y={regY - regFont * 0.82}
-              h={regFont * 0.82}
+              x={regXImg - (registration && livery.showReg ? regF * 0.62 * registration.length + regF * 0.5 : 0) - regF * 1.5 * 0.82}
+              y={regY - regF * 0.82}
+              h={regF * 0.82}
             />
           </g>
         )}

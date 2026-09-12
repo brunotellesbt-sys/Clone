@@ -184,7 +184,19 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
 
   const options = useMemo(() => {
     const open = new Set(state.airline.routes.map((r) => odKey(r.from, r.to)))
+    // Quantos concorrentes voam cada par, contado uma vez: com três mil destinos
+    // na lista, varrer as rotas de cada concorrente por destino era três mil
+    // varreduras por tecla digitada.
+    const rivais = new Map<string, number>()
+    for (const c of state.competitors) {
+      for (const r of c.routes) rivais.set(r.key, (rivais.get(r.key) ?? 0) + 1)
+    }
+    const busca = q.trim().toLowerCase()
     return AIRPORTS.filter((a) => a.iata !== hub && !open.has(odKey(hub, a.iata)))
+      // O filtro de texto vem antes das contas: medir demanda de três mil
+      // destinos a cada tecla é trabalho jogado fora quando o jogador já disse
+      // o que procura.
+      .filter((a) => !busca || `${a.iata} ${a.city} ${a.country}`.toLowerCase().includes(busca))
       .map((a) => {
         const dist = distanceBetween(hub, a.iata)
         const dp = baseDemand(hub, a.iata, state.day, doy)
@@ -192,12 +204,9 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
         const d = carga
           ? { ...dp, total: dc.tons, refFare: dc.refRate }
           : dp
-        const rivals = state.competitors.reduce(
-          (n, c) => n + c.routes.filter((r) => r.key === odKey(hub, a.iata)).length, 0)
-        return { a, dist, demand: d, rivals }
+        return { a, dist, demand: d, rivals: rivais.get(odKey(hub, a.iata)) ?? 0 }
       })
       .filter((o) => o.dist > 110)
-      .filter((o) => !q || `${o.a.iata} ${o.a.city} ${o.a.country}`.toLowerCase().includes(q.toLowerCase()))
       .sort((x, y) => y.demand.total - x.demand.total)
       .slice(0, 90)
   }, [hub, q, state, doy, carga])

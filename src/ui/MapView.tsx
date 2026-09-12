@@ -66,6 +66,45 @@ export function MapView({ state, height = 520, selected, onPick, focus, showComp
 
   const hubs = new Set(state.airline.hubs)
   const routes = state.airline.routes
+  /**
+   * Quem a companhia serve, num conjunto: com três mil aeroportos, perguntar
+   * `routes.some(...)` para cada um era varrer a lista de rotas três mil vezes
+   * por quadro.
+   */
+  const servidos = useMemo(() => {
+    const s = new Set<string>()
+    for (const r of routes) {
+      s.add(r.from)
+      s.add(r.to)
+    }
+    return s
+  }, [routes])
+  /**
+   * Degrau mínimo para aparecer no mapa, pelo zoom.
+   *
+   * Existe porque a lista passou de 382 para 3.085 aeroportos: desenhar todos
+   * põe três mil nós de SVG com tratador de ponteiro na tela e o arrasto do mapa
+   * começa a engasgar. Afastado aparece só o que é hub de verdade; aproximando,
+   * o mapa vai enchendo. Base própria e destino servido aparecem sempre, em
+   * qualquer zoom — esses o jogador precisa ver.
+   */
+  const degrauMin = view.k < 1.6 ? 4 : view.k < 2.4 ? 3 : view.k < 3.6 ? 2 : 1
+  /**
+   * A janela visível em coordenadas do mapa, com uma folga de meia tela.
+   *
+   * Aproximado, quase tudo está fora da tela, e desenhar fora da tela custa o
+   * mesmo que desenhar dentro: é o que faz o zoom profundo valer a pena — em vez
+   * de três mil marcadores espalhados pelo mundo, só os da região que o jogador
+   * está olhando, e aí cabe mostrar até os regionais.
+   */
+  const folgaX = W / view.k / 2
+  const folgaY = H / view.k / 2
+  const visivel = {
+    x0: -view.x / view.k - folgaX,
+    x1: (W - view.x) / view.k + folgaX,
+    y0: -view.y / view.k - folgaY,
+    y1: (H - view.y) / view.k + folgaY,
+  }
   const compRoutes = showCompetitors
     ? state.competitors.flatMap((c) => c.routes.slice(0, 10).map((r) => ({ ...r, color: c.color })))
     : []
@@ -168,13 +207,15 @@ export function MapView({ state, height = 520, selected, onPick, focus, showComp
           {AIRPORTS.map((a) => {
             const isHub = hubs.has(a.iata)
             const isSel = selected === a.iata
-            const served = routes.some((r) => r.from === a.iata || r.to === a.iata)
-            if (!isHub && !served && a.tier < 3 && view.k < 2.2) return null
+            const served = servidos.has(a.iata)
+            if (!isHub && !served && a.tier < degrauMin) return null
+            const [px, py] = project(a.lon, a.lat)
+            if (px < visivel.x0 || px > visivel.x1 || py < visivel.y0 || py > visivel.y1) return null
             return (
               <g key={a.iata}>
                 <circle
-                  cx={project(a.lon, a.lat)[0]}
-                  cy={project(a.lon, a.lat)[1]}
+                  cx={px}
+                  cy={py}
                   r={dotR(a.tier) * (isHub ? 1.7 : 1)}
                   fill={isHub ? '#38bdf8' : served ? '#a5b4fc' : '#4c5f86'}
                   stroke={isSel ? '#fff' : 'rgba(4,10,20,.7)'}
@@ -186,8 +227,8 @@ export function MapView({ state, height = 520, selected, onPick, focus, showComp
                 />
                 {(isHub || (view.k > 2.6 && a.tier >= 4)) && (
                   <text
-                    x={project(a.lon, a.lat)[0] + dotR(a.tier) * 2}
-                    y={project(a.lon, a.lat)[1] + 2.5 / Math.sqrt(view.k)}
+                    x={px + dotR(a.tier) * 2}
+                    y={py + 2.5 / Math.sqrt(view.k)}
                     fontSize={7.5 / Math.sqrt(view.k)}
                     fill={isHub ? '#bae6fd' : '#8ea3c9'}
                     style={{ pointerEvents: 'none', fontWeight: 700 }}
