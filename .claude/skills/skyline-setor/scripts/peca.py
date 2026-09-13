@@ -481,13 +481,26 @@ def entre_as_juntas(img, nac, corte, labio, nariz_esq=True):
     # vizinha que tem crescente — o crescente entrava pela brecha, 394 px de
     # boca dentro do capô. O corte não pode ficar à esquerda de nenhum
     # crescente vizinho, e uma suavização depois tira o degrau.
-    b = np.array(bruto, np.int32)
-    if len(b) >= 9:
-        r = 4
-        jan = np.lib.stride_tricks.sliding_window_view(np.pad(b, r, mode='edge'), 9)
-        b = jan.max(axis=1)
-        b = np.convolve(np.pad(b, 4, mode='edge'), np.ones(9) / 9.0, 'valid')
-        b = np.ceil(b).astype(np.int32)
+    # A borda do crescente é um arco liso, então vale ajustar uma curva robusta
+    # a ela, do mesmo jeito que se faz com o topo do capô. Máximo móvel mais
+    # média deixava saliência de uns 5 px onde o crescente some por uma linha
+    # ou duas — o cromado fica claro ali e o detector perde o pixel. O ajuste
+    # atravessa a falha; o máximo contra a curva garante que nenhum crescente
+    # vizinho fique de fora.
+    b = np.array(bruto, np.float64)
+    ys = np.array(linhas, np.float64)
+    if len(b) >= 16:
+        ok = np.ones(len(b), bool)
+        for _ in range(2):
+            c = np.polyfit(ys[ok], b[ok], 3)
+            r = b - np.polyval(c, ys)
+            novo = np.abs(r) <= max(1.5, 2.0 * np.std(r[ok]))
+            if novo.sum() < 16:
+                break
+            ok = novo
+        curva = np.polyval(np.polyfit(ys[ok], b[ok], 3), ys)
+        b = np.maximum(b, curva)
+    b = np.ceil(b).astype(np.int32)
     for y, limite in zip(linhas, b):
         if nariz_esq:
             m[y, :limite] = False
