@@ -254,7 +254,18 @@ def por_sam(aid, caminho, nome_peca, trabalho, nariz_esq=True):
         inteira &= sil
     if not cfg.get('recorta_capo'):
         return inteira, 'peça inteira'
+    return capo_pintavel(aid, img, inteira, cfg, nariz_esq)
 
+
+def capo_pintavel(aid, img, inteira, cfg, nariz_esq=True):
+    """De nacela inteira para **área pintável**. Vale para os dois caminhos.
+
+    Ficava dentro de `por_sam`, e por isso o candidato do Grounded voltava com o
+    motor inteiro enquanto o do SAM voltava com o capô: os dois não mediam a
+    mesma coisa, e a ficha comparava maçã com laranja. Quem escolhe olhando a
+    ficha escolhia sem saber disso.
+    """
+    p = sam()
     corte, motivo = _alvo_motor(aid, img, inteira, cfg.get('fracao', 0.58), nariz_esq)
     capo = inteira
     if corte is not None:
@@ -302,7 +313,7 @@ def por_sam(aid, caminho, nome_peca, trabalho, nariz_esq=True):
     return capo & ~fora, motivo
 
 
-def por_grounded(aid, caminho, nome_peca, trabalho):
+def por_grounded(aid, caminho, nome_peca, trabalho, nariz_esq=True):
     """Candidato B: caixa vinda de texto, sem dizer onde a peça está.
 
     Entre as caixas propostas fica a que mais cai dentro da silhueta — é o que
@@ -342,4 +353,10 @@ def por_grounded(aid, caminho, nome_peca, trabalho):
     out = (m[0] > 0.5)
     if sil is not None:
         out &= sil
-    return out, 'caixa do texto %.0f%% dentro do avião' % (100 * nota)
+    motivo = 'caixa do texto %.0f%% dentro do avião' % (100 * nota)
+    if not cfg.get('recorta_capo'):
+        return out, motivo
+    # as mesmas regras de pintável do outro caminho: sem isso os dois candidatos
+    # da ficha não medem a mesma coisa
+    capo, por_que = capo_pintavel(aid, np.array(pil), out, cfg, nariz_esq)
+    return capo, motivo + '; ' + por_que
