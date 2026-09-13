@@ -395,12 +395,23 @@ def aplainar_topo(m, grau=3):
         ok = np.abs(r) <= max(1.5, 2.0 * np.std(r[ok]))
         if ok.sum() < 4 * (grau + 1):
             break
-    curva = np.polyval(np.polyfit(cx[ok], topo[ok], grau), cx)
+    coef = np.polyfit(cx[ok], topo[ok], grau)
+
+    # A curva vale para a peça **inteira**, não só para as colunas de corpo.
+    # Os vazamentos para a asa e o pilone são finos — não passam no filtro de
+    # corpo — e por isso sobreviviam ao corte: medido num lote de sete, cinco
+    # vazavam e o corte só mexia no que já estava certo. Fora do trecho
+    # ajustado a curva é presa no valor da ponta, porque cúbico extrapolado
+    # dispara.
+    cols = np.where(m.any(axis=0))[0]
+    dentro = np.clip(cols.astype(np.float64), cx.min(), cx.max())
+    curva = np.polyval(coef, dentro)
     saida = m.copy()
-    for i, x in enumerate(cx.astype(int)):
+    for i, x in enumerate(cols):
         alvo = int(round(curva[i]))
         t = int(np.where(m[:, x])[0].min())
-        if alvo < t:
+        if alvo < t and m[:, x].sum() >= altura * 0.5:
+            # só coluna de corpo ganha preenchimento; aba fina fica como está
             saida[alvo:t, x] = True
         elif alvo > t:
             saida[t:alvo, x] = False
