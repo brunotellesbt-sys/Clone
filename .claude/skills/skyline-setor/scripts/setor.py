@@ -112,8 +112,16 @@ def main():
     rgb = np.array(Image.open(caminho).convert('RGB'))
     sil = recorte.silhueta(a.id, a.saida)
 
-    m_sam, por_que_sam = recorte.por_sam(a.id, caminho, a.peca, a.saida)
-    m_gnd, por_que_gnd = recorte.por_grounded(a.id, caminho, a.peca, a.saida)
+    # Os testes nascem da nacela inteira, e existem antes do recorte porque é o
+    # recorte que os consulta para escolher a semente.
+    testes = None
+    if cfg.get('recorta_capo'):
+        nac, _ = recorte.por_sam(a.id, caminho, a.peca, a.saida, so_inteira=True)
+        if nac is not None and nac.any():
+            testes = conferir.testes_motor(rgb, nac)
+
+    m_sam, por_que_sam = recorte.por_sam(a.id, caminho, a.peca, a.saida, testes=testes)
+    m_gnd, por_que_gnd = recorte.por_grounded(a.id, caminho, a.peca, a.saida, testes=testes)
     print('  SAM 2.1        : %s' % por_que_sam)
     print('  Grounded SAM 2 : %s' % por_que_gnd)
 
@@ -122,26 +130,20 @@ def main():
     v_sam = acabamento.acabar(rgb, m_sam) if m_sam is not None and m_sam.any() else None
     v_gnd = acabamento.acabar(rgb, m_gnd) if m_gnd is not None and m_gnd.any() else None
 
-    # Autocrítica, **depois** do ViTMatte. Os consertos rodavam antes dele, e o
-    # ViTMatte encolhe a borda depois: comia o pé de volta e reabria a boca.
-    # Medido no b737: 147 px de pé faltando e 679 px de lábio dentro, num
-    # candidato cujos passos intermediários estavam todos certos.
+    # A autocrítica **julga o final**, depois do ViTMatte, e não conserta.
+    # Consertar era cirurgia de pixel em cima do recorte do modelo, e produzia
+    # furo quadrado e borda em degrau — defeitos que os testes da época nem
+    # mediam. Quando reprova, quem recorta troca a semente; ver peca.py.
     aprovado = {}
-    if cfg.get('recorta_capo') and m_sam is not None and m_sam.any():
-        testes = conferir.testes_motor(rgb, m_sam)
-        for rot, chave in (('SAM 2.1 + ViTMatte', 'sam_vit'), ('Grounded + ViTMatte', 'gnd_vit')):
-            alpha = v_sam if chave == 'sam_vit' else v_gnd
+    if testes is not None:
+        for rot, chave, alpha in (('SAM 2.1 + ViTMatte', 'sam_vit', v_sam),
+                                  ('Grounded + ViTMatte', 'gnd_vit', v_gnd)):
             if alpha is None:
                 continue
-            alpha, rel, ok = conferir.rodar(testes, alpha)
+            ok, linhas = conferir.julgar(testes, alpha)
             aprovado[chave] = ok
-            print('  autocrítica %s:' % rot)
-            for L in rel:
-                print('     ', L)
-            if chave == 'sam_vit':
-                v_sam = alpha
-            else:
-                v_gnd = alpha
+            print('  autocrítica %s: %s' % (rot, 'APROVADO' if ok else 'REPROVADO'))
+            conferir.relatar(rot, linhas)
 
     for alpha, sufixo in ((a_sam, '__sam.png'), (v_sam, '__sam_vit.png'),
                           (a_gnd, '__gnd.png'), (v_gnd, '__gnd_vit.png')):

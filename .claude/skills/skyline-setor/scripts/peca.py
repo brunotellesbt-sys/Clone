@@ -95,121 +95,6 @@ def linha_de_painel(img, m, nariz_esq=True):
     return x0 + col if nariz_esq else x0 + col
 
 
-def boca_por_sombra(img, nac, nariz_esq=True):
-    """A boca pela própria sombra dela — recorte **curvo**, não linha reta.
-
-    O lábio da tomada é um anel: em vista lateral ele aparece como uma faixa em
-    crescente no bico, sempre mais escura que a chapa do capô, porque está
-    virada para dentro. Cortar por coluna, com uma reta vertical, come lábio em
-    umas linhas e deixa sobrar em outras — a curva não é vertical.
-
-    Aqui o lábio é achado por luminância dentro do quarto dianteiro da nacela e
-    só vale o pedaço **encostado no bico**: mancha escura solta no meio do capô
-    é painel ou sujeira do render, não boca.
-
-    Devolve a máscara do lábio, ou None quando nada escuro se destaca — aí quem
-    chama cai na divisa de painel, e depois na fração.
-    """
-    ys, xs = np.where(nac)
-    x0, x1 = int(xs.min()), int(xs.max())
-    y0, y1 = int(ys.min()), int(ys.max())
-    comp = x1 - x0
-    if comp < 40:
-        return None
-    cinza = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY).astype(np.float32)
-    # o capô é a metade de trás: é dele que sai a referência de "chapa clara"
-    meio = nac.copy()
-    if nariz_esq:
-        meio[:, :x0 + int(comp * 0.45)] = False
-    else:
-        meio[:, x1 - int(comp * 0.45):] = False
-    if not meio.any():
-        return None
-    claro = float(np.median(cinza[meio]))
-
-    frente = nac.copy()
-    if nariz_esq:
-        frente[:, x0 + int(comp * 0.28):] = False
-    else:
-        frente[:, :x1 - int(comp * 0.28)] = False
-    # 12% abaixo da chapa já separa o lábio em sombra sem pegar painel
-    escuro = frente & (cinza < claro * 0.88)
-    if escuro.sum() < 30:
-        return None
-
-    n, lab, stats, _ = cv2.connectedComponentsWithStats(escuro.astype(np.uint8), 8)
-    borda = x0 + 3 if nariz_esq else x1 - 3
-    labio = np.zeros_like(escuro)
-    for i in range(1, n):
-        comp_i = (lab == i)
-        cxs = np.where(comp_i.any(axis=0))[0]
-        encosta = cxs.min() <= borda if nariz_esq else cxs.max() >= borda
-        if encosta and stats[i, cv2.CC_STAT_AREA] >= 25:
-            labio |= comp_i
-    if labio.sum() < 30:
-        return None
-    # fecha buracos de reflexo dentro do lábio, para o corte sair inteiro
-    k = np.ones((3, 3), np.uint8)
-    labio = cv2.morphologyEx(labio.astype(np.uint8), cv2.MORPH_CLOSE, k, iterations=2) > 0
-    return labio & nac
-
-
-def boca_da_turbina(img, m, nariz_esq=True):
-    """A boca: o lábio de entrada, no bico da nacela. **Não** é pintável.
-
-    Num avião de verdade o lábio da tomada sai em metal polido ou anticongelante,
-    e a livery começa depois dele. Em vista lateral a boca aparece como a faixa
-    entre o bico e a primeira divisa de painel.
-
-    Devolve a coluna onde a pintura pode começar, ou None quando não há divisa
-    clara — aí quem chama apara uma fatia pequena e fixa, que é o mal menor:
-    deixar a boca pintada é erro visível, aparar 4% a mais não é.
-    """
-    ys, xs = np.where(m)
-    x0, x1 = int(xs.min()), int(xs.max())
-    y0, y1 = int(ys.min()), int(ys.max())
-    comp = x1 - x0
-    if comp < 40:
-        return None
-    faixa = cv2.cvtColor(img[y0:y1 + 1, x0:x1 + 1], cv2.COLOR_RGB2GRAY).astype(np.float32)
-    dentro = m[y0:y1 + 1, x0:x1 + 1]
-    grad = np.abs(cv2.Sobel(faixa, cv2.CV_32F, 1, 0, ksize=3))
-    grad[~dentro] = 0
-    perfil = grad.sum(axis=0) / np.maximum(1, dentro.sum(axis=0))
-    n = len(perfil)
-    # a divisa do lábio fica logo atrás do bico: entre 3% e 18% do comprimento
-    ini, fim = max(2, int(n * 0.03)), max(6, int(n * 0.18))
-    if fim - ini < 3:
-        return None
-    janela = perfil[ini:fim]
-    pico = int(np.argmax(janela))
-    if janela[pico] < perfil.mean() * 1.3:
-        return None
-    return x0 + ini + pico if nariz_esq else x1 - (ini + pico)
-
-
-def fechar_no_pe(m, nac):
-    """Estende a peça até o pé da nacela, coluna por coluna.
-
-    O lábio de baixo do capô fica em sombra na foto, e tanto a inundação de 1 bit
-    quanto o SAM o largavam de fora — no b737 sobrava uma faixa cinza de 13 px ao
-    longo de toda a base. Aqui, dentro das colunas que a peça já ocupa, o que
-    estiver entre ela e o fundo da nacela entra junto.
-    """
-    if not m.any() or not nac.any():
-        return m
-    out = m.copy()
-    cols = np.where(m.any(axis=0))[0]
-    for x in cols:
-        alvo = np.where(nac[:, x])[0]
-        meu = np.where(m[:, x])[0]
-        if not len(alvo) or not len(meu):
-            continue
-        if alvo.max() > meu.max():
-            out[meu.max():alvo.max() + 1, x] = True
-    return out
-
-
 def _alvo_motor(aid, img, nac, fracao, nariz_esq):
     """A área pintável do motor.
 
@@ -227,7 +112,7 @@ def _alvo_motor(aid, img, nac, fracao, nariz_esq):
     return corte, 'sem divisa visível — fração %.2f (chute)' % fracao
 
 
-def por_sam(aid, caminho, nome_peca, trabalho, nariz_esq=True):
+def por_sam(aid, caminho, nome_peca, trabalho, nariz_esq=True, testes=None, so_inteira=False):
     """Candidato A: SAM 2.1 com caixa e pontos montados aqui."""
     cfg = ficha_da_peca(nome_peca)
     img = np.array(sprite(caminho))
@@ -252,68 +137,102 @@ def por_sam(aid, caminho, nome_peca, trabalho, nariz_esq=True):
     inteira = (m[0] > 0.5)
     if sil is not None:
         inteira &= sil
-    if not cfg.get('recorta_capo'):
+    if so_inteira or not cfg.get('recorta_capo'):
         return inteira, 'peça inteira'
-    return capo_pintavel(aid, img, inteira, cfg, nariz_esq)
+    return capo_pintavel(aid, img, inteira, cfg, nariz_esq, testes)
 
 
-def capo_pintavel(aid, img, inteira, cfg, nariz_esq=True):
-    """De nacela inteira para **área pintável**. Vale para os dois caminhos.
+def sementes_do_capo(img, nac, corte, labio, nariz_esq=True):
+    """As sementes a tentar para o capô, da mais informada para a mais simples.
 
-    Ficava dentro de `por_sam`, e por isso o candidato do Grounded voltava com o
-    motor inteiro enquanto o do SAM voltava com o capô: os dois não mediam a
-    mesma coisa, e a ficha comparava maçã com laranja. Quem escolhe olhando a
-    ficha escolhia sem saber disso.
+    Semente, não remendo. O lábio entra como **ponto negativo** — o modelo traça
+    a curva dele sozinho, e é isso que evita o retalho quadrado que a subtração
+    por bloco produzia. O escape também é negativo, porque a divisa de painel
+    sozinha nem sempre segura o recorte.
+
+    Várias tentativas porque nenhuma semente serve para todo motor: o que prende
+    o CFM56 solta no D-436. Quem chama roda o juiz em cada uma e fica com a que
+    passar.
     """
-    p = sam()
-    corte, motivo = _alvo_motor(aid, img, inteira, cfg.get('fracao', 0.58), nariz_esq)
-    capo = inteira
-    if corte is not None:
-        ys, xs = np.where(inteira)
-        x0, x1, y0, y1 = int(xs.min()), int(xs.max()), int(ys.min()), int(ys.max())
-        caixa = np.array([x0 - 3, y0 - 3, corte, y1 + 3], float)
-        meio = np.array([[(x0 + corte) / 2, (y0 + y1) / 2]])
-        # negativos no que vem depois da divisa: é o que faz o modelo parar ali
-        # em vez de seguir pela nacela toda quando a linha de painel é fraca
-        neg = np.array([[x1 - (x1 - corte) * 0.35, (y0 + y1) / 2],
-                        [x1 - (x1 - corte) * 0.12, (y0 + y1) / 2]])
-        with torch.inference_mode():
-            m, _, _ = p.predict(point_coords=np.vstack([meio, neg]),
-                                point_labels=np.array([1, 0, 0]),
-                                box=caixa[None, :], multimask_output=False)
-        capo = (m[0] > 0.5) & inteira
+    ys, xs = np.where(nac)
+    x0, x1, y0, y1 = int(xs.min()), int(xs.max()), int(ys.min()), int(ys.max())
+    ymeio = (y0 + y1) / 2
+    frente, tras = (x0, corte) if nariz_esq else (corte, x1)
+    caixa = np.array([frente - 3, y0 - 3, tras + 3, y1 + 3], float)
 
-    # o pé do capô entra: em sombra na foto, ele ficava de fora
-    capo = fechar_no_pe(capo, inteira)
-
-    # E a boca sai. Três tentativas, da melhor para a pior, e o motivo sai na
-    # saída para ninguém confundir medida com chute:
-    #   1. a sombra do próprio lábio  — corte curvo, segue o anel
-    #   2. a divisa de painel do lábio — corte reto, aproximação
-    #   3. 4% do comprimento          — chute, último recurso
-    labio = boca_por_sombra(img, inteira, nariz_esq)
-    if labio is not None:
-        motivo += '; boca pela sombra do lábio (corte curvo)'
-        return capo & ~labio, motivo
-
-    ini = boca_da_turbina(img, inteira, nariz_esq)
-    ys, xs = np.where(inteira)
-    nx0, nx1 = int(xs.min()), int(xs.max())
-    if ini is None:
-        apara = max(3, int((nx1 - nx0) * 0.04))
-        ini = nx0 + apara if nariz_esq else nx1 - apara
-        motivo += '; boca aparada em 4% (chute — sem sombra nem divisa)'
-    else:
-        motivo += '; boca pela divisa de painel (corte reto)'
-    fora = np.zeros_like(capo)
+    neg = []
+    if labio is not None and labio.any():
+        lys, lxs = np.where(labio)
+        neg.append([float(lxs.mean()), float(lys.mean())])
+    # dois negativos no que vem depois da divisa: bocal e cone
     if nariz_esq:
-        fora[:, :int(ini)] = True
+        neg += [[x1 - (x1 - corte) * 0.30, ymeio], [x1 - (x1 - corte) * 0.10, ymeio]]
     else:
-        fora[:, int(ini) + 1:] = True
-    return capo & ~fora, motivo
+        neg += [[x0 + (corte - x0) * 0.30, ymeio], [x0 + (corte - x0) * 0.10, ymeio]]
+
+    largura = abs(tras - frente)
+    centro = [[frente + largura * f, ymeio] for f in (0.35, 0.55, 0.75)] if nariz_esq \
+        else [[tras - largura * f, ymeio] for f in (0.35, 0.55, 0.75)]
+    # pontos também em cima e embaixo: é o que puxa o pé em sombra para dentro
+    alto = y1 - y0
+    coluna = [[frente + largura * 0.5, y0 + alto * f] for f in (0.22, 0.5, 0.82)] if nariz_esq \
+        else [[tras - largura * 0.5, y0 + alto * f] for f in (0.22, 0.5, 0.82)]
+
+    return [
+        ('caixa + 3 no eixo + 3 na altura + negativos', caixa, centro + coluna, neg),
+        ('caixa + 3 no eixo + negativos', caixa, centro, neg),
+        ('caixa + 1 ponto + negativos', caixa, centro[1:2], neg),
+        ('caixa sozinha', caixa, [], []),
+    ]
 
 
-def por_grounded(aid, caminho, nome_peca, trabalho, nariz_esq=True):
+def capo_pintavel(aid, img, inteira, cfg, nariz_esq=True, testes=None):
+    """De nacela inteira para área pintável, **recortando**, nunca remendando.
+
+    A versão anterior recortava grosso e depois costurava: subtraía a zona do
+    lábio, empurrava a borda até o pé. Morfologia em cima de máscara boa produz
+    furo quadrado e borda em degrau — foi o que o autor viu na tela, num
+    candidato que os testes da época aprovavam.
+
+    Aqui o lábio é ponto negativo e o pé é ponto positivo: a forma sai inteira do
+    modelo. Se o juiz reprovar, troca-se a **semente** e recorta-se de novo.
+    """
+    from conferir import zona_do_labio, julgar
+
+    if por_helice(aid):
+        # turboélice: a nacela inteira leva a livery, não há reversor exposto
+        return inteira, 'nacela inteira (turboélice)'
+
+    corte, motivo = _alvo_motor(aid, img, inteira, cfg.get('fracao', 0.58), nariz_esq)
+    if corte is None:
+        return inteira, motivo
+    labio = zona_do_labio(img, inteira, nariz_esq)
+    p = sam()
+
+    melhor, melhor_rot, melhor_falhas = None, '', 99
+    for rot, caixa, pos, neg in sementes_do_capo(img, inteira, corte, labio, nariz_esq):
+        pts = np.array(pos + neg, float) if (pos or neg) else None
+        rots = np.array([1] * len(pos) + [0] * len(neg)) if (pos or neg) else None
+        with torch.inference_mode():
+            m, _, _ = p.predict(point_coords=pts, point_labels=rots,
+                                box=caixa[None, :], multimask_output=False)
+        cand = (m[0] > 0.5) & inteira
+        if not cand.any():
+            continue
+        if testes is None:
+            return cand, motivo + '; semente: ' + rot
+        ok, linhas = julgar(testes, cand.astype(float))
+        falhas = sum(0 if L[3] else 1 for L in linhas)
+        if ok:
+            return cand, motivo + '; semente: ' + rot + ' (juiz aprovou)'
+        if falhas < melhor_falhas:
+            melhor, melhor_rot, melhor_falhas = cand, rot, falhas
+    if melhor is None:
+        return inteira, motivo + '; nenhuma semente produziu recorte'
+    return melhor, motivo + '; semente: %s (%d testes reprovados)' % (melhor_rot, melhor_falhas)
+
+
+def por_grounded(aid, caminho, nome_peca, trabalho, nariz_esq=True, testes=None):
     """Candidato B: caixa vinda de texto, sem dizer onde a peça está.
 
     Entre as caixas propostas fica a que mais cai dentro da silhueta — é o que
@@ -358,5 +277,5 @@ def por_grounded(aid, caminho, nome_peca, trabalho, nariz_esq=True):
         return out, motivo
     # as mesmas regras de pintável do outro caminho: sem isso os dois candidatos
     # da ficha não medem a mesma coisa
-    capo, por_que = capo_pintavel(aid, np.array(pil), out, cfg, nariz_esq)
+    capo, por_que = capo_pintavel(aid, np.array(pil), out, cfg, nariz_esq, testes)
     return capo, motivo + '; ' + por_que
