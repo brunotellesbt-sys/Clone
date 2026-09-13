@@ -40,7 +40,12 @@ def acabar(img_rgb, mascara, folga=1):
     # dúvida e a apaga. Medido no A220: a aba de baixo do capô tem 5 px de
     # altura, existia no recorte com 24 px e voltava do acabamento com 0.
     k = np.ones((3, 3), np.uint8)
-    dentro = cv2.erode(m, k, iterations=folga)
+    # O anel de dúvida fica **só do lado de fora**. Erodir para dentro tira do
+    # trimap as partes finas da peça, e o que não é "certamente dentro" o
+    # ViTMatte apaga: medido no A220, a aba de baixo do capô tem 5 px de altura,
+    # existia no recorte com 24 px e voltava do acabamento com 0. A forma já foi
+    # decidida e medida pelo juiz; aqui só se resolve a transição.
+    dentro = m
     fora = cv2.dilate(m, k, iterations=folga + 1)
     tri = np.zeros(m.shape, np.uint8)
     tri[fora > 0] = 128
