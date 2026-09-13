@@ -249,7 +249,7 @@ def sementes_do_capo(img, nac, corte, labio, nariz_esq=True):
     ]
 
 
-def pontas_traseiras(img, nac, capo, corte, nariz_esq=True, sam_pontos=True):
+def pontas_traseiras(img, nac, capo, corte, nariz_esq=True):
     """As abas que seguem atrás do capô, e só elas.
 
     Atrás da divisa do reversor não há só bocal. Na maioria dos turbofans a
@@ -307,49 +307,34 @@ def pontas_traseiras(img, nac, capo, corte, nariz_esq=True, sam_pontos=True):
         grosso = len(corrida)
         y = int(corrida.max())
 
-    # Aba de cima: heurística nenhuma serve, e isso foi medido. Ela não afina
-    # pela espessura como a de baixo; de um lado encosta no berço do pilone,
-    # que é chapa igualmente clara — nas colunas 655 e 660 os dois lados têm o
-    # mesmo cinza (215 contra 220) — e a linha escura que os separa vai sumindo
-    # de -60 em x=646 para -7 em x=660. Não há borda para seguir.
-    #
-    # Então quem traça é o SAM, que é para isso que ele está no fluxo. A
-    # geometria só põe as sementes: positivo logo atrás do bordo, na altura do
-    # topo do capô; negativos no pilone acima e no bocal abaixo. Tentar
-    # adivinhar a curva por perfil de coluna produzia uma faixa reta na altura
-    # do capô que passava por cima da aba inteira.
-    if sam_pontos:
-        pos = [[corte + 4 * passo, col.min() + 5], [corte + 10 * passo, col.min() + 9]]
-        neg = [[corte + 8 * passo, col.min() - 12], [corte + 30 * passo, col.min() - 8],
-               [corte + 14 * passo, col.min() + int(alto * 0.30)],
-               [corte + 40 * passo, col.min() + int(alto * 0.25)]]
-        pts = np.array(pos + neg, float)
-        rot = np.array([1] * len(pos) + [0] * len(neg))
-        with torch.inference_mode():
-            m, _, _ = sam().predict(point_coords=pts, point_labels=rot,
-                                    multimask_output=False)
-        aba = (m[0] > 0.5) & chapa
-        aba[:col.min(), :] = False
-        if nariz_esq:
-            aba[:, :corte + 1] = False
-        else:
-            aba[:, corte:] = False
-        # A aba de cima existe **enquanto existe reversor por baixo**: ela é a
-        # chapa entre o bordo do capô e o bocal. Onde o escuro acaba, acabou a
-        # aba, e o que vem depois é pilone. Medido no A220: em x=670 já não há
-        # nenhum pixel escuro abaixo da aba, e era exatamente de x=661 a 673 que
-        # o SAM punha um bojo arredondado que não corresponde a nada na foto.
-        escuro = cinza < claro * 0.60
-        for x in range(aba.shape[1]):
-            linhas = np.where(aba[:, x])[0]
-            if not len(linhas):
-                continue
-            abaixo = escuro[int(linhas.max()) + 1:int(linhas.max()) + 8, x]
-            if not abaixo.any():
-                aba[:, x] = False
-        # aba é aba: se veio grande demais, o modelo pegou o pilone ou a asa
-        if 0 < int(aba.sum()) <= int(capo.sum()) * 0.12:
-            saida |= aba
+    return saida
+
+
+def aplainar_topo(m, janela=15):
+    """Tira o serrilhado do topo do capô encostando cada coluna na própria curva.
+
+    A linha de cima do capô encosta no berço do pilone, que é chapa da mesma
+    cor: não há contraste, e o SAM oscila alguns px de coluna para coluna.
+    Medido no A220 — o topo vai 541, 543, 547, 550, 541 em colunas vizinhas, e
+    na tela isso vira borrão na borda de cima.
+
+    O capô é um cilindro: a curva do topo é lisa, e a mediana das vizinhas é
+    estimativa melhor do que qualquer coluna sozinha. Só sobe a borda até a
+    mediana — nunca desce, para não comer chapa que o modelo achou.
+    """
+    cols = np.where(m.any(axis=0))[0]
+    if len(cols) < janela:
+        return m
+    topo = np.array([int(np.where(m[:, x])[0].min()) for x in cols], np.float32)
+    r = janela // 2
+    liso = np.median(
+        np.lib.stride_tricks.sliding_window_view(np.pad(topo, r, mode='edge'), janela),
+        axis=1)
+    saida = m.copy()
+    for i, x in enumerate(cols):
+        alvo = int(round(liso[i]))
+        if alvo < topo[i]:
+            saida[alvo:int(topo[i]), x] = True
     return saida
 
 
@@ -413,12 +398,13 @@ def entre_as_juntas(img, nac, corte, labio, nariz_esq=True):
         base = int(col[quebra[-1] + 1]) if len(quebra) else int(col.min())
         m[base:chao[x] + 1, x] = True
 
+    m = aplainar_topo(m)
     antes = int(m.sum())
     m = pontas_traseiras(img, nac, m, corte, nariz_esq)
     abas = int(m.sum()) - antes
     de, ate = (fim + 1, corte) if nariz_esq else (corte, fim - 1)
     return m, 'entre as juntas (%d..%d), pé na foto%s' % (
-        de, ate, ', abas de trás +%d px' % abas if abas else ', sem aba de trás')
+        de, ate, ', aba de baixo +%d px' % abas if abas else ', sem aba de baixo')
 
 
 def capo_pintavel(aid, img, inteira, cfg, nariz_esq=True, testes=None):
