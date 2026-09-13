@@ -158,9 +158,10 @@ def sementes_do_capo(img, nac, corte, labio, nariz_esq=True):
     x0, x1, y0, y1 = int(xs.min()), int(xs.max()), int(ys.min()), int(ys.max())
     ymeio = (y0 + y1) / 2
 
-    # A caixa começa **depois** do lábio, não no bico. Pôr o lábio dentro da
-    # caixa e tentar tirá-lo com um ponto negativo não funciona: caixa ganha de
-    # ponto. Medido — com a caixa no bico, 1.340 px de lábio entravam no capô.
+    # Empurrar a caixa para depois do lábio também não resolve: medido no b737,
+    # a boca saía (0 px) mas o pé do capô ia junto, 1.016 px faltando. Lábio e
+    # pé são a mesma sombra contínua para o modelo — qualquer coisa que afaste
+    # um afasta o outro.
     frente, tras = (x0, corte) if nariz_esq else (corte, x1)
     if labio is not None and labio.any():
         lxs = np.where(labio.any(axis=0))[0]
@@ -193,11 +194,31 @@ def sementes_do_capo(img, nac, corte, labio, nariz_esq=True):
     coluna = [[frente + largura * 0.5, y0 + alto * f] for f in alturas] if nariz_esq \
         else [[tras - largura * 0.5, y0 + alto * f] for f in alturas]
 
+    # Semente titular: recortar o capô **inteiro**, do bico à divisa do
+    # reversor, e só então separar a boca por uma **linha de painel vertical**
+    # no fim do lábio. A divisa dianteira é uma junta de painel igual à de trás,
+    # e já se corta naquela — cortar nesta é o mesmo gesto, não remendo: não
+    # abre furo nem serrilha (medido: buraco 0, degrau 10).
+    # Assim o modelo vê o capô como uma peça só e traz o pé em sombra junto;
+    # o lábio sai depois, pela geometria, sem arrastar o pé com ele.
+    labx = None
+    if labio is not None and labio.any():
+        lxs = np.where(labio.any(axis=0))[0]
+        labx = int(lxs.max()) + 1 if nariz_esq else int(lxs.min())
+    cheia = np.array([x0 - 2, y0 - 3, corte + 3, y1 + 4], float) if nariz_esq \
+        else np.array([corte - 3, y0 - 3, x1 + 2, y1 + 4], float)
+    lg = abs(corte - (x0 if nariz_esq else x1))
+    base = x0 if nariz_esq else x1
+    grade = [[base + (lg if nariz_esq else -lg) * fx, y0 + alto * fy]
+             for fx in (0.25, 0.5, 0.75) for fy in (0.15, 0.5, 0.85, 0.95)]
+    escape = neg[1:] if (labio is not None and labio.any()) else neg
+
     return [
-        ('caixa + 3 no eixo + 3 na altura + negativos', caixa, centro + coluna, neg),
-        ('caixa + 3 no eixo + negativos', caixa, centro, neg),
-        ('caixa + 1 ponto + negativos', caixa, centro[1:2], neg),
-        ('caixa sozinha', caixa, [], []),
+        ('capô inteiro + grade 3x4, boca cortada na junta', cheia, grade, escape, labx),
+        ('caixa + 3 no eixo + 3 na altura + negativos', caixa, centro + coluna, neg, None),
+        ('caixa + 3 no eixo + negativos', caixa, centro, neg, None),
+        ('caixa + 1 ponto + negativos', caixa, centro[1:2], neg, None),
+        ('caixa sozinha', caixa, [], [], None),
     ]
 
 
@@ -225,13 +246,19 @@ def capo_pintavel(aid, img, inteira, cfg, nariz_esq=True, testes=None):
     p = sam()
 
     melhor, melhor_rot, melhor_falhas = None, '', 99
-    for rot, caixa, pos, neg in sementes_do_capo(img, inteira, corte, labio, nariz_esq):
+    for rot, caixa, pos, neg, junta in sementes_do_capo(img, inteira, corte, labio, nariz_esq):
         pts = np.array(pos + neg, float) if (pos or neg) else None
         rots = np.array([1] * len(pos) + [0] * len(neg)) if (pos or neg) else None
         with torch.inference_mode():
             m, _, _ = p.predict(point_coords=pts, point_labels=rots,
                                 box=caixa[None, :], multimask_output=False)
         cand = (m[0] > 0.5) & inteira
+        if junta is not None:
+            # a junta dianteira, do mesmo jeito que a traseira: linha de painel
+            if nariz_esq:
+                cand[:, :junta] = False
+            else:
+                cand[:, junta + 1:] = False
         if not cand.any():
             continue
         if testes is None:

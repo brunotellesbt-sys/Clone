@@ -116,15 +116,31 @@ def testes_motor(img, nac, nariz_esq=True):
         return int(((a > 0.5) & labio).sum())
 
     def t_pe(a):
+        """Quanto da base da nacela ficou de fora, coluna a coluna.
+
+        Três px por coluna não contam, e as oito colunas de cada ponta não contam.
+        Depois do ViTMatte a borda é alpha, e o pixel onde ela cruza 0,5 anda
+        até três para dentro; nas colunas onde a peça termina numa junta de
+        painel, a nacela ainda desce mais porque é redonda e o corte é reto.
+        Medido no b737: a mesma peça dá 12 px binária e 329 px depois do
+        acabamento — 3 px por coluna em toda a extensão, mais 45 e 36 nas duas
+        pontas, sem que um milímetro de chapa tenha sumido. O chanfro da ponta
+        decai ao longo de umas oito colunas — corte reto encontrando nacela
+        redonda é forma, não buraco. Falta de pé de verdade é dezenas de px em
+        colunas do meio, e essa continua inteira.
+        """
         m = a > 0.5
         if not m.any():
             return 0
+        cols = np.where(m.any(axis=0))[0]
         falta = 0
-        for x in np.where(m.any(axis=0))[0]:
+        for x in cols[8:-8] if len(cols) > 16 else cols:
             cm = np.where(m[:, x])[0]
             cn = np.where(nac[:, x])[0]
-            if len(cn) and cn.max() > cm.max():
-                falta += int(cn.max() - cm.max())
+            if len(cn):
+                d = int(cn.max() - cm.max())
+                if d > 3:
+                    falta += d
         return falta
 
     def t_escape(a):
