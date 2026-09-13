@@ -67,6 +67,57 @@ def zona_do_labio(img, nac, nariz_esq=True):
     return labio & nac
 
 
+def chao_da_foto(img, nac, alcance=40):
+    """Onde a chapa acaba **na foto**, coluna a coluna — o pé de verdade.
+
+    Nem a silhueta do BiRefNet serve de referência aqui: medido no b737, na
+    coluna x=600 a chapa desce até y=652 e a silhueta para em y=640. A barriga
+    da nacela está em sombra, e sombra contra fundo claro é justamente onde o
+    modelo de recorte hesita. Medir o pé contra ela é circular, do mesmo jeito
+    que medir janela contra `windowmasks` era.
+
+    Fundo do sprite é branco: desce da base da nacela enquanto o pixel não for
+    fundo, no máximo `alcance` px, para não emendar no trem de pouso.
+    """
+    cinza = _cinza(img)
+    h, w = cinza.shape
+    chao = np.full(w, -1, np.int32)
+    for x in np.where(nac.any(axis=0))[0]:
+        y = int(np.where(nac[:, x])[0].max())
+        lim = min(h - 1, y + alcance)
+        while y + 1 <= lim and cinza[y + 1, x] < 240:
+            y += 1
+        chao[x] = y
+    return chao
+
+
+def fim_do_labio(labio, nariz_esq=True):
+    """Onde o lábio **de fato** acaba, não onde o último pixel escuro dele cai.
+
+    `zona_do_labio` pega o crescente de chrome mais um rastro fino de sombra que
+    corre pela barriga da nacela por dezenas de colunas. Cortar no último pixel
+    desse rastro joga fora chapa branca que a companhia pinta: medido no b737,
+    o corte ia para x=571 quando a massa do lábio acaba em x=528 — 40 colunas de
+    capô a menos.
+
+    O lábio é **um crescente encostado no bico**, então vale a primeira corrida
+    grossa a partir dele, e ela acaba na primeira coluna fina. Pegar a última
+    coluna grossa da imagem inteira não serve: no b737 o crescente vai de 518 a
+    528, e em 561 há outra coluna grossa que é a junta de painel — a linha que
+    fecha o barril de entrada, chapa pintável, não boca.
+    """
+    if labio is None or not labio.any():
+        return None
+    c = labio.sum(axis=0)
+    lim = max(1, c.max() * 0.25)
+    cols = np.where(c > 0)[0]
+    x = int(cols.min()) if nariz_esq else int(cols.max())
+    passo = 1 if nariz_esq else -1
+    while 0 <= x + passo < len(c) and c[x + passo] >= lim:
+        x += passo
+    return x
+
+
 def buraco(alpha):
     """Furo no meio da peça: área que o preenchimento fecha e a máscara não tem.
 
@@ -106,6 +157,16 @@ def testes_motor(img, nac, nariz_esq=True):
     """Os cinco testes do capô, e o limite de cada um. Só julgam."""
     cinza = _cinza(img)
     labio = zona_do_labio(img, nac, nariz_esq)
+    # só o crescente conta como boca; o rastro de sombra na barriga é chapa
+    fim = fim_do_labio(labio, nariz_esq)
+    if fim is not None:
+        rastro = np.zeros_like(labio)
+        if nariz_esq:
+            rastro[:, fim + 1:] = True
+        else:
+            rastro[:, :fim] = True
+        labio = labio & ~rastro
+    chao = chao_da_foto(img, nac)
     ys, xs = np.where(nac)
     y0, y1 = int(ys.min()), int(ys.max())
     alto = y1 - y0
@@ -136,9 +197,8 @@ def testes_motor(img, nac, nariz_esq=True):
         falta = 0
         for x in cols[8:-8] if len(cols) > 16 else cols:
             cm = np.where(m[:, x])[0]
-            cn = np.where(nac[:, x])[0]
-            if len(cn):
-                d = int(cn.max() - cm.max())
+            if chao[x] >= 0:
+                d = int(chao[x] - cm.max())
                 if d > 3:
                     falta += d
         return falta

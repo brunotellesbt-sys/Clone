@@ -57,7 +57,7 @@ def silhueta(aid, trabalho):
     return np.array(Image.open(p).convert('L')) > 127
 
 
-def linha_de_painel(img, m, nariz_esq=True):
+def linha_de_painel(img, m, nariz_esq=True, janela=(0.35, 0.88)):
     """Onde o capô do fan acaba: a divisa de painel mais forte da nacela.
 
     Fração fixa não serve, e isso foi medido: o capô vai até 0,61 do comprimento
@@ -79,10 +79,16 @@ def linha_de_painel(img, m, nariz_esq=True):
     grad = np.abs(cv2.Sobel(faixa, cv2.CV_32F, 1, 0, ksize=3))
     grad[~dentro] = 0
     perfil = grad.sum(axis=0) / np.maximum(1, dentro.sum(axis=0))
-    # a divisa procurada fica na metade de trás do capô: entre 35% e 85% do
-    # comprimento. Antes disso é o lábio de entrada; depois é o bocal.
+    # `janela` diz em que trecho do comprimento procurar. Padrão (0,35–0,88) é a
+    # divisa do reversor: antes disso é o lábio, depois é o bocal. Com
+    # (0,04–0,26) acha a outra junta, a que fecha o lábio de entrada.
+    # a fração é medida **a partir do bico**, então espelha quando ele está à
+    # direita — o perfil é sempre indexado da esquerda
     n = len(perfil)
-    ini, fim = int(n * 0.35), int(n * 0.88)
+    if nariz_esq:
+        ini, fim = int(n * janela[0]), int(n * janela[1])
+    else:
+        ini, fim = n - int(n * janela[1]), n - int(n * janela[0])
     if fim - ini < 8:
         return None
     janela = perfil[ini:fim]
@@ -201,10 +207,9 @@ def sementes_do_capo(img, nac, corte, labio, nariz_esq=True):
     # abre furo nem serrilha (medido: buraco 0, degrau 10).
     # Assim o modelo vê o capô como uma peça só e traz o pé em sombra junto;
     # o lábio sai depois, pela geometria, sem arrastar o pé com ele.
-    labx = None
-    if labio is not None and labio.any():
-        lxs = np.where(labio.any(axis=0))[0]
-        labx = int(lxs.max()) + 1 if nariz_esq else int(lxs.min())
+    from conferir import fim_do_labio
+    fim = fim_do_labio(labio, nariz_esq)
+    labx = None if fim is None else (fim + 1 if nariz_esq else fim - 1)
     cheia = np.array([x0 - 2, y0 - 3, corte + 3, y1 + 4], float) if nariz_esq \
         else np.array([corte - 3, y0 - 3, x1 + 2, y1 + 4], float)
     lg = abs(corte - (x0 if nariz_esq else x1))
@@ -220,6 +225,47 @@ def sementes_do_capo(img, nac, corte, labio, nariz_esq=True):
         ('caixa + 1 ponto + negativos', caixa, centro[1:2], neg, None),
         ('caixa sozinha', caixa, [], [], None),
     ]
+
+
+def entre_as_juntas(img, nac, corte, labio, nariz_esq=True):
+    """O capô como região medida: entre as duas juntas, fechada até o chão.
+
+    Três limites, três fontes, nenhuma circular:
+
+        frente  junta que fecha o lábio de entrada  (fim da massa do lábio)
+        trás    divisa de painel do reversor        (`linha_de_painel`)
+        baixo   última chapa antes do fundo branco  (`chao_da_foto`)
+
+    O contorno de cima continua vindo do SAM, que é o que ele faz bem. Fechar
+    coluna por coluna até um chão medido não é remendo: não abre furo — cada
+    coluna vira uma corrida só — e não serrilha, porque o chão é contínuo.
+    """
+    from conferir import fim_do_labio, chao_da_foto
+
+    fim = fim_do_labio(labio, nariz_esq)
+    if fim is None:
+        return None, ''
+    # dois px de recuo na junta dianteira: o ViTMatte alarga a borda em rampa, e
+    # sem recuo a rampa cai em cima do crescente. Custa 2 px de chapa e evita
+    # pintura invadindo a boca.
+    m = nac.copy()
+    if nariz_esq:
+        m[:, :fim + 3] = False
+        m[:, corte + 1:] = False
+    else:
+        m[:, corte:] = False
+        m[:, :fim - 1] = False
+    if not m.any():
+        return None, ''
+
+    chao = chao_da_foto(img, nac)
+    for x in np.where(m.any(axis=0))[0]:
+        if chao[x] < 0:
+            continue
+        col = np.where(m[:, x])[0]
+        m[int(col.min()):chao[x] + 1, x] = True
+    return m, 'entre as juntas (%d..%d), pé na foto' % (
+        (fim + 1, corte) if nariz_esq else (corte, fim - 1))
 
 
 def capo_pintavel(aid, img, inteira, cfg, nariz_esq=True, testes=None):
@@ -244,6 +290,20 @@ def capo_pintavel(aid, img, inteira, cfg, nariz_esq=True, testes=None):
         return inteira, motivo
     labio = zona_do_labio(img, inteira, nariz_esq)
     p = sam()
+
+    # Titular: **não** pedir ao SAM que ache o capô. Ele para na linha de painel
+    # entre o capô de entrada e o do ventilador, porque para o modelo aquilo é
+    # borda de objeto — e é justamente o barril branco que fica de fora, o
+    # pedaço que a companhia pinta. A peça é o que está entre as duas juntas:
+    # a nacela do SAM, cortada nas duas divisas da foto e fechada até o chão
+    # que a foto mostra. O SAM diz onde a nacela está; a foto diz onde ela acaba.
+    geo, por_que = entre_as_juntas(img, inteira, corte, labio, nariz_esq)
+    if geo is not None:
+        if testes is None:
+            return geo, motivo + '; ' + por_que
+        ok, _ = julgar(testes, geo.astype(float))
+        if ok:
+            return geo, motivo + '; ' + por_que + ' (juiz aprovou)'
 
     melhor, melhor_rot, melhor_falhas = None, '', 99
     for rot, caixa, pos, neg, junta in sementes_do_capo(img, inteira, corte, labio, nariz_esq):
