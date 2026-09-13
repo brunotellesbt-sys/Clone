@@ -122,12 +122,27 @@ def testes_motor(img, nac, nariz_esq=True):
         return falta, reparo
 
     def escape_dentro(alpha):
-        """Escape e bocal são escuros: muito escuro na traseira é invasão."""
+        """Escape e bocal invadindo o capô.
+
+        O teste ingênuo — "pixel escuro na traseira" — reprova a máscara certa, e
+        isso foi medido: no b737, 2.061 dos 2.359 px escuros do capô estavam no
+        **terço de baixo**, espalhados da frente à traseira. Aquilo não é escape;
+        é o lábio inferior do capô em sombra, que é pintável e entra de propósito.
+        Escape de verdade fica concentrado atrás, na meia-altura do bocal.
+
+        Por isso a conta exclui a faixa de baixo: é a única forma de o número
+        querer dizer "invadiu o escape" em vez de "o pé está incluído".
+        """
         m = alpha > 0.5
         if not m.any():
             return 0, None
+        ys, xs = np.where(nac)
+        y0, y1 = int(ys.min()), int(ys.max())
+        alto = y1 - y0
+        sem_pe = np.zeros_like(m)
+        sem_pe[y0:y1 - int(alto * 0.22), :] = True
         claro = float(np.median(cinza[m]))
-        tras = ~_faixa_dianteira(nac, 0.55, nariz_esq) & m
+        tras = ~_faixa_dianteira(nac, 0.62, nariz_esq) & m & sem_pe
         n = int((tras & (cinza < claro * 0.80)).sum())
         return n, None   # sem conserto automático: exige recortar de novo
 
