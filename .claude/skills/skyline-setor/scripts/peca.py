@@ -307,34 +307,87 @@ def pontas_traseiras(img, nac, capo, corte, nariz_esq=True):
         grosso = len(corrida)
         y = int(corrida.max())
 
+    # Aba de cima: a tira clara **colada em cima do escape**.
+    #
+    # Já errei nos dois sentidos aqui. Primeiro fiz uma faixa reta na altura do
+    # topo do capô, que passava por cima da aba inteira. Depois mandei o SAM
+    # recortar, e ele trouxe a aba mais toda a chapa acima dela. Tirando o
+    # recorte do SAM inteiro, a aba foi junto.
+    #
+    # A aba é fina e está encostada no bocal: mede-se subindo a partir do topo
+    # do escape, não descendo a partir do capô. Medido no A220/PW1521G — de
+    # x=645 a x=667 há uma tira de cinza 230 a 250 que afina de 6 px para 1;
+    # em x=668 o topo do escape salta 17 px de uma coluna para a outra, que é o
+    # reversor acabando, e a aba acaba com ele.
+    y_capo = int(col.min())
+    escape_ant = None
+    x = corte
+    while True:
+        x += passo
+        if not (0 <= x < chapa.shape[1]):
+            break
+        coluna = cinza[:, x]
+        escape = None
+        for y in range(y_capo, min(y_capo + 90, chapa.shape[0])):
+            if coluna[y] < claro * 0.60:
+                escape = y
+                break
+        if escape is None:
+            break
+        # salto no topo do escape quer dizer que o bocal acabou, e a aba com ele
+        if escape_ant is not None and abs(escape - escape_ant) > 6:
+            break
+        escape_ant = escape
+        topo = escape - 1
+        while topo - 1 > y_capo and coluna[topo - 1] >= claro * 0.85 \
+                and escape - topo < 8:
+            topo -= 1
+        if topo >= escape:
+            break
+        saida[topo:escape, x] = True
     return saida
 
 
-def aplainar_topo(m, janela=15):
-    """Tira o serrilhado do topo do capô encostando cada coluna na própria curva.
+def aplainar_topo(m, grau=3):
+    """Encosta a borda de cima do capô na curva lisa que ela deveria ser.
 
     A linha de cima do capô encosta no berço do pilone, que é chapa da mesma
-    cor: não há contraste, e o SAM oscila alguns px de coluna para coluna.
-    Medido no A220 — o topo vai 541, 543, 547, 550, 541 em colunas vizinhas, e
-    na tela isso vira borrão na borda de cima.
+    cor. Sem contraste o SAM oscila, e não é ruído de 1 px: medido no A220, a
+    borda vai 541, 549, 550, 541 em colunas vizinhas, com entalhes de mais de
+    dez colunas de largura. Mediana de janela curta não alcança um entalhe
+    desses — foi o que tentei primeiro, e o buraco continuou lá.
 
-    O capô é um cilindro: a curva do topo é lisa, e a mediana das vizinhas é
-    estimativa melhor do que qualquer coluna sozinha. Só sobe a borda até a
-    mediana — nunca desce, para não comer chapa que o modelo achou.
+    Capô em vista lateral é um cilindro: a borda de cima é um arco liso. Então
+    ajusta-se um polinômio robusto a ela, joga-se fora o que discorda muito, e
+    ajusta-se de novo. A borda passa a ser a curva — para cima e para baixo,
+    porque entalhe e saliência são o mesmo defeito com sinais trocados.
     """
     cols = np.where(m.any(axis=0))[0]
-    if len(cols) < janela:
+    if len(cols) < 4 * (grau + 1):
         return m
-    topo = np.array([int(np.where(m[:, x])[0].min()) for x in cols], np.float32)
-    r = janela // 2
-    liso = np.median(
-        np.lib.stride_tricks.sliding_window_view(np.pad(topo, r, mode='edge'), janela),
-        axis=1)
+    # só as colunas de corpo: aba é fina e não fala pela borda do capô
+    espessura = np.array([m[:, x].sum() for x in cols])
+    corpo = espessura >= max(1, espessura.max() * 0.5)
+    cx = cols[corpo].astype(np.float64)
+    if len(cx) < 4 * (grau + 1):
+        return m
+    topo = np.array([int(np.where(m[:, x])[0].min()) for x in cx.astype(int)], np.float64)
+    ok = np.ones(len(cx), bool)
+    for _ in range(2):
+        c = np.polyfit(cx[ok], topo[ok], grau)
+        r = topo - np.polyval(c, cx)
+        ok = np.abs(r) <= max(1.5, 2.0 * np.std(r[ok]))
+        if ok.sum() < 4 * (grau + 1):
+            break
+    curva = np.polyval(np.polyfit(cx[ok], topo[ok], grau), cx)
     saida = m.copy()
-    for i, x in enumerate(cols):
-        alvo = int(round(liso[i]))
-        if alvo < topo[i]:
-            saida[alvo:int(topo[i]), x] = True
+    for i, x in enumerate(cx.astype(int)):
+        alvo = int(round(curva[i]))
+        t = int(np.where(m[:, x])[0].min())
+        if alvo < t:
+            saida[alvo:t, x] = True
+        elif alvo > t:
+            saida[t:alvo, x] = False
     return saida
 
 
