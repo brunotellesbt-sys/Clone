@@ -157,8 +157,20 @@ def sementes_do_capo(img, nac, corte, labio, nariz_esq=True):
     ys, xs = np.where(nac)
     x0, x1, y0, y1 = int(xs.min()), int(xs.max()), int(ys.min()), int(ys.max())
     ymeio = (y0 + y1) / 2
+
+    # A caixa começa **depois** do lábio, não no bico. Pôr o lábio dentro da
+    # caixa e tentar tirá-lo com um ponto negativo não funciona: caixa ganha de
+    # ponto. Medido — com a caixa no bico, 1.340 px de lábio entravam no capô.
     frente, tras = (x0, corte) if nariz_esq else (corte, x1)
-    caixa = np.array([frente - 3, y0 - 3, tras + 3, y1 + 3], float)
+    if labio is not None and labio.any():
+        lxs = np.where(labio.any(axis=0))[0]
+        if nariz_esq:
+            frente = max(frente, int(lxs.max()) + 1)
+        else:
+            tras = min(tras, int(lxs.min()) - 1)
+    # a caixa desce até o fim da nacela: o pé fica em sombra e é o último a
+    # entrar; apertar a caixa embaixo é o que o deixava de fora
+    caixa = np.array([frente - 1, y0 - 3, tras + 3, y1 + 4], float)
 
     neg = []
     if labio is not None and labio.any():
@@ -175,8 +187,11 @@ def sementes_do_capo(img, nac, corte, labio, nariz_esq=True):
         else [[tras - largura * f, ymeio] for f in (0.35, 0.55, 0.75)]
     # pontos também em cima e embaixo: é o que puxa o pé em sombra para dentro
     alto = y1 - y0
-    coluna = [[frente + largura * 0.5, y0 + alto * f] for f in (0.22, 0.5, 0.82)] if nariz_esq \
-        else [[tras - largura * 0.5, y0 + alto * f] for f in (0.22, 0.5, 0.82)]
+    # até 0,93 da altura: o pé do capô fica em sombra, e ponto que para em 0,82
+    # deixa o modelo fechar antes dele
+    alturas = (0.18, 0.5, 0.80, 0.93)
+    coluna = [[frente + largura * 0.5, y0 + alto * f] for f in alturas] if nariz_esq \
+        else [[tras - largura * 0.5, y0 + alto * f] for f in alturas]
 
     return [
         ('caixa + 3 no eixo + 3 na altura + negativos', caixa, centro + coluna, neg),
