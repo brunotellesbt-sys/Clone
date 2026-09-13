@@ -57,4 +57,12 @@ def acabar(img_rgb, mascara, folga=1):
     a = cv2.resize(a, (m.shape[1], m.shape[0]), interpolation=cv2.INTER_LINEAR)
     # o ViTMatte não pode ampliar a peça: fora do anel de dúvida, manda a forma
     a[fora == 0] = 0.0
+
+    # E onde a peça é fina ele não opina. Proibi-lo de erodir o trimap não
+    # bastou: medido no A220, a tira de carenagem em cima do escape vai de
+    # x=645 a x=667 no recorte, e depois do acabamento sobravam 1 ou 2 px por
+    # coluna, com colunas inteiras zeradas. Numa tira de 1 a 5 px não há
+    # transição para medir — o que existe é a peça —, então ali vale o recorte.
+    fino = (cv2.distanceTransform(m, cv2.DIST_L2, 3) <= 2.5) & (m > 0)
+    a = np.maximum(a, fino.astype(np.float32))
     return np.clip(a, 0, 1)

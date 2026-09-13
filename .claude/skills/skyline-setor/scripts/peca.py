@@ -321,6 +321,7 @@ def pontas_traseiras(img, nac, capo, corte, nariz_esq=True):
     # reversor acabando, e a aba acaba com ele.
     y_capo = int(col.min())
     escape_ant = None
+    grosso = 8
     x = corte
     while True:
         x += passo
@@ -338,13 +339,17 @@ def pontas_traseiras(img, nac, capo, corte, nariz_esq=True):
         if escape_ant is not None and abs(escape - escape_ant) > 6:
             break
         escape_ant = escape
+        # a aba afina: a espessura nunca cresce de uma coluna para a outra.
+        # Sem isso, onde a chapa acima é clara o limite de 8 px era atingido e
+        # a tira virava um pente de dentes verticais no fim — visto na tela.
         topo = escape - 1
         while topo - 1 > y_capo and coluna[topo - 1] >= claro * 0.85 \
-                and escape - topo < 8:
+                and escape - topo < grosso:
             topo -= 1
         if topo >= escape:
             break
         saida[topo:escape, x] = True
+        grosso = escape - topo
     return saida
 
 
