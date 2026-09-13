@@ -95,6 +95,65 @@ def linha_de_painel(img, m, nariz_esq=True):
     return x0 + col if nariz_esq else x0 + col
 
 
+def boca_por_sombra(img, nac, nariz_esq=True):
+    """A boca pela própria sombra dela — recorte **curvo**, não linha reta.
+
+    O lábio da tomada é um anel: em vista lateral ele aparece como uma faixa em
+    crescente no bico, sempre mais escura que a chapa do capô, porque está
+    virada para dentro. Cortar por coluna, com uma reta vertical, come lábio em
+    umas linhas e deixa sobrar em outras — a curva não é vertical.
+
+    Aqui o lábio é achado por luminância dentro do quarto dianteiro da nacela e
+    só vale o pedaço **encostado no bico**: mancha escura solta no meio do capô
+    é painel ou sujeira do render, não boca.
+
+    Devolve a máscara do lábio, ou None quando nada escuro se destaca — aí quem
+    chama cai na divisa de painel, e depois na fração.
+    """
+    ys, xs = np.where(nac)
+    x0, x1 = int(xs.min()), int(xs.max())
+    y0, y1 = int(ys.min()), int(ys.max())
+    comp = x1 - x0
+    if comp < 40:
+        return None
+    cinza = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY).astype(np.float32)
+    # o capô é a metade de trás: é dele que sai a referência de "chapa clara"
+    meio = nac.copy()
+    if nariz_esq:
+        meio[:, :x0 + int(comp * 0.45)] = False
+    else:
+        meio[:, x1 - int(comp * 0.45):] = False
+    if not meio.any():
+        return None
+    claro = float(np.median(cinza[meio]))
+
+    frente = nac.copy()
+    if nariz_esq:
+        frente[:, x0 + int(comp * 0.28):] = False
+    else:
+        frente[:, :x1 - int(comp * 0.28)] = False
+    # 12% abaixo da chapa já separa o lábio em sombra sem pegar painel
+    escuro = frente & (cinza < claro * 0.88)
+    if escuro.sum() < 30:
+        return None
+
+    n, lab, stats, _ = cv2.connectedComponentsWithStats(escuro.astype(np.uint8), 8)
+    borda = x0 + 3 if nariz_esq else x1 - 3
+    labio = np.zeros_like(escuro)
+    for i in range(1, n):
+        comp_i = (lab == i)
+        cxs = np.where(comp_i.any(axis=0))[0]
+        encosta = cxs.min() <= borda if nariz_esq else cxs.max() >= borda
+        if encosta and stats[i, cv2.CC_STAT_AREA] >= 25:
+            labio |= comp_i
+    if labio.sum() < 30:
+        return None
+    # fecha buracos de reflexo dentro do lábio, para o corte sair inteiro
+    k = np.ones((3, 3), np.uint8)
+    labio = cv2.morphologyEx(labio.astype(np.uint8), cv2.MORPH_CLOSE, k, iterations=2) > 0
+    return labio & nac
+
+
 def boca_da_turbina(img, m, nariz_esq=True):
     """A boca: o lábio de entrada, no bico da nacela. **Não** é pintável.
 
@@ -216,16 +275,25 @@ def por_sam(aid, caminho, nome_peca, trabalho, nariz_esq=True):
     # o pé do capô entra: em sombra na foto, ele ficava de fora
     capo = fechar_no_pe(capo, inteira)
 
-    # e a boca da turbina sai: lábio de entrada não recebe a livery
+    # E a boca sai. Três tentativas, da melhor para a pior, e o motivo sai na
+    # saída para ninguém confundir medida com chute:
+    #   1. a sombra do próprio lábio  — corte curvo, segue o anel
+    #   2. a divisa de painel do lábio — corte reto, aproximação
+    #   3. 4% do comprimento          — chute, último recurso
+    labio = boca_por_sombra(img, inteira, nariz_esq)
+    if labio is not None:
+        motivo += '; boca pela sombra do lábio (corte curvo)'
+        return capo & ~labio, motivo
+
     ini = boca_da_turbina(img, inteira, nariz_esq)
     ys, xs = np.where(inteira)
     nx0, nx1 = int(xs.min()), int(xs.max())
     if ini is None:
         apara = max(3, int((nx1 - nx0) * 0.04))
         ini = nx0 + apara if nariz_esq else nx1 - apara
-        motivo += '; boca aparada em 4% (sem divisa de lábio visível)'
+        motivo += '; boca aparada em 4% (chute — sem sombra nem divisa)'
     else:
-        motivo += '; boca achada na foto'
+        motivo += '; boca pela divisa de painel (corte reto)'
     fora = np.zeros_like(capo)
     if nariz_esq:
         fora[:, :int(ini)] = True
