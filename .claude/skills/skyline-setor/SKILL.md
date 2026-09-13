@@ -61,12 +61,41 @@ recebem a pintura da companhia.
 
 | peça | turbofan | turboélice |
 |---|---|---|
-| **motor** | só o **bico de entrada + capô do fan**, até a divisa de painel do reversor | **a nacela inteira** — não há reversor exposto, e a livery cobre tudo |
+| **motor** | o **barril de entrada + capô do fan**, do fim do lábio até a divisa de painel do reversor | **a nacela inteira** — não há reversor exposto, e a livery cobre tudo |
 
 A divisa do capô **não é fração fixa**. Medido: 0,61 do comprimento da nacela no
 737, 0,76 no An-148. Motores diferentes (CFM56, LEAP, PW1000G, D-436) têm capô de
 proporção diferente. `peca.py` procura a **linha de painel** na foto e só cai na
 fração quando não acha nenhuma.
+
+### O capô não se pede ao SAM: mede-se
+
+Pedir ao SAM que ache o capô erra sempre, e erra do mesmo jeito. Entre o barril
+de entrada e o capô do ventilador há uma linha de painel, e para o modelo aquilo
+é **borda de objeto**: ele para ali. O barril branco da frente — chapa que a
+companhia pinta — ficava de fora de toda tentativa, e nenhum ajuste de semente
+trouxe de volta.
+
+A peça é **o que está entre limites medidos**, cada um de uma fonte:
+
+```
+frente   junta que fecha o crescente do lábio   conferir.fim_do_labio
+trás     divisa de painel do reversor           peca.linha_de_painel
+baixo    última chapa antes do fundo branco     conferir.chao_da_foto
+contorno de cima                                SAM 2.1
+```
+
+Duas armadilhas medidas no b737, ambas de medir máscara contra máscara:
+
+- **O lábio acaba onde o crescente acaba, não no último pixel escuro.** O
+  crescente vai de x=518 a x=528; em x=561 há outra coluna escura, que é a junta
+  de painel. Cortar nela custa 40 colunas de chapa pintável.
+- **O pé não se mede contra a silhueta.** Na coluna x=600 a chapa desce até
+  y=652 e o BiRefNet para em y=640: a barriga em sombra contra fundo claro é
+  onde todo modelo de recorte hesita. Mede-se na foto.
+
+E 2 px de recuo na junta dianteira, senão a rampa de alpha do ViTMatte cai em
+cima do crescente e a pintura invade a boca.
 
 Demais peças: ver `pecas.py`, que é a lista de dados — um lugar só, e o script
 não decide nada por conta.
@@ -77,7 +106,8 @@ não decide nada por conta.
 export HF_HOME=<scratchpad>/hf            # peso de modelo fora do repositório
 
 # 1. silhueta de todos os sprites (demorado; rode em segundo plano)
-python3 scripts/silhueta.py --todos
+#    sem --gravar ela fica só na saída de trabalho e o repositório não muda
+python3 scripts/silhueta.py --todos --gravar
 
 # 2+3+4. uma peça de uma aeronave, pelos dois caminhos, com ficha e medida
 python3 scripts/setor.py b737 motor
@@ -96,7 +126,11 @@ aval**: `setor.py --aprovar <metodo>` é o que copia.
    escadinha, e nenhum modelo conserta isso — é representação, não segmentação.
 4. **O que o modelo entrega é candidato.** O juiz mede, o humano escolhe.
 5. **Nunca alargar a máscara para "cobrir sobra".** Sobra entre setores se resolve
-   fechando a partição (`fechar.py`), não inchando peça.
+   achando o limite que falta na foto, não inchando peça.
+6. **O juiz mede, não conserta.** Quando reprova, troca-se a semente ou o limite e
+   recorta-se de novo. Morfologia em cima de máscara boa produz retalho quadrado
+   no meio da chapa e borda em degrau — e foi aprovada por testes que não mediam
+   nem furo nem degrau. `buraco` e `degrau` existem por causa disso.
 
 ## Limite conhecido
 
