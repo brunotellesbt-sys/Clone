@@ -349,6 +349,9 @@ def pontas_traseiras(img, nac, capo, corte, nariz_esq=True):
         if topo >= escape:
             break
         saida[topo:escape, x] = True
+        # Sem piso de espessura. O piso de 3 px que tentei espalhava pontos
+        # verdes soltos acima da tira no trecho final, onde o que está em cima
+        # já é pilone: a tira tem 1 px ali e forçar 3 inventa peça.
         grosso = escape - topo
     return saida
 
@@ -429,24 +432,18 @@ def entre_as_juntas(img, nac, corte, labio, nariz_esq=True):
     fim = fim_do_labio(labio, nariz_esq)
     if fim is None:
         return None, ''
-    # dois px de recuo na junta dianteira: o ViTMatte alarga a borda em rampa, e
-    # sem recuo a rampa cai em cima do crescente. Custa 2 px de chapa e evita
-    # pintura invadindo a boca.
+    # A junta dianteira é **por linha**, não uma coluna só. O lábio é um
+    # crescente: no meio ele avança até x=509, mas nas linhas de cima e de baixo
+    # acaba em x=499. Cortando todo mundo na mesma coluna sobravam 13 px de
+    # chapa clara descobertos nessas linhas — a faixa branca vista na tela.
+    # Onde a linha não tem lábio, a peça começa onde a nacela começa.
+    # Dois px de recuo em cada linha, porque a rampa de alpha do ViTMatte
+    # alarga a borda e sem recuo ela cai em cima do crescente.
     m = nac.copy()
     if nariz_esq:
-        m[:, :fim + 3] = False
         m[:, corte + 1:] = False
     else:
         m[:, corte:] = False
-        m[:, :fim - 1] = False
-    if not m.any():
-        return None, ''
-
-    # Fechar o pé é fechar **o pé**, não a coluna. Preencher de `col.min()` até o
-    # chão importa tudo que estiver por cima na máscara da nacela — e por cima
-    # do capô estão o pilone, a asa e a carenagem. Medido: no A321LR o verde
-    # subia num platô liso até a fuselagem, e como o platô é liso nenhum teste
-    # de borda acusava. Agora só a última corrida da coluna desce até o chão.
     chao = chao_da_foto(img, nac)
     for x in np.where(m.any(axis=0))[0]:
         if chao[x] < 0:
@@ -456,6 +453,54 @@ def entre_as_juntas(img, nac, corte, labio, nariz_esq=True):
         base = int(col[quebra[-1] + 1]) if len(quebra) else int(col.min())
         m[base:chao[x] + 1, x] = True
 
+    # O corte da frente vem **depois** do fechamento do pé. Na ordem inversa o
+    # fechamento descia a coluna e repreenchia a parte de baixo do crescente
+    # que o corte tinha acabado de tirar — 355 px de boca dentro do capô,
+    # entrando por x=504 a 510 nas linhas de 596 para baixo.
+    # só o **crescente** guia o corte, não a zona do lábio inteira: o rastro de
+    # sombra dela corre pela barriga até x=555, e nas linhas de baixo cortava o
+    # capô inteiro — 950 px de pé faltando.
+    cres = np.zeros_like(m) if labio is None else labio.copy()
+    if labio is not None:
+        if nariz_esq:
+            cres[:, fim + 1:] = False
+        else:
+            cres[:, :fim] = False
+    linhas = [y for y in range(m.shape[0]) if m[y].any()]
+    bruto = []
+    for y in linhas:
+        col = np.where(cres[y])[0]
+        if len(col):
+            bruto.append(int(col.max()) + 4 if nariz_esq else int(col.min()) - 4)
+        else:
+            # linha sem crescente: vale a coluna única, o corte antigo. Usar a
+            # borda da própria máscara aqui tirava 4 a 5 px do pé em 18 colunas.
+            bruto.append(fim + 3 if nariz_esq else fim - 3)
+    # Máximo móvel, não mediana. A linha que não tem crescente devolve a borda
+    # da nacela, bem à esquerda, e a mediana deixava essa borda ganhar da linha
+    # vizinha que tem crescente — o crescente entrava pela brecha, 394 px de
+    # boca dentro do capô. O corte não pode ficar à esquerda de nenhum
+    # crescente vizinho, e uma suavização depois tira o degrau.
+    b = np.array(bruto, np.int32)
+    if len(b) >= 9:
+        r = 4
+        jan = np.lib.stride_tricks.sliding_window_view(np.pad(b, r, mode='edge'), 9)
+        b = jan.max(axis=1)
+        b = np.convolve(np.pad(b, 4, mode='edge'), np.ones(9) / 9.0, 'valid')
+        b = np.ceil(b).astype(np.int32)
+    for y, limite in zip(linhas, b):
+        if nariz_esq:
+            m[y, :limite] = False
+        else:
+            m[y, limite + 1:] = False
+    if not m.any():
+        return None, ''
+
+    # Fechar o pé é fechar **o pé**, não a coluna. Preencher de `col.min()` até o
+    # chão importa tudo que estiver por cima na máscara da nacela — e por cima
+    # do capô estão o pilone, a asa e a carenagem. Medido: no A321LR o verde
+    # subia num platô liso até a fuselagem, e como o platô é liso nenhum teste
+    # de borda acusava. Agora só a última corrida da coluna desce até o chão.
     m = aplainar_topo(m)
     antes = int(m.sum())
     m = pontas_traseiras(img, nac, m, corte, nariz_esq)
