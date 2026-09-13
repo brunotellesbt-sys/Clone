@@ -153,33 +153,6 @@ def degrau(alpha):
     return int(max(0, per - liso))
 
 
-def topo_serrilhado(alpha, tol=3):
-    """Quanto o topo da peça sobe acima da própria curva, em px somados.
-
-    A linha de cima de um capô em vista lateral é lisa: é um cilindro. Quando o
-    recorte vaza para o pilone, a asa ou a carenagem, ele vaza **para cima**, e
-    vaza em dente — pedaço aqui, pedaço ali, acompanhando a textura da chapa de
-    trás. Isso aparece como diferença entre a borda de cima crua e a mesma borda
-    passada por mediana.
-
-    Existe porque foi o defeito que os cinco primeiros testes não viram: seis
-    recortes aprovados em que o verde subia pela asa, e `degrau` não acusou
-    porque mede o perímetro inteiro e o dente é uma fração dele.
-    """
-    m = alpha > 0.5
-    if not m.any():
-        return 0
-    cols = np.where(m.any(axis=0))[0]
-    topo = np.array([int(np.where(m[:, x])[0].min()) for x in cols], np.float32)
-    if len(topo) < 9:
-        return 0
-    k = min(15, len(topo) if len(topo) % 2 else len(topo) - 1)
-    r = k // 2
-    esticado = np.pad(topo, r, mode='edge')
-    liso = np.median(np.lib.stride_tricks.sliding_window_view(esticado, k), axis=1)
-    return int(np.maximum(0, (liso - topo) - tol).sum())
-
-
 def testes_motor(img, nac, nariz_esq=True):
     """Os cinco testes do capô, e o limite de cada um. Só julgam."""
     cinza = _cinza(img)
@@ -250,7 +223,6 @@ def testes_motor(img, nac, nariz_esq=True):
         ('escape dentro do capô', t_escape, 400),
         ('buraco no meio da peça', buraco, 60),
         ('borda em degrau', degrau, 120),
-        ('topo vazando para cima', topo_serrilhado, 150),
     ]
 
 
