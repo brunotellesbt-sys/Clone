@@ -23,6 +23,7 @@ sys.path.insert(0, AQUI)
 from pecas import RAIZ, sprites, peca as ficha_da_peca
 import peca as recorte
 import acabar as acabamento
+import conferir
 import juiz
 
 SAIDA_PADRAO = os.environ.get('SETOR_SAIDA', '/tmp/setor')
@@ -120,6 +121,27 @@ def main():
     a_gnd = m_gnd.astype(float) if m_gnd is not None else None
     v_sam = acabamento.acabar(rgb, m_sam) if m_sam is not None and m_sam.any() else None
     v_gnd = acabamento.acabar(rgb, m_gnd) if m_gnd is not None and m_gnd.any() else None
+
+    # Autocrítica, **depois** do ViTMatte. Os consertos rodavam antes dele, e o
+    # ViTMatte encolhe a borda depois: comia o pé de volta e reabria a boca.
+    # Medido no b737: 147 px de pé faltando e 679 px de lábio dentro, num
+    # candidato cujos passos intermediários estavam todos certos.
+    aprovado = {}
+    if cfg.get('recorta_capo') and m_sam is not None and m_sam.any():
+        testes = conferir.testes_motor(rgb, m_sam)
+        for rot, chave in (('SAM 2.1 + ViTMatte', 'sam_vit'), ('Grounded + ViTMatte', 'gnd_vit')):
+            alpha = v_sam if chave == 'sam_vit' else v_gnd
+            if alpha is None:
+                continue
+            alpha, rel, ok = conferir.rodar(testes, alpha)
+            aprovado[chave] = ok
+            print('  autocrítica %s:' % rot)
+            for L in rel:
+                print('     ', L)
+            if chave == 'sam_vit':
+                v_sam = alpha
+            else:
+                v_gnd = alpha
 
     for alpha, sufixo in ((a_sam, '__sam.png'), (v_sam, '__sam_vit.png'),
                           (a_gnd, '__gnd.png'), (v_gnd, '__gnd_vit.png')):
