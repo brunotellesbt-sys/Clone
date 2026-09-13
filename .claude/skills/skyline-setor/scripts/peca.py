@@ -322,10 +322,19 @@ def pontas_traseiras(img, nac, capo, corte, nariz_esq=True):
     y_capo = int(col.min())
     escape_ant = None
     grosso = 8
+    # Duas rédeas, as duas medidas no a319/CFM56: sem elas a busca corria 81
+    # colunas atrás do corte — 65% do comprimento do capô — com 1 px nas
+    # últimas 40, seguindo a textura da chapa por baixo da asa. Aquilo não é
+    # aba, é um risco atravessando a asa. A aba de verdade acaba em 13 colunas
+    # nos A220.
+    nxs = np.where(nac.any(axis=0))[0]
+    bico = int(nxs.min()) if nariz_esq else int(nxs.max())
+    alcance = max(8, int(abs(corte - bico) * 0.25))
+    finas = 0
     x = corte
     while True:
         x += passo
-        if not (0 <= x < chapa.shape[1]):
+        if not (0 <= x < chapa.shape[1]) or abs(x - corte) > alcance:
             break
         coluna = cinza[:, x]
         escape = None
@@ -347,6 +356,11 @@ def pontas_traseiras(img, nac, capo, corte, nariz_esq=True):
                 and escape - topo < grosso:
             topo -= 1
         if topo >= escape:
+            break
+        # seis colunas seguidas de 1 px e acabou: aba afina até morrer, e linha
+        # de 1 px que não morre é textura da chapa de trás
+        finas = finas + 1 if escape - topo <= 1 else 0
+        if finas > 6:
             break
         saida[topo:escape, x] = True
         # Sem piso de espessura. O piso de 3 px que tentei espalhava pontos
