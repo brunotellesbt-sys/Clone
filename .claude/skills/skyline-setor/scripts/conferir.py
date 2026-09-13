@@ -194,8 +194,20 @@ def testes_motor(img, nac, nariz_esq=True):
         if not m.any():
             return 0
         cols = np.where(m.any(axis=0))[0]
+        # coluna de aba não tem pé: atrás da divisa a peça é uma tira fina de
+        # carenagem lá em cima, e cobrar chão dela dá 615 px de "pé faltando"
+        # numa peça sem um px faltando. Só responde pelo pé a coluna que tem
+        # corpo de capô — metade da altura da peça, ao menos.
+        espessura = np.array([m[:, x].sum() for x in cols])
+        corpo = cols[espessura >= max(1, espessura.max() * 0.5)]
+        if not len(corpo):
+            return 0
+        # as oito colunas de cada ponta são as pontas **do corpo**, não da peça:
+        # com aba atrás, as últimas colunas da peça são a aba, e a junta do
+        # reversor — que é onde o chanfro está — voltava a ser cobrada.
+        miolo = corpo[8:-8] if len(corpo) > 16 else corpo
         falta = 0
-        for x in cols[8:-8] if len(cols) > 16 else cols:
+        for x in miolo:
             cm = np.where(m[:, x])[0]
             if chao[x] >= 0:
                 d = int(chao[x] - cm.max())

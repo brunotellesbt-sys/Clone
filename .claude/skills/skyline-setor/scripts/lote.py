@@ -18,7 +18,7 @@ from PIL import Image, ImageDraw
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
-from pecas import sprites, peca as ficha_da_peca
+from pecas import sprites, peca as ficha_da_peca, decidida
 import peca as recorte
 import acabar as acabamento
 import conferir
@@ -84,6 +84,8 @@ def main():
     ap.add_argument('--quantos', type=int, default=0)
     ap.add_argument('--saida', default=SAIDA_PADRAO)
     ap.add_argument('--folha', default=None)
+    ap.add_argument('--refazer', action='store_true',
+                    help='recorta também as peças já decididas pelo autor')
     a = ap.parse_args()
 
     todos = sprites()
@@ -94,6 +96,14 @@ def main():
         todos = todos[a.de:a.de + a.quantos]
     if not todos:
         raise SystemExit('nenhum sprite corresponde')
+
+    if not a.refazer:
+        pulados = [t[0] for t in todos if decidida(t[0], a.peca)]
+        todos = [t for t in todos if not decidida(t[0], a.peca)]
+        for aid in pulados:
+            print('pulado (decidido pelo autor): %s %s' % (aid, a.peca))
+        if not todos:
+            raise SystemExit('nada a fazer: tudo já decidido')
 
     os.makedirs(a.saida, exist_ok=True)
     paineis = []

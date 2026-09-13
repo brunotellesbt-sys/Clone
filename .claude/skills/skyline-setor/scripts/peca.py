@@ -15,6 +15,9 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pecas import RAIZ, peca as ficha_da_peca, por_helice
 
+# máscaras de origem, congeladas: o gerador lê daqui e nunca de public/sprites/
+SEMENTES = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'sementes')
+
 CK = os.environ.get(
     'SAM2_CK',
     '/tmp/claude-0/-home-user-Clone/5880d8e7-418a-53a9-b563-53ec154e88a0/scratchpad/sam2ckpt/sam2.1_hiera_large.pt')
@@ -132,11 +135,19 @@ def por_sam(aid, caminho, nome_peca, trabalho, nariz_esq=True, testes=None, so_i
     # pela motorização (`a21lr__leap1a32`): sem tentar o id base, 73 dos 100
     # sprites não achavam semente e caíam na silhueta do avião inteiro — e aí
     # "a nacela" virava o avião, 90.000 px em vez de 11.000.
+    # A semente sai de `sementes/`, nunca de `public/sprites/`. Enquanto saía de
+    # lá, aprovar uma peça mudava a semente da próxima rodada: o gerador passava
+    # a se alimentar da própria saída, e recortar de novo a mesma aeronave dava
+    # um resultado menor a cada vez. `sementes/` guarda as máscaras de origem e
+    # não muda quando algo é aprovado.
     grosso = None
-    for nome in (aid, aid.split('__')[0]):
-        antiga = os.path.join(RAIZ, cfg['pasta'], '%s.png' % nome)
-        if os.path.exists(antiga):
-            grosso = np.array(Image.open(antiga).convert('L')) > 127
+    for raiz in (SEMENTES, RAIZ):
+        for nome in (aid, aid.split('__')[0]):
+            antiga = os.path.join(raiz, cfg['pasta'], '%s.png' % nome)
+            if os.path.exists(antiga):
+                grosso = np.array(Image.open(antiga).convert('L')) > 127
+                break
+        if grosso is not None:
             break
     if grosso is None:
         if sil is None:
@@ -238,6 +249,79 @@ def sementes_do_capo(img, nac, corte, labio, nariz_esq=True):
     ]
 
 
+def pontas_traseiras(img, nac, capo, corte, nariz_esq=True):
+    """As abas que seguem atrás do capô, e só elas.
+
+    Atrás da divisa do reversor não há só bocal. Na maioria dos turbofans a
+    carenagem continua em abas coladas ao bordo do capô — uma por cima, uma por
+    baixo — que seguem a linha da nacela até um bico e **são pintadas**. O corte
+    vertical decepava as duas e sobrava um triângulo cinza no canto.
+
+    Nem todo motor tem as duas, e alguns não têm nenhuma: o desenho muda de
+    fabricante para fabricante, então nada de contar abas nem fixar formato.
+    Duas coisas medidas na foto separam aba de tudo o mais atrás do capô:
+
+        aba     chapa **clara** que **afina** coluna a coluna até acabar
+        escape  escuro
+        pilone  claro, mas **engrossa** e não acaba
+
+    Medido no A220/PW1521G: a aba de baixo vai de x=646 a x=650, clara (176 a
+    162), afinando de 5 px para 2. O que eu aceitava em cima antes ia de 2 px
+    para 12 e seguia até o fim da imagem — era o pilone, e a regra de afinar é
+    o que o exclui.
+
+    Cresce sobre a chapa da foto, não sobre a nacela: a aba de baixo do A220
+    está **fora** da máscara da nacela, e enquanto a busca era dentro dela nada
+    era encontrado.
+    """
+    if not capo.any():
+        return capo
+    cinza = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY).astype(np.float32)
+    claro = float(np.median(cinza[capo]))
+    chapa = cinza < 240
+
+    col = np.where(capo[:, corte])[0]
+    if not len(col):
+        return capo
+    alto = int(col.max() - col.min())
+    fino = max(3, int(alto * 0.14))
+    passo = 1 if nariz_esq else -1
+
+    saida = capo.copy()
+    for borda in ('cima', 'baixo'):
+        y = int(col.min()) if borda == 'cima' else int(col.max())
+        grosso = fino
+        x = corte
+        while True:
+            x += passo
+            if not (0 <= x < chapa.shape[1]):
+                break
+            linhas = np.where(chapa[:, x])[0]
+            if not len(linhas):
+                break
+            quebras = np.where(np.diff(linhas) > 1)[0]
+            corrida = None
+            for c in np.split(linhas, quebras + 1):
+                # continuidade de verdade, 1 px: com 3 px de folga a busca
+                # saltava do bordo do capô (y=539) para o pilone (y=530), que é
+                # outra peça e não é aba de nada
+                if c.min() - 1 <= y <= c.max() + 1:
+                    corrida = c
+                    break
+            if corrida is None or len(corrida) > grosso:
+                break
+            # 0,60, não 0,82: as abas ficam em sombra. Medido no A220 — a aba
+            # de baixo tem cinza 176 contra 176,3 do piso antigo, e reprovava
+            # por um ponto. Quem separa aba de escape aqui é a espessura (o
+            # escape tem 84 px de altura contra 5 da aba), não o brilho.
+            if float(np.median(cinza[corrida, x])) < claro * 0.60:
+                break
+            saida[corrida, x] = True
+            grosso = len(corrida)
+            y = int(corrida.min()) if borda == 'cima' else int(corrida.max())
+    return saida
+
+
 def entre_as_juntas(img, nac, corte, labio, nariz_esq=True):
     """O capô como região medida: entre as duas juntas, fechada até o chão.
 
@@ -282,8 +366,13 @@ def entre_as_juntas(img, nac, corte, labio, nariz_esq=True):
         quebra = np.where(np.diff(col) > 1)[0]
         base = int(col[quebra[-1] + 1]) if len(quebra) else int(col.min())
         m[base:chao[x] + 1, x] = True
-    return m, 'entre as juntas (%d..%d), pé na foto' % (
-        (fim + 1, corte) if nariz_esq else (corte, fim - 1))
+
+    antes = int(m.sum())
+    m = pontas_traseiras(img, nac, m, corte, nariz_esq)
+    abas = int(m.sum()) - antes
+    de, ate = (fim + 1, corte) if nariz_esq else (corte, fim - 1)
+    return m, 'entre as juntas (%d..%d), pé na foto%s' % (
+        de, ate, ', abas de trás +%d px' % abas if abas else ', sem aba de trás')
 
 
 def capo_pintavel(aid, img, inteira, cfg, nariz_esq=True, testes=None):

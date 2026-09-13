@@ -20,7 +20,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
-from pecas import RAIZ, sprites, peca as ficha_da_peca
+from pecas import RAIZ, sprites, peca as ficha_da_peca, decidida
 import peca as recorte
 import acabar as acabamento
 import conferir
@@ -89,6 +89,8 @@ def main():
     ap.add_argument('--saida', default=SAIDA_PADRAO)
     ap.add_argument('--aprovar', choices=sorted(METODOS),
                     help='copia o candidato escolhido para public/sprites/')
+    ap.add_argument('--refazer', action='store_true',
+                    help='recorta mesmo que a peça já esteja decidida pelo autor')
     a = ap.parse_args()
 
     cfg = ficha_da_peca(a.peca)
@@ -105,6 +107,12 @@ def main():
         Image.open(origem).convert('L').save(destino)
         print('aprovado: %s -> %s' % (a.aprovar, destino))
         return
+
+    if decidida(a.id, a.peca) and not a.refazer:
+        raise SystemExit(
+            '%s %s já foi decidido pelo autor (decididas.txt). '
+            'Recortar de novo só pode piorar o que já foi olhado; use --refazer '
+            'se for mesmo isso que você quer.' % (a.id, a.peca))
 
     if cfg.get('impossivel_em_perfil'):
         print('AVISO: %s não é separável em vista lateral pura — ver SKILL.md' % a.peca)
