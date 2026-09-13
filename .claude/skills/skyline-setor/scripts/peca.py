@@ -128,13 +128,24 @@ def por_sam(aid, caminho, nome_peca, trabalho, nariz_esq=True, testes=None, so_i
 
     # semente grosseira da peça: a máscara antiga quando existe, senão a caixa
     # da silhueta. Serve só para localizar; a forma sai do modelo.
-    antiga = os.path.join(RAIZ, cfg['pasta'], '%s.png' % aid)
-    if os.path.exists(antiga):
-        grosso = np.array(Image.open(antiga).convert('L')) > 127
-    elif sil is not None:
+    # As máscaras antigas são nomeadas pelo modelo (`a21lr.png`) e os sprites
+    # pela motorização (`a21lr__leap1a32`): sem tentar o id base, 73 dos 100
+    # sprites não achavam semente e caíam na silhueta do avião inteiro — e aí
+    # "a nacela" virava o avião, 90.000 px em vez de 11.000.
+    grosso = None
+    for nome in (aid, aid.split('__')[0]):
+        antiga = os.path.join(RAIZ, cfg['pasta'], '%s.png' % nome)
+        if os.path.exists(antiga):
+            grosso = np.array(Image.open(antiga).convert('L')) > 127
+            break
+    if grosso is None:
+        if sil is None:
+            return None, 'sem semente: nem máscara antiga nem silhueta'
+        # a silhueta localiza o avião, não a peça: só serve de semente para a
+        # peça que é o avião inteiro
+        if cfg.get('recorta_capo') or cfg.get('pasta') != 'planemasks':
+            return None, 'sem semente para a peça: falta máscara antiga de %s' % aid
         grosso = sil
-    else:
-        return None, 'sem semente: nem máscara antiga nem silhueta'
 
     ys, xs = np.where(grosso)
     cx = np.array([xs.min() - 4, ys.min() - 4, xs.max() + 4, ys.max() + 4], float)
