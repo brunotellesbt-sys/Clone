@@ -153,6 +153,33 @@ def degrau(alpha):
     return int(max(0, per - liso))
 
 
+def topo_serrilhado(alpha, tol=3):
+    """Quanto o topo da peça sobe acima da própria curva, em px somados.
+
+    A linha de cima de um capô em vista lateral é lisa: é um cilindro. Quando o
+    recorte vaza para o pilone, a asa ou a carenagem, ele vaza **para cima**, e
+    vaza em dente — pedaço aqui, pedaço ali, acompanhando a textura da chapa de
+    trás. Isso aparece como diferença entre a borda de cima crua e a mesma borda
+    passada por mediana.
+
+    Existe porque foi o defeito que os cinco primeiros testes não viram: seis
+    recortes aprovados em que o verde subia pela asa, e `degrau` não acusou
+    porque mede o perímetro inteiro e o dente é uma fração dele.
+    """
+    m = alpha > 0.5
+    if not m.any():
+        return 0
+    cols = np.where(m.any(axis=0))[0]
+    topo = np.array([int(np.where(m[:, x])[0].min()) for x in cols], np.float32)
+    if len(topo) < 9:
+        return 0
+    k = min(15, len(topo) if len(topo) % 2 else len(topo) - 1)
+    r = k // 2
+    esticado = np.pad(topo, r, mode='edge')
+    liso = np.median(np.lib.stride_tricks.sliding_window_view(esticado, k), axis=1)
+    return int(np.maximum(0, (liso - topo) - tol).sum())
+
+
 def testes_motor(img, nac, nariz_esq=True):
     """Os cinco testes do capô, e o limite de cada um. Só julgam."""
     cinza = _cinza(img)
@@ -223,6 +250,7 @@ def testes_motor(img, nac, nariz_esq=True):
         ('escape dentro do capô', t_escape, 400),
         ('buraco no meio da peça', buraco, 60),
         ('borda em degrau', degrau, 120),
+        ('topo vazando para cima', topo_serrilhado, 150),
     ]
 
 
@@ -235,6 +263,44 @@ def julgar(testes, alpha):
     return all(L[3] for L in linhas), linhas
 
 
+def situacao(linhas):
+    """Não "passou/não passou": **quanto** falta, e em quê.
+
+    Veredito binário não deixa melhorar. Neste lote os cinco testes aprovaram
+    seis recortes que o olho reprovou — e um "APROVADO" encerra a busca, ao
+    passo que um "passou raspando em dois testes" diz onde mexer. Pior ainda é o
+    aprovado folgado: quando toda a margem é larga, o provável é que o defeito
+    esteja onde nenhum teste olha, não que a peça esteja boa.
+
+    Devolve (rótulo, folga, apertados):
+        folga      a menor margem relativa entre os testes, de -inf a 1
+                   1,0 = nenhum defeito medido; 0 = em cima do limite
+        apertados  os testes com folga abaixo de 0,35, do pior para o melhor
+    """
+    if not linhas:
+        return 'sem juiz', 0.0, []
+    folgas = [(nome, (lim - v) / float(lim)) for nome, v, lim, _ in linhas]
+    pior = min(f for _, f in folgas)
+    apertados = sorted([(n, f) for n, f in folgas if f < 0.35], key=lambda t: t[1])
+    if pior < -1.0:
+        rot = 'LONGE'
+    elif pior < 0:
+        rot = 'QUASE'
+    elif pior < 0.35:
+        rot = 'PASSOU RASPANDO'
+    else:
+        rot = 'APROVADO'
+    return rot, pior, apertados
+
+
 def relatar(rot, linhas, recuo='      '):
     for nome, v, lim, ok in linhas:
-        print('%s%-24s %6d  (limite %d) %s' % (recuo, nome, v, lim, 'ok' if ok else '<<< REPROVADO'))
+        folga = (lim - v) / float(lim)
+        print('%s%-24s %6d  (limite %4d) folga %+6.2f %s'
+              % (recuo, nome, v, lim, folga, 'ok' if ok else '<<< REPROVADO'))
+    situ, pior, apertados = situacao(linhas)
+    if apertados:
+        print('%s-> %s (folga %+.2f); apertado em: %s' % (
+            recuo, situ, pior, ', '.join('%s %+.2f' % (n, f) for n, f in apertados)))
+    else:
+        print('%s-> %s (folga %+.2f)' % (recuo, situ, pior))

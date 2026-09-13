@@ -269,12 +269,19 @@ def entre_as_juntas(img, nac, corte, labio, nariz_esq=True):
     if not m.any():
         return None, ''
 
+    # Fechar o pé é fechar **o pé**, não a coluna. Preencher de `col.min()` até o
+    # chão importa tudo que estiver por cima na máscara da nacela — e por cima
+    # do capô estão o pilone, a asa e a carenagem. Medido: no A321LR o verde
+    # subia num platô liso até a fuselagem, e como o platô é liso nenhum teste
+    # de borda acusava. Agora só a última corrida da coluna desce até o chão.
     chao = chao_da_foto(img, nac)
     for x in np.where(m.any(axis=0))[0]:
         if chao[x] < 0:
             continue
         col = np.where(m[:, x])[0]
-        m[int(col.min()):chao[x] + 1, x] = True
+        quebra = np.where(np.diff(col) > 1)[0]
+        base = int(col[quebra[-1] + 1]) if len(quebra) else int(col.min())
+        m[base:chao[x] + 1, x] = True
     return m, 'entre as juntas (%d..%d), pé na foto' % (
         (fim + 1, corte) if nariz_esq else (corte, fim - 1))
 
