@@ -38,28 +38,57 @@ def _faixa_dianteira(m, fracao=0.22, nariz_esq=True):
     return fx
 
 
+def zona_do_labio(img, nac, nariz_esq=True):
+    """A zona proibida do lábio, calculada **uma vez**.
+
+    Recalcular a cada volta foi o que fez os consertos brigarem: fechar o pé nas
+    colunas da frente re-adiciona pixel escuro, o teste da boca lê esse pixel
+    como lábio novo, tira, e aí o pé reabre. Medido no b737, o laço oscilava —
+    boca 45, depois 113, depois 263; pé 146, 145, 293. Fixando a zona, os dois
+    consertos passam a agir em regiões disjuntas e o laço converge.
+    """
+    cinza = _cinza(img)
+    dentro = nac
+    if not dentro.any():
+        return np.zeros_like(nac), (0, 0)
+    claro = float(np.median(cinza[dentro]))
+    frente = _faixa_dianteira(nac, 0.22, nariz_esq)
+    escuro = dentro & frente & (cinza < claro * 0.88)
+    if escuro.sum() < 30:
+        return np.zeros_like(nac), (0, 0)
+    # só o pedaço encostado no bico: mancha escura solta é painel, não boca
+    n, lab, stats, _ = cv2.connectedComponentsWithStats(escuro.astype(np.uint8), 8)
+    xs = np.where(nac.any(axis=0))[0]
+    borda = int(xs.min()) + 3 if nariz_esq else int(xs.max()) - 3
+    labio = np.zeros_like(escuro)
+    for i in range(1, n):
+        c = (lab == i)
+        cx = np.where(c.any(axis=0))[0]
+        encosta = cx.min() <= borda if nariz_esq else cx.max() >= borda
+        if encosta and stats[i, cv2.CC_STAT_AREA] >= 25:
+            labio |= c
+    labio = cv2.dilate(labio.astype(np.uint8), np.ones((3, 3), np.uint8), 1) > 0
+    cols = np.where(labio.any(axis=0))[0]
+    faixa = (int(cols.min()), int(cols.max())) if len(cols) else (0, 0)
+    return labio & nac, faixa
+
+
 def testes_motor(img, nac, nariz_esq=True):
     """Os testes do capô do motor, cada um com o conserto dele.
 
     `nac` é a nacela inteira — a referência de "até onde a peça pode ir".
     """
     cinza = _cinza(img)
+    labio, faixa_labio = zona_do_labio(img, nac, nariz_esq)
 
     def boca_dentro(alpha):
-        m = alpha > 0.5
-        if not m.any():
-            return 0, None
-        claro = float(np.median(cinza[m]))
-        escuro = m & (cinza < claro * 0.88) & _faixa_dianteira(nac, 0.22, nariz_esq)
-        n = int(escuro.sum())
+        n = int(((alpha > 0.5) & labio).sum())
         if n <= 40:
             return n, None
 
         def reparo(a):
-            # tira o lábio do alpha, mantendo a borda suave do resto
-            fora = cv2.dilate(escuro.astype(np.uint8), np.ones((3, 3), np.uint8), 1) > 0
             b = a.copy()
-            b[fora] = 0.0
+            b[labio] = 0.0
             return b
         return n, reparo
 
@@ -71,6 +100,10 @@ def testes_motor(img, nac, nariz_esq=True):
         falta = 0
         alvo = np.zeros_like(m)
         for x in cols:
+            # coluna dentro do lábio não se fecha: é lá que os dois consertos
+            # se atropelavam
+            if faixa_labio[0] <= x <= faixa_labio[1]:
+                continue
             cm = np.where(m[:, x])[0]
             cn = np.where(nac[:, x])[0]
             if not len(cn):
@@ -84,6 +117,7 @@ def testes_motor(img, nac, nariz_esq=True):
         def reparo(a):
             b = a.copy()
             b[alvo] = np.maximum(b[alvo], 1.0)
+            b[labio] = 0.0          # nunca reabre a boca
             return b
         return falta, reparo
 
