@@ -380,7 +380,15 @@ def aplainar_topo(m, grau=3):
     if len(cx) < 4 * (grau + 1):
         return m
     topo = np.array([int(np.where(m[:, x])[0].min()) for x in cx.astype(int)], np.float64)
-    ok = np.ones(len(cx), bool)
+    # Coluna que sobe muito acima da mediana não entra no ajuste. A semente da
+    # nacela vem das máscaras antigas, que pegam asa e pilone, então o recorte
+    # às vezes traz um vazamento **para cima** — e se essas colunas entram no
+    # ajuste, a curva sobe junto e o vazamento vira "o topo do capô". Medido num
+    # lote de seis motores: cinco vazavam assim e quatro passaram no juiz.
+    altura = float(np.median([m[:, x].sum() for x in cx.astype(int)]))
+    ok = topo >= np.median(topo) - 0.25 * altura
+    if ok.sum() < 4 * (grau + 1):
+        ok = np.ones(len(cx), bool)
     for _ in range(2):
         c = np.polyfit(cx[ok], topo[ok], grau)
         r = topo - np.polyval(c, cx)
