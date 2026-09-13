@@ -89,6 +89,8 @@ def main():
     ap.add_argument('--saida', default=SAIDA_PADRAO)
     ap.add_argument('--aprovar', choices=sorted(METODOS),
                     help='copia o candidato escolhido para public/sprites/')
+    ap.add_argument('--cru', action='store_true',
+                    help='permite aprovar o candidato binário, sem ViTMatte')
     ap.add_argument('--refazer', action='store_true',
                     help='recorta mesmo que a peça já esteja decidida pelo autor')
     a = ap.parse_args()
@@ -99,6 +101,13 @@ def main():
     base = os.path.join(a.saida, '%s__%s' % (a.id, a.peca))
 
     if a.aprovar:
+        if a.aprovar in ('sam', 'gnd') and not a.cru:
+            raise SystemExit(
+                'candidato "%s" é o recorte antes do ViTMatte, e é binário: '
+                'gravar isso viola a regra 3 da skill (alpha de 8 bits, nunca '
+                '1 bit). Foi assim que o motor do b737 entrou no repositório '
+                'com 2 valores de alpha. Use "%s+vit", ou --cru se for mesmo '
+                'isso que você quer.' % (a.aprovar, a.aprovar))
         origem = base + METODOS[a.aprovar]
         if not os.path.exists(origem):
             raise SystemExit('não existe candidato %s para %s/%s' % (a.aprovar, a.id, a.peca))
