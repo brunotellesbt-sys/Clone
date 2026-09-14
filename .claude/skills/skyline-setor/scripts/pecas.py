@@ -98,3 +98,22 @@ def peca(nome):
         raise SystemExit('peça desconhecida: %s. Conhecidas: %s'
                          % (nome, ', '.join(sorted(PECAS))))
     return PECAS[nome]
+
+
+DECIDIDAS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'decididas.txt')
+
+
+def decidida(aid, nome_peca):
+    """A peça já foi olhada e aprovada pelo autor?
+
+    Recortar de novo o que já passou pelo olho humano só pode piorar: o
+    gerador muda, os limites mudam, e a peça aprovada vira candidata outra vez
+    sem que ninguém tenha pedido.
+    """
+    if not os.path.exists(DECIDIDAS):
+        return False
+    for linha in open(DECIDIDAS, encoding='utf-8'):
+        linha = linha.split('#')[0].split()
+        if len(linha) == 2 and linha[0] == aid and linha[1] == nome_peca:
+            return True
+    return False

@@ -1,0 +1,3 @@
+# Peça decidida pelo autor. O gerador não recorta de novo sem --refazer:
+# recortar de novo uma peça aprovada só pode piorar o que já foi olhado.
+b737 motor

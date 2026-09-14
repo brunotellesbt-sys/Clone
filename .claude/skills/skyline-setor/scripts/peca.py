@@ -15,6 +15,9 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pecas import RAIZ, peca as ficha_da_peca, por_helice
 
+# máscaras de origem, congeladas: o gerador lê daqui e nunca de public/sprites/
+SEMENTES = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'sementes')
+
 CK = os.environ.get(
     'SAM2_CK',
     '/tmp/claude-0/-home-user-Clone/5880d8e7-418a-53a9-b563-53ec154e88a0/scratchpad/sam2ckpt/sam2.1_hiera_large.pt')
@@ -128,13 +131,32 @@ def por_sam(aid, caminho, nome_peca, trabalho, nariz_esq=True, testes=None, so_i
 
     # semente grosseira da peça: a máscara antiga quando existe, senão a caixa
     # da silhueta. Serve só para localizar; a forma sai do modelo.
-    antiga = os.path.join(RAIZ, cfg['pasta'], '%s.png' % aid)
-    if os.path.exists(antiga):
-        grosso = np.array(Image.open(antiga).convert('L')) > 127
-    elif sil is not None:
+    # As máscaras antigas são nomeadas pelo modelo (`a21lr.png`) e os sprites
+    # pela motorização (`a21lr__leap1a32`): sem tentar o id base, 73 dos 100
+    # sprites não achavam semente e caíam na silhueta do avião inteiro — e aí
+    # "a nacela" virava o avião, 90.000 px em vez de 11.000.
+    # A semente sai de `sementes/`, nunca de `public/sprites/`. Enquanto saía de
+    # lá, aprovar uma peça mudava a semente da próxima rodada: o gerador passava
+    # a se alimentar da própria saída, e recortar de novo a mesma aeronave dava
+    # um resultado menor a cada vez. `sementes/` guarda as máscaras de origem e
+    # não muda quando algo é aprovado.
+    grosso = None
+    for raiz in (SEMENTES, RAIZ):
+        for nome in (aid, aid.split('__')[0]):
+            antiga = os.path.join(raiz, cfg['pasta'], '%s.png' % nome)
+            if os.path.exists(antiga):
+                grosso = np.array(Image.open(antiga).convert('L')) > 127
+                break
+        if grosso is not None:
+            break
+    if grosso is None:
+        if sil is None:
+            return None, 'sem semente: nem máscara antiga nem silhueta'
+        # a silhueta localiza o avião, não a peça: só serve de semente para a
+        # peça que é o avião inteiro
+        if cfg.get('recorta_capo') or cfg.get('pasta') != 'planemasks':
+            return None, 'sem semente para a peça: falta máscara antiga de %s' % aid
         grosso = sil
-    else:
-        return None, 'sem semente: nem máscara antiga nem silhueta'
 
     ys, xs = np.where(grosso)
     cx = np.array([xs.min() - 4, ys.min() - 4, xs.max() + 4, ys.max() + 4], float)
@@ -227,6 +249,204 @@ def sementes_do_capo(img, nac, corte, labio, nariz_esq=True):
     ]
 
 
+def pontas_traseiras(img, nac, capo, corte, nariz_esq=True):
+    """As abas que seguem atrás do capô, e só elas.
+
+    Atrás da divisa do reversor não há só bocal. Na maioria dos turbofans a
+    carenagem continua em abas coladas ao bordo do capô — uma por cima, uma por
+    baixo — que seguem a linha da nacela até um bico e **são pintadas**. O corte
+    vertical decepava as duas e sobrava um triângulo cinza no canto.
+
+    Nem todo motor tem as duas, e alguns não têm nenhuma: o desenho muda de
+    fabricante para fabricante, então nada de contar abas nem fixar formato.
+    Duas coisas medidas na foto separam aba de tudo o mais atrás do capô:
+
+        aba     chapa **clara** que **afina** coluna a coluna até acabar
+        escape  escuro
+        pilone  claro, mas **engrossa** e não acaba
+
+    Medido no A220/PW1521G: a aba de baixo vai de x=646 a x=650, clara (176 a
+    162), afinando de 5 px para 2. O que eu aceitava em cima antes ia de 2 px
+    para 12 e seguia até o fim da imagem — era o pilone, e a regra de afinar é
+    o que o exclui.
+
+    Cresce sobre a chapa da foto, não sobre a nacela: a aba de baixo do A220
+    está **fora** da máscara da nacela, e enquanto a busca era dentro dela nada
+    era encontrado.
+    """
+    if not capo.any():
+        return capo
+    cinza = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY).astype(np.float32)
+    claro = float(np.median(cinza[capo]))
+    chapa = cinza < 240
+
+    col = np.where(capo[:, corte])[0]
+    if not len(col):
+        return capo
+    alto = int(col.max() - col.min())
+    fino = max(3, int(alto * 0.14))
+    passo = 1 if nariz_esq else -1
+
+    saida = capo.copy()
+
+    # Aba de baixo: afina até acabar. O fundo branco delimita os dois lados,
+    # então dá para segui-la pela espessura.
+    y = int(col.max())
+    grosso = fino
+    x = corte
+    while True:
+        x += passo
+        if not (0 <= x < chapa.shape[1]):
+            break
+        corrida = _corrida_em(chapa, x, y)
+        if corrida is None or len(corrida) > grosso:
+            break
+        if float(np.median(cinza[corrida, x])) < claro * 0.60:
+            break
+        saida[corrida, x] = True
+        grosso = len(corrida)
+        y = int(corrida.max())
+
+    # Aba de cima: a tira clara **colada em cima do escape**.
+    #
+    # Já errei nos dois sentidos aqui. Primeiro fiz uma faixa reta na altura do
+    # topo do capô, que passava por cima da aba inteira. Depois mandei o SAM
+    # recortar, e ele trouxe a aba mais toda a chapa acima dela. Tirando o
+    # recorte do SAM inteiro, a aba foi junto.
+    #
+    # A aba é fina e está encostada no bocal: mede-se subindo a partir do topo
+    # do escape, não descendo a partir do capô. Medido no A220/PW1521G — de
+    # x=645 a x=667 há uma tira de cinza 230 a 250 que afina de 6 px para 1;
+    # em x=668 o topo do escape salta 17 px de uma coluna para a outra, que é o
+    # reversor acabando, e a aba acaba com ele.
+    y_capo = int(col.min())
+    escape_ant = None
+    grosso = 8
+    # Duas rédeas, as duas medidas no a319/CFM56: sem elas a busca corria 81
+    # colunas atrás do corte — 65% do comprimento do capô — com 1 px nas
+    # últimas 40, seguindo a textura da chapa por baixo da asa. Aquilo não é
+    # aba, é um risco atravessando a asa. A aba de verdade acaba em 13 colunas
+    # nos A220.
+    nxs = np.where(nac.any(axis=0))[0]
+    bico = int(nxs.min()) if nariz_esq else int(nxs.max())
+    alcance = max(8, int(abs(corte - bico) * 0.25))
+    finas = 0
+    x = corte
+    while True:
+        x += passo
+        if not (0 <= x < chapa.shape[1]) or abs(x - corte) > alcance:
+            break
+        coluna = cinza[:, x]
+        escape = None
+        for y in range(y_capo, min(y_capo + 90, chapa.shape[0])):
+            if coluna[y] < claro * 0.60:
+                escape = y
+                break
+        if escape is None:
+            break
+        # salto no topo do escape quer dizer que o bocal acabou, e a aba com ele
+        if escape_ant is not None and abs(escape - escape_ant) > 6:
+            break
+        escape_ant = escape
+        # a aba afina: a espessura nunca cresce de uma coluna para a outra.
+        # Sem isso, onde a chapa acima é clara o limite de 8 px era atingido e
+        # a tira virava um pente de dentes verticais no fim — visto na tela.
+        topo = escape - 1
+        while topo - 1 > y_capo and coluna[topo - 1] >= claro * 0.85 \
+                and escape - topo < grosso:
+            topo -= 1
+        if topo >= escape:
+            break
+        # seis colunas seguidas de 1 px e acabou: aba afina até morrer, e linha
+        # de 1 px que não morre é textura da chapa de trás
+        finas = finas + 1 if escape - topo <= 1 else 0
+        if finas > 6:
+            break
+        saida[topo:escape, x] = True
+        # Sem piso de espessura. O piso de 3 px que tentei espalhava pontos
+        # verdes soltos acima da tira no trecho final, onde o que está em cima
+        # já é pilone: a tira tem 1 px ali e forçar 3 inventa peça.
+        grosso = escape - topo
+    return saida
+
+
+def aplainar_topo(m, grau=3):
+    """Encosta a borda de cima do capô na curva lisa que ela deveria ser.
+
+    A linha de cima do capô encosta no berço do pilone, que é chapa da mesma
+    cor. Sem contraste o SAM oscila, e não é ruído de 1 px: medido no A220, a
+    borda vai 541, 549, 550, 541 em colunas vizinhas, com entalhes de mais de
+    dez colunas de largura. Mediana de janela curta não alcança um entalhe
+    desses — foi o que tentei primeiro, e o buraco continuou lá.
+
+    Capô em vista lateral é um cilindro: a borda de cima é um arco liso. Então
+    ajusta-se um polinômio robusto a ela, joga-se fora o que discorda muito, e
+    ajusta-se de novo. A borda passa a ser a curva — para cima e para baixo,
+    porque entalhe e saliência são o mesmo defeito com sinais trocados.
+    """
+    cols = np.where(m.any(axis=0))[0]
+    if len(cols) < 4 * (grau + 1):
+        return m
+    # só as colunas de corpo: aba é fina e não fala pela borda do capô
+    espessura = np.array([m[:, x].sum() for x in cols])
+    corpo = espessura >= max(1, espessura.max() * 0.5)
+    cx = cols[corpo].astype(np.float64)
+    if len(cx) < 4 * (grau + 1):
+        return m
+    topo = np.array([int(np.where(m[:, x])[0].min()) for x in cx.astype(int)], np.float64)
+    # Coluna que sobe muito acima da mediana não entra no ajuste. A semente da
+    # nacela vem das máscaras antigas, que pegam asa e pilone, então o recorte
+    # às vezes traz um vazamento **para cima** — e se essas colunas entram no
+    # ajuste, a curva sobe junto e o vazamento vira "o topo do capô". Medido num
+    # lote de seis motores: cinco vazavam assim e quatro passaram no juiz.
+    altura = float(np.median([m[:, x].sum() for x in cx.astype(int)]))
+    ok = topo >= np.median(topo) - 0.25 * altura
+    if ok.sum() < 4 * (grau + 1):
+        ok = np.ones(len(cx), bool)
+    for _ in range(2):
+        c = np.polyfit(cx[ok], topo[ok], grau)
+        r = topo - np.polyval(c, cx)
+        ok = np.abs(r) <= max(1.5, 2.0 * np.std(r[ok]))
+        if ok.sum() < 4 * (grau + 1):
+            break
+    coef = np.polyfit(cx[ok], topo[ok], grau)
+
+    # A curva vale para a peça **inteira**, não só para as colunas de corpo.
+    # Os vazamentos para a asa e o pilone são finos — não passam no filtro de
+    # corpo — e por isso sobreviviam ao corte: medido num lote de sete, cinco
+    # vazavam e o corte só mexia no que já estava certo. Fora do trecho
+    # ajustado a curva é presa no valor da ponta, porque cúbico extrapolado
+    # dispara.
+    cols = np.where(m.any(axis=0))[0]
+    dentro = np.clip(cols.astype(np.float64), cx.min(), cx.max())
+    curva = np.polyval(coef, dentro)
+    saida = m.copy()
+    for i, x in enumerate(cols):
+        alvo = int(round(curva[i]))
+        t = int(np.where(m[:, x])[0].min())
+        if alvo < t and m[:, x].sum() >= altura * 0.5:
+            # só coluna de corpo ganha preenchimento; aba fina fica como está
+            saida[alvo:t, x] = True
+        elif alvo > t:
+            saida[t:alvo, x] = False
+    return saida
+
+
+def _corrida_em(chapa, x, y):
+    """A corrida de chapa da coluna `x` que contém `y` (1 px de tolerância).
+
+    Um px, não três: com três a busca saltava do bordo do capô (y=539) para o
+    pilone (y=530), que é outra peça e não é aba de nada.
+    """
+    linhas = np.where(chapa[:, x])[0]
+    if not len(linhas):
+        return None
+    for c in np.split(linhas, np.where(np.diff(linhas) > 1)[0] + 1):
+        if c.min() - 1 <= y <= c.max() + 1:
+            return c
+    return None
+
+
 def entre_as_juntas(img, nac, corte, labio, nariz_esq=True):
     """O capô como região medida: entre as duas juntas, fechada até o chão.
 
@@ -245,27 +465,95 @@ def entre_as_juntas(img, nac, corte, labio, nariz_esq=True):
     fim = fim_do_labio(labio, nariz_esq)
     if fim is None:
         return None, ''
-    # dois px de recuo na junta dianteira: o ViTMatte alarga a borda em rampa, e
-    # sem recuo a rampa cai em cima do crescente. Custa 2 px de chapa e evita
-    # pintura invadindo a boca.
+    # A junta dianteira é **por linha**, não uma coluna só. O lábio é um
+    # crescente: no meio ele avança até x=509, mas nas linhas de cima e de baixo
+    # acaba em x=499. Cortando todo mundo na mesma coluna sobravam 13 px de
+    # chapa clara descobertos nessas linhas — a faixa branca vista na tela.
+    # Onde a linha não tem lábio, a peça começa onde a nacela começa.
+    # Dois px de recuo em cada linha, porque a rampa de alpha do ViTMatte
+    # alarga a borda e sem recuo ela cai em cima do crescente.
     m = nac.copy()
     if nariz_esq:
-        m[:, :fim + 3] = False
         m[:, corte + 1:] = False
     else:
         m[:, corte:] = False
-        m[:, :fim - 1] = False
-    if not m.any():
-        return None, ''
-
     chao = chao_da_foto(img, nac)
     for x in np.where(m.any(axis=0))[0]:
         if chao[x] < 0:
             continue
         col = np.where(m[:, x])[0]
-        m[int(col.min()):chao[x] + 1, x] = True
-    return m, 'entre as juntas (%d..%d), pé na foto' % (
-        (fim + 1, corte) if nariz_esq else (corte, fim - 1))
+        quebra = np.where(np.diff(col) > 1)[0]
+        base = int(col[quebra[-1] + 1]) if len(quebra) else int(col.min())
+        m[base:chao[x] + 1, x] = True
+
+    # O corte da frente vem **depois** do fechamento do pé. Na ordem inversa o
+    # fechamento descia a coluna e repreenchia a parte de baixo do crescente
+    # que o corte tinha acabado de tirar — 355 px de boca dentro do capô,
+    # entrando por x=504 a 510 nas linhas de 596 para baixo.
+    # só o **crescente** guia o corte, não a zona do lábio inteira: o rastro de
+    # sombra dela corre pela barriga até x=555, e nas linhas de baixo cortava o
+    # capô inteiro — 950 px de pé faltando.
+    cres = np.zeros_like(m) if labio is None else labio.copy()
+    if labio is not None:
+        if nariz_esq:
+            cres[:, fim + 1:] = False
+        else:
+            cres[:, :fim] = False
+    linhas = [y for y in range(m.shape[0]) if m[y].any()]
+    bruto = []
+    for y in linhas:
+        col = np.where(cres[y])[0]
+        if len(col):
+            bruto.append(int(col.max()) + 4 if nariz_esq else int(col.min()) - 4)
+        else:
+            # linha sem crescente: vale a coluna única, o corte antigo. Usar a
+            # borda da própria máscara aqui tirava 4 a 5 px do pé em 18 colunas.
+            bruto.append(fim + 3 if nariz_esq else fim - 3)
+    # Máximo móvel, não mediana. A linha que não tem crescente devolve a borda
+    # da nacela, bem à esquerda, e a mediana deixava essa borda ganhar da linha
+    # vizinha que tem crescente — o crescente entrava pela brecha, 394 px de
+    # boca dentro do capô. O corte não pode ficar à esquerda de nenhum
+    # crescente vizinho, e uma suavização depois tira o degrau.
+    # A borda do crescente é um arco liso, então vale ajustar uma curva robusta
+    # a ela, do mesmo jeito que se faz com o topo do capô. Máximo móvel mais
+    # média deixava saliência de uns 5 px onde o crescente some por uma linha
+    # ou duas — o cromado fica claro ali e o detector perde o pixel. O ajuste
+    # atravessa a falha; o máximo contra a curva garante que nenhum crescente
+    # vizinho fique de fora.
+    b = np.array(bruto, np.float64)
+    ys = np.array(linhas, np.float64)
+    if len(b) >= 16:
+        ok = np.ones(len(b), bool)
+        for _ in range(2):
+            c = np.polyfit(ys[ok], b[ok], 3)
+            r = b - np.polyval(c, ys)
+            novo = np.abs(r) <= max(1.5, 2.0 * np.std(r[ok]))
+            if novo.sum() < 16:
+                break
+            ok = novo
+        curva = np.polyval(np.polyfit(ys[ok], b[ok], 3), ys)
+        b = np.maximum(b, curva)
+    b = np.ceil(b).astype(np.int32)
+    for y, limite in zip(linhas, b):
+        if nariz_esq:
+            m[y, :limite] = False
+        else:
+            m[y, limite + 1:] = False
+    if not m.any():
+        return None, ''
+
+    # Fechar o pé é fechar **o pé**, não a coluna. Preencher de `col.min()` até o
+    # chão importa tudo que estiver por cima na máscara da nacela — e por cima
+    # do capô estão o pilone, a asa e a carenagem. Medido: no A321LR o verde
+    # subia num platô liso até a fuselagem, e como o platô é liso nenhum teste
+    # de borda acusava. Agora só a última corrida da coluna desce até o chão.
+    m = aplainar_topo(m)
+    antes = int(m.sum())
+    m = pontas_traseiras(img, nac, m, corte, nariz_esq)
+    abas = int(m.sum()) - antes
+    de, ate = (fim + 1, corte) if nariz_esq else (corte, fim - 1)
+    return m, 'entre as juntas (%d..%d), pé na foto%s' % (
+        de, ate, ', aba de baixo +%d px' % abas if abas else ', sem aba de baixo')
 
 
 def capo_pintavel(aid, img, inteira, cfg, nariz_esq=True, testes=None):

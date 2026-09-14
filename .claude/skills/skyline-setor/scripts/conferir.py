@@ -11,13 +11,21 @@ Agora o contrato é outro. Aqui só se mede. Quando reprova, quem chama **recort
 de novo com outra semente** — o lábio entra como ponto negativo do SAM, e é o
 modelo que decide a forma. Remendo nenhum.
 
-Os cinco testes, e o defeito que cada um existe para pegar:
+Os testes, e o defeito que cada um existe para pegar:
 
     boca      lábio de entrada dentro da peça        (visto na tela)
     pé        base do capô faltando                  (visto na tela)
     escape    bocal e cone dentro da peça            (visto na tela)
     buraco    furo no meio da peça                   (produzido pelo remendo)
     degrau    borda serrilhada                       (produzido pelo remendo)
+    borda     entalhe ou saliência no topo do capô   (visto na tela)
+
+Quatro dos seis medem **invasão**; só o pé e a borda medem **falta**, e por
+muito tempo o pé foi o único, olhando apenas a base. Por isso "APROVADO" já
+significou "não invadiu" e nada mais, e peça com entalhe de dez colunas no
+topo passou com folga larga em tudo. Ao ler o relatório, folga larga em todos
+os testes ao mesmo tempo é suspeita, não garantia: quer dizer que o defeito,
+se existe, está onde nenhum teste olha.
 """
 import numpy as np
 import cv2
@@ -153,8 +161,41 @@ def degrau(alpha):
     return int(max(0, per - liso))
 
 
+def borda_torta(alpha, grau=3, tol=2.0):
+    """Quanto a borda de cima foge da curva lisa que ela deveria ser, em px.
+
+    Existe porque faltava no juiz o teste do defeito que mais apareceu: a peça
+    **não preencher**. Os outros cinco medem invasão — boca, escape, furo,
+    degrau — e só o pé mede falta, e olha apenas a base. Uma peça com um
+    entalhe de dez colunas no topo passava com folga larga em tudo.
+
+    Capô em vista lateral é um cilindro: a borda de cima é um arco liso.
+    Entalhe e saliência são o mesmo defeito com sinais trocados, então mede-se
+    o desvio absoluto contra um ajuste robusto, descontados 2 px de tolerância.
+    """
+    m = alpha > 0.5
+    if not m.any():
+        return 0
+    cols = np.where(m.any(axis=0))[0]
+    espessura = np.array([m[:, x].sum() for x in cols])
+    cx = cols[espessura >= max(1, espessura.max() * 0.5)].astype(np.float64)
+    if len(cx) < 4 * (grau + 1):
+        return 0
+    topo = np.array([int(np.where(m[:, x])[0].min()) for x in cx.astype(int)], np.float64)
+    ok = np.ones(len(cx), bool)
+    for _ in range(2):
+        c = np.polyfit(cx[ok], topo[ok], grau)
+        r = topo - np.polyval(c, cx)
+        novo = np.abs(r) <= max(1.5, 2.0 * np.std(r[ok]))
+        if novo.sum() < 4 * (grau + 1):
+            break
+        ok = novo
+    desvio = np.abs(topo - np.polyval(np.polyfit(cx[ok], topo[ok], grau), cx))
+    return int(np.maximum(0, desvio - tol).sum())
+
+
 def testes_motor(img, nac, nariz_esq=True):
-    """Os cinco testes do capô, e o limite de cada um. Só julgam."""
+    """Os testes do capô, e o limite de cada um. Só julgam."""
     cinza = _cinza(img)
     labio = zona_do_labio(img, nac, nariz_esq)
     # só o crescente conta como boca; o rastro de sombra na barriga é chapa
@@ -194,8 +235,20 @@ def testes_motor(img, nac, nariz_esq=True):
         if not m.any():
             return 0
         cols = np.where(m.any(axis=0))[0]
+        # coluna de aba não tem pé: atrás da divisa a peça é uma tira fina de
+        # carenagem lá em cima, e cobrar chão dela dá 615 px de "pé faltando"
+        # numa peça sem um px faltando. Só responde pelo pé a coluna que tem
+        # corpo de capô — metade da altura da peça, ao menos.
+        espessura = np.array([m[:, x].sum() for x in cols])
+        corpo = cols[espessura >= max(1, espessura.max() * 0.5)]
+        if not len(corpo):
+            return 0
+        # as oito colunas de cada ponta são as pontas **do corpo**, não da peça:
+        # com aba atrás, as últimas colunas da peça são a aba, e a junta do
+        # reversor — que é onde o chanfro está — voltava a ser cobrada.
+        miolo = corpo[8:-8] if len(corpo) > 16 else corpo
         falta = 0
-        for x in cols[8:-8] if len(cols) > 16 else cols:
+        for x in miolo:
             cm = np.where(m[:, x])[0]
             if chao[x] >= 0:
                 d = int(chao[x] - cm.max())
@@ -223,6 +276,7 @@ def testes_motor(img, nac, nariz_esq=True):
         ('escape dentro do capô', t_escape, 400),
         ('buraco no meio da peça', buraco, 60),
         ('borda em degrau', degrau, 120),
+        ('borda de cima torta', borda_torta, 60),
     ]
 
 
@@ -235,6 +289,44 @@ def julgar(testes, alpha):
     return all(L[3] for L in linhas), linhas
 
 
+def situacao(linhas):
+    """Não "passou/não passou": **quanto** falta, e em quê.
+
+    Veredito binário não deixa melhorar. Neste lote os cinco testes aprovaram
+    seis recortes que o olho reprovou — e um "APROVADO" encerra a busca, ao
+    passo que um "passou raspando em dois testes" diz onde mexer. Pior ainda é o
+    aprovado folgado: quando toda a margem é larga, o provável é que o defeito
+    esteja onde nenhum teste olha, não que a peça esteja boa.
+
+    Devolve (rótulo, folga, apertados):
+        folga      a menor margem relativa entre os testes, de -inf a 1
+                   1,0 = nenhum defeito medido; 0 = em cima do limite
+        apertados  os testes com folga abaixo de 0,35, do pior para o melhor
+    """
+    if not linhas:
+        return 'sem juiz', 0.0, []
+    folgas = [(nome, (lim - v) / float(lim)) for nome, v, lim, _ in linhas]
+    pior = min(f for _, f in folgas)
+    apertados = sorted([(n, f) for n, f in folgas if f < 0.35], key=lambda t: t[1])
+    if pior < -1.0:
+        rot = 'LONGE'
+    elif pior < 0:
+        rot = 'QUASE'
+    elif pior < 0.35:
+        rot = 'PASSOU RASPANDO'
+    else:
+        rot = 'APROVADO'
+    return rot, pior, apertados
+
+
 def relatar(rot, linhas, recuo='      '):
     for nome, v, lim, ok in linhas:
-        print('%s%-24s %6d  (limite %d) %s' % (recuo, nome, v, lim, 'ok' if ok else '<<< REPROVADO'))
+        folga = (lim - v) / float(lim)
+        print('%s%-24s %6d  (limite %4d) folga %+6.2f %s'
+              % (recuo, nome, v, lim, folga, 'ok' if ok else '<<< REPROVADO'))
+    situ, pior, apertados = situacao(linhas)
+    if apertados:
+        print('%s-> %s (folga %+.2f); apertado em: %s' % (
+            recuo, situ, pior, ', '.join('%s %+.2f' % (n, f) for n, f in apertados)))
+    else:
+        print('%s-> %s (folga %+.2f)' % (recuo, situ, pior))
