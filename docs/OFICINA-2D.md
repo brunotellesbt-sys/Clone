@@ -1,8 +1,12 @@
 # Oficina de aeronaves 2D
 
-A integração usa exclusivamente `Sistema Aeronaves 2D.zip`, fornecido pelo usuário. O XAPK e outras pastas de aeronaves não são fontes desta alteração. O projeto continua sendo o Skyline Tycoon em React; a simulação e as fichas das aeronaves permanecem no catálogo atual.
+A integração usa exclusivamente `Sistema Aeronaves 2D.zip`, fornecido pelo usuário. O XAPK e outras pastas de aeronaves não são fontes desta alteração. O projeto continua sendo o Skyline Tycoon em React. As 13 bases que faltavam foram cadastradas como aeronaves completas, com [fichas e fontes próprias](FONTES-AERONAVES-CLASSICAS.md), usando as regras de compra, rotas e simulação existentes.
 
 ## Usar no jogo
+
+Em **Mercado**, use **Buscar aeronave** para localizar Q200, Q300, CRJ200, ERJ135/140/145LR, Superjet 100-95B, A318, 717-200, 737-600, A340-300/600 e 747-400. A busca aceita nome, fabricante ou ID (por exemplo, `b744`). Escolha o motor e clique em **Comprar** ou **Arrendar**. Os 13 tipos já estão disponíveis no ano inicial da partida. Na **Frota**, aloque a aeronave em uma rota compatível com seu alcance e pista; a aquisição já inclui uma cabine pronta.
+
+![Compra de uma aeronave clássica com a arte do ZIP](mercado-classicos.png)
 
 1. Abra **Pintura** e escolha a aeronave e a motorização da prévia.
 2. Em **Cores e peças**, pinte fuselagem, cauda, winglet e motor. Asa e estabilizador preservam os acabamentos originais do ZIP. A seleção do motor nesta tela muda a prévia; a compra no Mercado define o motor instalado.
@@ -17,7 +21,7 @@ As cores gerais são da companhia. Camadas, símbolos, textos e winglets são gu
 
 ## Correspondências e limites
 
-Veja [a relação completa dos 50 modelos integrados e dos 13 modelos que sobraram](INTEGRACAO-AERONAVES-2D.md).
+Veja [a relação completa dos 63 modelos integrados](INTEGRACAO-AERONAVES-2D.md). Todas as 57 bases do ZIP têm correspondência. Os cinco tipos de passageiros e 12 cargueiros sem equivalente no arquivo conservam a arte anterior; os cinco passageiros conservam também seu editor de cabine anterior. O Superjet original com SaM146 é uma entrada distinta do SJ-100 com PD-8.
 
 As camadas originais preservam o canvas de 1200 × 450 pixels, com transparência, coordenadas e ordem de composição. A oficina não transforma os sprites em modelos 3D. Nos modelos importados, janelas, portas e parte do acabamento estão nas camadas raster do ZIP; não são redesenhados pelos controles vetoriais antigos.
 
@@ -57,6 +61,6 @@ npm run nose -- b737 a321neo b789 atr72 crj900 a388 b748
 npm run aircraft2d:ui
 ```
 
-`QA_DIR` define a pasta das capturas e fixtures; o padrão é `.qa` dentro do projeto. `BROWSER_PATH` permite indicar o navegador instalado. Os testes usam uma sessão isolada, sem o perfil pessoal do navegador. Nesta integração, as capturas ficaram em `Downloads/Clone-work/qa`.
+`QA_DIR` define a pasta das capturas e fixtures; o padrão é `.qa` dentro do projeto. `BROWSER_PATH` permite indicar o navegador instalado; `QA_URL` indica a URL do servidor para `aircraft2d:ui`. Os testes usam uma sessão isolada, sem o perfil pessoal do navegador. Nesta continuação, as capturas ficaram em `Downloads/Clone-work/qa-restantes`.
 
-Validação: build; 9.766 hashes; 144 combinações de modelo, motor e opção de asa; render dos 50 modelos; PNG com fontes e nacela pintada; importação/exportação; isolamento entre modelos; save anterior e reforma persistida. Smoke sem erros de console. Simulação de 1.460 dias a partir de GRU: 10 aeronaves, 10 rotas, ocupação de 89,2% e lucro diário aproximado de US$ 1,6 milhão.
+Validação: build; 9.766 hashes; 160 combinações de modelo, motor e opção de asa; render dos 63 modelos; PNG com fontes e nacela pintada; importação/exportação; isolamento entre modelos; save anterior e reforma persistida. Os 13 novos tipos foram comprados e arrendados com todas as 16 combinações de motores, realizando 224 voos, reforma e salvamento. A interface também compra/arrenda cada um e recarrega os 13 na Frota. Smoke sem erros de console. Simulação de 1.460 dias a partir de GRU: 10 aeronaves, 10 rotas, ocupação de 89,2% e lucro diário aproximado de US$ 1,6 milhão.

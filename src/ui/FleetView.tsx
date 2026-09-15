@@ -1,4 +1,5 @@
 import { SeatMapEditor } from './SeatMapEditor'
+import { SOURCE_2D } from '../livery/aircraft2d'
 import { seatChangeCost } from '../game/seatModels'
 import { useState } from 'react'
 import { AIRCRAFT_BY_ID, acLabel, ehCargueiro } from '../game/data/aircraft'
@@ -263,7 +264,7 @@ function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
       </div>
       <p className="dim">Custo da reforma: <b>{money(seatChangeCost(seats, seatConfig))}</b> · {seats.c + seats.f > 0 ? 4 : 2} dias parado.</p>
       {chk.seatError && <p className="bad">{chk.seatError}</p>}
-      <SeatMapEditor type={t} seats={seats} pitch={pitch} config={seatConfig} change={(c, p) => { setSeatConfig(c); setPitch(p) }} />
+      {SOURCE_2D[t.id] && <SeatMapEditor type={t} seats={seats} pitch={pitch} config={seatConfig} change={(c, p) => { setSeatConfig(c); setPitch(p) }} />}
       {chk.overLength && <p className="bad" style={{ fontSize: 12, marginBottom: 0 }}>Não cabe: tire assentos ou reduza o passo.</p>}
       {chk.overLimit && <p className="bad" style={{ fontSize: 12, marginBottom: 0 }}>Acima do limite de saídas de emergência do modelo.</p>}
     </Modal>

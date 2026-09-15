@@ -12,9 +12,9 @@ try {
   page.on('console', e => { if (e.type() === 'error') errors.push(`${e.text()} ${e.location().url}`) })
   page.on('response', r => { if (r.status() >= 400) errors.push(`${r.status()}: ${r.url()}`) })
   await page.goto(`${base}/scripts/aircraft2d-preview.html`, { waitUntil: 'networkidle' })
-  await page.waitForFunction(() => document.querySelectorAll('[data-aircraft2d]').length === 50)
-  assert.equal(await page.locator('[data-aircraft2d]').count(), 50)
-  for (const ids of ['a320,a320neo,b737,b77w,crj900,atr72,a388,b748', 'a220100,a319,a321,b739,a332,a359,e175,c919']) {
+  await page.waitForFunction(() => document.querySelectorAll('[data-aircraft2d]').length === 63)
+  assert.equal(await page.locator('[data-aircraft2d]').count(), 63)
+  for (const ids of ['q200,q300,crj200,erj135,erj140,erj145,ssj100', 'a318,b712,b736,a343,a346,b744', 'a320,a320neo,b737,b77w,crj900,atr72,a388,b748', 'a220100,a319,a321,b739,a332,a359,e175,c919']) {
     await page.goto(`${base}/scripts/aircraft2d-preview.html?ids=${ids}`, { waitUntil: 'networkidle' })
     await page.waitForFunction(n => document.querySelectorAll('[data-aircraft2d]').length === n, ids.split(',').length)
     await page.screenshot({ path: artifact(`modelos-${ids.split(',')[0]}.png`), fullPage: true })
@@ -110,8 +110,54 @@ try {
   await page.getByRole('button', { name: 'Cabine', exact: true }).click()
   assert.equal(await page.getByLabel('Poltrona c', { exact: true }).inputValue(), 'biz_reverse_herringbone')
   assert.equal(await page.getByLabel('Distribuição c', { exact: true }).inputValue(), '1-2-1')
+  // Comprar de verdade pela interface evita cadastrar aviões que só funcionam via engine.
+  await page.evaluate(raw => localStorage.setItem('skyline-tycoon:save:0', raw), readFileSync(artifact('partida-catalogo.json'), 'utf8'))
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: 'Continuar partida' }).click()
+  if (await page.getByTitle('Pausar (espaço)').count()) await page.getByTitle('Pausar (espaço)').click()
+  await page.getByRole('button', { name: 'Mercado', exact: true }).click()
+  const acquisitions = [
+    ['q200', 'bombardierq200'], ['q300', 'bombardierq300'], ['crj200', 'bombardiercrj200'],
+    ['erj135', 'embraere135'], ['erj140', 'embraere140'], ['erj145', 'embraere145'],
+    ['ssj100', 'sukhoisuperjet100'], ['a318', 'airbusa318', 'PW6124A'],
+    ['b712', 'boeing717200'], ['b736', 'boeing737600'], ['a343', 'airbusa340300'],
+    ['a346', 'airbusa340600'], ['b744', 'boeing747400', 'RB211-524G'],
+  ]
+  for (const [index, [id, source, engine]] of acquisitions.entries()) {
+    await page.getByLabel('Buscar aeronave').fill(id)
+    const rows = page.locator('tbody tr')
+    assert.equal(await rows.count(), 1, `${id}: busca deve encontrar somente o modelo escolhido`)
+    await rows.first().click()
+    await page.locator(`[data-aircraft2d=${source}]`).waitFor()
+    if (engine) {
+      await page.getByRole('button', { name: new RegExp(engine) }).click()
+      await page.waitForFunction(name => [...document.querySelectorAll('.opt.on')].some(el => el.textContent.includes(name)), engine)
+    }
+    if (id === 'q200') assert.match(await page.locator('.opt.on').innerText(), /shp · hélice/)
+    const buy = page.getByRole('button', { name: index % 2 ? 'Arrendar' : 'Comprar', exact: true })
+    assert(await buy.isEnabled(), `${id}: aquisição indisponível`)
+    if (id === 'b744') {
+      await page.setViewportSize({ width: 1500, height: 1400 })
+      await page.waitForLoadState('networkidle')
+      await page.screenshot({ path: artifact('mercado-classicos.png'), fullPage: true })
+    }
+    await buy.click()
+  }
+  await page.getByLabel('Buscar aeronave').fill('nenhum-modelo-xyz')
+  assert(await page.getByText('Nenhuma aeronave corresponde à busca nesta categoria.').isVisible())
+  await page.getByTitle('Jogo', { exact: true }).click()
+  await page.getByRole('button', { name: 'Salvar', exact: true }).click()
+  const catalogue = await page.evaluate(() => JSON.parse(localStorage.getItem('skyline-tycoon:save:0')))
+  assert.deepEqual(catalogue.airline.fleet.map(a => a.typeId), acquisitions.map(([id]) => id))
+  assert.deepEqual(catalogue.airline.fleet.map(a => a.leased), acquisitions.map((_, i) => Boolean(i % 2)))
+  assert.equal(catalogue.airline.fleet.find(a => a.typeId === 'a318').engineId, 'pw6124a')
+  assert.equal(catalogue.airline.fleet.find(a => a.typeId === 'b744').engineId, 'rb524g')
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: 'Continuar partida' }).click()
+  await page.getByRole('button', { name: 'Frota', exact: true }).click()
+  assert.equal(await page.getByRole('button', { name: 'Cabine', exact: true }).count(), 13)
   assert.deepEqual(errors, [])
-  console.log('OK: 50 modelos; camadas e variantes; PNG com fontes e motor; importação/exportação; isolamento entre modelos; save antigo e reforma persistida. Sem erros de console/rede.', pixels)
+  console.log('OK: 63 modelos; camadas e variantes; PNG com fontes e motor; importação/exportação; isolamento entre modelos; save antigo e reforma persistida; 13 novos tipos comprados/arrendados no mercado e recarregados na frota. Sem erros de console/rede.', pixels)
 } catch (error) {
   console.error('Erros do navegador:', errors)
   throw error

@@ -41,7 +41,7 @@ export function RasterAircraft(props: Props) {
     // Só as máscaras de cor originais recebem tinta; acabamentos mantêm os pixels.
     return undefined
   }
-  const sectorLayer = (sector: string) => sector === 'tail' ? tail : sector === 'engine' ? layers.find(x => /^engine_(cfm|ge|pw|rr|iae|ea|pj)$/.test(x.name)) :
+  const sectorLayer = (sector: string) => sector === 'tail' ? tail : sector === 'engine' ? layers.find(x => /^engine_(cfm|ge|pw|rr|iae|ea|pj|ae)$/.test(x.name)) :
     sector === 'winglet' ? layers.find(x => /^(winglet|sharklet|scimitar|wingtip_fence)$/.test(x.name)) : body
   const marks = Object.entries(cfg.marks ?? {})
   function mark(slot: string, m: PaintMark2D) {

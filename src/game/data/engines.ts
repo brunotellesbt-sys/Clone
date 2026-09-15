@@ -13,9 +13,9 @@ export interface Engine {
   /** Designação completa, como sai da ficha do fabricante. */
   name: string
   maker: string
-  /** Diâmetro do fan, em metros — é o que muda o tamanho da nacela no desenho. */
+  /** Diâmetro do fan (ou hélice nos turboélices), em metros. */
   fan: number
-  /** Empuxo de decolagem, em libras-força. */
+  /** Empuxo de decolagem em lbf; nos turboélices, potência em shp. */
   thrust: number
   /** Multiplicador de consumo (1 = número de catálogo do tipo). */
   burn: number
@@ -43,6 +43,39 @@ const E = (
 
 export const ENGINES: Record<string, Engine> = Object.fromEntries(
   [
+    // Motorização das bases clássicas importadas. Multiplicadores são de jogo;
+    // referências técnicas em docs/FONTES-AERONAVES-CLASSICAS.md.
+    // Nos turboélices o diâmetro é o da hélice e a potência está em shp.
+    E('pw123d', 'PW123D', 'Pratt & Whitney Canada', 3.96, 2150, 1, 1, 0, 1, 1, 1, 1995,
+      'PW123 do Dash 8-202; hélice Hamilton Standard de quatro pás.'),
+    E('pw123b', 'PW123B', 'Pratt & Whitney Canada', 3.96, 2500, 1, 1, 0, 1, 1, 1, 1990,
+      'Motorização do Dash 8-314, da família Q300.'),
+    E('cf343b1', 'CF34-3B1', 'GE Aerospace', 1.12, 8729, 1, 1, 0, 1, 1, 1, 1996,
+      'CF34 de primeira geração, instalado no CRJ200.'),
+    E('ae3007a13', 'AE 3007A1/3', 'Rolls-Royce', 0.978, 7420, 1, 1, 0, 1, 1, 1, 1999,
+      'Ajuste de empuxo dos ERJ135LR e ERJ140LR.'),
+    E('ae3007a1', 'AE 3007A1', 'Rolls-Royce', 0.978, 7426, 1, 1, 0, 1, 1, 1, 1997,
+      'AE 3007 do ERJ145LR; a nacela original é identificada como AE no acervo.'),
+    E('sam1461s17', 'SaM146-1S17', 'PowerJet', 1.224, 15692, 1, 1, 0, 1, 1, 1, 2011,
+      'Motorização do Superjet 100-95B original, distinta do PD-8 do SJ-100.'),
+    E('cfm565b8', 'CFM56-5B8', 'CFM International', 1.73, 21600, 1, 1, 0, 1, 1, 1, 2003,
+      'CFM56 específico do A318.'),
+    E('pw6124a', 'PW6124A', 'Pratt & Whitney', 1.422, 23800, 0.99, 1.07, -1.5, 1, 1, 0.98, 2007,
+      'Alternativa PW6000 do A318: compra mais barata e oficina mais cara no jogo.'),
+    E('br715c1', 'BR715-C1-30', 'Rolls-Royce', 1.473, 21000, 1, 1, 0, 1, 1, 1, 1999,
+      'BR715 da versão de maior peso do 717-200.'),
+    E('cfm567b22', 'CFM56-7B22', 'CFM International', 1.55, 22700, 1, 1, 0, 1, 1, 1, 1998,
+      'CFM56-7 de empuxo adequado ao 737-600.'),
+    E('cfm565c4', 'CFM56-5C4', 'CFM International', 1.836, 34000, 1, 1, 0, 1, 1, 1, 1993,
+      'Quatro CFM56-5C equipam o A340-300.'),
+    E('trent556', 'Trent 556-61', 'Rolls-Royce', 2.474, 56000, 1, 1, 0, 1, 1, 1, 2002,
+      'Trent 500 do A340-600 de peso padrão.'),
+    E('cf680c2b1f', 'CF6-80C2B1F', 'GE Aerospace', 2.36, 57160, 1, 1, 0, 1, 1, 1, 1989,
+      'Opção GE do 747-400; quatro nacelas próprias no perfil original.'),
+    E('pw4056', 'PW4056', 'Pratt & Whitney', 2.388, 56750, 1.01, 1.03, -3, 1, 1, 1.02, 1989,
+      'Alternativa Pratt do 747-400, com aquisição menor e manutenção maior no jogo.'),
+    E('rb524g', 'RB211-524G2-T', 'Rolls-Royce', 2.19, 56400, 1.01, 1.01, -1.5, 1, 1, 0.99, 1998,
+      'RB211 com núcleo atualizado; opção visual Rolls do 747-400.'),
     // ---------------------------------------------------------- turboélice
     E('pw127m', 'PW127M', 'Pratt & Whitney Canada', 3.93, 2750, 1, 1, 0, 1, 1, 1, 2007,
       'A motorização clássica do ATR, conhecida de qualquer oficina.'),

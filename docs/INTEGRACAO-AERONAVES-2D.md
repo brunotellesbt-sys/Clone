@@ -4,10 +4,23 @@ Fonte única: Sistema Aeronaves 2D.zip. SHA-256: `353c0d11a1a72db817435ada485b34
 
 11279 recursos gráficos importados; 9766 arquivos únicos. As 57 bases e ambas as resoluções foram preservadas.
 
-50 modelos do catálogo usam 44 bases do ZIP. Motores e winglets são selecionados por variante; 144 combinações verificadas.
+63 modelos do catálogo usam 57 bases do ZIP. Motores e winglets são selecionados por variante; 160 combinações verificadas.
 
 | Modelo no jogo | Base do ZIP |
 |---|---|
+| De Havilland Canada Dash 8 Q200 (q200) | Bombardier Q200 |
+| De Havilland Canada Dash 8 Q300 (q300) | Bombardier Q300 |
+| Bombardier CRJ200 (crj200) | Bombardier CRJ 200 |
+| Embraer ERJ135LR (erj135) | Embraer E135 |
+| Embraer ERJ140LR (erj140) | Embraer E140 |
+| Embraer ERJ145LR (erj145) | Embraer E145 |
+| Sukhoi Superjet 100-95B (ssj100) | Sukhoi Superjet 100 |
+| Airbus A318-100 (a318) | Airbus A318 |
+| Airbus A340-300 (a343) | Airbus A340 300 |
+| Airbus A340-600 (a346) | Airbus A340 600 |
+| Boeing 717-200 (b712) | Boeing 717 200 |
+| Boeing 737-600 (b736) | Boeing 737 600 |
+| Boeing 747-400 (b744) | Boeing 747 400 400D |
 | ATR ATR 42-600 (atr42) | ATR 42 |
 | ATR ATR 72-600 (atr72) | ATR 72 |
 | De Havilland Canada Dash 8 Q400 (q400) | Bombardier Q400 |
@@ -59,25 +72,13 @@ Fonte única: Sistema Aeronaves 2D.zip. SHA-256: `353c0d11a1a72db817435ada485b34
 | Comac ARJ21-700 (arj21) | COMAC ARJ21 |
 | Comac C919 (c919) | COMAC C919 |
 
-## Modelos que sobraram
+## Bases que sobraram
 
-- Airbus A318
-- Airbus A340 300
-- Airbus A340 600
-- Boeing 717 200
-- Boeing 737 600
-- Boeing 747 400 400D
-- Bombardier CRJ 200
-- Bombardier Q200
-- Bombardier Q300
-- Embraer E135
-- Embraer E140
-- Embraer E145
-- Sukhoi Superjet 100
+Nenhuma. Todas as 57 bases possuem uma aeronave utilizável no catálogo.
 
-Esses 13 modelos permanecem em public/aircraft2d/models e no acervo. Não foram acrescentados ao catálogo econômico sem fichas de desempenho.
+As 13 bases antes sem correspondência agora estão cadastradas para compra, arrendamento, rotas, cabine e pintura. Fichas e fontes em [FONTES-AERONAVES-CLASSICAS.md](FONTES-AERONAVES-CLASSICAS.md).
 
-O Sukhoi Superjet 100 do ZIP tem SaM146. O SJ-100 existente usa PD-8; a correspondência não foi tratada como exata.
+O Sukhoi Superjet 100 (ssj100) do ZIP usa SaM146. O SJ-100 (sj100) existente usa PD-8 e conserva arte e ficha próprias.
 
 ## Modelos novos sem arte equivalente no ZIP
 
@@ -99,11 +100,12 @@ O Sukhoi Superjet 100 do ZIP tem SaM146. O SJ-100 existente usa PD-8; a correspo
 - Antonov An-225 Mriya (an225)
 - Airbus BelugaXL (belugaxl)
 
-Os 12 cargueiros e cinco modelos de passageiros dessa lista conservam a arte anterior. Conversões de carga não recebem janelas de passageiros.
+Os 12 cargueiros e cinco modelos de passageiros dessa lista conservam a arte anterior. Os passageiros sem base no ZIP mantêm o editor de cabine anterior, sem a galeria de poltronas importadas. Conversões de carga não recebem janelas de passageiros.
 
 ## Variantes compartilhadas e limitações
 
 - A319/A320/A321neo usam as opções neo das respectivas bases. A321LR/XLR compartilham a base A321neo: portas e detalhes exclusivos de LR/XLR não estão individualizados no ZIP.
 - A350-900ULR compartilha a base A350-900. ATR 42/72 usam as bases de família; o ZIP não distingue todas as subvariantes.
+- A nova entrada ERJ145 é LR: as camadas de strakes e winglets do XR ficam preservadas no acervo, sem aparecer no LR. O 747-400 cadastrado usa a asa com winglet, não a opção doméstica 400D. Essas subvariantes não são novos tipos de catálogo nesta integração.
 - 767-400ER (pw4062): O ZIP não possui a nacela PW para este modelo; a prévia usa GE. A motorização da simulação é preservada.
 - Pinturas e opções de asa são visuais. A ficha de motorização, consumo, alcance e desempenho do catálogo continua sendo a do avião comprado.

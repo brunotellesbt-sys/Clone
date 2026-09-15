@@ -19,6 +19,7 @@ export function MarketView() {
   const { state, act, toast } = useGame()
   const [selId, setSelId] = useState('a320neo')
   const [fam, setFam] = useState('todos')
+  const [query, setQuery] = useState('')
   const [engineId, setEngineId] = useState<string | null>(null)
   const year = state.startYear + state.day / 365
 
@@ -27,7 +28,11 @@ export function MarketView() {
   const chosen = options.find((e) => e.id === engineId) ?? options[0]
   const sel = withEngine(model, chosen?.id)
 
-  const list = useMemo(() => AIRCRAFT_ALL.filter((a) => fam === 'todos' || a.family === fam), [fam])
+  const list = useMemo(() => {
+    const term = query.toLowerCase().replace(/[^a-z0-9]/g, '')
+    return AIRCRAFT_ALL.filter(a => (fam === 'todos' || a.family === fam) &&
+      `${acLabel(a)} ${a.id} ${FAMILY_OF[a.id]}`.toLowerCase().replace(/[^a-z0-9]/g, '').includes(term))
+  }, [fam, query])
 
   function pick(t: AircraftType) {
     setSelId(t.id)
@@ -58,6 +63,10 @@ export function MarketView() {
           </div>
         }
       >
+        <label className="row" style={{ marginBottom: 12 }}>Buscar aeronave
+          <input aria-label="Buscar aeronave" type="search" placeholder="Nome, fabricante ou modelo" value={query} onChange={e => setQuery(e.target.value)} />
+          <span className="muted">{list.length} {list.length === 1 ? 'modelo' : 'modelos'}</span>
+        </label>
         <div className="scroll" style={{ maxHeight: 560 }}>
           <table>
             <thead>
@@ -67,6 +76,7 @@ export function MarketView() {
               </tr>
             </thead>
             <tbody>
+              {!list.length && <tr><td colSpan={8} className="dim">Nenhuma aeronave corresponde à busca nesta categoria.</td></tr>}
               {list.map((a) => {
                 const ok = year >= a.since
                 return (
@@ -137,7 +147,7 @@ export function MarketView() {
           >
             <div className="grid" style={{ gap: 8 }}>
               {options.map((e) => (
-                <EngineOption key={e.id} engine={e} on={chosen?.id === e.id} year={year} onPick={() => setEngineId(e.id)} />
+                <EngineOption key={e.id} engine={e} prop={model.shape.prop} on={chosen?.id === e.id} year={year} onPick={() => setEngineId(e.id)} />
               ))}
             </div>
           </Card>
@@ -174,8 +184,8 @@ export function MarketView() {
 }
 
 function EngineOption({
-  engine, on, year, onPick,
-}: { engine: Engine; on: boolean; year: number; onPick: () => void }) {
+  engine, prop, on, year, onPick,
+}: { engine: Engine; prop: boolean; on: boolean; year: number; onPick: () => void }) {
   const later = year < engine.since
   const d = (v: number, higherIsBetter = false) => {
     const p = (v - 1) * 100
@@ -191,7 +201,7 @@ function EngineOption({
           <span className="chip bad">a partir de {engine.since}</span>
         ) : (
           <span className="muted" style={{ fontSize: 12 }}>
-            {num(engine.thrust)} lbf · fan {engine.fan.toFixed(2)} m
+            {num(engine.thrust)} {prop ? 'shp · hélice' : 'lbf · fan'} {engine.fan.toFixed(2)} m
           </span>
         )}
       </div>

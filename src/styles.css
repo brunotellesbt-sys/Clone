@@ -128,7 +128,7 @@ tr.on td { background: rgba(56, 189, 248, 0.13); }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .row.tight { gap: 5px; }
 
-input[type='text'], input[type='number'], select {
+input[type='text'], input[type='search'], input[type='number'], select {
   background: #0b1424; border: 1px solid var(--line); color: var(--ink);
   border-radius: 8px; padding: 7px 10px; width: 100%;
 }
