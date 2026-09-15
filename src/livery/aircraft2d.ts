@@ -4,6 +4,10 @@ import type { Paint2D } from '../game/types'
 
 /** Correspondência explícita: cargueiros e famílias ausentes conservam a arte atual. */
 export const SOURCE_2D: Record<string, string> = {
+  q200: 'bombardierq200', q300: 'bombardierq300', crj200: 'bombardiercrj200',
+  erj135: 'embraere135', erj140: 'embraere140', erj145: 'embraere145', ssj100: 'sukhoisuperjet100',
+  a318: 'airbusa318', a343: 'airbusa340300', a346: 'airbusa340600',
+  b712: 'boeing717200', b736: 'boeing737600', b744: 'boeing747400',
   atr42: 'atr42', atr72: 'atr72', q400: 'bombardierq400',
   crj700: 'bombardiercrj700', crj900: 'bombardiercrj900', crj1000: 'bombardier_crj1000',
   e170: 'embraere170', e175: 'embraere175', e190: 'embraere190', e195: 'embraere195',
@@ -53,7 +57,9 @@ export const useModel2d = (typeId: string) => use2d<Model2D>(SOURCE_2D[typeId] ?
 export function engineFamily(id: string) {
   if (/^(cfm|leap)/.test(id)) return 'cfm'
   if (/^pw/.test(id)) return 'pw'
-  if (/^(trent|rb)/.test(id)) return 'rr'
+  if (/^(trent|rb|br715)/.test(id)) return 'rr'
+  if (/^ae3007/.test(id)) return 'ae'
+  if (/^sam146/.test(id)) return 'pj'
   if (/^v25/.test(id)) return 'iae'
   if (/^gp/.test(id)) return 'ea'
   if (/^(ge|genx|cf)/.test(id)) return 'ge'
@@ -82,6 +88,8 @@ export function selectedLayers(model: Model2D, type: AircraftType, engineId: str
     // O 777-300ER tem asa e GE90 próprios; não recebe motores da versão sem ER.
     if (variant === 'er' && model.id === 'boeing777300' && l.option && !l.variant) return false
     if (/racoon_mask|eyebrow/.test(l.name)) return !!config.eyeMask
+    // As camadas XR incluem strakes e winglets ausentes no ERJ145LR cadastrado.
+    if (model.id === 'embraere145' && /^(xr_|winglet)/.test(l.name)) return false
     if (wing) {
       if (options.includes('wingtip_fence') && /wingtip_fence|sharklet/.test(l.name) && !l.name.includes(wing)) return false
       if (options.includes('scimitar')) {

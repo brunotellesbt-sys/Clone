@@ -2,11 +2,12 @@ import assert from 'node:assert/strict'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
-import { AIRCRAFT_ALL, AIRCRAFT_BY_ID } from '../src/game/data/aircraft'
+import { AIRCRAFT_ALL, AIRCRAFT_BY_ID, FAMILY_OF } from '../src/game/data/aircraft'
+import { ENGINES } from '../src/game/data/engines'
 import { SOURCE_2D, selectedLayers, wingOptions, type Model2D } from '../src/livery/aircraft2d'
 import { SEAT_MODELS, seatLayouts } from '../src/game/seatModels'
-import { checkCabin, cabinUsed, defaultCabin } from '../src/game/cabin'
-import { buyAircraft, newGame, setCabin } from '../src/game/engine'
+import { checkCabin, cabinUsed, defaultCabin, LAYOUTS } from '../src/game/cabin'
+import { advanceDay, assignAircraft, buyAircraft, newGame, openRoute, setCabin } from '../src/game/engine'
 import { exportSave, importSave } from '../src/game/save'
 import { BLANK_LIVERY } from '../src/livery/presets'
 import type { GameState, SeatConfig } from '../src/game/types'
@@ -21,6 +22,47 @@ for (const entry of inventory.entries) {
 let variants = 0
 const warnings: string[] = []
 const models = JSON.parse(readFileSync('public/aircraft2d/models.json', 'utf8')) as { id: string; name: string }[]
+assert.equal(new Set(AIRCRAFT_ALL.map(t => t.id)).size, AIRCRAFT_ALL.length, 'IDs publicados não podem se repetir')
+const added = ['q200', 'q300', 'crj200', 'erj135', 'erj140', 'erj145', 'ssj100', 'a318', 'b712', 'b736', 'a343', 'a346', 'b744']
+let flights = 0
+for (const id of added) {
+  const type = AIRCRAFT_BY_ID[id]
+  assert(type && SOURCE_2D[id] && FAMILY_OF[id])
+  for (const layout of LAYOUTS) {
+    const cabin = layout.build(type)
+    assert(checkCabin(type, cabin.seats, cabin.pitch).ok, `${id}: layout ${layout.id} não cabe`)
+  }
+  for (const engineId of type.engines) {
+    assert(ENGINES[engineId], `${id}: motor ausente no catálogo`)
+    for (const leased of [false, true]) {
+      const game = newGame({ name: 'Frota clássica', code: 'FC', hub: 'GRU', seed: 42 })
+      game.airline.cash = 2e9
+      assert.equal(buyAircraft(game, id, leased, { engineId }), null, `${id}/${engineId}: aquisição`)
+      const ac = game.airline.fleet[0]
+      assert.equal(ac.engineId, engineId)
+      assert.equal(ac.leased, leased)
+      assert.equal(openRoute(game, 'GRU', 'GIG'), null)
+      const route = game.airline.routes[0]
+      assert.equal(assignAircraft(game, ac.id, route.id), null, `${id}: alocação em rota`)
+      for (let d = 0; d < 7; d++) advanceDay(game)
+      const flown = route.history.reduce((n, d) => n + d.flights, 0)
+      assert(flown > 0 && ac.hours > 0 && ac.cycles > 0, `${id}: precisa voar após a compra`)
+      assert(route.history.some(d => d.revenue > 0 && d.seats > 0), `${id}: precisa transportar passageiros`)
+      assert(Number.isFinite(game.airline.cash))
+      const seatConfig: SeatConfig = { y: { style: 'eco_standard', layout: type.abreast === 3 ? '1-2' : type.abreast >= 7 ? '2-3-2' : type.abreast === 6 ? '3-3' : type.abreast === 5 ? '2-3' : '2-2' } }
+      assert.equal(setCabin(game, ac.id, { y: Math.min(20, type.maxSeats), w: 0, c: 0, f: 0 }, { y: 31, w: 38, c: 60, f: 83 }, seatConfig), null)
+      const restored = importSave(exportSave(game))!
+      assert.equal(restored.airline.fleet[0].typeId, id)
+      assert.equal(restored.airline.fleet[0].engineId, engineId)
+      assert.deepEqual(restored.airline.fleet[0].seatConfig, seatConfig)
+      flights += flown
+    }
+  }
+}
+const erj145: Model2D = JSON.parse(readFileSync('public/aircraft2d/models/embraere145.json', 'utf8'))
+assert(!selectedLayers(erj145, AIRCRAFT_BY_ID.erj145, 'ae3007a1').layers.some(l => /^(xr_|winglet)/.test(l.name)), 'LR não pode exibir as peças do XR')
+assert(!SOURCE_2D.sj100, 'Superjet com SaM146 não substitui SJ-100 com PD-8')
+assert.deepEqual(AIRCRAFT_BY_ID.sj100.engines, ['pd8'])
 for (const [id, source] of Object.entries(SOURCE_2D)) {
   const t = AIRCRAFT_BY_ID[id]
   assert(t && !t.payload, `Correspondência inválida: ${id}`)
@@ -29,7 +71,7 @@ for (const [id, source] of Object.entries(SOURCE_2D)) {
   for (const engine of t.engines) for (const winglet of [undefined, ...wingOptions(model, id)]) {
     const selection = selectedLayers(model, t, engine, { winglet })
     assert.equal(selection.layers.filter(l => l.name === 'fuselage').length, 1)
-    assert.equal(selection.layers.filter(l => /^engine_(ge|pw|rr|cfm|iae|ea|pj)$/.test(l.name)).length, 1, `${id} ${engine} tem motores sobrepostos/ausentes`)
+    assert.equal(selection.layers.filter(l => /^engine_(ge|pw|rr|cfm|iae|ea|pj|ae)$/.test(l.name)).length, 1, `${id} ${engine} tem motores sobrepostos/ausentes`)
     assert.equal(selection.layers.filter(l => l.pattern).length, 0)
     if (selection.warning) warnings.push(`${t.name} (${engine}): ${selection.warning}`)
     variants++
@@ -91,6 +133,9 @@ const qa = process.env.QA_DIR ?? '.qa'
 mkdirSync(qa, { recursive: true })
 writeFileSync(join(qa, 'partida-antiga.json'), JSON.stringify(old))
 writeFileSync(join(qa, 'partida-integrada.json'), JSON.stringify(s))
+const catalogue = newGame({ name: 'Catálogo clássico', code: 'CC', hub: 'GRU', seed: 42 })
+catalogue.airline.cash = 2e9
+writeFileSync(join(qa, 'partida-catalogo.json'), JSON.stringify(catalogue))
 
 const unused = models.filter(m => !Object.values(SOURCE_2D).includes(m.id))
 const noSource = AIRCRAFT_ALL.filter(m => !SOURCE_2D[m.id])
@@ -98,20 +143,21 @@ const report = [
   '# Correspondência de aeronaves 2D', '',
   `Fonte única: ${inventory.archive}. SHA-256: \`${inventory.sha256}\`.`, '',
   `${inventory.sourceFiles} recursos gráficos importados; ${seen.size} arquivos únicos. As 57 bases e ambas as resoluções foram preservadas.`, '',
-  `50 modelos do catálogo usam 44 bases do ZIP. Motores e winglets são selecionados por variante; ${variants} combinações verificadas.`, '',
+  `${Object.keys(SOURCE_2D).length} modelos do catálogo usam ${new Set(Object.values(SOURCE_2D)).size} bases do ZIP. Motores e winglets são selecionados por variante; ${variants} combinações verificadas.`, '',
   '| Modelo no jogo | Base do ZIP |', '|---|---|',
   ...Object.entries(SOURCE_2D).map(([id, source]) => `| ${AIRCRAFT_BY_ID[id].maker} ${AIRCRAFT_BY_ID[id].name} (${id}) | ${models.find(m => m.id === source)?.name} |`), '',
-  '## Modelos que sobraram', '', ...unused.map(m => `- ${m.name}`), '',
-  'Esses 13 modelos permanecem em public/aircraft2d/models e no acervo. Não foram acrescentados ao catálogo econômico sem fichas de desempenho.', '',
-  'O Sukhoi Superjet 100 do ZIP tem SaM146. O SJ-100 existente usa PD-8; a correspondência não foi tratada como exata.', '',
+  '## Bases que sobraram', '', ...(unused.length ? unused.map(m => `- ${m.name}`) : ['Nenhuma. Todas as 57 bases possuem uma aeronave utilizável no catálogo.']), '',
+  'As 13 bases antes sem correspondência agora estão cadastradas para compra, arrendamento, rotas, cabine e pintura. Fichas e fontes em [FONTES-AERONAVES-CLASSICAS.md](FONTES-AERONAVES-CLASSICAS.md).', '',
+  'O Sukhoi Superjet 100 (ssj100) do ZIP usa SaM146. O SJ-100 (sj100) existente usa PD-8 e conserva arte e ficha próprias.', '',
   '## Modelos novos sem arte equivalente no ZIP', '', ...noSource.map(m => `- ${m.maker} ${m.name} (${m.id})`), '',
-  'Os 12 cargueiros e cinco modelos de passageiros dessa lista conservam a arte anterior. Conversões de carga não recebem janelas de passageiros.', '',
+  'Os 12 cargueiros e cinco modelos de passageiros dessa lista conservam a arte anterior. Os passageiros sem base no ZIP mantêm o editor de cabine anterior, sem a galeria de poltronas importadas. Conversões de carga não recebem janelas de passageiros.', '',
   '## Variantes compartilhadas e limitações', '',
   '- A319/A320/A321neo usam as opções neo das respectivas bases. A321LR/XLR compartilham a base A321neo: portas e detalhes exclusivos de LR/XLR não estão individualizados no ZIP.',
   '- A350-900ULR compartilha a base A350-900. ATR 42/72 usam as bases de família; o ZIP não distingue todas as subvariantes.',
+  '- A nova entrada ERJ145 é LR: as camadas de strakes e winglets do XR ficam preservadas no acervo, sem aparecer no LR. O 747-400 cadastrado usa a asa com winglet, não a opção doméstica 400D. Essas subvariantes não são novos tipos de catálogo nesta integração.',
   ...[...new Set(warnings)].map(w => '- ' + w),
   '- Pinturas e opções de asa são visuais. A ficha de motorização, consumo, alcance e desempenho do catálogo continua sendo a do avião comprado.', '',
 ]
 mkdirSync('docs', { recursive: true })
 writeFileSync('docs/INTEGRACAO-AERONAVES-2D.md', report.join('\n'))
-console.log(`OK: ${seen.size} hashes; ${variants} combinações; ${SEAT_MODELS.length} poltronas; reforma e migração de save; ${unused.length} modelos sem correspondência.`)
+console.log(`OK: ${seen.size} hashes; ${variants} combinações; ${SEAT_MODELS.length} poltronas; 13 tipos comprados e arrendados, ${flights} voos, reforma e save; ${unused.length} bases sem correspondência.`)

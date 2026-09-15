@@ -9,13 +9,19 @@ Feito para publicar no GitHub Pages: `npm run build` gera uma pasta estática.
 
 ## Integração Sistema Aeronaves 2D
 
-50 modelos do catálogo recebem as camadas do ZIP fornecido pelo usuário, com pintura por camada, motores, winglets, textos, símbolos e fontes. A cabine inclui 28 modelos de poltrona e um mapa cuja distribuição participa da validação de espaço.
+63 modelos do catálogo recebem as camadas do ZIP fornecido pelo usuário, com pintura por camada, motores, winglets, textos, símbolos e fontes. A cabine inclui 28 modelos de poltrona e um mapa cuja distribuição participa da validação de espaço.
+
+As 13 bases que faltavam agora podem ser compradas, arrendadas e usadas em rotas: Q200, Q300, CRJ200, ERJ135LR, ERJ140LR, ERJ145LR, Superjet 100-95B, A318, 717-200, 737-600, A340-300, A340-600 e 747-400. Use a busca do Mercado para encontrá-las. As 57 bases do ZIP têm correspondência; os 17 modelos sem arte equivalente conservam seu sistema anterior. [Fichas, fontes e convenções dos novos tipos](docs/FONTES-AERONAVES-CLASSICAS.md).
 
 Veja [como usar a oficina](docs/OFICINA-2D.md) e [a lista de correspondências, sobras e limitações](docs/INTEGRACAO-AERONAVES-2D.md). As partidas anteriores continuam compatíveis.
 
 ![Oficina de pintura 2D](docs/pintura-2d.png)
 
 ![Modelos importados](docs/modelos-2d.png)
+
+![Regionais adicionados ao catálogo](docs/modelos-classicos-regionais.png)
+
+![Jatos adicionados ao catálogo](docs/modelos-classicos-jatos.png)
 
 ![painel do jogo](docs/painel.png)
 
@@ -71,7 +77,7 @@ pesada, com conta e dias de hangar.
 limite de rotações diárias por avião, crédito proporcional ao patrimônio.
 
 **Dados.** 180 aeroportos com código IATA, nome oficial, coordenadas reais,
-comprimento de pista e porte; **67 aeronaves (55 de passageiros e 12 cargueiros)** — variantes de verdade, não
+comprimento de pista e porte; **80 aeronaves (68 de passageiros e 12 cargueiros)** — variantes de verdade, não
 famílias genéricas — com consumo, velocidade, dimensões, limite de saídas e
 assentos por fileira reais. Os **alcances máximos** foram conferidos um a um
 nas fichas dos fabricantes (airbus.com, boeing.com, embraer.com,

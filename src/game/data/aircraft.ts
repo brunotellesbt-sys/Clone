@@ -106,6 +106,50 @@ const S = (
 ): Shape => ({ length, fuseD, height, span, wing, tail, engines, mount, prop, deck, winglet })
 
 export const AIRCRAFT: AircraftType[] = [
+  // Bases restantes do acervo 2D. Fichas e convenções de desempenho:
+  // docs/FONTES-AERONAVES-CLASSICAS.md. Preço, consumo e manutenção são do jogo.
+  A('q200', 'Dash 8 Q200', 'De Havilland Canada', 'turboprop', 39, 4, 1125, 289, 440, 17, 3280, 0.94, 0.88, 20, 1996,
+    ['pw123d'],
+    S(22.25, 2.69, 7.47, 25.89, 'high', 'ttail', 2, 'wing', true, 'single', 'none')),
+  A('q300', 'Dash 8 Q300', 'De Havilland Canada', 'turboprop', 56, 4, 924, 287, 580, 23, 3870, 0.98, 0.9, 22, 1996,
+    ['pw123b'],
+    S(25.68, 2.69, 7.49, 27.43, 'high', 'ttail', 2, 'wing', true, 'single', 'none')),
+  A('crj200', 'CRJ200', 'Bombardier', 'regional', 50, 4, 1400, 447, 750, 24, 5800, 1.06, 0.86, 22, 1996,
+    ['cf343b1'],
+    S(26.77, 2.69, 6.22, 21.21, 'low', 'ttail', 2, 'rear', false, 'single', 'fence')),
+  A('erj135', 'ERJ135LR', 'Embraer', 'regional', 37, 3, 1750, 447, 620, 19, 5774, 1.02, 0.88, 20, 1999,
+    ['ae3007a13'],
+    S(26.33, 2.28, 6.76, 20.04, 'low', 'ttail', 2, 'rear', false, 'single', 'none')),
+  A('erj140', 'ERJ140LR', 'Embraer', 'regional', 44, 3, 1650, 447, 680, 22, 6070, 1.03, 0.88, 20, 2001,
+    ['ae3007a13'],
+    S(28.45, 2.28, 6.76, 20.04, 'low', 'ttail', 2, 'rear', false, 'single', 'none')),
+  A('erj145', 'ERJ145LR', 'Embraer', 'regional', 50, 3, 1550, 447, 740, 25, 7448, 1.04, 0.89, 22, 1997,
+    ['ae3007a1'],
+    S(29.87, 2.28, 6.76, 20.04, 'low', 'ttail', 2, 'rear', false, 'single', 'none')),
+  // SaM146 do Superjet original. O SJ-100/PD-8 existente conserva id e ficha.
+  A('ssj100', 'Superjet 100-95B', 'Sukhoi', 'regional', 103, 5, 1646, 464, 1120, 43, 5680, 1.16, 0.96, 27, 2011,
+    ['sam1461s17'],
+    S(29.94, 3.46, 10.28, 27.8, 'low', 'conv', 2, 'wing', false, 'single', 'none')),
+  A('a318', 'A318-100', 'Airbus', 'narrowbody', 136, 6, 3100, 455, 2050, 78, 5869, 1.04, 0.98, 28, 2003,
+    ['cfm565b8', 'pw6124a'],
+    S(31.44, 3.95, 12.56, 34.1, 'low', 'conv', 2, 'wing', false, 'single', 'fence')),
+  A('b712', '717-200', 'Boeing', 'narrowbody', 134, 5, 2055, 440, 1750, 55, 5750, 1.07, 0.94, 28, 1999,
+    ['br715c1'],
+    S(37.81, 3.34, 8.92, 28.45, 'low', 'ttail', 2, 'rear', false, 'single', 'none')),
+  // 149 é o limite de evacuação; os layouts usuais da Boeing têm até 132.
+  A('b736', '737-600', 'Boeing', 'narrowbody', 149, 6, 3050, 455, 2050, 80, 6160, 1.03, 0.96, 28, 1998,
+    ['cfm567b22'],
+    S(31.24, 3.76, 12.57, 34.31, 'low', 'conv', 2, 'wing', false, 'single', 'none')),
+  A('a343', 'A340-300', 'Airbus', 'widebody', 440, 8, 7300, 470, 6800, 235, 9820, 1.28, 1.02, 70, 1993,
+    ['cfm565c4'],
+    S(63.69, 5.64, 16.99, 60.3, 'low', 'conv', 4, 'wing', false, 'single', 'fence')),
+  // TCDS EASA.A.015, seção A340-600: limite de evacuação de 440 passageiros.
+  A('a346', 'A340-600', 'Airbus', 'widebody', 440, 8, 7900, 470, 8000, 295, 10200, 1.36, 1.04, 85, 2002,
+    ['trent556'],
+    S(75.36, 5.64, 17.93, 63.45, 'low', 'conv', 4, 'wing', false, 'single', 'fence')),
+  A('b744', '747-400', 'Boeing', 'widebody', 660, 10, 7260, 490, 9700, 285, 10500, 1.48, 1.01, 95, 1989,
+    ['cf680c2b1f', 'pw4056', 'rb524g'],
+    S(70.67, 6.5, 19.41, 64.44, 'low', 'conv', 4, 'wing', false, 'hump', 'blended')),
   // ------------------------------------------------------------ turboélice
   A('atr42', 'ATR 42-600', 'ATR', 'turboprop', 50, 4, 726, 275, 480, 22, 3600, 0.82, 0.9, 20, 2012,
     ['pw127m', 'pw127xt'],
@@ -362,6 +406,9 @@ export const acLabel = (t: AircraftType) =>
 /** Família comercial, para agrupar o catálogo na tela de mercado. */
 
 export const FAMILY_OF: Record<string, string> = {
+  q200: 'Dash 8', q300: 'Dash 8', crj200: 'CRJ',
+  erj135: 'ERJ', erj140: 'ERJ', erj145: 'ERJ', ssj100: 'Superjet',
+  a318: 'A320ceo', b712: '717', b736: '737 NG', a343: 'A340', a346: 'A340', b744: '747',
   atr42: 'ATR', atr72: 'ATR', q400: 'Dash 8',
   crj700: 'CRJ', crj900: 'CRJ', crj1000: 'CRJ',
   e170: 'E-Jet', e175: 'E-Jet', e190: 'E-Jet', e195: 'E-Jet',
