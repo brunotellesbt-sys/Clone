@@ -38,12 +38,35 @@ export type PieceSize = 'small' | 'medium' | 'large'
  */
 export type EmblemId = string
 
+export interface PaintMark2D {
+  text?: string
+  file?: string
+  font?: string
+  color: string
+  x: number
+  y: number
+  scale: number
+  rotation: number
+}
+export interface Paint2D {
+  layers?: Record<string, string | null>
+  winglet?: string
+  eyeMask?: boolean
+  engine?: string
+  marks?: Partial<Record<'primary' | 'secondary' | 'third' | 'alliance' | 'tail' | 'fuselage' | 'engine' | 'winglet', PaintMark2D>>
+}
+
+export type SeatConfig = Partial<Record<CabinClass, { style: string; layout: string }>>
+
 /**
  * Pintura por peça. Cada campo corresponde a uma parte real da aeronave, para
  * que dê para montar uma livery de verdade em vez de faixas atravessando tudo.
  */
 export interface Livery {
   v: 2
+  /** Camadas e inscrições específicas de cada modelo importado. */
+  aircraft2d?: Record<string, Paint2D>
+  engine?: string
 
   // ---- fuselagem
   /** Cor principal da fuselagem. */
@@ -169,6 +192,8 @@ export interface Aircraft {
   seats: Cabins
   /** Passo de poltrona por classe, em polegadas. */
   pitch: Cabins
+  /** Modelo da poltrona e distribuição dos blocos por classe. */
+  seatConfig?: SeatConfig
   /** Idade em anos (fracionária). */
   age: number
   hours: number

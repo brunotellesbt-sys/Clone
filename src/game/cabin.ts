@@ -1,3 +1,4 @@
+import { baseAbreast, rowCount, SEAT_BY_ID, seatLayouts } from './seatModels'
 // Configuração de cabine. Vale a mesma aritmética que uma companhia usa de
 // verdade: a cabine tem um comprimento útil, cada classe tem um número de
 // assentos por fileira, e cada fileira come o passo de poltrona escolhido.
@@ -5,7 +6,7 @@
 // contrário. Por cima de tudo isso está o limite de saídas de emergência, que
 // nenhuma configuração pode furar.
 import type { AircraftType } from './data/aircraft'
-import { CABINS, type CabinClass, type Cabins } from './types'
+import { CABINS, type CabinClass, type Cabins, type SeatConfig } from './types'
 
 /** Passo de poltrona em polegadas: mínimo praticado, padrão e máximo. */
 export const PITCH_RANGE: Record<CabinClass, [number, number, number]> = {
@@ -26,16 +27,16 @@ export function pitchName(cabin: CabinClass, inches: number): string {
 }
 
 /** Assentos por fileira em cada classe, a partir da econômica do modelo. */
-export function abreastOf(t: AircraftType, cabin: CabinClass): number {
-  const n = t.abreast
-  if (cabin === 'y') return n
-  if (cabin === 'w') return n >= 9 ? n - 1 : n
-  if (cabin === 'c') return n <= 4 ? 3 : n <= 6 ? 4 : 6
-  return n <= 4 ? 2 : 4
+export function abreastOf(t: AircraftType, cabin: CabinClass, config?: SeatConfig): number {
+  const setting = config?.[cabin]
+  return setting && seatLayouts(t, cabin, setting.style).includes(setting.layout)
+    ? rowCount(setting.layout) : baseAbreast(t, cabin)
 }
 
 /** Descrição da fileira: "3-3", "2-4-2", "1-2-1". */
-export function rowLayout(t: AircraftType, cabin: CabinClass): string {
+export function rowLayout(t: AircraftType, cabin: CabinClass, config?: SeatConfig): string {
+  const setting = config?.[cabin]
+  if (setting && seatLayouts(t, cabin, setting.style).includes(setting.layout)) return setting.layout
   const n = abreastOf(t, cabin)
   if (n <= 3) return n === 3 ? '2-1' : n === 2 ? '1-1' : `${n}`
   if (n === 4) return '2-2'
@@ -68,11 +69,11 @@ export function cabinLength(t: AircraftType): number {
 }
 
 /** Comprimento ocupado por uma configuração, em polegadas. */
-export function cabinUsed(t: AircraftType, seats: Cabins, pitch: Cabins): number {
+export function cabinUsed(t: AircraftType, seats: Cabins, pitch: Cabins, config?: SeatConfig): number {
   let used = MONUMENTS
   for (const c of CABINS) {
     if (seats[c] <= 0) continue
-    used += Math.ceil(seats[c] / abreastOf(t, c)) * pitch[c] + PER_CLASS
+    used += Math.ceil(seats[c] / abreastOf(t, c, config)) * pitch[c] + PER_CLASS
   }
   return used - (sumSeats(seats) > 0 ? PER_CLASS : 0)
 }
@@ -80,8 +81,8 @@ export function cabinUsed(t: AircraftType, seats: Cabins, pitch: Cabins): number
 export const sumSeats = (s: Cabins) => s.y + s.w + s.c + s.f
 
 /** Quantas fileiras cada classe ocupa. */
-export const rowsOf = (t: AircraftType, seats: Cabins, c: CabinClass) =>
-  Math.ceil(seats[c] / abreastOf(t, c))
+export const rowsOf = (t: AircraftType, seats: Cabins, c: CabinClass, config?: SeatConfig) =>
+  Math.ceil(seats[c] / abreastOf(t, c, config))
 
 export interface CabinCheck {
   used: number
@@ -90,16 +91,27 @@ export interface CabinCheck {
   limit: number
   overLength: boolean
   overLimit: boolean
+  invalid: boolean
+  seatError?: string
   ok: boolean
 }
 
-export function checkCabin(t: AircraftType, seats: Cabins, pitch: Cabins): CabinCheck {
-  const used = cabinUsed(t, seats, pitch)
+export function checkCabin(t: AircraftType, seats: Cabins, pitch: Cabins, config?: SeatConfig): CabinCheck {
+  const used = cabinUsed(t, seats, pitch, config)
   const available = cabinLength(t)
   const total = sumSeats(seats)
   const overLength = used > available + 0.5
   const overLimit = total > t.maxSeats
-  return { used, available, seats: total, limit: t.maxSeats, overLength, overLimit, ok: !overLength && !overLimit }
+  const invalid = CABINS.some(c => !Number.isInteger(seats[c]) || seats[c] < 0 || !Number.isFinite(pitch[c]) || pitch[c] < PITCH_RANGE[c][0] || pitch[c] > PITCH_RANGE[c][2]) || total <= 0 || t.abreast <= 0
+  let seatError: string | undefined
+  for (const c of CABINS) {
+    const setting = config?.[c]
+    if (!setting || seats[c] === 0) continue
+    const model = SEAT_BY_ID[setting.style]
+    if (!model || model.cabin !== c || !seatLayouts(t, c, setting.style).includes(setting.layout)) seatError = 'Distribuição incompatível com a poltrona ou largura da cabine.'
+    else if (pitch[c] < model.minPitch) seatError = `${model.name} exige passo de pelo menos ${model.minPitch}″.`
+  }
+  return { used, available, seats: total, limit: t.maxSeats, overLength, overLimit, invalid, seatError, ok: !overLength && !overLimit && !invalid && !seatError }
 }
 
 /**

@@ -1,3 +1,5 @@
+import type { SeatConfig } from './types'
+import { normalizeSeats, seatChangeCost } from './seatModels'
 import { AIRCRAFT_BY_ID, type AircraftType } from './data/aircraft'
 import { SAVE_VERSION } from './save'
 import { AIRPORT_BY_IATA } from './data/airports'
@@ -294,20 +296,23 @@ export function setFare(s: GameState, routeId: string, cabin: keyof Cabins, mult
   r.fare[cabin] = Math.max(0.55, Math.min(1.9, mult))
 }
 
-export function setCabin(s: GameState, acId: string, seats: Cabins, pitch: Cabins): string | null {
+export function setCabin(s: GameState, acId: string, seats: Cabins, pitch: Cabins, seatConfig?: SeatConfig): string | null {
   const ac = aircraftOf(s, acId)
   if (!ac) return null
   const t = modelOf(ac)
   const p = clampPitch(pitch)
-  const chk = checkCabin(t, seats, p)
+  const chk = checkCabin(t, seats, p, seatConfig)
+  if (chk.invalid) return 'Informe uma quantidade válida de assentos para uma aeronave de passageiros.'
+  if (chk.seatError) return chk.seatError
   if (chk.overLength) return 'A configuração não cabe no comprimento da cabine.'
   if (chk.overLimit) return `O limite de saídas do ${t.name} é de ${t.maxSeats} passageiros.`
   // Poltrona premium é cara e demora a instalar; mexer no passo da econômica é barato.
-  const cost = 240000 + 2600 * seats.w + 34000 * seats.c + 90000 * seats.f
+  const cost = seatChangeCost(seats, seatConfig)
   if (s.airline.cash < cost) return `A reconfiguração custa ${money(cost)}.`
   s.airline.cash -= cost
   ac.seats = { y: Math.round(seats.y), w: Math.round(seats.w), c: Math.round(seats.c), f: Math.round(seats.f) }
   ac.pitch = p
+  ac.seatConfig = normalizeSeats(t, seatConfig)
   ac.groundedUntil = s.day + (seats.c + seats.f > 0 ? 4 : 2)
   return null
 }
