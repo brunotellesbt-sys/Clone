@@ -1,3 +1,4 @@
+import { normalizePaint2d } from './paint2dConfig'
 import type { Livery, LiveryV1 } from '../game/types'
 
 /** Base de qualquer pintura nova: branco de fábrica, sem enfeite. */
@@ -99,7 +100,7 @@ export const LIVERY_PRESETS: { name: string; livery: Livery }[] = [
 /** Converte a pintura antiga para o modelo por peça, sem perder as cores. */
 export function migrateLivery(old: Livery | LiveryV1 | undefined | null): Livery {
   if (!old) return { ...BLANK_LIVERY }
-  if ((old as Livery).v === 2) return { ...BLANK_LIVERY, ...(old as Livery) }
+  if ((old as Livery).v === 2) return { ...BLANK_LIVERY, ...(old as Livery), aircraft2d: normalizePaint2d((old as Livery).aircraft2d) }
   const v1 = old as LiveryV1
   const cheatStyle = (['none', 'straight', 'wide', 'double', 'wave', 'split'] as const).includes(
     v1.cheatStyle as never,
@@ -117,6 +118,7 @@ export function migrateLivery(old: Livery | LiveryV1 | undefined | null): Livery
     tailAccent: v1.tailAccent ?? BLANK_LIVERY.tailAccent,
     tailStyle: (v1.tailStyle as Livery['tailStyle']) ?? 'solid',
     stab: v1.tail ?? BLANK_LIVERY.stab,
+    engine: v1.engine ?? v1.base ?? BLANK_LIVERY.fuselage,
     winglet: v1.winglet ?? BLANK_LIVERY.winglet,
     titles: v1.titles ?? BLANK_LIVERY.titles,
     titleFont: (v1.titleFont as Livery['titleFont']) ?? 'wide',

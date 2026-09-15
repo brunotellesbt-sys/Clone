@@ -74,6 +74,10 @@ da Wikimedia Commons é carregada por link e creditada em
 
 ## Skills deste repositório
 
+### Acervo 2D autorizado pelo usuário
+
+A integração de `Sistema Aeronaves 2D.zip` é uma exceção expressamente solicitada pelo dono do projeto à regra geral sobre imagens externas acima. O acervo fica em `public/aircraft2d`, com inventário e procedência próprios. Não o descreva como arte gerada por IA, Commons ou MIT. Veja `docs/OFICINA-2D.md` e `public/aircraft2d/ORIGEM.md`. Os módulos Hermes do arquivo servem como referência; não são executados. Essa exceção não autoriza buscar outros pacotes externos.
+
 Estão em `.claude/skills/`. Cada uma cobre uma área onde errar é caro:
 
 - **skyline-sim** — demanda, custos, divisão de mercado, tick diário, IA.

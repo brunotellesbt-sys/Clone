@@ -1,0 +1,27 @@
+name: Validar integração 2D
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BROWSER_PATH: /usr/bin/google-chrome
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run aircraft2d:check
+      - run: npm run cabines
+      - run: npm run sim -- GRU 1460
+      - run: npm run smoke

@@ -195,3 +195,22 @@ label.field span { display: block; font-size: 11px; text-transform: uppercase; l
 
 /* na tabela de cabine os controles ficam colados no número */
 td > input[type="range"] { width: 100%; margin: 0 0 2px; }
+
+/* Acervo importado e oficina 2D; grade limitada para não carregar o ZIP inteiro. */
+.a2-layer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px,1fr)); gap: 12px; margin: 16px 0; max-height: 640px; overflow: auto; }
+.a2-layer { background: #192841; border: 1px solid var(--line); border-radius: 8px; padding: 10px; color: var(--ink); display: flex; flex-direction: column; gap: 8px; overflow: hidden; text-decoration: none; }
+.a2-layer img { width: 100%; height: 86px; object-fit: contain; background: #728099; border-radius: 4px; }
+.a2-layer small { overflow-wrap: anywhere; }
+.a2-layer input[type=color] { width: 100%; height: 28px; }
+.a2-cabin { margin-top: 24px; }
+.a2-seat-card { padding: 12px; border: 1px solid var(--line); border-radius: 10px; display: grid; gap: 8px; }
+.a2-seat-photo { width: 100%; height: 110px; object-fit: contain; background: #0c1526; }
+.a2-seatmap { max-height: 540px; overflow: auto; border: 2px solid #405978; border-radius: 60px; padding: 36px 8px; margin: 20px auto; max-width: 470px; text-align: center; background: #0c1526; }
+.a2-seat-zone { padding: 12px 0; }
+.a2-seat-zone > b { display: block; margin-bottom: 14px; }
+.a2-seat-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.a2-seat-row > small { width: 18px; font-size: 9px; }
+.a2-seat-block { display: flex; gap: 1px; }
+.a2-seat { display: inline-flex; width: 22px; height: 24px; align-items: center; justify-content: center; }
+.a2-seat img { width: 100%; height: 100%; object-fit: contain; }
+@media (max-width: 600px) { .a2-seat { width: 16px; height: 21px; } .a2-seat-row { gap: 7px; } .a2-layer-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }

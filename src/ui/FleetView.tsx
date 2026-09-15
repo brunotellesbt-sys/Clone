@@ -1,3 +1,5 @@
+import { SeatMapEditor } from './SeatMapEditor'
+import { seatChangeCost } from '../game/seatModels'
 import { useState } from 'react'
 import { AIRCRAFT_BY_ID, acLabel, ehCargueiro } from '../game/data/aircraft'
 import { ENGINES, engineLabel } from '../game/data/engines'
@@ -9,7 +11,7 @@ import { CLASS_FARE_MULT } from '../game/demand'
 import { resaleValue, sumCabins } from '../game/economy'
 import { assignAircraft, modelOf, money, num, pct, sellAircraft, setCabin, typeOf, unassignAircraft } from '../game/engine'
 import { useGame } from '../store/useGame'
-import { CABIN_LABEL, CABINS, type Aircraft, type Cabins } from '../game/types'
+import { CABIN_LABEL, CABINS, type Aircraft, type Cabins, type SeatConfig } from '../game/types'
 import { AircraftArt } from '../livery/AircraftArt'
 import { Bar, Card, Empty, Modal } from './components/Bits'
 
@@ -152,7 +154,8 @@ function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
   const [seats, setSeats] = useState<Cabins>({ ...ac.seats })
   const [pitch, setPitch] = useState<Cabins>(clampPitch(ac.pitch))
 
-  const chk = checkCabin(t, seats, pitch)
+  const [seatConfig, setSeatConfig] = useState<SeatConfig>(ac.seatConfig ?? {})
+  const chk = checkCabin(t, seats, pitch, seatConfig)
   const total = sumSeats(seats)
   const inches = cabinLength(t)
 
@@ -180,6 +183,7 @@ function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
               const built = l.build(t)
               setSeats(built.seats)
               setPitch(built.pitch)
+              setSeatConfig({})
             }}
           >
             {l.name}
@@ -198,17 +202,17 @@ function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
         <tbody>
           {CABINS.map((c) => {
             const [min, , max] = PITCH_RANGE[c]
-            const rows = seats[c] > 0 ? rowsOf(t, seats, c) : 0
+            const rows = seats[c] > 0 ? rowsOf(t, seats, c, seatConfig) : 0
             return (
               <tr key={c}>
                 <td><b>{CABIN_LABEL[c]}</b><br /><small className="muted">{pitchName(c, pitch[c])}</small></td>
-                <td className="muted">{rowLayout(t, c)}</td>
+                <td className="muted">{rowLayout(t, c, seatConfig)}</td>
                 <td>
                   <input
-                    type="range" min={0} max={t.maxSeats} step={abreastOf(t, c)}
+                    type="range" min={0} max={t.maxSeats} step={abreastOf(t, c, seatConfig)}
                     value={seats[c]} onChange={(e) => set(c, +e.target.value)}
                   />
-                  <b>{seats[c]}</b>
+                  <input aria-label={`Quantidade ${c}`} type="number" min={0} max={t.maxSeats} step={1} value={seats[c]} onChange={e => set(c, +e.target.value)} style={{ width: 80 }} />
                 </td>
                 <td>
                   <input type="range" min={min} max={max} value={pitch[c]} onChange={(e) => setP(c, +e.target.value)} />
@@ -248,7 +252,7 @@ function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
             className="btn primary"
             disabled={!chk.ok || total === 0}
             onClick={() => {
-              const err = act((s) => setCabin(s, ac.id, seats, pitch))
+              const err = act((s) => setCabin(s, ac.id, seats, pitch, seatConfig))
               if (err) toast(err, 'error')
               else onClose()
             }}
@@ -257,6 +261,9 @@ function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
           </button>
         </div>
       </div>
+      <p className="dim">Custo da reforma: <b>{money(seatChangeCost(seats, seatConfig))}</b> · {seats.c + seats.f > 0 ? 4 : 2} dias parado.</p>
+      {chk.seatError && <p className="bad">{chk.seatError}</p>}
+      <SeatMapEditor type={t} seats={seats} pitch={pitch} config={seatConfig} change={(c, p) => { setSeatConfig(c); setPitch(p) }} />
       {chk.overLength && <p className="bad" style={{ fontSize: 12, marginBottom: 0 }}>Não cabe: tire assentos ou reduza o passo.</p>}
       {chk.overLimit && <p className="bad" style={{ fontSize: 12, marginBottom: 0 }}>Acima do limite de saídas de emergência do modelo.</p>}
     </Modal>

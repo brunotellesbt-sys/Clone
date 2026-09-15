@@ -1,3 +1,4 @@
+import { normalizeSeats } from './seatModels'
 import { migrateLivery } from '../livery/presets'
 import { AIRCRAFT_BY_ID } from './data/aircraft'
 import { AIRPORT_BY_IATA } from './data/airports'
@@ -42,6 +43,7 @@ function migrate(s: GameState): GameState | null {
     if (!t) return []
     ac.engineId = engineIdFor(t, ac.engineId)
     ac.pitch = clampPitch(ac.pitch)
+    ac.seatConfig = normalizeSeats(t, ac.seatConfig)
     if (!ac.seats || typeof ac.seats.y !== 'number') ac.seats = defaultCabin(t).seats
     // Save antigo não guardava o país da matrícula: cai no da base de hoje.
     ac.cc = ac.cc || AIRPORT_BY_IATA[s.airline.hubs[0]]?.cc || 'BR'

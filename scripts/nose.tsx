@@ -7,6 +7,11 @@ import { createServer } from 'node:http'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { chromium } from 'playwright'
+import { existsSync, mkdirSync } from 'node:fs'
+import { join } from 'node:path'
+const qaDir = process.env.QA_DIR ?? '.qa'
+mkdirSync(qaDir, { recursive: true })
+const browserPath = process.env.BROWSER_PATH ?? ['/opt/pw-browsers/chromium', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync)
 import { AIRCRAFT } from '../src/game/data/aircraft'
 import { LiveryPlane } from '../src/livery/LiveryPlane'
 import { BLANK_LIVERY } from '../src/livery/presets'
@@ -40,18 +45,18 @@ figure{margin:0;background:#fff;border-radius:8px;padding:6px}
 figcaption{font-weight:700;color:#334;padding:2px 4px}
 svg{width:100%;display:block}
 </style>${cards.join('')}`
-writeFileSync('/tmp/nose.html', html)
+writeFileSync(join(qaDir, 'nose.html'), html)
 
 const server = createServer((_, res) => {
   res.writeHead(200, { 'Content-Type': 'text/html' })
   res.end(html)
 })
 await new Promise<void>((r) => server.listen(4177, () => r()))
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' })
+const browser = await chromium.launch({ executablePath: browserPath })
 const page = await browser.newPage({ viewport: { width: 1400, height: 900 }, deviceScaleFactor: 2 })
 await page.goto('http://localhost:4177/')
 await page.waitForTimeout(200)
-await page.screenshot({ path: '/tmp/nose.png', fullPage: true })
+await page.screenshot({ path: join(qaDir, 'nose.png'), fullPage: true })
 await browser.close()
 server.close()
 console.log('ok')

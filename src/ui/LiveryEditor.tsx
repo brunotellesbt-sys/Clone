@@ -1,4 +1,8 @@
 import { useState } from 'react'
+import { Aircraft2DEditor } from './Aircraft2DEditor'
+import { SOURCE_2D } from '../livery/aircraft2d'
+import { aircraftPng, downloadFile } from '../livery/export'
+import { ENGINES } from '../game/data/engines'
 import { AIRCRAFT_ALL, acLabel, AIRCRAFT_BY_ID } from '../game/data/aircraft'
 import type { Livery } from '../game/types'
 import { AircraftArt } from '../livery/AircraftArt'
@@ -47,6 +51,7 @@ type ColorKey = Extract<
 export function LiveryEditor() {
   const { state, act, toast } = useGame()
   const [preview, setPreview] = useState('b737')
+  const [chosenEngine, setChosenEngine] = useState('')
   const [section, setSection] = useState<SectionId>('fuselagem')
   const [openField, setOpenField] = useState<ColorKey | OptColorKey | null>('fuselage')
   const livery = state.airline.livery
@@ -54,8 +59,7 @@ export function LiveryEditor() {
   const hub = AIRPORT_BY_IATA[state.airline.hubs[0]]
   const paisDoHub = hub?.country ?? ''
   const bandeiraDoHub = !!hub && temBandeira(hub.cc)
-  // Sem escolha de motor nesta tela: mostra a arte do motor de série.
-  const previewEngineId = type.engines[0]
+  const previewEngineId = type.engines.includes(chosenEngine) ? chosenEngine : type.engines[0]
 
   const set = <K extends keyof Livery>(k: K, v: Livery[K]) =>
     act((s) => {
@@ -67,32 +71,13 @@ export function LiveryEditor() {
       s.airline.livery = structuredClone(l)
     })
 
-  function exportPng() {
+  async function exportPng() {
     const svg = document.querySelector('#livery-preview svg') as SVGSVGElement | null
     if (!svg) return
-    const xml = new XMLSerializer().serializeToString(svg)
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = 2400
-      canvas.height = Math.round((img.height / img.width) * 2400) || 720
-      const ctx = canvas.getContext('2d')!
-      ctx.fillStyle = '#0d1425'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-      try {
-        const a = document.createElement('a')
-        a.download = `${state.airline.code}-${type.id}.png`
-        a.href = canvas.toDataURL('image/png')
-        a.click()
-        toast('Imagem da pintura baixada.')
-      } catch {
-        toast('A imagem de origem bloqueou o download neste navegador.', 'error')
-      }
-    }
-    img.onerror = () => toast('Não consegui gerar o PNG neste navegador.', 'error')
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml)
+    try {
+      downloadFile(`${state.airline.code}-${type.id}.png`, await aircraftPng(svg))
+      toast('Imagem da pintura baixada.')
+    } catch { toast('Não foi possível carregar todas as camadas para gerar o PNG.', 'error') }
   }
 
   /** Cor opcional: nula herda de outro setor, e o editor diz de qual. */
@@ -129,10 +114,13 @@ export function LiveryEditor() {
         title="Pintura da frota"
         right={
           <div className="row tight">
-            <select value={preview} onChange={(e) => setPreview(e.target.value)} style={{ width: 230 }}>
+            <select aria-label="Aeronave da pintura" value={preview} onChange={(e) => setPreview(e.target.value)} style={{ width: 230 }}>
               {AIRCRAFT_ALL.map((a) => (
                 <option key={a.id} value={a.id}>{acLabel(a)}</option>
               ))}
+            </select>
+            <select aria-label="Motor da prévia" value={previewEngineId} onChange={e => setChosenEngine(e.target.value)} style={{ width: 185 }}>
+              {type.engines.map(id => <option key={id} value={id}>{ENGINES[id]?.name ?? id}</option>)}
             </select>
             <button className="btn sm" onClick={exportPng}>Baixar PNG</button>
           </div>
@@ -148,7 +136,7 @@ export function LiveryEditor() {
             flagCC={hub?.cc}
           />
         </div>
-        {creditLine(preview, previewEngineId) && (
+        {!SOURCE_2D[preview] && creditLine(preview, previewEngineId) && (
           <p className="muted" style={{ fontSize: 11, margin: '6px 2px 0' }}>
             {creditLine(preview, previewEngineId)}{' '}
             <a
@@ -161,7 +149,7 @@ export function LiveryEditor() {
         )}
       </Card>
 
-      <div className="split">
+      {SOURCE_2D[preview] ? <Aircraft2DEditor key={preview} type={type} engineId={previewEngineId} livery={livery} change={apply} toast={toast} /> : <div className="split">
         <Card>
           <div className="nav" style={{ margin: '-14px -14px 10px', padding: '6px 8px 0', borderRadius: '12px 12px 0 0' }}>
             {SECTIONS.map((s) => (
@@ -411,7 +399,7 @@ export function LiveryEditor() {
             </div>
           </Card>
         </div>
-      </div>
+      </div>}
     </div>
   )
 }

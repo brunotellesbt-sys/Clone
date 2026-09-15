@@ -7,11 +7,21 @@ frota do seu jeito.
 
 Feito para publicar no GitHub Pages: `npm run build` gera uma pasta estática.
 
+## Integração Sistema Aeronaves 2D
+
+50 modelos do catálogo recebem as camadas do ZIP fornecido pelo usuário, com pintura por camada, motores, winglets, textos, símbolos e fontes. A cabine inclui 28 modelos de poltrona e um mapa cuja distribuição participa da validação de espaço.
+
+Veja [como usar a oficina](docs/OFICINA-2D.md) e [a lista de correspondências, sobras e limitações](docs/INTEGRACAO-AERONAVES-2D.md). As partidas anteriores continuam compatíveis.
+
+![Oficina de pintura 2D](docs/pintura-2d.png)
+
+![Modelos importados](docs/modelos-2d.png)
+
 ![painel do jogo](docs/painel.png)
 
 ![catálogo com motorização](docs/mercado.png)
 
-![editor de cabine](docs/cabine-editor.png)
+![editor de cabine com poltronas 2D](docs/cabine-2d.png)
 
 ## Rodar
 
@@ -32,7 +42,7 @@ Requer Node 20 ou mais novo.
 
 O workflow em `.github/workflows/deploy.yml` compila e publica. O Vite está com
 `base: './'`, então o mesmo build funciona em `usuario.github.io/repo/`, em
-domínio próprio ou aberto direto do disco — não precisa configurar caminho.
+domínio próprio — não precisa configurar caminho. Para abrir o build localmente, use `npm run preview`: os manifestos precisam ser servidos por HTTP.
 
 ## Como o jogo funciona
 
@@ -61,7 +71,7 @@ pesada, com conta e dias de hangar.
 limite de rotações diárias por avião, crédito proporcional ao patrimônio.
 
 **Dados.** 180 aeroportos com código IATA, nome oficial, coordenadas reais,
-comprimento de pista e porte; **47 aeronaves** — variantes de verdade, não
+comprimento de pista e porte; **67 aeronaves (55 de passageiros e 12 cargueiros)** — variantes de verdade, não
 famílias genéricas — com consumo, velocidade, dimensões, limite de saídas e
 assentos por fileira reais. Os **alcances máximos** foram conferidos um a um
 nas fichas dos fabricantes (airbus.com, boeing.com, embraer.com,
