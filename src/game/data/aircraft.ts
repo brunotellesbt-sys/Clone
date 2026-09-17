@@ -92,13 +92,27 @@ export interface Shape {
  * para 2.200 m.
  */
 const CAMPO_CURTO = new Set([
-  'atr42', 'atr72', 'atr72f', 'q400',
-  'crj700', 'crj900', 'crj1000',
+  // turboélices e regionais: campo curto é a razão de existir da categoria
+  'atr42', 'atr72', 'atr72f', 'q200', 'q300', 'q400',
+  'crj200', 'crj700', 'crj900', 'crj1000',
   'e170', 'e175', 'e190', 'e195', 'e190e2', 'e195e2',
+  // SHARP na Airbus, SFP na Boeing
   'a220100', 'a220300',
   'a319', 'a319neo', 'a320', 'a320neo',
   'b73g', 'b737', 'b737f', 'b37m', 'b38m',
 ])
+
+/*
+ * Falta conferir, um por um, contra operação real — não entraram porque eu não
+ * pesquisei, e não porque se sabe que não têm:
+ *
+ *   erj135, erj140, erj145, arj21, ssj100, sj100, an148, an158
+ *   b712, b736, a318
+ *
+ * O ERJ 145 é o caso mais gritante: com 2.270 m ele não serve Congonhas, e
+ * operou lá por anos. Chutar a lista seria repetir o erro que gerou este
+ * arquivo — o número tem de sair de fonte, como saíram o SHARP e o SFP.
+ */
 
 /**
  * Quanto da pista de MTOW o tipo com pacote de campo curto realmente precisa.
