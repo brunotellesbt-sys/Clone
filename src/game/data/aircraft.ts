@@ -101,6 +101,15 @@ const CAMPO_CURTO = new Set([
   'erj135', 'erj140', 'erj145',
   // Superjet: decolagem curta demonstrada na certificação, testada em Bromma.
   'ssj100', 'sj100',
+  // ARJ21: feito para aeroporto de altitude e pista curta do oeste da China —
+  // 1.472 m de decolagem, certificado até 2.438 m de elevação.
+  'arj21',
+  // An-148 e An-158: projetados para pista curta e não pavimentada, inclusive
+  // gelo e neve compactados.
+  'an148', 'an158',
+  // 717-200: herdeiro do MD-95/DC-9, 1.680 m no peso máximo e vendido como
+  // avião de campo curto.
+  'b712',
 
   // SHARP na Airbus. O A318 vai além: é o maior avião comercial certificado
   // pela EASA para aproximação íngreme, que é o que abre London City e seus
@@ -129,19 +138,10 @@ const CAMPO_CURTO = new Set([
  */
 
 /*
- * Ainda sem fonte, e por isso de fora — não porque se saiba que não têm:
- *
- *   b712    717-200, derivado do MD-95/DC-9
- *   arj21   ARJ21-700
- *   an148   An-148
- *   an158   An-158
- *
- * E o MAX 9 e o MAX 10 ficam de fora de propósito: o SFP que a Boeing
- * documenta é pacote do NG, e o MAX tem hipersustentação diferente. Estender
- * um ao outro seria suposição, não dado.
- *
- * Chutar qualquer um deles repetiria o erro que gerou este arquivo: o número
- * tem de sair de fonte, como saíram o SHARP, o SFP e a certificação do A318.
+ * O MAX 9 e o MAX 10 ficam de fora de propósito: o SFP que a Boeing documenta
+ * é pacote do NG, e o MAX tem hipersustentação diferente. Estender um ao outro
+ * seria suposição, não dado — e o número aqui tem de sair de fonte, como
+ * saíram o SHARP, o SFP, a certificação do A318 e a ficha do ARJ21.
  */
 
 /**
@@ -266,10 +266,10 @@ export const AIRCRAFT: AircraftType[] = [
   A('e175', 'E175', 'Embraer', 'regional', 88, 4, 2200, 447, 970, 50, 4900, 0.92, 0.99, 25, 2005,
     ['cf348e5'],
     S(31.68, 3.01, 9.86, 28.72, 'low', 'conv', 2, 'wing', false, 'single', 'fence')),
-  A('e190', 'E190', 'Embraer', 'regional', 114, 4, 2450, 447, 1150, 56, 5500, 0.95, 1.0, 30, 2005,
+  A('e190', 'E190', 'Embraer', 'regional', 114, 4, 2450, 447, 1150, 56, 6890, 0.95, 1.0, 30, 2005,
     ['cf3410e5', 'cf3410e6'],
     S(36.24, 3.01, 10.28, 28.72, 'low', 'conv', 2, 'wing', false, 'single', 'fence')),
-  A('e195', 'E195', 'Embraer', 'regional', 124, 4, 2300, 447, 1220, 60, 6100, 0.97, 1.0, 30, 2006,
+  A('e195', 'E195', 'Embraer', 'regional', 124, 4, 2300, 447, 1220, 60, 7149, 0.97, 1.0, 30, 2006,
     ['cf3410e6'],
     S(38.65, 3.01, 10.55, 28.72, 'low', 'conv', 2, 'wing', false, 'single', 'fence')),
   A('e190e2', 'E190-E2', 'Embraer', 'regional', 114, 4, 2950, 460, 990, 61, 5300, 0.86, 1.05, 28, 2018,

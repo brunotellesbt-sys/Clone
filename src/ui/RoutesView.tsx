@@ -4,6 +4,7 @@ import { AIRPORTS, AIRPORT_BY_IATA } from '../game/data/airports'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from '../game/demand'
 import { sumCabins } from '../game/economy'
 import { distanceBetween, odKey } from '../game/geo'
+import { pistaServe } from '../game/spec'
 import {
   assignAircraft, closeRoute, dayOfYear, estimateRoute, money, num, openRoute, pct,
   routeCapacityLimit, routeEconomics, routeSlotCost, setAllFrequencies, setFare, setFrequency,
@@ -216,7 +217,7 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
     ? Object.values(AIRCRAFT_BY_ID).filter(
         (t) => ehCargueiro(t) === carga &&
           t.range >= chosen.dist &&
-          t.runwayMin <= Math.min(AIRPORT_BY_IATA[hub].runway, chosen.a.runway) &&
+          pistaServe(t, AIRPORT_BY_IATA[hub], chosen.a) &&
           state.startYear + state.day / 365 >= t.since,
       )
     : []
