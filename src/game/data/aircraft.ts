@@ -92,26 +92,56 @@ export interface Shape {
  * para 2.200 m.
  */
 const CAMPO_CURTO = new Set([
-  // turboélices e regionais: campo curto é a razão de existir da categoria
+  // Turboélices e regionais: campo curto é a razão de existir da categoria.
+  // O ERJ 135LR fecha 1.330 m com 37 passageiros e combustível para 400 nm,
+  // contra 1.760 m no peso máximo — e 135, 140 e 145 são a mesma asa.
   'atr42', 'atr72', 'atr72f', 'q200', 'q300', 'q400',
   'crj200', 'crj700', 'crj900', 'crj1000',
   'e170', 'e175', 'e190', 'e195', 'e190e2', 'e195e2',
-  // SHARP na Airbus, SFP na Boeing
-  'a220100', 'a220300',
+  'erj135', 'erj140', 'erj145',
+  // Superjet: decolagem curta demonstrada na certificação, testada em Bromma.
+  'ssj100', 'sj100',
+
+  // SHARP na Airbus. O A318 vai além: é o maior avião comercial certificado
+  // pela EASA para aproximação íngreme, que é o que abre London City e seus
+  // 1.508 m de pista.
+  'a220100', 'a220300', 'a318',
   'a319', 'a319neo', 'a320', 'a320neo',
-  'b73g', 'b737', 'b737f', 'b37m', 'b38m',
+
+  // SFP na Boeing. Nasceu em 2004 da necessidade da GOL em Santos Dumont, que
+  // tem 4.300 ft: é opção no 737-600, -700 e -800.
+  'b736', 'b73g', 'b737', 'b737f', 'b37m', 'b38m',
 ])
 
 /*
- * Falta conferir, um por um, contra operação real — não entraram porque eu não
- * pesquisei, e não porque se sabe que não têm:
+ * O 737-900ER tem SFP de série — a Boeing documenta isso — e mesmo assim fica
+ * de fora, de propósito.
  *
- *   erj135, erj140, erj145, arj21, ssj100, sj100, an148, an158
- *   b712, b736, a318
+ * O que o pacote entrega é ganho de carga paga em pista de 5.000 ft ou menos:
+ * até 8.000 lb no pouso e 2.000 lb na decolagem. Não é licença para usar
+ * qualquer pista curta. E o fator de 0,60 daqui foi calibrado no -800; o -900ER
+ * tem duas seções de fuselagem a mais e não herda a mesma redução.
  *
- * O ERJ 145 é o caso mais gritante: com 2.270 m ele não serve Congonhas, e
- * operou lá por anos. Chutar a lista seria repetir o erro que gerou este
- * arquivo — o número tem de sair de fonte, como saíram o SHARP e o SFP.
+ * Na prática isso se confirma: ninguém opera 737-900ER em Congonhas nem em
+ * Santos Dumont. Aplicar o fator do -800 nele punha um avião de 220 assentos
+ * em Congonhas, acima do teto real dos dois aeroportos, que é A320neo e
+ * 737 MAX 8.
+ */
+
+/*
+ * Ainda sem fonte, e por isso de fora — não porque se saiba que não têm:
+ *
+ *   b712    717-200, derivado do MD-95/DC-9
+ *   arj21   ARJ21-700
+ *   an148   An-148
+ *   an158   An-158
+ *
+ * E o MAX 9 e o MAX 10 ficam de fora de propósito: o SFP que a Boeing
+ * documenta é pacote do NG, e o MAX tem hipersustentação diferente. Estender
+ * um ao outro seria suposição, não dado.
+ *
+ * Chutar qualquer um deles repetiria o erro que gerou este arquivo: o número
+ * tem de sair de fonte, como saíram o SHARP, o SFP e a certificação do A318.
  */
 
 /**
