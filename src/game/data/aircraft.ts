@@ -24,8 +24,19 @@ export interface AircraftType {
   burn: number
   /** Preço de tabela, em milhões de dólares. */
   price: number
-  /** Pista mínima necessária, em pés. */
+  /**
+   * Comprimento de decolagem no peso máximo, nível do mar, em pés — o número
+   * que o fabricante publica. **Não** é a pista em que o avião opera: ninguém
+   * decola de Congonhas no MTOW.
+   */
   runway: number
+  /**
+   * Pista mínima para operar de fato, em pés. É esta que diz se a aeronave
+   * serve o aeroporto; `runway` serve de referência de ficha.
+   *
+   * Sai de `spec.ts`, derivada de `runway` e do pacote de pista curta do tipo.
+   */
+  runwayMin: number
   /** Tripulação de cabine de referência (1 por 50 assentos). */
   crew: number
   /** Multiplicador de custo de manutenção. */
@@ -70,12 +81,45 @@ export interface Shape {
   winglet: 'none' | 'fence' | 'blended' | 'sharklet' | 'split' | 'raked'
 }
 
+/**
+ * Tipos com pacote de pista curta certificado de fábrica: SHARP na Airbus,
+ * SFP na Boeing, e o campo curto de série dos regionais e turboélices.
+ *
+ * Não é detalhe de ficha, é o que decide onde o avião pode voar. Santos Dumont
+ * tem 1.323 m e recebe A319/A320neo e 737-700/800/MAX 8 todo dia — só por causa
+ * desses pacotes. O A321 não tem equivalente, e é por isso que ele não opera em
+ * Congonhas: para viabilizá-lo as companhias pediram a pista ampliada de 1.940
+ * para 2.200 m.
+ */
+const CAMPO_CURTO = new Set([
+  'atr42', 'atr72', 'atr72f', 'q400',
+  'crj700', 'crj900', 'crj1000',
+  'e170', 'e175', 'e190', 'e195', 'e190e2', 'e195e2',
+  'a220100', 'a220300',
+  'a319', 'a319neo', 'a320', 'a320neo',
+  'b73g', 'b737', 'b737f', 'b37m', 'b38m',
+])
+
+/**
+ * Quanto da pista de MTOW o tipo com pacote de campo curto realmente precisa.
+ *
+ * 0,60 não é chute: é o que põe o 737-800 com SFP dentro dos 1.323 m de Santos
+ * Dumont, que é operação real e diária. O mesmo fator deixa A320neo, MAX 8 e
+ * E195-E2 entrarem — o teto que esses dois aeroportos têm de fato — e mantém
+ * fora A321, 737-900, MAX 9 e qualquer widebody.
+ */
+const FATOR_CAMPO_CURTO = 0.6
+
+const pistaMinima = (id: string, runway: number) =>
+  CAMPO_CURTO.has(id) ? Math.round(runway * FATOR_CAMPO_CURTO) : runway
+
 const A = (
   id: string, name: string, maker: string, family: Family, maxSeats: number, abreast: number,
   range: number, speed: number, burn: number, price: number, runway: number, maint: number,
   comfort: number, turn: number, since: number, engines: string[], shape: Shape,
 ): AircraftType => ({
   id, name, maker, family, maxSeats, abreast, range, speed, burn, price, runway,
+  runwayMin: pistaMinima(id, runway),
   // Regra real: um comissário para cada 50 assentos.
   crew: Math.max(1, Math.ceil(maxSeats / 50)),
   maint, comfort, turn, since, engines,
@@ -94,7 +138,8 @@ const F = (
   turn: number, since: number, engines: string[], shape: Shape,
 ): AircraftType => ({
   id, name, maker, family: 'freighter', maxSeats: 0, abreast: 0, range, speed, burn, price,
-  runway, crew: 0, maint, comfort: 1, turn, since, engines, payload,
+  runway, runwayMin: pistaMinima(id, runway),
+  crew: 0, maint, comfort: 1, turn, since, engines, payload,
   fan: ENGINES[engines[0]]?.fan ?? 1.6,
   shape,
 })

@@ -4,6 +4,7 @@ import { feature } from 'topojson-client'
 import type { FeatureCollection, Geometry as GeoGeometry } from 'geojson'
 import world from 'world-atlas/countries-110m.json'
 import { AIRPORTS, AIRPORT_BY_IATA } from '../game/data/airports'
+import { metros } from '../game/engine'
 import { interpolate } from '../game/geo'
 import type { GameState } from '../game/types'
 
@@ -260,7 +261,7 @@ export function MapView({ state, height = 520, selected, onPick, focus, showComp
           <b>{hoverAp.iata}</b> · {hoverAp.city}, {hoverAp.country}
           <br />
           <span className="muted">
-            pista {hoverAp.runway.toLocaleString('pt-BR')} ft · {hoverAp.pop.toFixed(1)} mi hab
+            pista {metros(hoverAp.runway)} · {hoverAp.pop.toFixed(1)} mi hab
           </span>
         </div>
       )}
