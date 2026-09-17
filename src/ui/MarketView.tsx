@@ -4,7 +4,7 @@ import { AIRPORT_BY_IATA } from '../game/data/airports'
 import { engineLabel, type Engine } from '../game/data/engines'
 import { cabinLength, defaultCabin, rowLayout, sumSeats } from '../game/cabin'
 import { leaseMonthly, marketPrice } from '../game/economy'
-import { buyAircraft, money, num } from '../game/engine'
+import { buyAircraft, metros, money, num } from '../game/engine'
 import { enginesOf, withEngine } from '../game/spec'
 import { useGame } from '../store/useGame'
 import { AircraftArt } from '../livery/AircraftArt'
@@ -90,7 +90,7 @@ export function MarketView() {
                     <td className="r">{ehCargueiro(a) ? `${a.payload} t` : a.maxSeats}</td>
                     <td className="r">{ehCargueiro(a) ? '—' : rowLayout(a, 'y')}</td>
                     <td className="r">{num(a.range)} nm</td>
-                    <td className="r">{num(a.runway)} ft</td>
+                    <td className="r">{metros(a.runwayMin)}</td>
                     <td className="r">{num(a.burn)} kg/h</td>
                     <td className="r">{money(marketPrice(a))}</td>
                   </tr>
@@ -116,7 +116,7 @@ export function MarketView() {
           <div className="grid g2" style={{ gap: 8, fontSize: 13 }}>
             <div><span className="muted">Alcance</span><br />{num(sel.range)} nm</div>
             <div><span className="muted">Velocidade</span><br />{num(sel.speed)} kt</div>
-            <div><span className="muted">Pista</span><br />{num(sel.runway)} ft</div>
+            <div><span className="muted">Pista mín.</span><br />{metros(sel.runwayMin)}</div>
             <div><span className="muted">Consumo</span><br />{num(sel.burn)} kg/h</div>
             {/* Um cargueiro não tem cabine: mostrar assento e fileira nele seria
                 inventar número. O que descreve a peça é a carga paga. */}

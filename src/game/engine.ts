@@ -242,7 +242,9 @@ export function assignAircraft(s: GameState, acId: string, routeId: string): str
   if (t.range < r.distance) return `${t.name} não alcança ${Math.round(r.distance)} nm (limite ${t.range} nm).`
   const from = AIRPORT_BY_IATA[r.from]
   const to = AIRPORT_BY_IATA[r.to]
-  if (t.runway > Math.min(from.runway, to.runway)) return 'Pista curta demais em uma das pontas.'
+  // `runwayMin`, não `runway`: o que decide é a pista em que o avião opera de
+  // fato, com peso reduzido, e não o comprimento de decolagem no peso máximo.
+  if (t.runwayMin > Math.min(from.runway, to.runway)) return 'Pista curta demais em uma das pontas.'
   if (ac.routeId) unassignAircraft(s, acId)
   ac.routeId = routeId
   r.aircraftIds.push(acId)
@@ -706,6 +708,13 @@ export function money(v: number): string {
 }
 export const pct = (v: number, digits = 0) => `${(v * 100).toFixed(digits)}%`
 export const num = (v: number) => Math.round(v).toLocaleString('pt-BR')
+
+/**
+ * Pista em metros. O catálogo guarda em pés porque é assim que o fabricante
+ * publica, mas quem joga raciocina em metro — e Congonhas é 1.940 m, não
+ * 6.365 ft.
+ */
+export const metros = (pes: number) => `${num(pes * 0.3048)} m`
 
 /** Resumo dos últimos N dias do livro-caixa. */
 export function period(s: GameState, days: number) {

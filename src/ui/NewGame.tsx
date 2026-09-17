@@ -3,7 +3,7 @@ import { AIRPORTS, AIRPORT_BY_IATA } from '../game/data/airports'
 import { suggestAirlineName, suggestCode } from '../game/data/names'
 import { LIVERY_PRESETS } from '../livery/presets'
 import { AIRCRAFT_BY_ID } from '../game/data/aircraft'
-import { newGame, money, START_CASH } from '../game/engine'
+import { newGame, money, START_CASH, metros } from '../game/engine'
 import { makeRng } from '../game/rng'
 import type { GameState } from '../game/types'
 import { AircraftArt } from '../livery/AircraftArt'
@@ -63,7 +63,7 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
               </label>
             </div>
             <p className="muted" style={{ fontSize: 12, margin: 0 }}>
-              {ap.city}: {ap.pop.toFixed(1)} milhões de habitantes, pista de {ap.runway.toLocaleString('pt-BR')} ft,
+              {ap.city}: {ap.pop.toFixed(1)} milhões de habitantes, pista de {metros(ap.runway)},
               {' '}{ap.slots} slots por dia. Bases grandes têm mais demanda e mais concorrência.
             </p>
           </div>

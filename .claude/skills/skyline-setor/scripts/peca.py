@@ -424,8 +424,12 @@ def aplainar_topo(m, grau=3):
     for i, x in enumerate(cols):
         alvo = int(round(curva[i]))
         t = int(np.where(m[:, x])[0].min())
-        if alvo < t and m[:, x].sum() >= altura * 0.5:
-            # só coluna de corpo ganha preenchimento; aba fina fica como está
+        if alvo < t and t - alvo <= 5 and m[:, x].sum() >= altura * 0.5:
+            # Preenche entalhe, não inventa chapa. Só coluna de corpo, e só até
+            # 5 px: a curva ajustada fica plana na traseira, e preencher até ela
+            # punha uma cunha verde sobre o pilone onde o capô real já desceu.
+            # Medido no a220300/PW1524G — o topo ficava em 527 por oito colunas
+            # seguidas, contra 541 do capô de verdade logo depois do corte.
             saida[alvo:t, x] = True
         elif alvo > t:
             saida[t:alvo, x] = False

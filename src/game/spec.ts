@@ -28,6 +28,8 @@ export function withEngine(t: AircraftType, engineId?: string | null): AircraftT
         price: Math.round((t.price + e.price) * 10) / 10,
         range: Math.round(t.range * e.range),
         runway: Math.round(t.runway * e.runway),
+        // empuxo maior tira metros da decolagem nas duas medidas
+        runwayMin: Math.round(t.runwayMin * e.runway),
         fan: e.fan,
         since: Math.max(t.since, e.since),
       }

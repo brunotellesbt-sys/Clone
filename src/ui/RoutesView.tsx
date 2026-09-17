@@ -215,7 +215,8 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
   const usable = chosen
     ? Object.values(AIRCRAFT_BY_ID).filter(
         (t) => ehCargueiro(t) === carga &&
-          t.range >= chosen.dist && t.runway <= Math.min(AIRPORT_BY_IATA[hub].runway, chosen.a.runway) &&
+          t.range >= chosen.dist &&
+          t.runwayMin <= Math.min(AIRPORT_BY_IATA[hub].runway, chosen.a.runway) &&
           state.startYear + state.day / 365 >= t.since,
       )
     : []
