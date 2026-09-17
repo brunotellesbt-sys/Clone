@@ -6,7 +6,7 @@ import { AIRPORT_BY_IATA } from './data/airports'
 import { BLANK_LIVERY } from '../livery/presets'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from './demand'
 import { cabinComfort, checkCabin, clampPitch, crewFor, defaultCabin } from './cabin'
-import { engineIdFor, withEngine } from './spec'
+import { engineIdFor, pistaServe, withEngine } from './spec'
 import {
   addCabins, allocateCargoMarket, allocateMarket, blockHours, CARGO_SELLABLE,
   DISTRIBUTION_RATE, emptyCabins, flightCost, leaseMonthly, marketPrice,
@@ -242,9 +242,9 @@ export function assignAircraft(s: GameState, acId: string, routeId: string): str
   if (t.range < r.distance) return `${t.name} não alcança ${Math.round(r.distance)} nm (limite ${t.range} nm).`
   const from = AIRPORT_BY_IATA[r.from]
   const to = AIRPORT_BY_IATA[r.to]
-  // `runwayMin`, não `runway`: o que decide é a pista em que o avião opera de
-  // fato, com peso reduzido, e não o comprimento de decolagem no peso máximo.
-  if (t.runwayMin > Math.min(from.runway, to.runway)) return 'Pista curta demais em uma das pontas.'
+  // `pistaServe`, não `runway`: o que decide é a pista em que o avião opera de
+  // fato, com peso reduzido, corrigida pela elevação de cada ponta.
+  if (!pistaServe(t, from, to)) return 'Pista curta demais em uma das pontas.'
   if (ac.routeId) unassignAircraft(s, acId)
   ac.routeId = routeId
   r.aircraftIds.push(acId)
