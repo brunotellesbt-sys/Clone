@@ -106,10 +106,11 @@ export function App() {
 
   return (
     <GameContext.Provider value={ctx}>
-      <div className="app">
+      {/* o chrome pega a cor da deriva: a tela fica sendo da companhia do jogador */}
+      <div className="app" style={{ '--marca': state.airline.livery.tail } as React.CSSProperties}>
         <header className="topbar">
           <div className="brand">
-            <span style={{ fontSize: 18 }}>✈</span>
+            <span className="tag">✈</span>
             <div>
               {state.airline.name} <small>{state.airline.code}</small>
               <div style={{ fontSize: 11, color: 'var(--ink-3)', fontWeight: 500 }}>
@@ -204,16 +205,17 @@ function StartScreen({ onStart, toast }: { onStart: (s: GameState) => void; toas
   const [creating, setCreating] = useState(!hasSave())
   if (creating) return <NewGame onStart={onStart} onCancel={hasSave() ? () => setCreating(false) : undefined} />
   return (
-    <div className="wrap" style={{ paddingTop: 60, textAlign: 'center' }}>
-      <h1 style={{ fontSize: 34, letterSpacing: '-0.03em' }}>Skyline Tycoon</h1>
-      <p className="dim" style={{ maxWidth: 520, margin: '10px auto 26px' }}>
+    <div className="wrap" style={{ paddingTop: 76, textAlign: 'center' }}>
+      <span className="eyebrow">Simulador de companhia aérea</span>
+      <h1 className="titulo" style={{ fontSize: 44 }}>Skyline Tycoon</h1>
+      <p className="dim" style={{ maxWidth: 520, margin: '12px auto 28px' }}>
         Monte a malha, escolha os aviões, brigue por passageiro no preço e na frequência — e pinte tudo do seu jeito.
       </p>
       <div className="row" style={{ justifyContent: 'center' }}>
-        <button className="btn primary" onClick={() => { const s = loadGame(); if (s) onStart(s); else toast('Save corrompido.', 'error') }}>
+        <button className="btn primary grande" onClick={() => { const s = loadGame(); if (s) onStart(s); else toast('Save corrompido.', 'error') }}>
           Continuar partida
         </button>
-        <button className="btn" onClick={() => setCreating(true)}>Nova companhia</button>
+        <button className="btn grande" onClick={() => setCreating(true)}>Nova companhia</button>
       </div>
     </div>
   )

@@ -45,6 +45,7 @@ regra mais importante do repositório.
 | `npm run cabines` | confere as configurações de cabine |
 | `npx tsx scripts/cargo-check.ts GRU MIA a332f` | roda uma rota de carga de ponta a ponta no tick |
 | `npm run smoke` | abre o jogo num navegador headless e joga sozinho |
+| `npm run mapa` | confere arrasto, zoom, clique no avião e escolha de base (precisa do `npm run dev` de pé) |
 | `node scripts/textos.mjs` | mede, em pixel, onde letreiro, prefixo, bandeira e faixa caem em cada aeronave |
 | `npm run shots` | fotos das telas para o README |
 
