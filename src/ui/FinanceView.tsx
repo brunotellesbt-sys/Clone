@@ -4,9 +4,10 @@ import {
   addHub, creditLimit, debtTotal, fleetValue, money, netWorth, num, pct, period,
   repayLoan, setMarketing, takeLoan,
 } from '../game/engine'
-import { AIRPORTS, AIRPORT_BY_IATA } from '../game/data/airports'
+import { AIRPORT_BY_IATA, type Airport } from '../game/data/airports'
 import { useGame } from '../store/useGame'
 import { Card, Kpi, Spark } from './components/Bits'
+import { BuscaAeroporto } from './components/BuscaAeroporto'
 
 export function FinanceView() {
   const { state, act, toast } = useGame()
@@ -18,9 +19,14 @@ export function FinanceView() {
   const limit = creditLimit(state)
   const fuelSeries = state.ledger.slice(-90).map((d) => d.cost / Math.max(1, d.flights))
 
-  const candidates = AIRPORTS.filter(
-    (a) => !state.airline.hubs.includes(a.iata) && a.tier >= 3,
-  ).sort((a, b) => b.pop - a.pop)
+  /**
+   * Base nova sai de busca, não de lista suspensa, e sem piso de degrau: quem
+   * quiser abrir base num regional paga o preço do degrau dele e abre. A trava
+   * que existia aqui deixava Santos Dumont e Congonhas fora por serem degrau 2
+   * e 3 numa lista que só aceitava 3 para cima.
+   */
+  const custoBase = (a: Airport) => 4.5e6 * a.tier + 6e6
+  const jaEBase = (a: Airport) => state.airline.hubs.includes(a.iata)
 
   return (
     <div className="grid" style={{ gap: 14 }}>
@@ -107,15 +113,22 @@ export function FinanceView() {
             </div>
             <label className="field">
               <span>Abrir nova base</span>
-              <select value={hub} onChange={(e) => setHub(e.target.value)}>
-                <option value="">— escolher —</option>
-                {candidates.map((a) => (
-                  <option key={a.iata} value={a.iata}>
-                    {a.city} ({a.iata}) — {money(4.5e6 * a.tier + 6e6)}
-                  </option>
-                ))}
-              </select>
+              <BuscaAeroporto
+                placeholder="sigla, cidade ou país"
+                fora={jaEBase}
+                extra={(a) => money(custoBase(a))}
+                onPick={setHub}
+              />
             </label>
+            {hub && (
+              <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+                <span>
+                  <b>{hub}</b> <span className="muted">{AIRPORT_BY_IATA[hub].city}</span>
+                  {' · '}{money(custoBase(AIRPORT_BY_IATA[hub]))}
+                </span>
+                <button className="btn sm" onClick={() => setHub('')}>Trocar</button>
+              </div>
+            )}
             <button className="btn" disabled={!hub} onClick={() => {
               const err = act((s) => addHub(s, hub))
               if (err) toast(err, 'error')

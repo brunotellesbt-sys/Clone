@@ -25,7 +25,14 @@ de cometer, porque as duas primeiras passam verdes e dão a sensação de pronto
 npm run build     # tsc -b + vite build. Nao passou daqui, nada mais importa
 npm run smoke     # funda companhia, compra aviao, abre rota, roda o tempo
 npm run sim -- GRU 1460
+npm run mapa      # so quando mexer no mapa; precisa do `npm run dev` de pe
 ```
+
+O `mapa` cobre o que o `smoke` não alcança: arrastar, dar zoom, arrastar **com**
+zoom, soltar o ponteiro fora do quadro, clicar num avião e clicar num aeroporto.
+Esses caminhos só quebram com os eventos de ponteiro chegando na ordem certa, e
+foi assim que passou despercebido um travamento que apagava a tela do jogador ao
+arrastar o mapa.
 
 O `smoke` sobe o `dist/` num servidor local, abre no Chromium headless e
 **joga**: funda a companhia, compra um E190, abre uma rota para Recife, aloca o
