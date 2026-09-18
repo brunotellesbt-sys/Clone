@@ -84,7 +84,11 @@ export interface Airport {
   slots: number
   /** Rótulo curto: "Cidade (IATA)". */
   name: string
-  /** Nome oficial do aeroporto. */
+  /**
+   * Nome oficial do aeroporto. Só existe para os 180 que estão curados à mão;
+   * nos outros ele repete o rótulo curto, e `temNomeOficial` diz qual é o caso
+   * — mostrar "Recife (REC)" como se fosse nome oficial é ruído, não dado.
+   */
   official: string
 }
 
@@ -3376,7 +3380,7 @@ export const AIRPORTS: Airport[] = RAW.split('\n').map((line) => {
     tier: t,
     cont: CONTINENTE[cc] ?? 'AN',
     paxDia: movimentoDiario(
-      MOVIMENTO_ANUAL[iata] ?? estimarMovimento(Number(pop), Number(gdp), t),
+      MOVIMENTO_ANUAL[iata] ?? estimarMovimento(Number(pop), Number(gdp), t, Number(runway)),
     ),
     fluxo: fatorFluxo(iata),
     escopo: escopoDe(iata, t, AIRPORT_NAMES[iata] ?? ''),
@@ -3400,6 +3404,9 @@ export const AIRPORT_BY_IATA: Record<string, Airport> = Object.fromEntries(
  * Só a papelada: pista e alcance são outra conta, em `spec.ts`, e continuam
  * valendo por cima desta.
  */
+/** O aeroporto tem nome oficial de verdade, ou só o rótulo curto? */
+export const temNomeOficial = (a: Airport) => a.official !== a.name
+
 export function vooPermitido(a: Airport, b: Airport): string | null {
   if (a.cc === b.cc) return null
   const fechado = a.escopo === 'dom' ? a : b.escopo === 'dom' ? b : null
