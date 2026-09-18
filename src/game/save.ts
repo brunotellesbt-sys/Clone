@@ -1,5 +1,6 @@
 import { normalizeSeats } from './seatModels'
 import { migrateLivery } from '../livery/presets'
+import { migrarEscala, sincronizarMalha } from './escala'
 import { AIRCRAFT_BY_ID } from './data/aircraft'
 import { AIRPORT_BY_IATA } from './data/airports'
 import { clampPitch, defaultCabin } from './cabin'
@@ -49,6 +50,19 @@ function migrate(s: GameState): GameState | null {
     ac.cc = ac.cc || AIRPORT_BY_IATA[s.airline.hubs[0]]?.cc || 'BR'
     return [ac]
   })
+  /**
+   * A malha: save anterior à escala por perna guardava rotação por rota. A
+   * conversão reproduz a mesma grade em pernas, e depois disso a escala é a
+   * fonte — `sincronizarMalha` recalcula `freq` e `aircraftIds` a partir dela,
+   * inclusive num save que já tinha escala mas cuja frota mudou.
+   */
+  migrarEscala(s)
+  s.airline.escala = (s.airline.escala ?? []).filter(
+    (p) => AIRPORT_BY_IATA[p.from] && AIRPORT_BY_IATA[p.to] &&
+      s.airline.fleet.some((a) => a.id === p.aircraftId),
+  )
+  sincronizarMalha(s)
+
   s.version = SAVE_VERSION
   return s
 }

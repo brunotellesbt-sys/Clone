@@ -44,7 +44,6 @@ export function createCompetitors(rng: Rng): Competitor[] {
 }
 
 function addAiRoute(comp: Competitor, dest: string, rng: Rng) {
-  const dist = distanceBetween(comp.hub, dest)
   const demand = baseDemand(comp.hub, dest, 0, 180)
   // Dimensiona a oferta para pegar um pedaço do mercado, com ruído.
   const target = demand.total * between(rng, 0.05, 0.13) * comp.aggression
@@ -60,7 +59,49 @@ function addAiRoute(comp: Competitor, dest: string, rng: Rng) {
     fare: between(rng, 0.86, 1.18),
     quality: (0.75 + 0.5 * comp.reputation) * between(rng, 0.94, 1.08),
   })
-  comp.fleetSize = Math.round(comp.routes.reduce((s, r) => s + r.freq * (1 + dist / 6000), 0) / 3.2)
+  limitarPelaFrota(comp)
+}
+
+/**
+ * Horas de escala que uma rotação da concorrente consome por dia.
+ *
+ * Ida, volta e o solo no meio, em horas — a mesma conta que a escala do jogador
+ * faz perna a perna, só que em grosso, porque a concorrente não tem escala.
+ */
+const cicloHoras = (dist: number) => 2 * (0.4 + dist / 450) + 0.75
+
+/**
+ * Máximo de horas que uma cauda voa por dia. Dezoito é o teto operacional de
+ * uma aeronave bem usada — não é média de mercado, é o limite de quem não
+ * deixa avião parado.
+ */
+const UTILIZACAO_DIARIA = 18
+
+/**
+ * Apara a frequência da concorrente ao que a frota dela consegue voar.
+ *
+ * **A malha obrigou este teto.** Enquanto a escala do jogador era um número na
+ * rota, os dois lados podiam prometer voo que nenhum avião cumpre; agora o
+ * jogador marca perna a perna e um A320 não faz seis idas e voltas Guarulhos–
+ * Recife por dia. Sem este corte, a concorrente continuaria voando o impossível
+ * e a partida viraria desigual por um detalhe de implementação, não por
+ * decisão de jogo.
+ *
+ * A frota cresce com a malha em vez de sair dela: `fleetSize` era derivado da
+ * frequência, o que deixava o teto se ajustando ao que ele deveria limitar.
+ */
+function limitarPelaFrota(comp: Competitor) {
+  const precisa = comp.routes.reduce((h, r) => h + r.freq * cicloHoras(distanceBetween(r.from, r.to)), 0)
+  const teto = Math.max(3, Math.round(precisa / UTILIZACAO_DIARIA))
+  // a frota persegue a necessidade, mas não salta: quem cresce demais de uma vez
+  // não acha piloto nem slot, e no jogo isso vira frequência sem lastro
+  comp.fleetSize = comp.fleetSize
+    ? Math.min(teto, comp.fleetSize + Math.max(1, Math.round(comp.fleetSize * 0.06)))
+    : teto
+  const disponivel = comp.fleetSize * UTILIZACAO_DIARIA
+  if (precisa <= disponivel) return
+  const fator = disponivel / precisa
+  for (const r of comp.routes) r.freq = Math.max(1, Math.round(r.freq * fator))
 }
 
 /** Decisão semanal: mexe em tarifa, oferta, abre e fecha rota. */
@@ -95,6 +136,8 @@ export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, play
       }
       r.quality = Math.min(1.3, r.quality * between(rng, 0.997, 1.006))
     }
+    // o que ela prometeu acima tem que caber na frota dela
+    limitarPelaFrota(comp)
 
     // Crescimento e poda.
     if (chance(rng, 0.17 * comp.aggression) && comp.routes.length < 34) {

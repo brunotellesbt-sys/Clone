@@ -8,6 +8,7 @@ import { baseDemand } from '../src/game/demand'
 import { marketPrice } from '../src/game/economy'
 import { distanceBetween } from '../src/game/geo'
 import { pistaServe } from '../src/game/spec'
+import { pernasDe, posicionamentos } from '../src/game/escala'
 import {
   advanceDay, assignAircraft, buyAircraft, estimateRoute, km, money, netWorth, newGame,
   openRoute, period, setAllFrequencies, takeLoan,
@@ -65,7 +66,24 @@ for (let day = 0; day < DAYS; day++) {
         Math.floor(best.est.offered / Math.max(1, best.a.maxSeats * 2)) || 1,
         Math.max(1, Math.round(best.est.demand.total / (best.a.maxSeats * 2.2))),
       )
-      setAllFrequencies(s, route.id, Math.max(1, freq))
+      const alvo = Math.max(1, freq)
+      setAllFrequencies(s, route.id, alvo)
+      /**
+       * Compra cauda até a frequência pedida caber na escala.
+       *
+       * Desde a malha, frequência é o que a frota consegue voar, não um número
+       * que a rota guarda: um A320 não faz seis idas e voltas Guarulhos–Recife
+       * por dia, e agora o jogo sabe disso. O script passa a fazer o que um
+       * jogador faz — põe mais avião na linha — em vez de medir o balanceamento
+       * contra uma oferta que nenhuma frota entregaria.
+       */
+      for (let tentativa = 0; tentativa < 4; tentativa++) {
+        if (Math.max(...route.freq) >= alvo) break
+        if (marketPrice(best.a) > s.airline.cash - 12e6) break
+        if (buyAircraft(s, best.a.id, false)) break
+        assignAircraft(s, s.airline.fleet[s.airline.fleet.length - 1].id, route.id)
+        setAllFrequencies(s, route.id, alvo)
+      }
       ti++
     }
   }
@@ -96,10 +114,30 @@ if (first) {
   console.log(`  receita/dia ${money(rev)} | custo/dia ${money(cost)} | margem ${(((rev - cost) / rev) * 100).toFixed(1)}%`)
   console.log(`  LF ${(h[h.length - 1].loadFactor * 100).toFixed(1)}%`)
 }
+/**
+ * Utilização da frota: horas de voo por cauda por dia.
+ *
+ * É o número que diz se a malha está sendo usada ou se há avião dormindo no
+ * pátio, e passou a ser mensurável agora que a escala existe de verdade. Uma
+ * companhia bem operada fica entre 8 e 12 h; abaixo de 6 h sobra avião.
+ */
+{
+  const horas = s.airline.fleet.map((ac) => pernasDe(s, ac.id).reduce((h, p) => h + p.bloco, 0) / 7 / 60)
+  const media = horas.reduce((a, b) => a + b, 0) / Math.max(1, horas.length)
+  const paradas = horas.filter((h) => h < 1).length
+  const vazios = posicionamentos(s).length
+  console.log(`\nutilização da frota: ${media.toFixed(1)} h/dia por cauda` +
+    ` | ${paradas} parada(s) | ${vazios} voo(s) vazio(s) de posicionamento`)
+}
+
 console.log(`\nranking de receita (30d):`)
 ;[...s.competitors].sort((a, b) => b.revenue30 - a.revenue30).slice(0, 5)
-  .forEach((c, i) => console.log(`  ${i + 1}. ${c.name.padEnd(24)} ${money(c.revenue30)} | ${c.routes.length} rotas`))
-console.log(`  você: ${money(period(s, 30).revenue)}`)
+  .forEach((c, i) => console.log(
+    `  ${i + 1}. ${c.name.padEnd(24)} ${money(c.revenue30)} | ${c.routes.length} rotas | ${c.fleetSize} aviões` +
+    ` | ${money(c.revenue30 / Math.max(1, c.fleetSize))}/avião`))
+console.log(
+  `  você: ${money(period(s, 30).revenue)} | ${s.airline.routes.length} rotas | ${s.airline.fleet.length} aviões` +
+  ` | ${money(period(s, 30).revenue / Math.max(1, s.airline.fleet.length))}/avião`)
 
 // debug rápido do primeiro alvo
 const t0 = targets[0]

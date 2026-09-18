@@ -38,9 +38,18 @@ Vale entender o caminho de um passageiro antes de mexer em qualquer ponta:
    (reforçada acima de 7h), manutenção que encarece com a idade, taxas por
    porte de aeroporto, handling, comissariado por classe.
 
-4. **`engine.ts` / `advanceDay` — o dia acontece.** Junta tudo, aplica
+4. **`escala.ts` — quem voa o quê, e de onde.** A oferta não é um número na
+   rota: é a lista de **pernas** da semana, cada uma com cauda, dia e hora
+   local. Quem encadeia é a aeronave, e a regra dura é uma só — ela não está em
+   dois lugares ao mesmo tempo. Sair de um aeroporto onde ela não está é
+   permitido e **caro**: o jogo cobra um voo de posicionamento, vazio.
+   `freq` e `aircraftIds` viraram cache disso, recalculados por
+   `sincronizarMalha`; não escreva neles.
+
+5. **`engine.ts` / `advanceDay` — o dia acontece.** Junta tudo, aplica
    `SELLABLE`, tira `DISTRIBUTION_RATE` da receita, paga custo fixo, envelhece
-   a frota, roda a IA, grava no `ledger`.
+   a frota, roda a IA, grava no `ledger`. A oferta e o custo do dia saem das
+   pernas marcadas para aquele dia da semana, uma conta por perna.
 
 ## Carga é um mercado à parte
 
@@ -135,11 +144,20 @@ Medido neste repositório, `npm run sim -- GRU 1460`, com a estratégia burra do
 próprio script:
 
 ```
-dia 1460 | caixa $89.3 mi | patrim $471 mi | frota 9 | rotas 9
-         | lucro/dia $1.5 mi | LF 89.2% | rep 58 | fuel $1.02
-rota exemplo GRU-JFK (4138 nm, 1x/dia): margem 37.4%, LF 90.7%
-ranking 30d: primeiro rival $668 mi | você $96.6 mi
+dia 1460 | caixa $107 mi | patrim $1.55 bi | frota 46 | rotas 43
+         | lucro/dia $2.4 mi | LF 89.2% | rep 54 | fuel $1.02
+utilização da frota: 15.9 h/dia por cauda | 0 parado | 0 voo vazio
+rota exemplo GRU-DXB (12.217 km, 1x/dia): margem 51.3%, LF 90.7%
+ranking 30d: primeiro rival $596 mi (64 aviões, $9.3 mi/avião)
+             você $364 mi (46 aviões, $7.9 mi/avião)
 ```
+
+As duas linhas novas são as que a malha trouxe, e são as que mais dizem:
+**utilização** (horas de voo por cauda por dia) e **voo vazio** (quantos
+posicionamentos a escala obriga). Cauda parada e voo vazio são dinheiro
+queimado, e os dois são zero numa escala bem montada. A comparação por avião
+importa mais que a receita absoluta: é ela que separa "estou menor" de "estou
+operando pior".
 
 Guarde este bloco: é a régua de comparação. Uma mudança que mexa em qualquer
 número da simulação deve ser relatada como diferença contra ele, não em
@@ -157,11 +175,17 @@ balanceamento — não como defeito a consertar por conta própria:
   apertada. Margem alta perdoa escolha ruim, e perdoar escolha ruim é o que
   transforma simulador em planilha de crescimento automático.
 
-O contrapeso, e é real: o jogador termina 4 anos com US$ 96,6 mi contra US$ 668
-mi do primeiro rival. A dificuldade não está em sobreviver, está em alcançar —
-o que é uma escolha de design legítima. Só decida qual das duas o jogo quer ser
-antes de mexer: apertar margem e demanda junto com essa distância para os
-rivais produz um jogo onde não dá para vencer.
+O contrapeso, e é real: o jogador termina 4 anos com US$ 364 mi contra US$ 596
+mi do primeiro rival, e produz US$ 7,9 mi por avião contra os US$ 9,3 mi dele.
+A dificuldade não está em sobreviver, está em alcançar — o que é uma escolha de
+design legítima. Só decida qual das duas o jogo quer ser antes de mexer:
+apertar margem e demanda junto com essa distância para os rivais produz um jogo
+onde não dá para vencer.
+
+A diferença por avião é de propósito: o script joga burro — dedica cauda a um
+par e nunca monta triângulo, nunca aproveita conexão, nunca tira proveito de
+uma parada na ponta. Fechar essa diferença é o que a malha dá ao jogador para
+fazer, e é por isso que ela não deve ser "consertada" mexendo em número.
 
 Ao propor mudança de balanceamento, traga o `sim` de antes e o de depois lado a
 lado, em pelo menos três hubs de perfil diferente (GRU doméstico grande, JFK
@@ -180,6 +204,13 @@ concorrência pesada e longo curso, SIN quase tudo internacional).
 - **Save versionado.** `GameState.version` e `Livery.v` existem para migrar.
   Mudou o formato de algo persistido, escreva a migração em `save.ts` na mesma
   mudança — save quebrado é bug que o jogador não consegue contornar.
+- **A oferta tem que caber numa frota.** Foi a lição mais cara desta base de
+  código: enquanto a escala era um número, um A320 "fazia" seis idas e voltas
+  Guarulhos–Recife por dia — trinta e quatro horas de voo — e a receita do
+  jogador vinha inflada por isso. Qualquer atalho que volte a prometer voo sem
+  cauda para voá-lo desfaz a malha inteira. Vale para a IA também: ela não tem
+  escala, então `limitarPelaFrota` apara a frequência dela pelas horas que
+  `fleetSize` aguenta.
 - **`estimateRoute` precisa continuar honesto.** É a previsão que a UI mostra
   antes de abrir rota. Se ela usar regra diferente do tick, o jogador aprende
   a desconfiar da própria tela.
@@ -189,6 +220,12 @@ concorrência pesada e longo curso, SIN quase tudo internacional).
 As concorrentes não simulam frota avião a avião — carregam `routes` agregadas
 com assentos, frequência, tarifa e qualidade, e reagem via `aggression`. Isso é
 proposital: 12 companhias com simulação completa custaria o tempo do tick.
+
+O preço dessa abstração é que elas poderiam prometer frequência que nenhum
+avião cumpre, enquanto o jogador marca perna a perna. `limitarPelaFrota` fecha
+essa assimetria: soma as horas de ciclo que a malha delas exige, compara com
+`fleetSize × 18 h` e apara a frequência proporcionalmente. `fleetSize` deixou
+de ser derivado da frequência — era o teto se ajustando ao que devia limitar.
 
 Ao mudar a reação delas, o alvo é que o jogador **sinta** a resposta em poucos
 dias (corte de preço, frequência a mais numa rota que ele acabou de tomar) sem

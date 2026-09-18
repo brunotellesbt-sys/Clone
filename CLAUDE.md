@@ -23,6 +23,7 @@ bundle e uma decisão que alguém vai ter que manter.
 
 ```
 src/game/     simulação pura — nenhum import de React, nunca
+              escala.ts é a malha: onde cada cauda está, minuto a minuto
 src/livery/   silhueta vetorial e pintura
 src/ui/       telas em React
 src/store/    contexto do jogo
@@ -44,12 +45,13 @@ regra mais importante do repositório.
 | `npm run nose -- b737 a321neo` | render da silhueta para conferir o desenho (`FULL=1` para o avião inteiro) |
 | `npm run cabines` | confere as configurações de cabine |
 | `npm run escopo` | confere o escopo dos aeroportos contra os casos reais conhecidos |
-| `npm run malha` | confere horário de voo, conexões e os três tempos mínimos |
+| `npm run malha` | confere a escala por perna: posição da aeronave, horário, conexões e os três tempos mínimos |
 | `npm run movimento` | relevanta o movimento de passageiros (Wikidata + listas) e grava direto no `movimento.ts` |
 | `npm run fluxo` | recalcula os fatores de equilíbrio do fluxo (Furness) e grava direto; rode **depois** do `movimento` e de qualquer mexida no núcleo da demanda |
 | `npx tsx scripts/cargo-check.ts GRU MIA a332f` | roda uma rota de carga de ponta a ponta no tick |
 | `npm run smoke` | abre o jogo num navegador headless e joga sozinho |
 | `npm run mapa` | confere arrasto, zoom, clique no avião e escolha de base (precisa do `npm run dev` de pé) |
+| `npm run grade` | confere a malha na tela: grade semanal, quem está disponível e o encadeamento (precisa do `npm run dev` de pé) |
 | `node scripts/textos.mjs` | mede, em pixel, onde letreiro, prefixo, bandeira e faixa caem em cada aeronave |
 | `npm run shots` | fotos das telas para o README |
 
