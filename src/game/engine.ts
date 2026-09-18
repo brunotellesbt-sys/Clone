@@ -3,7 +3,10 @@ import { normalizeSeats, seatChangeCost } from './seatModels'
 import { AIRCRAFT_BY_ID, type AircraftType } from './data/aircraft'
 import { SAVE_VERSION } from './save'
 import { AIRPORT_BY_IATA, vooPermitido } from './data/airports'
-import { DIA, fatorConexao, fatorConexaoIA, horariosDa, horariosPadrao, rotacoesPorDia } from './malha'
+import {
+  atratividadeDaRota, atratividadeHorario, blocoMin, DIA, fatorConexao, fatorConexaoIA,
+  horarioCabe, horaDaConcorrente, horariosDa, horariosPadrao, rotacoesPorDia, soloMin,
+} from './malha'
 import { BLANK_LIVERY } from '../livery/presets'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from './demand'
 import { cabinComfort, checkCabin, clampPitch, crewFor, defaultCabin } from './cabin'
@@ -311,7 +314,11 @@ export function setHorario(s: GameState, routeId: string, indice: number, minuto
   if (!r) return 'Rota não encontrada.'
   const atuais = horariosDa(r)
   if (indice < 0 || indice >= atuais.length) return 'Essa rotação não existe.'
-  atuais[indice] = ((Math.round(minutos) % DIA) + DIA) % DIA
+  const hora = ((Math.round(minutos) % DIA) + DIA) % DIA
+  // um avião não fica em dois lugares ao mesmo tempo
+  const choque = horarioCabe(s, r, indice, hora)
+  if (choque) return choque
+  atuais[indice] = hora
   r.horarios = atuais
   return null
 }
@@ -319,7 +326,12 @@ export function setHorario(s: GameState, routeId: string, indice: number, minuto
 /** Espalha as rotações pela janela operacional de novo. */
 export function espalharHorarios(s: GameState, routeId: string) {
   const r = routeOf(s, routeId)
-  if (r) r.horarios = horariosPadrao(rotacoesPorDia(r))
+  if (!r) return
+  r.horarios = horariosPadrao(
+    rotacoesPorDia(r),
+    2 * blocoMin(s, r) + soloMin(s, r),
+    Math.max(1, r.aircraftIds.length),
+  )
 }
 
 export function setAllFrequencies(s: GameState, routeId: string, value: number) {
@@ -496,7 +508,11 @@ export function advanceDay(s: GameState): GameState {
     const fareAvg = (r.fare.y * 3 + r.fare.c) / 4
     const key = odKey(r.from, r.to)
     const list = carriersByOd.get(key) ?? []
-    list.push({ id: `P:${r.id}`, seats, freq: flights, fareMult: fareAvg, quality: playerQuality * comfort })
+    // o horário entra como qualidade: voo de madrugada disputa em desvantagem
+    list.push({
+      id: `P:${r.id}`, seats, freq: flights, fareMult: fareAvg,
+      quality: playerQuality * comfort * atratividadeDaRota(s, r),
+    })
     carriersByOd.set(key, list)
     perRoute.push({ route: r, flights, seats, seatsTotal: sumCabins(seats), physicalSeats, pitch })
   }
@@ -516,7 +532,7 @@ export function advanceDay(s: GameState): GameState {
         },
         freq: cr.freq,
         fareMult: cr.fare,
-        quality: cr.quality,
+        quality: cr.quality * atratividadeHorario(horaDaConcorrente(cr)),
       })
       carriersByOd.set(cr.key, list)
     }
@@ -743,7 +759,7 @@ function computeCompetitorRevenue(s: GameState, doy: number) {
       },
       freq: route.freq,
       fareMult: route.fare,
-      quality: route.quality,
+      quality: route.quality * atratividadeHorario(horaDaConcorrente(route)),
     }))
     const alloc = allocateMarket(demand, carriers)
     alloc.forEach((a, i) => {

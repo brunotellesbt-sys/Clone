@@ -6,7 +6,8 @@
  * assim envelhece mal e em silêncio: mudar o degrau de um aeroporto muda o que
  * ele aceita, e ninguém percebe. Esta tabela é o que segura isso.
  */
-import { AIRPORT_BY_IATA, ESCOPO_LABEL, vooPermitido, type Escopo } from '../src/game/data/airports'
+import { AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, vooPermitido, type Escopo } from '../src/game/data/airports'
+import { baseDemand } from '../src/game/demand'
 
 /** O que cada aeroporto deve ser, e por quê. */
 const ESPERADO: [string, Escopo, string][] = [
@@ -64,6 +65,38 @@ for (const [x, y, deveriaPassar, porque] of PARES) {
       (motivo && !deveriaPassar ? '' : motivo ? `\n         ${motivo}` : ''),
   )
 }
+
+// --------------------------------------------------- tabelas de dados velhas
+//
+// O `K` da demanda já mudou uma vez depois dos fatores de Furness terem sido
+// calculados, e ninguém rodou `npm run fluxo` de novo: as razões que eram 2,6 a
+// 3,7 viraram 4,1 a 5,4 e o PR foi mergeado assim. Tabela derivada envelhece em
+// silêncio; esta amostra é o barulho.
+console.log('\nequilíbrio do fluxo\n')
+const AMOSTRA = ['GRU', 'CGH', 'VCP', 'SDU', 'LHR', 'ATL', 'REC', 'LIS', 'NRT', 'JNB']
+const ALVO = 3
+const razoes: number[] = []
+for (const iata of AMOSTRA) {
+  const base = AIRPORT_BY_IATA[iata]
+  if (!base) continue
+  let soma = 0
+  for (const b of AIRPORTS) {
+    if (b.iata === iata || vooPermitido(base, b)) continue
+    soma += baseDemand(iata, b.iata, 0, 180).total
+  }
+  const razao = soma / base.paxDia
+  razoes.push(razao)
+  const ok = razao > ALVO * 0.6 && razao < ALVO * 1.6
+  if (!ok) falhas++
+  console.log(`${ok ? 'ok   ' : 'FALHA'} ${iata}  razão ${razao.toFixed(2)} (alvo ${ALVO})`)
+}
+const media = razoes.reduce((s, r) => s + r, 0) / Math.max(1, razoes.length)
+const perto = Math.abs(media / ALVO - 1) < 0.35
+if (!perto) falhas++
+console.log(
+  `${perto ? 'ok   ' : 'FALHA'} média ${media.toFixed(2)}` +
+    (perto ? '' : ' — rode `npm run fluxo` e cole a tabela em movimento.ts'),
+)
 
 console.log(falhas ? `\n${falhas} falha(s)` : '\ntudo certo')
 process.exit(falhas ? 1 : 0)

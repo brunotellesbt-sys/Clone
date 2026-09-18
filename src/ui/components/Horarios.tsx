@@ -1,8 +1,10 @@
 import { AIRPORT_BY_IATA } from '../../game/data/airports'
 import {
-  conexoesDaRota, hhmm, JANELA_COLADO, lerHora, MCT_ALFANDEGA, MCT_DOMESTICA,
-  MCT_INTERNACIONAL, rotacoesDa, rotuloMct, voosColados, type Conexao, type Rotacao,
+  atratividadeHorario, conexoesDaRota, conflitosDeAeronave, hhmm, horaDaConcorrente,
+  JANELA_COLADO, lerHora, MCT_ALFANDEGA, MCT_DOMESTICA, MCT_INTERNACIONAL, rotacoesDa,
+  rotuloMct, voosColados, type Conexao, type Rotacao,
 } from '../../game/malha'
+import { odKey } from '../../game/geo'
 import { espalharHorarios, setHorario } from '../../game/engine'
 import type { Route } from '../../game/types'
 import { useGame } from '../../store/useGame'
@@ -26,6 +28,12 @@ export function Horarios({ route }: { route: Route }) {
   const rots = rotacoesDa(state, route)
   const { base, entrando, saindo } = conexoesDaRota(state, route)
   const colados = voosColados(state, route)
+  const conflitos = conflitosDeAeronave(state, route)
+  // quem mais voa este par, e a que horas — é com esses que o horário disputa
+  const rivais = state.competitors.flatMap((c) =>
+    c.routes.filter((r) => r.key === odKey(route.from, route.to))
+      .map((r) => ({ nome: c.name, hora: horaDaConcorrente(r), freq: r.freq })),
+  ).sort((a, b) => a.hora - b.hora)
   const destino = AIRPORT_BY_IATA[route.to]
   const domestica = AIRPORT_BY_IATA[base].cc === destino.cc
 
@@ -56,6 +64,7 @@ export function Horarios({ route }: { route: Route }) {
             <th>Parte</th>
             <th className="r">Chega {route.to}</th>
             <th className="r">Volta {base}</th>
+            <th className="r">Procura</th>
             <th className="r">Conexões</th>
           </tr>
         </thead>
@@ -64,6 +73,7 @@ export function Horarios({ route }: { route: Route }) {
             const entra = entrando.filter((c) => c.para.indice === rot.indice)
             const sai = saindo.filter((c) => c.de.indice === rot.indice)
             const colado = colados.some(([x, y]) => x.indice === rot.indice || y.indice === rot.indice)
+            const peso = atratividadeHorario(rot.saida)
             return (
               <tr key={rot.indice}>
                 <td>{rot.indice + 1}ª{colado && <span className="alerta" title={`Outro voo para ${route.to} a menos de ${JANELA_COLADO} min`}> ⚠</span>}</td>
@@ -80,7 +90,12 @@ export function Horarios({ route }: { route: Route }) {
                   />
                 </td>
                 <td className="r">{hhmm(rot.chegadaDestino)}</td>
-                <td className="r">{hhmm(rot.voltaBase)}</td>
+                <td className="r">
+                  <span className={peso >= 1 ? 'good' : peso >= 0.8 ? 'dim' : 'warn'}
+                    title="quanto a procura vale nesse horário; o pico é de manhã cedo e no fim da tarde">
+                    {Math.round(peso * 100)}%
+                  </span>
+                </td>
                 <td className="r">
                   <span className={entra.length ? 'good' : 'muted'} title="passageiros que chegam de outra rota e embarcam nesta">
                     {entra.length} entram
@@ -96,6 +111,15 @@ export function Horarios({ route }: { route: Route }) {
         </tbody>
       </table>
       </div>
+
+      {conflitos.length > 0 && (
+        <p className="aviso erro">
+          {conflitos.length === 1 ? 'Uma rotação' : `${conflitos.length} rotações`} da escala usa a
+          mesma aeronave de outra que ainda está no ar — vindo de uma partida anterior a esta
+          versão, que não conferia isso. Marque um horário novo em qualquer uma das duas, ou
+          use <b>Espalhar no dia</b>.
+        </p>
+      )}
 
       {colados.length > 0 && (
         <p className="aviso">
@@ -119,6 +143,25 @@ export function Horarios({ route }: { route: Route }) {
           outraPonta={(c) => c.para.routeId}
         />
       </div>
+
+      {rivais.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <h4 className="sub">Quem mais voa este par</h4>
+          <div className="conexoes">
+            {rivais.map((r, i) => (
+              <div key={i} className="conexao">
+                <b>{r.nome}</b>
+                <span className="muted">{hhmm(r.hora)}</span>
+                <span className="dim">{r.freq}/dia</span>
+              </div>
+            ))}
+          </div>
+          <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
+            Sair no mesmo horário divide o mesmo pico; sair numa faixa que ninguém cobre pega ela
+            inteira, mas a procura ali pode valer menos — é o que a coluna <b>Procura</b> mede.
+          </p>
+        </div>
+      )}
 
       <p className="muted" style={{ fontSize: 12, margin: '12px 0 0' }}>
         Tempo mínimo de conexão: <b>{MCT_DOMESTICA} min</b> entre duas domésticas,{' '}

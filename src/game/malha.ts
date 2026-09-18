@@ -10,6 +10,7 @@
  * Nada de React aqui: é `src/game/`, e a tela só lê o que sai daqui.
  */
 import { AIRPORT_BY_IATA, type Airport } from './data/airports'
+import { hashStr } from './rng'
 import { blockHours } from './economy'
 import { withEngine } from './spec'
 import { AIRCRAFT_BY_ID } from './data/aircraft'
@@ -58,16 +59,13 @@ export const rotuloMct = (min: number) =>
   min === MCT_DOMESTICA ? 'doméstica' : min === MCT_INTERNACIONAL ? 'internacional em trânsito' : 'com alfândega'
 
 /**
- * Fuso do aeroporto, em minutos, pela longitude.
+ * Fuso do aeroporto, em minutos. Vem do tzdata — ver `FUSO` em `airports.ts`.
  *
- * É hora solar, não fuso oficial: o jogo não guarda tabela de fuso, e a
- * diferença aparece em país que estica o fuso por decreto — a China inteira no
- * horário de Pequim, a Espanha no de Berlim. Para o que isto serve — saber se
- * a chegada é de manhã ou de noite e quanto dura a espera — o erro não muda
- * decisão nenhuma, e a espera em si, que é diferença de horário no **mesmo**
- * aeroporto, não tem erro algum.
+ * Era hora solar, pela longitude, e errava onde o fuso segue decreto em vez do
+ * sol. A espera de conexão, que é diferença de horário no **mesmo** aeroporto,
+ * nunca teve erro; o que estava errado era a hora de chegada no destino.
  */
-export const fusoMin = (ap: Airport) => Math.round(ap.lon / 15) * 60
+export const fusoMin = (ap: Airport) => ap.fuso
 
 export const hhmm = (min: number) => {
   const m = ((Math.round(min) % DIA) + DIA) % DIA
@@ -117,18 +115,27 @@ export const rotacoesPorDia = (r: Route) => Math.max(0, Math.max(...r.freq))
  * janela operacional, começando às 6h. Espalhar é o certo por padrão — voo
  * empilhado é escolha, não acidente.
  */
-export function horariosPadrao(qtd: number): number[] {
+export function horariosPadrao(qtd: number, ciclo = 0, avioes = 1): number[] {
   if (qtd <= 0) return []
   if (qtd === 1) return [7 * 60]
   const inicio = 6 * 60
   const janela = 15 * 60 // 06:00 às 21:00
-  return Array.from({ length: qtd }, (_, i) => inicio + Math.round((janela * i) / (qtd - 1)))
+  const passo = janela / (qtd - 1)
+  /**
+   * O passo nunca fica menor do que a aeronave leva para voltar e sair de novo.
+   * Sem isto, espalhar seis rotações de uma rota longa com dois aviões marcava
+   * partidas que a própria frota não consegue cumprir — e o padrão do jogo
+   * nascia em conflito.
+   */
+  const minimo = avioes > 0 ? ciclo / avioes : 0
+  const real = Math.max(passo, minimo)
+  return Array.from({ length: qtd }, (_, i) => Math.round(inicio + real * i) % DIA)
 }
 
 /** Os horários da rota, completados com o padrão se faltarem. */
-export function horariosDa(r: Route): number[] {
+export function horariosDa(r: Route, ciclo = 0): number[] {
   const qtd = rotacoesPorDia(r)
-  const padrao = horariosPadrao(qtd)
+  const padrao = horariosPadrao(qtd, ciclo, Math.max(1, r.aircraftIds.length))
   const atuais = r.horarios ?? []
   return padrao.map((p, i) => (atuais[i] === undefined ? p : atuais[i]))
 }
@@ -161,7 +168,7 @@ export function rotacoesDa(s: GameState, r: Route): Rotacao[] {
   const solo = soloMin(s, r)
   const delta = fusoMin(b) - fusoMin(a)
   const internacional = etapaInternacional(a, b)
-  return horariosDa(r).map((saida, indice) => ({
+  return horariosDa(r, 2 * bloco + solo).map((saida, indice) => ({
     routeId: r.id,
     indice,
     saida,
@@ -252,6 +259,134 @@ export function voosColados(s: GameState, r: Route): [Rotacao, Rotacao][] {
     }
   }
   return pares
+}
+
+/**
+ * Quanto vale sair a esta hora, de 0,46 a 1,05.
+ *
+ * Voo de madrugada não vale o mesmo que voo de pico, e até agora o jogo achava
+ * que valia: horário só entrava pela conexão. A curva tem duas corcovas —
+ * manhã cedo e fim de tarde —, que é a forma que a procura tem de verdade,
+ * porque quem paga caro é quem viaja a trabalho e quer chegar para trabalhar e
+ * voltar para dormir em casa. Seis da manhã vale 0,94, o meio da tarde 0,86 e
+ * três da manhã 0,44.
+ *
+ * **É índice de jogo, não medição.** A forma vem de como as companhias montam
+ * grade — os aviões saem em bancos de manhã e no fim do dia —, mas os números
+ * são escolhidos para dar ao jogador uma decisão com consequência sem tornar a
+ * madrugada inútil: voo noturno continua fechando conta em rota longa, onde o
+ * fuso obriga.
+ *
+ * Não modela toque de recolher. Heathrow, Congonhas e outros tantos proíbem
+ * operação noturna, e isso seria um dado por aeroporto que não existe em fonte
+ * pública nenhuma que eu tenha encontrado.
+ */
+export function atratividadeHorario(min: number): number {
+  const h = ((((min % DIA) + DIA) % DIA) / 60)
+  /** Distância até uma hora do dia, pelo caminho curto da roda de 24 h. */
+  const perto = (c: number) => ((h - c + 12) % 24) - 12
+  const corcova = (c: number) => Math.exp(-(perto(c) ** 2) / 18)
+  /**
+   * A queda da madrugada é estreita de propósito. Larga, ela vazava para as seis
+   * da manhã e punha a primeira onda do dia valendo menos que um voo das nove da
+   * noite — o contrário do que acontece numa ponte aérea.
+   */
+  const madrugada = Math.exp(-(perto(3) ** 2) / 6)
+  return 0.78 + 0.32 * Math.max(corcova(8), corcova(18)) - 0.42 * madrugada
+}
+
+/**
+ * Hora de partida de uma rota da concorrente.
+ *
+ * Estável e espalhada pela janela de operação: mesma chave, mesma hora, partida
+ * após partida. Tirar da chave em vez de sortear mantém o save antigo válido e
+ * o comportamento reproduzível na simulação de terminal.
+ */
+export function horaDaConcorrente(r: { key: string; hora?: number }): number {
+  if (r.hora !== undefined) return r.hora
+  return Math.round(6 * 60 + 15 * 60 * hashStr(`H${r.key}`))
+}
+
+/** A média da rota, que é o que entra na disputa por passageiro. */
+export function atratividadeDaRota(s: GameState, r: Route): number {
+  const rots = rotacoesDa(s, r)
+  if (!rots.length) return 1
+  return rots.reduce((soma, rot) => soma + atratividadeHorario(rot.saida), 0) / rots.length
+}
+
+/**
+ * De qual aeronave é cada rotação.
+ *
+ * As rotações são repartidas em rodízio entre os aviões alocados: com dois
+ * aviões e quatro rotações, o primeiro faz a 1ª e a 3ª. É a escala mais simples
+ * que existe, e é a que o resto do jogo já supunha ao contar custo por rotação.
+ */
+export const aeronaveDaRotacao = (r: Route, indice: number) =>
+  r.aircraftIds.length ? r.aircraftIds[indice % r.aircraftIds.length] : null
+
+/**
+ * A rotação ocupa a aeronave deste minuto até este outro, na hora da base.
+ *
+ * Fecha em `saida + 2 × bloco + solo`: o avião só está livre de novo quando
+ * volta. Pode passar da meia-noite, e por isso a comparação é em roda de 24 h.
+ */
+export const ocupacao = (rot: Rotacao): [number, number] => [rot.saida, rot.voltaBase]
+
+/** Dois intervalos se cruzam na roda de 24 h? */
+function cruza(a: [number, number], b: [number, number]): boolean {
+  // um intervalo que passa da meia-noite vira dois; comparar em roda evita isso
+  const dur = (x: [number, number]) => ((x[1] - x[0]) % DIA + DIA) % DIA
+  if (dur(a) >= DIA || dur(b) >= DIA) return true
+  const inicio = ((b[0] - a[0]) % DIA + DIA) % DIA
+  return inicio < dur(a) || ((a[0] - b[0]) % DIA + DIA) % DIA < dur(b)
+}
+
+export interface Conflito {
+  /** A cauda que estaria em dois lugares. */
+  aircraftId: string
+  a: Rotacao
+  b: Rotacao
+}
+
+/**
+ * Rotações que põem a mesma aeronave em dois lugares ao mesmo tempo.
+ *
+ * Isto faltava, e era o buraco mais feio da escala: `setHorario` aceitava
+ * qualquer horário, então dava para marcar três rotações do mesmo A320 às
+ * 06:00, 06:10 e 06:20. O limite de capacidade da rota conta **quantas**
+ * rotações cabem no dia; não olhava **quais horários** foram escolhidos.
+ */
+export function conflitosDeAeronave(s: GameState, r: Route): Conflito[] {
+  const rots = rotacoesDa(s, r)
+  const out: Conflito[] = []
+  for (let i = 0; i < rots.length; i++) {
+    for (let j = i + 1; j < rots.length; j++) {
+      const ai = aeronaveDaRotacao(r, i)
+      if (!ai || ai !== aeronaveDaRotacao(r, j)) continue
+      if (cruza(ocupacao(rots[i]), ocupacao(rots[j]))) out.push({ aircraftId: ai, a: rots[i], b: rots[j] })
+    }
+  }
+  return out
+}
+
+/**
+ * O horário proposto cabe? Devolve o motivo, ou nulo.
+ *
+ * Só olha a própria rota: uma aeronave pertence a uma rota de cada vez, então
+ * não há como ela colidir com a escala de outra.
+ */
+export function horarioCabe(s: GameState, r: Route, indice: number, minutos: number): string | null {
+  const dono = aeronaveDaRotacao(r, indice)
+  if (!dono) return null
+  const rots = rotacoesDa(s, r)
+  const proposta: Rotacao = { ...rots[indice], saida: minutos, voltaBase: minutos + 2 * rots[indice].bloco + soloMin(s, r) }
+  for (let j = 0; j < rots.length; j++) {
+    if (j === indice || aeronaveDaRotacao(r, j) !== dono) continue
+    if (cruza(ocupacao(proposta), ocupacao(rots[j]))) {
+      return `A aeronave já está no ar às ${hhmm(minutos)}: a ${j + 1}ª rotação sai ${hhmm(rots[j].saida)} e só volta ${hhmm(rots[j].voltaBase)}.`
+    }
+  }
+  return null
 }
 
 /**

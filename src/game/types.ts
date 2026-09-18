@@ -276,7 +276,17 @@ export interface Competitor {
   cash: number
   reputation: number
   aggression: number
-  routes: { key: string; from: string; to: string; seats: number; freq: number; fare: number; quality: number }[]
+  routes: {
+    key: string; from: string; to: string; seats: number; freq: number; fare: number; quality: number
+    /**
+     * Hora de partida, em minutos. A concorrente não tem escala de verdade —
+     * as rotas dela são abstratas —, mas precisa de um horário para a disputa
+     * ser simétrica: sem isso o jogador levava o desconto de madrugada e a IA
+     * não levava nenhum. Ausente nas partidas antigas; `horaDaConcorrente`
+     * completa com um valor estável tirado da chave da rota.
+     */
+    hora?: number
+  }[]
   fleetSize: number
   revenue30: number
 }
