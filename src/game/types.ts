@@ -245,6 +245,15 @@ export interface Route {
    * Ausente nas rotas antigas, que são todas de passageiro.
    */
   cargo?: boolean
+  /**
+   * Horário de partida de cada rotação, em minutos depois da meia-noite na hora
+   * local da base. Uma entrada por voo do dia de maior frequência.
+   *
+   * Ausente quer dizer "nunca mexi nisso": `horariosDa` completa com o padrão
+   * espalhado. Guardar só o que o jogador escolheu mantém o save de partida
+   * antiga válido — rota sem horário não é rota quebrada, é rota no padrão.
+   */
+  horarios?: number[]
   openedDay: number
   history: DayResult[]
 }

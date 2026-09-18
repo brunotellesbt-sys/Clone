@@ -89,7 +89,7 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
             </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{ap.official}</div>
             <div className="fatos">
-              <div><b>{ap.pop.toFixed(1)} mi</b><span>bacia</span></div>
+              <div><b>{num(ap.paxDia)}</b><span>pax/dia (pico)</span></div>
               <div><b>{metros(ap.runway)}</b><span>pista</span></div>
               <div><b>{num(ap.elev)} ft</b><span>elevação</span></div>
               <div><b>{ap.slots}</b><span>slots/dia</span></div>

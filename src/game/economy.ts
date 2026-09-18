@@ -244,6 +244,14 @@ export const emptyCabins = (): Cabins => ({ y: 0, w: 0, c: 0, f: 0 })
 export const addCabins = (a: Cabins, b: Cabins): Cabins => ({
   y: a.y + b.y, w: a.w + b.w, c: a.c + b.c, f: a.f + b.f,
 })
+export const escalarCabins = (c: Cabins, k: number): Cabins => ({
+  y: c.y * k, w: c.w * k, c: c.c * k, f: c.f * k,
+})
+/** Corta cada classe no que a cabine oferece. */
+export const limitarCabins = (c: Cabins, teto: Cabins): Cabins => ({
+  y: Math.min(c.y, teto.y), w: Math.min(c.w, teto.w),
+  c: Math.min(c.c, teto.c), f: Math.min(c.f, teto.f),
+})
 export const sumCabins = (c: Cabins) => c.y + c.w + c.c + c.f
 
 export const seatCapacity = (seats: Cabins, cabin: CabinClass) => seats[cabin]

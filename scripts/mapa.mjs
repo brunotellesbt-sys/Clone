@@ -45,6 +45,13 @@ for (let i = 0; i < 5; i++) { await page.mouse.wheel(0, -260); await page.waitFo
 const antesZoom = await transform()
 conferir(/scale\((?!1\))/.test(antesZoom ?? ''), `a roda aproxima (${antesZoom})`)
 
+// zoom fundo: a roda tem que passar de 9, que era o teto antigo
+for (let i = 0; i < 16; i++) { await page.mouse.wheel(0, -260); await page.waitForTimeout(40) }
+const fundo = Number((await transform()).match(/scale\(([\d.]+)\)/)[1])
+conferir(fundo > 9, `o zoom passa do teto antigo (${fundo.toFixed(1)}x)`)
+await page.screenshot({ path: artifact('mapa-0-zoom.png') })
+for (let i = 0; i < 12; i++) { await page.mouse.wheel(0, 260); await page.waitForTimeout(40) }
+
 // ------------------------------------------------------- arrasto com zoom
 const arrastar = async (dx, dy, soltarFora) => {
   await page.mouse.move(cx, cy)

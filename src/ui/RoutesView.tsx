@@ -13,6 +13,7 @@ import {
 import { CABIN_LABEL, CABINS, type Route } from '../game/types'
 import { useGame } from '../store/useGame'
 import { Bar, Card, Empty, Modal, Spark } from './components/Bits'
+import { Horarios } from './components/Horarios'
 
 const DOW = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
@@ -24,6 +25,7 @@ export function RoutesView() {
   const sel = routes.find((r) => r.id === selId) ?? routes[0] ?? null
 
   return (
+    <div className="grid" style={{ gap: 14 }}>
     <div className="split">
       <Card
         title={`Rotas (${routes.length})`}
@@ -63,6 +65,10 @@ export function RoutesView() {
 
       {sel ? <RouteDetail route={sel} onClosed={() => setSelId(null)} /> : <Card title="Detalhe"><Empty>Selecione uma rota.</Empty></Card>}
       {opening && <OpenRouteModal onClose={() => setOpening(false)} onOpened={(id) => { setSelId(id); setOpening(false) }} />}
+    </div>
+    {/* horários e conexões ocupam a largura toda: a malha não cabe na coluna
+        estreita, e é a tela mais densa da rota */}
+    {sel && <Horarios route={sel} />}
     </div>
   )
 }
