@@ -54,6 +54,13 @@ export interface Airport {
    */
   elev: number
   tier: 1 | 2 | 3 | 4 | 5
+  /** Continente do país, da tabela da OurAirports. É a região de um `reg`. */
+  cont: Continente
+  /**
+   * Até onde o aeroporto recebe voo. Ver `ESCOPO` abaixo: `dom` só doméstico,
+   * `reg` doméstico e internacional do mesmo continente, `int` qualquer um.
+   */
+  escopo: Escopo
   slots: number
   /** Rótulo curto: "Cidade (IATA)". */
   name: string
@@ -3149,6 +3156,103 @@ ZTH|Zakynthos|Grecia|GR|37.75|20.88|0.04|0.77|2.10|7310|1|12
 ZUM|Churchill Falls|Canada|CA|53.56|-64.11|0.04|1.10|0.95|5500|1|1442
 `.trim()
 
+export type Continente = 'AF' | 'AN' | 'AS' | 'EU' | 'NA' | 'OC' | 'SA'
+export type Escopo = 'dom' | 'reg' | 'int'
+
+export const ESCOPO_LABEL: Record<Escopo, string> = {
+  dom: 'Doméstico',
+  reg: 'Regional',
+  int: 'Internacional',
+}
+
+/**
+ * Continente de cada país, da tabela `countries.csv` da OurAirports — a mesma
+ * fonte da sigla, da coordenada e da pista. Cobre os 231 países da lista.
+ *
+ * Ela segue a divisão da própria fonte, que tem duas decisões que surpreendem:
+ * Turquia entra na Ásia e Rússia na Europa, e América Central e Caribe entram
+ * na América do Norte. Ficam como estão — inventar uma divisão própria seria
+ * trocar dado por gosto.
+ */
+const CONTINENTE: Record<string, Continente> = Object.fromEntries(
+  `AE:AS AF:AS AG:NA AI:NA AL:EU AM:AS AO:AF AR:SA AS:OC AT:EU AU:OC AW:NA
+AZ:AS BA:EU BB:NA BD:AS BE:EU BF:AF BG:EU BH:AS BI:AF BJ:AF BM:NA BN:AS
+BO:SA BQ:NA BR:SA BS:NA BT:AS BW:AF BY:EU BZ:NA CA:NA CC:AS CD:AF CF:AF
+CG:AF CH:EU CI:AF CK:OC CL:SA CM:AF CN:AS CO:SA CR:NA CU:NA CV:AF CW:NA
+CX:AS CY:AS CZ:EU DE:EU DJ:AF DK:EU DM:NA DO:NA DZ:AF EC:SA EE:EU EG:AF
+EH:AF ER:AF ES:EU ET:AF FI:EU FJ:OC FK:SA FM:OC FO:EU FR:EU GA:AF GB:EU
+GD:NA GE:AS GF:SA GG:EU GH:AF GI:EU GL:NA GM:AF GN:AF GP:NA GQ:AF GR:EU
+GT:NA GU:OC GW:AF GY:SA HK:AS HN:NA HR:EU HT:NA HU:EU ID:AS IE:EU IL:AS
+IM:EU IN:AS IQ:AS IR:AS IS:EU IT:EU JE:EU JM:NA JO:AS JP:AS KE:AF KG:AS
+KH:AS KI:OC KM:AF KN:NA KP:AS KR:AS KW:AS KY:NA KZ:AS LA:AS LB:AS LC:NA
+LK:AS LR:AF LS:AF LT:EU LU:EU LV:EU LY:AF MA:AF MD:EU ME:EU MG:AF MH:OC
+MK:EU ML:AF MM:AS MN:AS MO:AS MP:OC MQ:NA MR:AF MT:EU MU:AF MV:AS MW:AF
+MX:NA MY:AS MZ:AF NA:AF NC:OC NE:AF NF:OC NG:AF NI:NA NL:EU NO:EU NP:AS
+NR:OC NU:OC NZ:OC OM:AS PA:NA PE:SA PF:OC PG:OC PH:AS PK:AS PL:EU PM:NA
+PR:NA PT:EU PW:OC PY:SA QA:AS RE:AF RO:EU RS:EU RU:EU RW:AF SA:AS SB:OC
+SC:AF SD:AF SE:EU SG:AS SH:AF SI:EU SK:EU SL:AF SN:AF SO:AF SR:SA SS:AF
+ST:AF SV:NA SX:NA SY:AS SZ:AF TC:NA TD:AF TG:AF TH:AS TJ:AS TL:AS TM:AS
+TN:AF TO:OC TR:AS TT:NA TV:OC TW:AS TZ:AF UA:EU UG:AF UM:OC US:NA UY:SA
+UZ:AS VC:NA VE:SA VG:NA VI:NA VN:AS VU:OC WF:OC WS:OC XK:EU YE:AS YT:AF
+ZA:AF ZM:AF ZW:AF`
+    .split(/\s+/)
+    .map((p) => p.split(':')),
+) as Record<string, Continente>
+
+/**
+ * Até onde cada aeroporto recebe voo — doméstico, regional ou internacional.
+ *
+ * **O que decide na vida real é a alfândega.** Voo internacional só pousa em
+ * aeroporto designado ponto de entrada, com posto de fronteira e receita;
+ * Congonhas perdeu o dele quando Guarulhos abriu, em 1985, e por isso é
+ * doméstico até hoje apesar de ser o segundo aeroporto do país em passageiro.
+ * Santos Dumont é doméstico pela mesma razão — e desde 2024 por resolução
+ * também: a norma que trocou o raio de 400 km pelo teto de 6,5 milhões de
+ * passageiros manteve que ele não opera com aeroporto internacional.
+ *
+ * O degrau do meio existe por causa do Aeroparque. AEP passou anos aceitando
+ * só cabotagem e voo ponto a ponto com país limítrofe mais Peru e Colômbia,
+ * com teto de 200 assentos — teto que caiu em agosto de 2024. É o molde do
+ * `reg`: doméstico mais internacional do próprio continente.
+ *
+ * **O escopo é índice de jogo, não cadastro aduaneiro.** Não existe lista
+ * pública de posto de fronteira para os 3.085 aeroportos, então ele sai de dois
+ * sinais — o degrau do aeroporto e a palavra "internacional" no nome oficial,
+ * que só existe para os que têm nome curado — mais as exceções conhecidas
+ * abaixo. Onde o jogo erra, erra para o lado de deixar operar.
+ */
+const MARCA_INTERNACIONAL =
+  /international|internacional|internationale|internationaal|intl\b|国际|国際|международн|uluslararası|nemzetközi|międzynarodow|mezinárodní|διεθν/i
+
+/**
+ * Onde a derivação erra e a verdade é conhecida. Cada linha tem uma razão:
+ * ou o aeroporto perdeu a alfândega, ou nunca teve, ou tem uma limitada.
+ */
+const ESCOPO_A_MAO: Record<string, Escopo> = {
+  // Perderam o internacional para o aeroporto novo da mesma cidade.
+  CGH: 'dom', // Congonhas: o internacional foi para Guarulhos em 1985
+  SDU: 'dom', // Santos Dumont: doméstico, e a resolução de 2024 confirma
+  // Aeroparque: cabotagem mais país limítrofe, Peru e Colômbia.
+  AEP: 'reg',
+  // Aeroporto de cidade, pista curta e alfândega só para o curto curso.
+  LCY: 'reg', // London City
+  TSA: 'reg', // Taipei Songshan: Tóquio, Seul e Xangai, e nada além
+  HND: 'int', // Haneda voltou ao longo curso em 2010
+  // Fronteira seca: internacional de verdade, mas só com o vizinho.
+  IGU: 'reg', // Foz do Iguaçu
+  TBT: 'reg', // Tabatinga, na tríplice fronteira com Colômbia e Peru
+  URG: 'reg', // Uruguaiana, colado na Argentina
+}
+
+const escopoDe = (iata: string, tier: number, official: string): Escopo => {
+  const mao = ESCOPO_A_MAO[iata]
+  if (mao) return mao
+  const marca = MARCA_INTERNACIONAL.test(official)
+  if (tier >= 4 || (marca && tier >= 3)) return 'int'
+  if (marca || tier === 3) return 'reg'
+  return 'dom'
+}
+
 const SLOTS_BY_TIER: Record<number, number> = { 1: 90, 2: 200, 3: 420, 4: 780, 5: 1300 }
 
 export const AIRPORTS: Airport[] = RAW.split('\n').map((line) => {
@@ -3167,6 +3271,8 @@ export const AIRPORTS: Airport[] = RAW.split('\n').map((line) => {
     runway: Number(runway),
     elev: Number(elev),
     tier: t,
+    cont: CONTINENTE[cc] ?? 'AN',
+    escopo: escopoDe(iata, t, AIRPORT_NAMES[iata] ?? ''),
     slots: SLOTS_BY_TIER[t],
     name: `${city} (${iata})`,
     official: AIRPORT_NAMES[iata] ?? `${city} (${iata})`,
@@ -3176,6 +3282,33 @@ export const AIRPORTS: Airport[] = RAW.split('\n').map((line) => {
 export const AIRPORT_BY_IATA: Record<string, Airport> = Object.fromEntries(
   AIRPORTS.map((a) => [a.iata, a]),
 )
+
+/**
+ * A rota entre os dois aeroportos é permitida? Devolve o motivo, ou nulo.
+ *
+ * Voo dentro do mesmo país passa sempre: escopo é sobre alfândega, e voo
+ * doméstico não passa por ela. O que o escopo trava é o internacional —
+ * `dom` não recebe nenhum, `reg` só recebe do próprio continente.
+ *
+ * Só a papelada: pista e alcance são outra conta, em `spec.ts`, e continuam
+ * valendo por cima desta.
+ */
+export function vooPermitido(a: Airport, b: Airport): string | null {
+  if (a.cc === b.cc) return null
+  const fechado = a.escopo === 'dom' ? a : b.escopo === 'dom' ? b : null
+  if (fechado) return `${fechado.iata} é doméstico: não recebe voo internacional.`
+  const regional = a.escopo === 'reg' ? a : b.escopo === 'reg' ? b : null
+  if (regional && a.cont !== b.cont) {
+    const outro = regional === a ? b : a
+    return `${regional.iata} é regional: internacional só dentro de ${CONTINENTE_LABEL[regional.cont]}, e ${outro.iata} fica em ${CONTINENTE_LABEL[outro.cont]}.`
+  }
+  return null
+}
+
+export const CONTINENTE_LABEL: Record<Continente, string> = {
+  AF: 'África', AN: 'Antártida', AS: 'Ásia', EU: 'Europa',
+  NA: 'América do Norte', OC: 'Oceania', SA: 'América do Sul',
+}
 
 /** Aeroportos que podem ser escolhidos como base inicial. */
 export const STARTER_HUBS = AIRPORTS.filter((a) => a.tier >= 3).map((a) => a.iata)

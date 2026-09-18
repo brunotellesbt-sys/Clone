@@ -1,4 +1,4 @@
-import { AIRPORTS, AIRPORT_BY_IATA } from './data/airports'
+import { AIRPORTS, AIRPORT_BY_IATA, vooPermitido } from './data/airports'
 import { AI_AIRLINES } from './data/names'
 import { baseDemand } from './demand'
 import { distanceBetween, odKey } from './geo'
@@ -7,7 +7,8 @@ import type { Competitor } from './types'
 
 /** Escolhe destinos plausíveis a partir de um hub, por demanda potencial. */
 function candidateDestinations(hub: string, day: number, limit: number) {
-  return AIRPORTS.filter((a) => a.iata !== hub)
+  const base = AIRPORT_BY_IATA[hub]
+  return AIRPORTS.filter((a) => a.iata !== hub && !vooPermitido(base, a))
     .map((a) => {
       const d = baseDemand(hub, a.iata, day, 180)
       return { iata: a.iata, score: d.total / (1 + distanceBetween(hub, a.iata) / 4000) }

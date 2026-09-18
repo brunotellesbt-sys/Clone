@@ -1,6 +1,6 @@
 import { AIRPORT_BY_IATA } from '../game/data/airports'
 import { sumCabins } from '../game/economy'
-import { debtTotal, fleetValue, money, netWorth, num, pct, period, routeEconomics } from '../game/engine'
+import { debtTotal, fleetValue, km, money, netWorth, num, pct, period, routeEconomics } from '../game/engine'
 import { useGame } from '../store/useGame'
 import { Card, Kpi, Spark } from './components/Bits'
 import { MapView } from './MapView'
@@ -90,7 +90,7 @@ export function Dashboard({ go }: { go: (tab: string) => void }) {
                 {best.map(({ r, e }) => (
                   <tr key={r.id} className="click" onClick={() => go('rotas')}>
                     <td><b>{r.from}</b> → {r.to} <span className="muted">{AIRPORT_BY_IATA[r.to].city}</span></td>
-                    <td className="r">{num(r.distance)} nm</td>
+                    <td className="r">{km(r.distance)}</td>
                     <td className="r">{Math.max(...r.freq)}</td>
                     <td className="r">{num(e.pax)}</td>
                     <td className="r">{e.days ? pct(e.loadFactor, 1) : '—'}</td>

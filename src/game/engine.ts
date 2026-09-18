@@ -2,7 +2,7 @@ import type { SeatConfig } from './types'
 import { normalizeSeats, seatChangeCost } from './seatModels'
 import { AIRCRAFT_BY_ID, type AircraftType } from './data/aircraft'
 import { SAVE_VERSION } from './save'
-import { AIRPORT_BY_IATA } from './data/airports'
+import { AIRPORT_BY_IATA, vooPermitido } from './data/airports'
 import { BLANK_LIVERY } from '../livery/presets'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from './demand'
 import { cabinComfort, checkCabin, clampPitch, crewFor, defaultCabin } from './cabin'
@@ -21,7 +21,12 @@ import {
   type Notice, type Route,
 } from './types'
 
-export const START_CASH = 85e6
+/**
+ * Caixa de fundação. Dá para comprar uma frota de verdade no primeiro ano em
+ * vez de começar arrendando um turboélice — a partida deixa de ser sobre
+ * sobreviver ao primeiro mês e passa a ser sobre escolher a malha.
+ */
+export const START_CASH = 500e6
 export const HQ_DAILY_BASE = 9500
 const LEDGER_KEEP = 420
 const HISTORY_KEEP = 60
@@ -181,10 +186,22 @@ export function sellAircraft(s: GameState, id: string): string | null {
   return null
 }
 
-export function routeSlotCost(from: string, to: string, freq: number): number {
-  const a = AIRPORT_BY_IATA[from]
-  const b = AIRPORT_BY_IATA[to]
-  return (a.tier ** 2 + b.tier ** 2) * 42000 * Math.max(1, freq) * 0.25 + 180000
+/**
+ * Preço de abrir uma rota, pela distância: dois degraus e nada mais.
+ *
+ * O corte é 5.000 km — o limite prático do corredor único, onde a etapa deixa
+ * de ser um avião e uma tripulação e passa a exigir tripulação de revezamento,
+ * apoio na outra ponta e negociação de par de slots intercontinental. O preço
+ * salta junto, e por isso o degrau é degrau e não uma reta.
+ */
+export const KM_LONGO_CURSO = 5000
+export const CUSTO_ROTA_CURTA = 1.5e6
+export const CUSTO_ROTA_LONGA = 5e6
+
+export function routeSlotCost(from: string, to: string): number {
+  return distanceBetween(from, to) * KM_POR_NM > KM_LONGO_CURSO
+    ? CUSTO_ROTA_LONGA
+    : CUSTO_ROTA_CURTA
 }
 
 /**
@@ -198,8 +215,10 @@ export function openRoute(s: GameState, from: string, to: string, cargo = false)
     return 'Toda rota precisa tocar em uma das suas bases.'
   if (s.airline.routes.some((r) => odKey(r.from, r.to) === odKey(from, to)))
     return 'Você já opera esse par.'
+  const barrado = vooPermitido(AIRPORT_BY_IATA[from], AIRPORT_BY_IATA[to])
+  if (barrado) return barrado
   if (slotsFree(s, from) < 2 || slotsFree(s, to) < 2) return 'Sem slots disponíveis em uma das pontas.'
-  const cost = routeSlotCost(from, to, 1)
+  const cost = routeSlotCost(from, to)
   if (s.airline.cash < cost) return `Abrir a rota custa ${money(cost)} em slots e taxas.`
   s.airline.cash -= cost
   const dist = distanceBetween(from, to)
@@ -215,7 +234,7 @@ export function openRoute(s: GameState, from: string, to: string, cargo = false)
     openedDay: s.day,
     history: [],
   })
-  notify(s, 'good', `Rota ${cargo ? 'de carga ' : ''}${from}–${to} aberta (${Math.round(dist)} nm).`)
+  notify(s, 'good', `Rota ${cargo ? 'de carga ' : ''}${from}–${to} aberta (${km(dist)}).`)
   return null
 }
 
@@ -239,7 +258,7 @@ export function assignAircraft(s: GameState, acId: string, routeId: string): str
   const cargueiro = t.payload !== undefined
   if (cargueiro && !r.cargo) return `${t.name} é cargueiro e só voa em rota de carga.`
   if (!cargueiro && r.cargo) return `${t.name} não tem porta de carga: rota de carga pede cargueiro.`
-  if (t.range < r.distance) return `${t.name} não alcança ${Math.round(r.distance)} nm (limite ${t.range} nm).`
+  if (t.range < r.distance) return `${t.name} não alcança ${km(r.distance)} (limite ${km(t.range)}).`
   const from = AIRPORT_BY_IATA[r.from]
   const to = AIRPORT_BY_IATA[r.to]
   // `pistaServe`, não `runway`: o que decide é a pista em que o avião opera de
@@ -319,14 +338,16 @@ export function setCabin(s: GameState, acId: string, seats: Cabins, pitch: Cabin
   return null
 }
 
+/** Preço de abrir base, igual em qualquer aeroporto. */
+export const HUB_COST = 20e6
+
 export function addHub(s: GameState, iata: string): string | null {
   if (s.airline.hubs.includes(iata)) return 'Já é uma base sua.'
   const ap = AIRPORT_BY_IATA[iata]
-  const cost = 4.5e6 * ap.tier + 6e6
   if (s.airline.reputation < 0.45 + 0.05 * ap.tier)
     return 'Reputação insuficiente para negociar espaço nesse aeroporto.'
-  if (s.airline.cash < cost) return `Abrir base em ${iata} custa ${money(cost)}.`
-  s.airline.cash -= cost
+  if (s.airline.cash < HUB_COST) return `Abrir base em ${iata} custa ${money(HUB_COST)}.`
+  s.airline.cash -= HUB_COST
   s.airline.hubs.push(iata)
   notify(s, 'good', `Nova base em ${ap.city} (${iata}).`)
   return null
@@ -715,6 +736,14 @@ export const num = (v: number) => Math.round(v).toLocaleString('pt-BR')
  * 6.365 ft.
  */
 export const metros = (pes: number) => `${num(pes * 0.3048)} m`
+
+/**
+ * Distância em quilômetros. A simulação conta em milha náutica porque é a
+ * unidade da ficha — nó de velocidade, alcance em nm —, mas nada disso aparece
+ * na tela: quem joga mede em km.
+ */
+export const KM_POR_NM = 1.852
+export const km = (nm: number) => `${num(nm * KM_POR_NM)} km`
 
 /** Resumo dos últimos N dias do livro-caixa. */
 export function period(s: GameState, days: number) {

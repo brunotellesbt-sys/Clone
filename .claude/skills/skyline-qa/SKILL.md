@@ -26,6 +26,7 @@ npm run build     # tsc -b + vite build. Nao passou daqui, nada mais importa
 npm run smoke     # funda companhia, compra aviao, abre rota, roda o tempo
 npm run sim -- GRU 1460
 npm run mapa      # so quando mexer no mapa; precisa do `npm run dev` de pe
+npm run escopo    # so quando mexer em aeroporto, degrau ou regra de rota
 ```
 
 O `mapa` cobre o que o `smoke` não alcança: arrastar, dar zoom, arrastar **com**

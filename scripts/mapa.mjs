@@ -90,13 +90,16 @@ conferir(
   'arrastar o mapa não troca a base escolhida',
 )
 
-// clicar num marcador troca a base — o arrasto não pode ter roubado o clique
-await page.mouse.move(cx, cy)
-for (let i = 0; i < 4; i++) { await page.mouse.wheel(0, -260); await page.waitForTimeout(80) }
-// o primeiro marcador que não seja o já escolhido
+// Clicar num marcador troca a base — o arrasto não pode ter roubado o clique.
+// Do mundo todo: aproximado, a folga de culagem desenha marcador fora do quadro,
+// e nesse o Playwright não consegue clicar.
+await page.locator('.map-tools button[title="Ver o mundo todo"]').click()
+await page.waitForTimeout(350)
 let trocou = false
 const marcadores = page.locator('.mapwrap svg circle[cx][fill]:not([fill="none"])')
-for (let i = 0; i < Math.min(8, await marcadores.count()) && !trocou; i++) {
+for (let i = 0; i < Math.min(14, await marcadores.count()) && !trocou; i++) {
+  const b = await marcadores.nth(i).boundingBox()
+  if (!b || b.x < box.x || b.x > box.x + box.width || b.y < box.y || b.y > box.y + box.height) continue
   await marcadores.nth(i).click({ force: true })
   await page.waitForTimeout(250)
   trocou = (await page.getByRole('button', { name: /^Decolar de/ }).textContent()) !== baseAntes
@@ -104,7 +107,12 @@ for (let i = 0; i < Math.min(8, await marcadores.count()) && !trocou; i++) {
 conferir(trocou, 'clicar num aeroporto do mapa escolhe a base')
 
 // ------------------------------------------------------------ dentro do jogo
-await page.getByRole('button', { name: /^Decolar de/ }).click()
+// volta para GRU: daqui para a frente o teste depende de uma base conhecida
+await page.getByPlaceholder(/sigla, cidade/).fill('GRU')
+await page.waitForTimeout(300)
+await page.locator('.achado').first().click()
+await page.waitForTimeout(400)
+await page.getByRole('button', { name: /^Decolar de GRU/ }).click()
 await page.waitForTimeout(800)
 
 // uma rota, para ter avião no mapa
@@ -122,8 +130,13 @@ await page.getByPlaceholder('cidade, país ou código').fill('Recife')
 await page.waitForTimeout(450)
 await page.getByRole('row', { name: /REC/ }).first().click()
 await page.waitForTimeout(400)
+// o destino sai de menu suspenso, e a distância vem em km
+const menu = page.locator('.modal select').last()
+conferir((await menu.locator('option').count()) > 1, 'o destino é um menu suspenso')
+conferir(/\d+ km/.test(await menu.locator('option').nth(1).textContent()), 'o menu mostra a distância em km')
 await page.getByRole('button', { name: /^Abrir por/ }).click()
 await page.waitForTimeout(500)
+conferir(/km/.test(await page.locator('table').first().textContent()), 'a tabela de rotas mostra km')
 
 await page.getByRole('button', { name: 'Painel', exact: true }).click()
 await page.waitForTimeout(900)

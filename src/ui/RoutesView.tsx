@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
 import { AIRCRAFT_BY_ID, acLabel, ehCargueiro } from '../game/data/aircraft'
-import { AIRPORTS, AIRPORT_BY_IATA } from '../game/data/airports'
+import { AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, vooPermitido } from '../game/data/airports'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from '../game/demand'
 import { sumCabins } from '../game/economy'
 import { distanceBetween, odKey } from '../game/geo'
 import { pistaServe } from '../game/spec'
 import {
-  assignAircraft, closeRoute, dayOfYear, estimateRoute, money, num, openRoute, pct,
+  assignAircraft, closeRoute, dayOfYear, estimateRoute, km, money, num, openRoute, pct,
   routeCapacityLimit, routeEconomics, routeSlotCost, setAllFrequencies, setFare, setFrequency,
   slotsFree, typeOf, unassignAircraft,
 } from '../game/engine'
@@ -36,7 +36,7 @@ export function RoutesView() {
             <table>
               <thead>
                 <tr>
-                  <th>Rota</th><th className="r">Dist.</th><th className="r">Aviões</th><th className="r">Voos</th>
+                  <th>Rota</th><th className="r">Distância</th><th className="r">Aviões</th><th className="r">Voos</th>
                   <th className="r">Aproveit.</th><th className="r">Fatia</th><th className="r">Resultado 14d</th>
                 </tr>
               </thead>
@@ -46,7 +46,7 @@ export function RoutesView() {
                   return (
                     <tr key={r.id} className={`click ${sel?.id === r.id ? 'on' : ''}`} onClick={() => setSelId(r.id)}>
                       <td><b>{r.from} → {r.to}</b><br /><span className="muted">{AIRPORT_BY_IATA[r.to].city}</span></td>
-                      <td className="r">{num(r.distance)}</td>
+                      <td className="r">{km(r.distance)}</td>
                       <td className="r">{r.aircraftIds.length}</td>
                       <td className="r">{Math.max(...r.freq)}/dia</td>
                       <td className="r">{e.days ? pct(e.loadFactor, 1) : '—'}</td>
@@ -78,7 +78,7 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
     <div className="grid" style={{ gap: 14 }}>
       <Card title={`${route.from} → ${route.to} · ${AIRPORT_BY_IATA[route.to].city}`}>
         <div className="grid g2" style={{ gap: 8, fontSize: 13, marginBottom: 10 }}>
-          <div><span className="muted">Distância</span><br />{num(route.distance)} nm</div>
+          <div><span className="muted">Distância</span><br />{km(route.distance)}</div>
           <div><span className="muted">Mercado hoje</span><br />{num(e.demand.total)} {e.unidade}/dia</div>
           <div><span className="muted">Sua fatia</span><br />{pct(e.share, 1)}</div>
           <div><span className="muted">{e.cargo ? 'Frete base' : 'Tarifa base'}</span><br />${e.demand.refFare.toFixed(0)}{e.cargo ? '/t' : ''}</div>
@@ -193,6 +193,7 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
       for (const r of c.routes) rivais.set(r.key, (rivais.get(r.key) ?? 0) + 1)
     }
     const busca = q.trim().toLowerCase()
+    const base = AIRPORT_BY_IATA[hub]
     return AIRPORTS.filter((a) => a.iata !== hub && !open.has(odKey(hub, a.iata)))
       // O filtro de texto vem antes das contas: medir demanda de três mil
       // destinos a cada tecla é trabalho jogado fora quando o jogador já disse
@@ -205,10 +206,12 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
         const d = carga
           ? { ...dp, total: dc.tons, refFare: dc.refRate }
           : dp
-        return { a, dist, demand: d, rivals: rivais.get(odKey(hub, a.iata)) ?? 0 }
+        // O destino barrado continua na lista, desativado e com o motivo: assim
+        // o jogador aprende a regra de alfândega em vez de nunca ver o aeroporto
+        return { a, dist, demand: d, rivals: rivais.get(odKey(hub, a.iata)) ?? 0, barrado: vooPermitido(base, a) }
       })
       .filter((o) => o.dist > 110)
-      .sort((x, y) => y.demand.total - x.demand.total)
+      .sort((x, y) => Number(!!x.barrado) - Number(!!y.barrado) || y.demand.total - x.demand.total)
       .slice(0, 90)
   }, [hub, q, state, doy, carga])
 
@@ -253,9 +256,21 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
             ))}
           </select>
         </label>
-        <label className="field" style={{ flex: 1, marginBottom: 0 }}>
-          <span>Buscar destino</span>
+        <label className="field" style={{ flex: '0 0 190px', marginBottom: 0 }}>
+          <span>Filtrar a lista</span>
           <input type="text" value={q} placeholder="cidade, país ou código" onChange={(e) => setQ(e.target.value)} />
+        </label>
+        <label className="field" style={{ flex: 1, marginBottom: 0 }}>
+          <span>Destino</span>
+          <select value={dest ?? ''} onChange={(e) => setDest(e.target.value || null)}>
+            <option value="">— escolher destino ({options.length} na lista) —</option>
+            {options.map((o) => (
+              <option key={o.a.iata} value={o.a.iata} disabled={!!o.barrado}>
+                {o.a.iata} — {o.a.city}, {o.a.country} · {km(o.dist)} · {num(o.demand.total)} {carga ? 't' : 'pax'}/dia
+                {o.barrado ? ' · indisponível' : ''}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 
@@ -263,13 +278,20 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
         <div className="scroll" style={{ maxHeight: 400 }}>
           <table>
             <thead>
-              <tr><th>Destino</th><th className="r">Dist.</th><th className="r">Mercado</th><th className="r">Tarifa base</th><th className="r">Concorrentes</th></tr>
+              <tr><th>Destino</th><th className="r">Distância</th><th className="r">Mercado</th><th className="r">Tarifa base</th><th className="r">Concorrentes</th></tr>
             </thead>
             <tbody>
               {options.map((o) => (
-                <tr key={o.a.iata} className={`click ${dest === o.a.iata ? 'on' : ''}`} onClick={() => setDest(o.a.iata)}>
-                  <td><b>{o.a.iata}</b> {o.a.city} <span className="muted">{o.a.country}</span></td>
-                  <td className="r">{num(o.dist)} nm</td>
+                <tr key={o.a.iata} className={`click ${dest === o.a.iata ? 'on' : ''} ${o.barrado ? 'off' : ''}`}
+                  onClick={() => !o.barrado && setDest(o.a.iata)}>
+                  <td>
+                    <b>{o.a.iata}</b> {o.a.city} <span className="muted">{o.a.country}</span>
+                    <br />
+                    <span className="muted" style={{ fontSize: 11 }}>
+                      {ESCOPO_LABEL[o.a.escopo]}{o.barrado ? ` · ${o.barrado}` : ''}
+                    </span>
+                  </td>
+                  <td className="r">{km(o.dist)}</td>
                   <td className="r">{num(o.demand.total)}/dia</td>
                   <td className="r">${o.demand.refFare.toFixed(0)}</td>
                   <td className="r">{o.rivals || <span className="good">livre</span>}</td>
@@ -285,11 +307,18 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
             <Card title={`${hub} → ${chosen.a.iata}`}>
               <div style={{ fontSize: 13, marginBottom: 10 }}>
                 <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <span className="muted">Custo de abertura</span><b>{money(routeSlotCost(hub, chosen.a.iata, 1))}</b>
+                  <span className="muted">Distância</span><b>{km(chosen.dist)}</b>
+                </div>
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <span className="muted">Custo de abertura</span><b>{money(routeSlotCost(hub, chosen.a.iata))}</b>
                 </div>
                 <div className="row" style={{ justifyContent: 'space-between' }}>
                   <span className="muted">Slots livres</span>
                   <b>{slotsFree(state, hub)} / {slotsFree(state, chosen.a.iata)}</b>
+                </div>
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <span className="muted">Escopo</span>
+                  <b>{ESCOPO_LABEL[AIRPORT_BY_IATA[hub].escopo]} → {ESCOPO_LABEL[chosen.a.escopo]}</b>
                 </div>
               </div>
               {best.length === 0 ? (
@@ -323,7 +352,7 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
                   onOpened(r.id)
                 }}
               >
-                Abrir por {money(routeSlotCost(hub, chosen.a.iata, 1))}
+                Abrir por {money(routeSlotCost(hub, chosen.a.iata))}
               </button>
             </Card>
           )}
