@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { sumCabins } from '../game/economy'
 import {
-  addHub, creditLimit, debtTotal, fleetValue, money, netWorth, num, pct, period,
+  addHub, creditLimit, debtTotal, fleetValue, HUB_COST, money, netWorth, num, pct, period,
   repayLoan, setMarketing, takeLoan,
 } from '../game/engine'
-import { AIRPORT_BY_IATA, type Airport } from '../game/data/airports'
+import { AIRPORT_BY_IATA, ESCOPO_LABEL, type Airport } from '../game/data/airports'
 import { useGame } from '../store/useGame'
 import { Card, Kpi, Spark } from './components/Bits'
 import { BuscaAeroporto } from './components/BuscaAeroporto'
@@ -20,12 +20,10 @@ export function FinanceView() {
   const fuelSeries = state.ledger.slice(-90).map((d) => d.cost / Math.max(1, d.flights))
 
   /**
-   * Base nova sai de busca, não de lista suspensa, e sem piso de degrau: quem
-   * quiser abrir base num regional paga o preço do degrau dele e abre. A trava
-   * que existia aqui deixava Santos Dumont e Congonhas fora por serem degrau 2
-   * e 3 numa lista que só aceitava 3 para cima.
+   * Base nova sai de busca, não de lista suspensa, e sem piso de degrau: a
+   * trava que existia aqui deixava Santos Dumont e Congonhas de fora por serem
+   * degrau 2 e 3 numa lista que só aceitava 3 para cima.
    */
-  const custoBase = (a: Airport) => 4.5e6 * a.tier + 6e6
   const jaEBase = (a: Airport) => state.airline.hubs.includes(a.iata)
 
   return (
@@ -116,7 +114,7 @@ export function FinanceView() {
               <BuscaAeroporto
                 placeholder="sigla, cidade ou país"
                 fora={jaEBase}
-                extra={(a) => money(custoBase(a))}
+                extra={(a) => ESCOPO_LABEL[a.escopo]}
                 onPick={setHub}
               />
             </label>
@@ -124,7 +122,7 @@ export function FinanceView() {
               <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
                 <span>
                   <b>{hub}</b> <span className="muted">{AIRPORT_BY_IATA[hub].city}</span>
-                  {' · '}{money(custoBase(AIRPORT_BY_IATA[hub]))}
+                  {' · '}{money(HUB_COST)}
                 </span>
                 <button className="btn sm" onClick={() => setHub('')}>Trocar</button>
               </div>
@@ -137,7 +135,9 @@ export function FinanceView() {
               Abrir base
             </button>
             <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>
-              Bases exigem reputação e custam caro, mas abrem uma nova frente de rotas.
+              Base custa {money(HUB_COST)} em qualquer aeroporto e exige reputação — quanto maior
+              o aeroporto, mais reputação. O escopo dele decide o que a base alcança: um
+              doméstico não abre nenhuma rota internacional.
             </p>
           </Card>
         </div>

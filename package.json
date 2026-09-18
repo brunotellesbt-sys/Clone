@@ -14,6 +14,7 @@
     "shots": "node scripts/shots.mjs",
     "smoke": "node scripts/smoke.mjs",
     "mapa": "node scripts/mapa.mjs",
+    "escopo": "tsx scripts/escopo.ts",
     "prebuild": "node scripts/art.mjs || echo \"arte da Commons indisponivel; usando os desenhos vetoriais\"",
     "aircraft2d:check": "tsx scripts/aircraft2d-check.ts",
     "aircraft2d:ui": "node scripts/aircraft2d-ui.mjs"

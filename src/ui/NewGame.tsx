@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AIRPORTS, AIRPORT_BY_IATA } from '../game/data/airports'
+import { AIRPORTS, AIRPORT_BY_IATA, CONTINENTE_LABEL, ESCOPO_LABEL } from '../game/data/airports'
 import { suggestAirlineName, suggestCode } from '../game/data/names'
 import { LIVERY_PRESETS } from '../livery/presets'
 import { AIRCRAFT_BY_ID } from '../game/data/aircraft'
@@ -93,6 +93,14 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
               <div><b>{metros(ap.runway)}</b><span>pista</span></div>
               <div><b>{num(ap.elev)} ft</b><span>elevação</span></div>
               <div><b>{ap.slots}</b><span>slots/dia</span></div>
+            </div>
+            <div className="row" style={{ marginTop: 11 }}>
+              <span className={`chip ${ap.escopo === 'int' ? '' : 'grey'}`}>{ESCOPO_LABEL[ap.escopo]}</span>
+              <span className="muted" style={{ fontSize: 12 }}>
+                {ap.escopo === 'dom' && 'só voo doméstico — sem alfândega'}
+                {ap.escopo === 'reg' && `doméstico e internacional dentro da ${CONTINENTE_LABEL[ap.cont]}`}
+                {ap.escopo === 'int' && 'sem limite de destino'}
+              </span>
             </div>
             <p className="muted" style={{ fontSize: 12, margin: '10px 0 0' }}>
               Base grande tem mais demanda e mais concorrência. Pista curta ou alta limita

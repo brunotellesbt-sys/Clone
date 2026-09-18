@@ -167,6 +167,10 @@ tbody tr:last-child td { border-bottom: 0; }
 tr.click { cursor: pointer; }
 tr.click:hover td { background: rgba(255, 181, 71, 0.06); }
 tr.on td { background: rgba(255, 181, 71, 0.12); box-shadow: inset 2px 0 0 var(--amber); }
+/* destino barrado por alfândega: fica à vista, com o motivo, mas não clica */
+tr.off { cursor: not-allowed; }
+tr.off td { opacity: 0.42; }
+tr.off:hover td { background: none; }
 .r { text-align: right; }
 
 /* --------------------------------------------------------------- controls */

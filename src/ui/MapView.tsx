@@ -3,8 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { feature } from 'topojson-client'
 import type { FeatureCollection, Geometry as GeoGeometry } from 'geojson'
 import world from 'world-atlas/countries-110m.json'
-import { AIRPORTS, AIRPORT_BY_IATA, type Airport } from '../game/data/airports'
-import { aircraftOf, metros, num, typeOf } from '../game/engine'
+import { AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, type Airport } from '../game/data/airports'
+import { aircraftOf, km, metros, typeOf } from '../game/engine'
 import { interpolate } from '../game/geo'
 import type { GameState, Route } from '../game/types'
 
@@ -410,7 +410,7 @@ export function MapView({
           <b>{hoverAp.iata}</b> · {hoverAp.city}, {hoverAp.country}
           <br />
           <span className="muted">
-            pista {metros(hoverAp.runway)} · {hoverAp.pop.toFixed(1)} mi hab
+            {ESCOPO_LABEL[hoverAp.escopo]} · pista {metros(hoverAp.runway)} · {hoverAp.pop.toFixed(1)} mi hab
           </span>
         </div>
       )}
@@ -434,8 +434,8 @@ function CartaoVoo({ state, r, fase, onClose }: { state: GameState; r: Route; fa
       <div className="muted" style={{ fontSize: 12 }}>{a.city} → {b.city}</div>
       <div className="voo-barra"><i style={{ width: `${fase * 100}%` }} /></div>
       <div className="row" style={{ justifyContent: 'space-between', fontSize: 11.5 }}>
-        <span className="dim">{num(r.distance - restante)} nm feitos</span>
-        <span className="muted">faltam {num(restante)} nm</span>
+        <span className="dim">{km(r.distance - restante)} feitos</span>
+        <span className="muted">faltam {km(restante)}</span>
       </div>
       {ac && tipo && (
         <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>

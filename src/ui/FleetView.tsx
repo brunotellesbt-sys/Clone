@@ -10,7 +10,7 @@ import {
 } from '../game/cabin'
 import { CLASS_FARE_MULT } from '../game/demand'
 import { resaleValue, sumCabins } from '../game/economy'
-import { assignAircraft, modelOf, money, num, pct, sellAircraft, setCabin, typeOf, unassignAircraft } from '../game/engine'
+import { assignAircraft, km, modelOf, money, num, pct, sellAircraft, setCabin, typeOf, unassignAircraft } from '../game/engine'
 import { useGame } from '../store/useGame'
 import { CABIN_LABEL, CABINS, type Aircraft, type Cabins, type SeatConfig } from '../game/types'
 import { AircraftArt } from '../livery/AircraftArt'
@@ -100,7 +100,7 @@ export function FleetView() {
                 <div><span className="muted">Ciclos</span><br />{num(sel.cycles)}</div>
                 <div><span className="muted">Estado</span><br />{pct(sel.condition)}</div>
                 <div><span className="muted">Idade</span><br />{sel.age.toFixed(1)} anos</div>
-                <div><span className="muted">Alcance</span><br />{num(typeOf(sel).range)} nm</div>
+                <div><span className="muted">Alcance</span><br />{km(typeOf(sel).range)}</div>
                 <div><span className="muted">Comissários</span><br />{crewFor(sel.seats)}</div>
                 <div><span className="muted">Passo econômica</span><br />{sel.pitch.y}″ · {pitchName('y', sel.pitch.y)}</div>
                 <div>
@@ -124,7 +124,7 @@ export function FleetView() {
                   <option value="">— sem rota —</option>
                   {state.airline.routes.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.from} → {r.to} ({num(r.distance)} nm)
+                      {r.from} → {r.to} ({km(r.distance)})
                     </option>
                   ))}
                 </select>
