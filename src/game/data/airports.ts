@@ -76,6 +76,15 @@ export interface Airport {
   paxDia: number
   /** Fator de equilíbrio do fluxo; ver `movimento.ts`. */
   fluxo: number
+  /**
+   * O movimento é medido ou estimado?
+   *
+   * 2.101 aeroportos têm número publicado; os outros 984 caem numa regressão
+   * cujo erro típico é um fator de 2,5. A tela diz qual é o caso em vez de
+   * apresentar os dois com a mesma cara — número estimado com aparência de
+   * medido é pior que número estimado assumido.
+   */
+  medido: boolean
   /** Minutos de diferença para o UTC, do tzdata. Sem horário de verão. */
   fuso: number
   /**
@@ -3614,6 +3623,7 @@ export const AIRPORTS: Airport[] = RAW.split('\n').map((line) => {
       MOVIMENTO_ANUAL[iata] ?? estimarMovimento(Number(pop), Number(gdp), t, Number(runway)),
     ),
     fluxo: fatorFluxo(iata),
+    medido: MOVIMENTO_ANUAL[iata] !== undefined,
     fuso: FUSO[iata] ?? Math.round(Number(lon) / 15) * 60,
     escopo: escopoDe(iata, t, AIRPORT_NAMES[iata] ?? ''),
     slots: SLOTS_BY_TIER[t],
@@ -3636,6 +3646,53 @@ export const AIRPORT_BY_IATA: Record<string, Airport> = Object.fromEntries(
  * Só a papelada: pista e alcance são outra conta, em `spec.ts`, e continuam
  * valendo por cima desta.
  */
+/**
+ * Aeroportos com restrição de operação noturna, e a janela fechada.
+ *
+ * É regra local de ruído, não norma internacional, então não existe cadastro
+ * mundial: esta é uma lista à mão dos casos conhecidos e documentados, do mesmo
+ * jeito que `ESCOPO_A_MAO`. Onde o jogo não sabe, deixa voar — errar para o
+ * lado de permitir é melhor que inventar uma proibição.
+ *
+ * As janelas são as publicadas por cada aeroporto, arredondadas para a hora
+ * cheia. Heathrow tem cota de movimentos em vez de proibição pura, mas o efeito
+ * prático para quem monta grade é o mesmo: não se marca partida ali às três da
+ * manhã.
+ */
+export const TOQUE_DE_RECOLHER: Record<string, [number, number]> = {
+  // Reino Unido: cota noturna 23:30–06:00 nos três de Londres
+  LHR: [23, 6], LGW: [23, 6], STN: [23, 6],
+  // França: Orly fecha de verdade, 23:30–06:00; Charles de Gaulle limita
+  ORY: [23, 6], CDG: [0, 5],
+  // Alemanha e Áustria
+  FRA: [23, 5], MUC: [0, 5], DUS: [22, 6], VIE: [23, 6],
+  // Suíça
+  ZRH: [23, 6],
+  // Itália: Linate fecha, Malpensa limita
+  LIN: [23, 6], MXP: [0, 5],
+  // Bélgica e Noruega
+  BRU: [23, 6], OSL: [23, 6],
+  // Londres City, que ainda fecha no fim de semana
+  LCY: [22, 6],
+  // Austrália: Sydney tem toque de recolher em lei desde 1995
+  SYD: [23, 6], ADL: [23, 6], BNE: [22, 6], PER: [23, 6],
+  // Japão: Narita e Haneda têm janela fechada
+  NRT: [0, 6],
+  // Brasil: aeroporto de cidade, vizinhança colada na cabeceira
+  CGH: [23, 6], SDU: [23, 6],
+  // Estados Unidos: Reagan, John Wayne e Burbank têm regra de ruído
+  DCA: [22, 7], SNA: [23, 7], BUR: [22, 7],
+}
+
+/** O horário cai na janela fechada do aeroporto? */
+export function noToqueDeRecolher(iata: string, minutos: number): boolean {
+  const janela = TOQUE_DE_RECOLHER[iata]
+  if (!janela) return false
+  const h = Math.floor((((minutos % 1440) + 1440) % 1440) / 60)
+  const [fecha, abre] = janela
+  return fecha > abre ? h >= fecha || h < abre : h >= fecha && h < abre
+}
+
 /** O aeroporto tem nome oficial de verdade, ou só o rótulo curto? */
 export const temNomeOficial = (a: Airport) => a.official !== a.name
 

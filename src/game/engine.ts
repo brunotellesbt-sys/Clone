@@ -5,7 +5,8 @@ import { SAVE_VERSION } from './save'
 import { AIRPORT_BY_IATA, vooPermitido } from './data/airports'
 import {
   atratividadeDaRota, atratividadeHorario, blocoMin, DIA, fatorConexao, fatorConexaoIA,
-  horarioCabe, horaDaConcorrente, horariosDa, horariosPadrao, rotacoesPorDia, soloMin,
+  fracaoNoturna, horarioCabe, horaDaConcorrente, horariosDa, horariosPadrao, rotacoesPorDia,
+  soloMin,
 } from './malha'
 import { BLANK_LIVERY } from '../livery/presets'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from './demand'
@@ -22,7 +23,7 @@ import { distanceBetween, odKey } from './geo'
 import { createCompetitors, stepCompetitors } from './ai'
 import { between, chance, hashStr, makeRng, type Rng } from './rng'
 import {
-  CABINS, type Aircraft, type Cabins, type DayResult, type GameState, type Livery,
+  CABINS, type Aircraft, type Cabins, type Competitor, type DayResult, type GameState, type Livery,
   type Notice, type Route,
 } from './types'
 
@@ -391,6 +392,45 @@ export function addHub(s: GameState, iata: string): string | null {
   return null
 }
 
+/**
+ * Acordo de interline com uma concorrente.
+ *
+ * Custa proporcional ao tamanho da malha dela na sua base — quem tem mais voo
+ * ali tem mais a oferecer e cobra por isso — e exige reputação, porque ninguém
+ * põe o próprio passageiro num voo de companhia que não confia.
+ */
+export const CUSTO_ACORDO_BASE = 8e6
+export const REPUTACAO_ACORDO = 0.5
+
+export function custoDoAcordo(s: GameState, comp: Competitor): number {
+  const nasBases = comp.routes.filter((r) =>
+    s.airline.hubs.includes(r.from) || s.airline.hubs.includes(r.to)).length
+  return CUSTO_ACORDO_BASE + nasBases * 1.6e6
+}
+
+export function assinarAcordo(s: GameState, compId: string): string | null {
+  const comp = s.competitors.find((c) => c.id === compId)
+  if (!comp) return 'Companhia não encontrada.'
+  s.airline.acordos ??= []
+  if (s.airline.acordos.includes(compId)) return 'Vocês já têm acordo.'
+  const toca = comp.routes.some((r) => s.airline.hubs.includes(r.from) || s.airline.hubs.includes(r.to))
+  if (!toca) return `${comp.name} não voa para nenhuma das suas bases: não há o que conectar.`
+  if (s.airline.reputation < REPUTACAO_ACORDO)
+    return 'Reputação insuficiente: ninguém assina interline com quem não conhece.'
+  const custo = custoDoAcordo(s, comp)
+  if (s.airline.cash < custo) return `O acordo com ${comp.name} custa ${money(custo)}.`
+  s.airline.cash -= custo
+  s.airline.acordos.push(compId)
+  notify(s, 'good', `Acordo de interline com ${comp.name}.`)
+  return null
+}
+
+export function romperAcordo(s: GameState, compId: string) {
+  const comp = s.competitors.find((c) => c.id === compId)
+  s.airline.acordos = (s.airline.acordos ?? []).filter((id) => id !== compId)
+  if (comp) notify(s, 'info', `Acordo com ${comp.name} encerrado.`)
+}
+
 export function takeLoan(s: GameState, amount: number): string | null {
   const limit = creditLimit(s)
   if (amount <= 0) return null
@@ -511,7 +551,7 @@ export function advanceDay(s: GameState): GameState {
     // o horário entra como qualidade: voo de madrugada disputa em desvantagem
     list.push({
       id: `P:${r.id}`, seats, freq: flights, fareMult: fareAvg,
-      quality: playerQuality * comfort * atratividadeDaRota(s, r),
+      quality: playerQuality * comfort * atratividadeDaRota(s, r, dow),
     })
     carriersByOd.set(key, list)
     perRoute.push({ route: r, flights, seats, seatsTotal: sumCabins(seats), physicalSeats, pitch })
@@ -562,6 +602,7 @@ export function advanceDay(s: GameState): GameState {
      * registrada continua sendo a do mercado local, sem o acréscimo.
      */
     const conexao = fatorConexao(s, r)
+    const noturno = fracaoNoturna(s, r)
     // teto no assento ofertado: conexão preenche poltrona vazia, não cria
     // poltrona. Sem isto o aproveitamento passava de 100%, que é impossível.
     const pax = limitarCabins(escalarCabins(mine?.pax ?? emptyCabins(), conexao), rd.seats)
@@ -581,7 +622,7 @@ export function advanceDay(s: GameState): GameState {
     for (let i = 0; i < rd.flights; i++) {
       const ac = acs[i % acs.length]
       const t = typeOf(ac)
-      const c = flightCost(t, r.distance, r.from, r.to, s.fuelPrice, ac.age, paxPerLeg, premiumPerLeg, crewFor(ac.seats))
+      const c = flightCost(t, r.distance, r.from, r.to, s.fuelPrice, ac.age, paxPerLeg, premiumPerLeg, crewFor(ac.seats), noturno)
       cost += c.total * 2
       ac.hours += c.blockH * 2
       ac.cycles += 2
@@ -642,7 +683,7 @@ export function advanceDay(s: GameState): GameState {
       const ac = acs[i % acs.length]
       const t = typeOf(ac)
       // Sem passageiro não há comissaria nem comissário: os dois entram zerados.
-      const c = flightCost(t, r.distance, r.from, r.to, s.fuelPrice, ac.age, 0, 0, 0)
+      const c = flightCost(t, r.distance, r.from, r.to, s.fuelPrice, ac.age, 0, 0, 0, fracaoNoturna(s, r))
       cost += c.total * 2
       ac.hours += c.blockH * 2
       ac.cycles += 2

@@ -9,8 +9,10 @@
  *
  * Nada de React aqui: é `src/game/`, e a tela só lê o que sai daqui.
  */
-import { AIRPORT_BY_IATA, type Airport } from './data/airports'
+import { AIRPORT_BY_IATA, noToqueDeRecolher, TOQUE_DE_RECOLHER, type Airport } from './data/airports'
+import { distanceNm } from './geo'
 import { hashStr } from './rng'
+import { baseDemand } from './demand'
 import { blockHours } from './economy'
 import { withEngine } from './spec'
 import { AIRCRAFT_BY_ID } from './data/aircraft'
@@ -104,11 +106,28 @@ export function soloMin(s: GameState, r: Route): number {
   return ac ? AIRCRAFT_BY_ID[ac.typeId].turn : AIRCRAFT_BY_ID.a320.turn
 }
 
-/**
- * Quantas rotações por dia a rota tem. É o pico da semana: o horário é um só
- * para todos os dias, e nos dias de frequência menor sobram as primeiras.
- */
+/** Quantas rotações a rota tem no dia mais cheio da semana. */
 export const rotacoesPorDia = (r: Route) => Math.max(0, Math.max(...r.freq))
+
+/**
+ * Quais rotações voam num dia da semana.
+ *
+ * O horário é um só para os sete dias — companhia de verdade tem grade de
+ * semana e de fim de semana, e isso o jogo não modela. O que ele modela é o
+ * corte: num dia de frequência menor **sai o voo pior**, não o último da lista.
+ * Antes, sábado com um voo só usava sempre o slot das seis da manhã, porque
+ * sobravam as primeiras; agora sobra o de maior procura, que é o que uma
+ * companhia faria.
+ */
+export function rotacoesDoDia(s: GameState, r: Route, dow: number): Rotacao[] {
+  const todas = rotacoesDa(s, r)
+  const quantas = Math.max(0, Math.min(r.freq[dow] ?? 0, todas.length))
+  if (quantas >= todas.length) return todas
+  return [...todas]
+    .sort((a, b) => atratividadeHorario(b.saida) - atratividadeHorario(a.saida))
+    .slice(0, quantas)
+    .sort((a, b) => a.indice - b.indice)
+}
 
 /**
  * Horário padrão quando o jogador ainda não mexeu: as rotações espalhadas pela
@@ -180,6 +199,40 @@ export function rotacoesDa(s: GameState, r: Route): Rotacao[] {
   }))
 }
 
+/**
+ * As duas pontas de uma rota de concorrente na **sua** base, em hora local dela.
+ *
+ * A concorrente não tem escala de verdade: cada rota dela tem uma hora de
+ * partida do hub dela e uma frequência. Daí sai o resto — se a base é o destino
+ * dela, o voo chega depois do bloco e volta depois do solo; se a base é o hub
+ * dela, sai na hora e volta no fim da rotação.
+ */
+export function pontasDaConcorrente(
+  cr: { key: string; from: string; to: string; hora?: number },
+  base: string,
+): { chega: number; parte: number; internacional: boolean; outraPonta: string } | null {
+  const a = AIRPORT_BY_IATA[cr.from]
+  const b = AIRPORT_BY_IATA[cr.to]
+  if (!a || !b) return null
+  const dist = distanceNm(a, b)
+  // sem frota modelada, a referência é o porte que voaria a etapa
+  const tipo = dist > 3000 ? AIRCRAFT_BY_ID.b789 : AIRCRAFT_BY_ID.a320
+  const bloco = Math.round(blockHours(tipo, dist) * 60)
+  const solo = tipo.turn
+  const hora = horaDaConcorrente(cr)
+  const internacional = etapaInternacional(a, b)
+  if (cr.from === base) {
+    // o hub dela é a sua base: parte na hora e volta no fim da rotação
+    return { parte: hora, chega: hora + 2 * bloco + solo, internacional, outraPonta: cr.to }
+  }
+  if (cr.to === base) {
+    const delta = fusoMin(b) - fusoMin(a)
+    const chega = hora + bloco + delta
+    return { chega, parte: chega + solo, internacional, outraPonta: cr.from }
+  }
+  return null
+}
+
 export interface Conexao {
   /** A rotação que chega na base. */
   de: Rotacao
@@ -189,6 +242,8 @@ export interface Conexao {
   espera: number
   /** O mínimo exigido para esse par. */
   minimo: number
+  /** Nome da parceira, quando a conexão atravessa companhia. */
+  parceira?: string
 }
 
 /**
@@ -225,8 +280,51 @@ export function conexoesNaBase(s: GameState, base: string): Conexao[] {
       if (espera >= minimo && espera <= ESPERA_MAXIMA) out.push({ de, para, espera, minimo })
     }
   }
+
+  /**
+   * Interline: os voos das parceiras que tocam esta base entram dos dois lados.
+   *
+   * A parceira aparece como uma rotação só, porque é o que se sabe dela. O
+   * tempo mínimo é o mesmo — alfândega não pergunta de quem é o voo —, e o par
+   * fica marcado com o nome dela para a tela poder dizer de quem é.
+   */
+  for (const comp of s.competitors) {
+    if (!s.airline.acordos?.includes(comp.id)) continue
+    for (const cr of comp.routes) {
+      const p = pontasDaConcorrente(cr, base)
+      if (!p) continue
+      const dela: Rotacao = {
+        routeId: `X:${comp.id}:${cr.key}`, indice: 0,
+        saida: p.parte, chegadaDestino: p.parte, saidaDestino: p.parte,
+        voltaBase: p.chega, bloco: 0, internacional: p.internacional,
+      }
+      for (const minha of partidas) {
+        const espera = adiante(dela.voltaBase, minha.saida)
+        const minimo = mct(dela.internacional, minha.internacional)
+        if (espera >= minimo && espera <= ESPERA_MAXIMA) {
+          out.push({ de: dela, para: minha, espera, minimo, parceira: comp.name })
+        }
+      }
+      for (const minha of chegadas) {
+        const espera = adiante(minha.voltaBase, dela.saida)
+        const minimo = mct(minha.internacional, dela.internacional)
+        if (espera >= minimo && espera <= ESPERA_MAXIMA) {
+          out.push({ de: minha, para: dela, espera, minimo, parceira: comp.name })
+        }
+      }
+    }
+  }
   return out.sort((x, y) => x.espera - y.espera)
 }
+
+/**
+ * Quanto uma conexão interline vale, comparada com uma da própria companhia.
+ *
+ * Menos, e por motivo concreto: bilhete separado, bagagem que troca de sistema,
+ * e nenhuma das duas companhias se responsabiliza pela conexão perdida da
+ * outra. O passageiro sabe disso e prefere a conexão online quando existe.
+ */
+export const DESCONTO_INTERLINE = 0.45
 
 /** As conexões que alimentam ou são alimentadas por uma rota. */
 export function conexoesDaRota(s: GameState, r: Route) {
@@ -307,9 +405,19 @@ export function horaDaConcorrente(r: { key: string; hora?: number }): number {
   return Math.round(6 * 60 + 15 * 60 * hashStr(`H${r.key}`))
 }
 
-/** A média da rota, que é o que entra na disputa por passageiro. */
-export function atratividadeDaRota(s: GameState, r: Route): number {
+/** De 0 a 1: quanto da escala sai entre 22h e 6h, que é o que a folha cobra a mais. */
+export function fracaoNoturna(s: GameState, r: Route): number {
   const rots = rotacoesDa(s, r)
+  if (!rots.length) return 0
+  const noite = (min: number) => { const h = min / 60 % 24; return h >= 22 || h < 6 }
+  // conta a ida e a volta: as duas pontas pagam tripulação e taxa
+  const pernas = rots.flatMap((rot) => [rot.saida, rot.saidaDestino])
+  return pernas.filter(noite).length / pernas.length
+}
+
+/** A média da rota, que é o que entra na disputa por passageiro. */
+export function atratividadeDaRota(s: GameState, r: Route, dow?: number): number {
+  const rots = dow === undefined ? rotacoesDa(s, r) : rotacoesDoDia(s, r, dow)
   if (!rots.length) return 1
   return rots.reduce((soma, rot) => soma + atratividadeHorario(rot.saida), 0) / rots.length
 }
@@ -376,10 +484,29 @@ export function conflitosDeAeronave(s: GameState, r: Route): Conflito[] {
  * não há como ela colidir com a escala de outra.
  */
 export function horarioCabe(s: GameState, r: Route, indice: number, minutos: number): string | null {
+  const rots = rotacoesDa(s, r)
+  if (!rots[indice]) return null
+  const bloco = rots[indice].bloco
+  const solo = soloMin(s, r)
+  const a = AIRPORT_BY_IATA[r.from]
+  const b = AIRPORT_BY_IATA[r.to]
+  const delta = fusoMin(b) - fusoMin(a)
+  // as quatro pontas da rotação, cada uma na hora local do seu aeroporto
+  const pontas: [string, number, string][] = [
+    [r.from, minutos, 'a partida'],
+    [r.to, minutos + bloco + delta, 'a chegada'],
+    [r.to, minutos + bloco + delta + solo, 'a saída de volta'],
+    [r.from, minutos + 2 * bloco + solo, 'a volta'],
+  ]
+  for (const [iata, quando, oque] of pontas) {
+    if (noToqueDeRecolher(iata, quando)) {
+      const [fecha, abre] = TOQUE_DE_RECOLHER[iata]
+      return `${iata} não opera das ${String(fecha).padStart(2, '0')}h às ${String(abre).padStart(2, '0')}h, e ${oque} cairia ${hhmm(quando)}.`
+    }
+  }
   const dono = aeronaveDaRotacao(r, indice)
   if (!dono) return null
-  const rots = rotacoesDa(s, r)
-  const proposta: Rotacao = { ...rots[indice], saida: minutos, voltaBase: minutos + 2 * rots[indice].bloco + soloMin(s, r) }
+  const proposta: Rotacao = { ...rots[indice], saida: minutos, voltaBase: minutos + 2 * bloco + solo }
   for (let j = 0; j < rots.length; j++) {
     if (j === indice || aeronaveDaRotacao(r, j) !== dono) continue
     if (cruza(ocupacao(proposta), ocupacao(rots[j]))) {
@@ -406,20 +533,75 @@ export const TETO_CONEXAO = 0.35
 export const POR_CONEXAO = 0.025
 
 /**
- * O mesmo ganho, para uma concorrente.
+ * Demanda de referência de um trajeto de conexão, em passageiros por dia.
  *
- * A IA não tem horário — as rotas dela são abstratas —, então o ganho sai do
- * tamanho da malha no hub, que é o que de fato determina quanta conexão uma
- * companhia consegue montar. Precisa existir: dar o bônus só ao jogador fez a
- * receita dele passar a valer quase o dobro da maior concorrente assim que os
- * mercados encolheram, e isso não era desenho, era esquecimento.
+ * Uma conexão que serve um mercado deste tamanho vale por uma inteira; abaixo
+ * disso vale proporcionalmente menos. O número é a ordem de grandeza de um par
+ * secundário com voo diário — não é medição, é a régua que separa "isto é um
+ * trajeto que alguém faz" de "isto é um par que só fecha no relógio".
  */
+const DEMANDA_REFERENCIA = 400
+
+/**
+ * Peso de um trajeto de conexão: o mercado das **duas pontas**, não do meio.
+ *
+ * A primeira versão contava par que fecha no horário e parava aí. Duas rotas
+ * suas podem se encaixar no relógio servindo um trajeto que ninguém faz — dois
+ * regionais de estados diferentes ligados pelo seu hub —, e o bônus vinha
+ * igual ao de Recife–São Paulo–Lisboa. Agora cada par entra pelo tamanho do
+ * mercado de ponta a ponta, com teto de um.
+ */
+function pesoDoTrajeto(de: string, para: string, dia: number, doy: number): number {
+  if (de === para) return 0
+  return Math.min(1, baseDemand(de, para, dia, doy).total / DEMANDA_REFERENCIA)
+}
+
+/**
+ * Soma de peso de conexão por rota, numa base, num dia.
+ *
+ * Memoizado porque a conta é quadrática nas rotas e o tick chama uma vez por
+ * rota: sem o cache, uma malha de cinquenta rotas fazia duas mil e quinhentas
+ * avaliações de demanda **por rota**, cinquenta vezes por dia simulado.
+ */
+const cacheConexao = new Map<string, Map<string, number>>()
+
+export function pesosDeConexao(s: GameState, base: string, doy: number): Map<string, number> {
+  const chave = `${base}|${s.day}|${s.airline.routes.length}|${s.airline.acordos?.join(',') ?? ''}`
+  const pronto = cacheConexao.get(chave)
+  if (pronto) return pronto
+  const pesos = new Map<string, number>()
+  const somar = (id: string, v: number) => pesos.set(id, (pesos.get(id) ?? 0) + v)
+  /** A ponta de fora da base, seja de uma rota sua ou de uma parceira. */
+  const pontaDe = (rotacao: Rotacao): string | null => {
+    const minha = s.airline.routes.find((r) => r.id === rotacao.routeId)
+    if (minha) return minha.from === base ? minha.to : minha.from
+    const [, compId, key] = rotacao.routeId.split(':')
+    const comp = s.competitors.find((c) => c.id === compId)
+    const cr = comp?.routes.find((r) => r.key === key)
+    return cr ? pontasDaConcorrente(cr, base)?.outraPonta ?? null : null
+  }
+  for (const c of conexoesNaBase(s, base)) {
+    const pontaA = pontaDe(c.de)
+    const pontaB = pontaDe(c.para)
+    if (!pontaA || !pontaB) continue
+    const peso = pesoDoTrajeto(pontaA, pontaB, s.day, doy) * (c.parceira ? DESCONTO_INTERLINE : 1)
+    // só a perna que é sua ganha o bônus: a da parceira é receita dela
+    if (s.airline.routes.some((r) => r.id === c.de.routeId)) somar(c.de.routeId, peso)
+    if (s.airline.routes.some((r) => r.id === c.para.routeId)) somar(c.para.routeId, peso)
+  }
+  // o cache é de um dia só; guardar mais seria guardar demanda de ontem
+  if (cacheConexao.size > 8) cacheConexao.clear()
+  cacheConexao.set(chave, pesos)
+  return pesos
+}
+
 export function fatorConexaoIA(rotasNoHub: number): number {
   return 1 + Math.min(TETO_CONEXAO, POR_CONEXAO * Math.max(0, rotasNoHub - 1))
 }
 
-export function fatorConexao(s: GameState, r: Route): number {
+export function fatorConexao(s: GameState, r: Route, doy = 180): number {
   if (!r.horarios && rotacoesPorDia(r) === 0) return 1
-  const { entrando, saindo } = conexoesDaRota(s, r)
-  return 1 + Math.min(TETO_CONEXAO, POR_CONEXAO * (entrando.length + saindo.length))
+  const base = s.airline.hubs.includes(r.from) ? r.from : r.to
+  const peso = pesosDeConexao(s, base, doy).get(r.id) ?? 0
+  return 1 + Math.min(TETO_CONEXAO, POR_CONEXAO * peso)
 }

@@ -6,11 +6,14 @@
  * conexão de quarenta minutos entre um voo que chega de Lisboa e outro que sai
  * para Recife, que é impossível: o passageiro tem que passar pela alfândega.
  */
-import { AIRPORT_BY_IATA, AIRPORT_BY_IATA as AP } from '../src/game/data/airports'
-import { newGame, openRoute, setAllFrequencies, setHorario, buyAircraft, assignAircraft } from '../src/game/engine'
+import { AIRPORT_BY_IATA, AIRPORT_BY_IATA as AP, noToqueDeRecolher } from '../src/game/data/airports'
+import {
+  assinarAcordo, assignAircraft, buyAircraft, newGame, openRoute, romperAcordo,
+  setAllFrequencies, setFrequency, setHorario,
+} from '../src/game/engine'
 import {
   atratividadeHorario, conexoesNaBase, conflitosDeAeronave, hhmm, MCT_ALFANDEGA,
-  MCT_DOMESTICA, MCT_INTERNACIONAL, mct, rotacoesDa, voosColados,
+  MCT_DOMESTICA, MCT_INTERNACIONAL, mct, rotacoesDa, rotacoesDoDia, voosColados,
 } from '../src/game/malha'
 
 let falhas = 0
@@ -135,6 +138,72 @@ conferir(
   atratividadeHorario(0) === atratividadeHorario(24 * 60),
   'a curva fecha na volta do dia',
 )
+
+// ----------------------------------------------- toque de recolher
+console.log('\ntoque de recolher\n')
+const sCgh = newGame({ name: 'T', code: 'TT', hub: 'CGH', seed: 3 })
+sCgh.airline.cash = 5e9
+openRoute(sCgh, 'CGH', 'BSB')
+const rCgh = sCgh.airline.routes[0]
+buyAircraft(sCgh, 'a320neo', false)
+assignAircraft(sCgh, sCgh.airline.fleet[0].id, rCgh.id)
+setAllFrequencies(sCgh, rCgh.id, 1)
+const noite = setHorario(sCgh, rCgh.id, 0, 23 * 60 + 30)
+conferir(!!noite, 'Congonhas recusa partida às 23:30', noite ?? '(aceitou)')
+conferir(!setHorario(sCgh, rCgh.id, 0, 9 * 60), 'e aceita às 09:00')
+conferir(noToqueDeRecolher('LHR', 3 * 60), 'Heathrow fechado às 3h')
+conferir(!noToqueDeRecolher('GRU', 3 * 60), 'Guarulhos aberto às 3h — não tem restrição')
+
+// --------------------------------------------------------- dia magro
+console.log('\ndia de frequência menor\n')
+const rMagro = s.airline.routes.find((r) => r.to === 'SSA')!
+setAllFrequencies(s, rMagro.id, 2)
+setHorario(s, rMagro.id, 0, 3 * 60)
+setHorario(s, rMagro.id, 1, 18 * 60)
+setFrequency(s, rMagro.id, 6, 1) // sábado com um voo só
+const doSabado = rotacoesDoDia(s, rMagro, 6)
+conferir(
+  doSabado.length === 1 && doSabado[0].saida === 18 * 60,
+  'no dia de um voo só, fica o de maior procura e não o primeiro',
+  doSabado.map((r) => hhmm(r.saida)).join(' '),
+)
+
+// ------------------------------------------------------------- interline
+//
+// Num estado limpo: os blocos acima remexeram horário e frequência, e medir
+// interline em cima disso mediria o resto do teste, não o interline.
+console.log('\ninterline\n')
+const si = newGame({ name: 'Teste', code: 'TT', hub: 'GRU', seed: 7 })
+si.airline.cash = 5e9
+for (const destino of ['REC', 'SSA', 'LIS']) {
+  if (openRoute(si, 'GRU', destino)) continue
+  const r = si.airline.routes[si.airline.routes.length - 1]
+  buyAircraft(si, destino === 'LIS' ? 'b789' : 'a320neo', false)
+  assignAircraft(si, si.airline.fleet[si.airline.fleet.length - 1].id, r.id)
+  setAllFrequencies(si, r.id, 2)
+}
+const antes = conexoesNaBase(si, 'GRU').length
+const parceira = si.competitors.find((c) =>
+  c.routes.some((r) => r.from === 'GRU' || r.to === 'GRU'))
+if (!parceira) {
+  console.log('ok    nenhuma concorrente toca GRU nesta semente — nada a conectar')
+} else {
+  const err = assinarAcordo(si, parceira.id)
+  conferir(!err, `acordo com ${parceira.name} assinado`, err ?? '')
+  const depois = conexoesNaBase(si, 'GRU')
+  conferir(depois.length > antes, 'o acordo abre conexões novas', `${antes} → ${depois.length}`)
+  const doAcordo = depois.filter((c) => c.parceira)
+  conferir(
+    doAcordo.length > 0 && doAcordo.every((c) => c.espera >= c.minimo),
+    'conexão interline respeita o mesmo tempo mínimo',
+    `${doAcordo.length} pares`,
+  )
+  romperAcordo(si, parceira.id)
+  conferir(
+    conexoesNaBase(si, 'GRU').length === antes,
+    'romper o acordo devolve a malha ao que era',
+  )
+}
 
 console.log(falhas ? `\n${falhas} falha(s)` : '\ntudo certo')
 process.exit(falhas ? 1 : 0)

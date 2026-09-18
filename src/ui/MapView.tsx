@@ -429,7 +429,7 @@ export function MapView({
           <span className="muted">
             {ESCOPO_LABEL[hoverAp.escopo]} · pista {metros(hoverAp.runway)}
             <br />
-            {num(hoverAp.paxDia)} pax/dia no pico · {hoverAp.pop.toFixed(1)} mi hab
+            {num(hoverAp.paxDia)} pax/dia {hoverAp.medido ? 'no pico' : '(estimado)'} · {hoverAp.pop.toFixed(1)} mi hab
           </span>
         </div>
       )}

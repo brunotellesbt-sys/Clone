@@ -45,8 +45,8 @@ regra mais importante do repositório.
 | `npm run cabines` | confere as configurações de cabine |
 | `npm run escopo` | confere o escopo dos aeroportos contra os casos reais conhecidos |
 | `npm run malha` | confere horário de voo, conexões e os três tempos mínimos |
-| `npm run movimento` | relevanta o movimento anual de passageiros nas listas da Wikipédia |
-| ` npm run fluxo` | recalcula os fatores de equilíbrio do fluxo (Furness); rode depois de mexer no núcleo da demanda |
+| `npm run movimento` | relevanta o movimento de passageiros (Wikidata + listas) e grava direto no `movimento.ts` |
+| `npm run fluxo` | recalcula os fatores de equilíbrio do fluxo (Furness) e grava direto; rode **depois** do `movimento` e de qualquer mexida no núcleo da demanda |
 | `npx tsx scripts/cargo-check.ts GRU MIA a332f` | roda uma rota de carga de ponta a ponta no tick |
 | `npm run smoke` | abre o jogo num navegador headless e joga sozinho |
 | `npm run mapa` | confere arrasto, zoom, clique no avião e escolha de base (precisa do `npm run dev` de pé) |

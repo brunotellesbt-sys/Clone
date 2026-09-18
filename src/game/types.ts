@@ -302,6 +302,15 @@ export interface Airline {
   routes: Route[]
   loans: Loan[]
   marketing: number
+  /**
+   * Códigos das concorrentes com acordo de interline.
+   *
+   * O voo delas que chega na sua base alimenta a sua partida, e vice-versa —
+   * com o mesmo tempo mínimo de conexão e um desconto no valor, porque bagagem
+   * que troca de companhia é pior que bagagem que segue na mesma. Ausente nas
+   * partidas antigas, que não tinham acordo nenhum.
+   */
+  acordos?: string[]
 }
 
 export interface Notice {

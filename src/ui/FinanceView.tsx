@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { sumCabins } from '../game/economy'
 import {
-  addHub, creditLimit, debtTotal, fleetValue, HUB_COST, money, netWorth, num, pct, period,
-  repayLoan, setMarketing, takeLoan,
+  addHub, assinarAcordo, creditLimit, custoDoAcordo, debtTotal, fleetValue, HUB_COST, money,
+  netWorth, num, pct, period, repayLoan, REPUTACAO_ACORDO, romperAcordo, setMarketing, takeLoan,
 } from '../game/engine'
 import { AIRPORT_BY_IATA, ESCOPO_LABEL, type Airport } from '../game/data/airports'
 import { useGame } from '../store/useGame'
@@ -25,6 +25,17 @@ export function FinanceView() {
    * degrau 2 e 3 numa lista que só aceitava 3 para cima.
    */
   const jaEBase = (a: Airport) => state.airline.hubs.includes(a.iata)
+
+  /** Concorrentes que tocam alguma base sua: são as únicas com o que conectar. */
+  const parceiras = state.competitors
+    .map((comp) => {
+      const voos = comp.routes.filter(
+        (r) => state.airline.hubs.includes(r.from) || state.airline.hubs.includes(r.to),
+      ).length
+      return { comp, voos, tem: state.airline.acordos?.includes(comp.id) ?? false, custo: custoDoAcordo(state, comp) }
+    })
+    .filter((p) => p.voos > 0)
+    .sort((a, b) => Number(b.tem) - Number(a.tem) || b.voos - a.voos)
 
   return (
     <div className="grid" style={{ gap: 14 }}>
@@ -100,6 +111,41 @@ export function FinanceView() {
             </label>
             <p className="muted" style={{ fontSize: 12, margin: 0 }}>
               Puxa a reputação para cima e melhora sua atratividade nas rotas disputadas. Reputação atual: {pct(state.airline.reputation)}.
+            </p>
+          </Card>
+
+          <Card title="Interline">
+            <p className="muted" style={{ fontSize: 12, margin: '0 0 10px' }}>
+              O voo da parceira que chega na sua base alimenta a sua partida, e vice-versa. Vale
+              menos que conexão própria — bilhete separado, bagagem trocando de companhia —, mas
+              alcança destino que você não voa.
+            </p>
+            {parceiras.length === 0 && (
+              <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+                Nenhuma concorrente voa para as suas bases.
+              </p>
+            )}
+            {parceiras.map(({ comp, tem, custo, voos }) => (
+              <div key={comp.id} className="row" style={{ justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--line-soft)' }}>
+                <span>
+                  <b style={{ color: comp.color }}>{comp.name}</b>{' '}
+                  <span className="muted">{voos} voos nas suas bases</span>
+                </span>
+                {tem ? (
+                  <button className="btn sm danger" onClick={() => act((s) => romperAcordo(s, comp.id))}>Romper</button>
+                ) : (
+                  <button className="btn sm" onClick={() => {
+                    const err = act((s) => assinarAcordo(s, comp.id))
+                    if (err) toast(err, 'error')
+                  }}>
+                    {money(custo)}
+                  </button>
+                )}
+              </div>
+            ))}
+            <p className="muted" style={{ fontSize: 12, margin: '10px 0 0' }}>
+              Exige reputação de {pct(REPUTACAO_ACORDO)} — ninguém põe o próprio passageiro num voo
+              de companhia que não conhece.
             </p>
           </Card>
 
