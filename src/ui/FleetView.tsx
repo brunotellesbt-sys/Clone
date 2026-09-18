@@ -15,6 +15,8 @@ import { useGame } from '../store/useGame'
 import { CABIN_LABEL, CABINS, type Aircraft, type Cabins, type SeatConfig } from '../game/types'
 import { AircraftArt } from '../livery/AircraftArt'
 import { Bar, Card, Empty, Modal } from './components/Bits'
+import { Grade } from './components/Grade'
+import { pernasDe, quebrasDe } from '../game/escala'
 
 export function FleetView() {
   const { state, act, toast } = useGame()
@@ -34,7 +36,7 @@ export function FleetView() {
               <thead>
                 <tr>
                   <th>Matrícula</th><th>Modelo</th><th>Motor</th><th className="r">Cabine</th>
-                  <th className="r">Idade</th><th className="r">Estado</th><th>Rota</th><th></th>
+                  <th className="r">Idade</th><th className="r">Estado</th><th>Escala</th><th></th>
                 </tr>
               </thead>
               <tbody>
@@ -42,6 +44,8 @@ export function FleetView() {
                   const t = modelOf(a)
                   const eng = ENGINES[a.engineId]
                   const route = state.airline.routes.find((r) => r.id === a.routeId)
+                  const voos = pernasDe(state, a.id).length
+                  const quebrada = quebrasDe(state, a.id).length > 0
                   const grounded = a.groundedUntil > state.day
                   const premium = [a.seats.f && `${a.seats.f}F`, a.seats.c && `${a.seats.c}C`, a.seats.w && `${a.seats.w}W`]
                     .filter(Boolean).join(' ')
@@ -64,7 +68,17 @@ export function FleetView() {
                         <Bar value={a.condition} tone={a.condition < 0.4 ? '#fb7185' : undefined} />
                       </td>
                       <td>
-                        {grounded ? <span className="chip bad">hangar</span> : route ? `${route.from}–${route.to}` : <span className="muted">parado</span>}
+                        {grounded ? (
+                          <span className="chip bad">hangar</span>
+                        ) : voos === 0 ? (
+                          <span className="muted">parado</span>
+                        ) : (
+                          <>
+                            {route ? `${route.from}–${route.to}` : <span title="circula por mais de uma rota">malha</span>}
+                            <span className="muted" style={{ fontSize: 11 }}> · {voos} voos</span>
+                            {quebrada && <span className="alerta" title="a escala da semana não fecha"> ⚠</span>}
+                          </>
+                        )}
                       </td>
                       <td className="r">
                         {ehCargueiro(t)
@@ -110,18 +124,19 @@ export function FleetView() {
               </div>
             </Card>
 
-            <Card title="Alocação">
-              <label className="field">
-                <span>Rota</span>
+            <Card title="Escala da semana">
+              <Grade ac={sel} />
+              <label className="field" style={{ marginTop: 12 }}>
+                <span>Dedicar a uma rota — monta ida e volta nos sete dias</span>
                 <select
-                  value={sel.routeId ?? ''}
+                  value=""
                   onChange={(e) => {
                     const v = e.target.value
                     const err = act((s) => (v ? assignAircraft(s, sel.id, v) : (unassignAircraft(s, sel.id), null)))
                     if (err) toast(err, 'error')
                   }}
                 >
-                  <option value="">— sem rota —</option>
+                  <option value="">— escolher rota —</option>
                   {state.airline.routes.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.from} → {r.to} ({km(r.distance)})
@@ -129,6 +144,13 @@ export function FleetView() {
                   ))}
                 </select>
               </label>
+              <button className="btn" style={{ marginBottom: 10 }} onClick={() => act((s) => unassignAircraft(s, sel.id))}>
+                Esvaziar a escala
+              </button>
+              <p className="muted" style={{ fontSize: 12, margin: '0 0 12px' }}>
+                Para a cauda circular — sair do Rio, pousar em Fortaleza e emendar para Congonhas —
+                marque voo a voo na tela de rotas. Aqui ela só recebe a escala pronta de um par.
+              </p>
               <button
                 className="btn danger"
                 onClick={() => {

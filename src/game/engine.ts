@@ -4,10 +4,13 @@ import { AIRCRAFT_BY_ID, type AircraftType } from './data/aircraft'
 import { SAVE_VERSION } from './save'
 import { AIRPORT_BY_IATA, vooPermitido } from './data/airports'
 import {
-  atratividadeDaRota, atratividadeHorario, blocoMin, DIA, fatorConexao, fatorConexaoIA,
-  fracaoNoturna, horarioCabe, horaDaConcorrente, horariosDa, horariosPadrao, rotacoesPorDia,
-  soloMin,
+  atratividadeDaRota, atratividadeHorario, fatorConexao, fatorConexaoIA, fracaoNoturna,
+  horaDaConcorrente,
 } from './malha'
+import {
+  escalaDe, marcarRotacao, montarRotacoes, pernasDoDia, posicionamentos, removerVoo, rotaDoPar,
+  sincronizarMalha,
+} from './escala'
 import { BLANK_LIVERY } from '../livery/presets'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from './demand'
 import { cabinComfort, checkCabin, clampPitch, crewFor, defaultCabin } from './cabin'
@@ -99,13 +102,19 @@ export const typeOf = (ac: Aircraft) => withEngine(AIRCRAFT_BY_ID[ac.typeId], ac
 export const routeOf = (s: GameState, id: string) => s.airline.routes.find((r) => r.id === id)
 export const aircraftOf = (s: GameState, id: string) => s.airline.fleet.find((a) => a.id === id)
 
+/**
+ * Movimentos que a companhia já usa num aeroporto, no dia mais cheio da semana.
+ *
+ * Conta **pernas** — cada partida e cada chegada é um movimento de pista —, e
+ * pelo dia de pico, porque slot é dimensionado pelo pior dia, não pela média.
+ */
 export function slotsUsed(s: GameState, iata: string): number {
-  let n = 0
-  for (const r of s.airline.routes) {
-    if (r.from !== iata && r.to !== iata) continue
-    n += Math.max(...r.freq) * 2
+  const porDia = [0, 0, 0, 0, 0, 0, 0]
+  for (const p of escalaDe(s)) {
+    if (p.from === iata) porDia[p.dow] += 1
+    if (p.to === iata) porDia[p.dow] += 1
   }
-  return n
+  return Math.max(...porDia)
 }
 /** Parte da capacidade do aeroporto que já é de outras companhias. */
 export const slotsTaken = (iata: string) => Math.round(AIRPORT_BY_IATA[iata].slots * 0.62)
@@ -164,6 +173,7 @@ export function buyAircraft(s: GameState, typeId: string, lease: boolean, opts: 
     cycles: 0,
     condition: 1,
     routeId: null,
+    base: s.airline.hubs[0],
     leased: lease,
     lease: lease ? leaseMonthly(t) : 0,
     value: lease ? 0 : price,
@@ -176,7 +186,7 @@ export function buyAircraft(s: GameState, typeId: string, lease: boolean, opts: 
 export function sellAircraft(s: GameState, id: string): string | null {
   const ac = aircraftOf(s, id)
   if (!ac) return 'Aeronave não encontrada.'
-  if (ac.routeId) unassignAircraft(s, id)
+  unassignAircraft(s, id)
   const t = typeOf(ac)
   if (ac.leased) {
     const penalty = ac.lease * 3
@@ -217,8 +227,24 @@ export function routeSlotCost(from: string, to: string): number {
  */
 export function openRoute(s: GameState, from: string, to: string, cargo = false): string | null {
   if (from === to) return 'Origem e destino iguais.'
-  if (!s.airline.hubs.includes(from) && !s.airline.hubs.includes(to))
-    return 'Toda rota precisa tocar em uma das suas bases.'
+  /**
+   * A rota precisa tocar uma base **ou** dois aeroportos que a companhia já
+   * serve.
+   *
+   * A regra antiga era só a base, e ela sozinha impedia a malha: uma cauda que
+   * chega em Fortaleza não podia emendar para Congonhas, porque Fortaleza–
+   * Congonhas não tocava o hub e a rota nem podia ser aberta. Exigir que as duas
+   * pontas já sejam atendidas é o que uma companhia real enfrenta — estação
+   * nova custa pessoal, contrato de handling e balcão, e por isso a linha
+   * transversal só aparece onde ela já pousa.
+   */
+  const serve = (i: string) =>
+    s.airline.hubs.includes(i) || s.airline.routes.some((r) => r.from === i || r.to === i)
+  if (!s.airline.hubs.includes(from) && !s.airline.hubs.includes(to)) {
+    if (!serve(from) || !serve(to)) {
+      return 'A rota tem que tocar uma base, ou ligar dois aeroportos que você já atende.'
+    }
+  }
   if (s.airline.routes.some((r) => odKey(r.from, r.to) === odKey(from, to)))
     return 'Você já opera esse par.'
   const barrado = vooPermitido(AIRPORT_BY_IATA[from], AIRPORT_BY_IATA[to])
@@ -247,12 +273,22 @@ export function openRoute(s: GameState, from: string, to: string, cargo = false)
 export function closeRoute(s: GameState, id: string): string | null {
   const r = routeOf(s, id)
   if (!r) return 'Rota não encontrada.'
-  for (const acId of [...r.aircraftIds]) unassignAircraft(s, acId)
+  // os voos da rota saem da escala junto: sem rota, a perna não tem mercado
+  for (const p of escalaDe(s).filter((x) => rotaDoPar(s, x.from, x.to)?.id === id)) removerVoo(s, p.id)
   s.airline.routes = s.airline.routes.filter((x) => x.id !== id)
+  sincronizarMalha(s)
   notify(s, 'info', `Rota ${r.from}–${r.to} encerrada.`)
   return null
 }
 
+/**
+ * Dedica uma cauda a uma rota: monta a semana inteira de ida e volta com ela.
+ *
+ * A alocação deixou de ser um vínculo — a aeronave não pertence mais a rota
+ * nenhuma — e virou um atalho de escala: "põe este avião para voar isto todo
+ * dia". Quem quiser a cauda circulando pela malha marca voo a voo, que é o
+ * caminho que este botão abrevia.
+ */
 export function assignAircraft(s: GameState, acId: string, routeId: string): string | null {
   const ac = aircraftOf(s, acId)
   const r = routeOf(s, routeId)
@@ -270,84 +306,77 @@ export function assignAircraft(s: GameState, acId: string, routeId: string): str
   // `pistaServe`, não `runway`: o que decide é a pista em que o avião opera de
   // fato, com peso reduzido, corrigida pela elevação de cada ponta.
   if (!pistaServe(t, from, to)) return 'Pista curta demais em uma das pontas.'
-  if (ac.routeId) unassignAircraft(s, acId)
-  ac.routeId = routeId
-  r.aircraftIds.push(acId)
-  return null
+
+  let marcou = 0
+  let ultimoErro: string | null = null
+  for (let dow = 0; dow < 7; dow++) {
+    // uma rotação por dia, no primeiro horário de pico que a cauda conseguir
+    for (const hora of [7 * 60, 9 * 60, 12 * 60, 15 * 60, 18 * 60, 6 * 60]) {
+      const erro = marcarRotacao(s, acId, r, dow, hora)
+      if (erro) { ultimoErro = erro; continue }
+      marcou++
+      break
+    }
+  }
+  return marcou ? null : ultimoErro ?? 'Não foi possível encaixar esta rota na escala da aeronave.'
 }
 
-export function unassignAircraft(s: GameState, acId: string) {
-  const ac = aircraftOf(s, acId)
-  if (!ac || !ac.routeId) return
-  const r = routeOf(s, ac.routeId)
-  if (r) r.aircraftIds = r.aircraftIds.filter((x) => x !== acId)
-  ac.routeId = null
+/** Tira da escala todas as pernas de uma cauda — na malha inteira ou só numa rota. */
+export function unassignAircraft(s: GameState, acId: string, routeId?: string) {
+  const r = routeId ? routeOf(s, routeId) : null
+  for (const p of escalaDe(s)) {
+    if (p.aircraftId !== acId) continue
+    if (r && rotaDoPar(s, p.from, p.to)?.id !== r.id) continue
+    removerVoo(s, p.id)
+  }
+  sincronizarMalha(s)
 }
 
+
+/**
+ * Pede `value` rotações da rota num dia: a escala é montada, não decretada.
+ *
+ * A frequência era um número que a rota guardava; agora é o resultado de quantos
+ * voos o jogo conseguiu encaixar com a frota que estava disponível. Pedir cinco
+ * e receber três não é bug — é a resposta de que não há cauda parada na base
+ * naquelas horas, e é a informação que faltava antes.
+ */
 export function setFrequency(s: GameState, routeId: string, dow: number, value: number): string | null {
   const r = routeOf(s, routeId)
   if (!r) return null
-  const cap = routeCapacityLimit(s, r)
-  const v = Math.max(0, Math.min(cap, Math.round(value)))
-  const before = Math.max(...r.freq)
-  r.freq[dow] = v
-  const after = Math.max(...r.freq)
-  if (after > before) {
-    const extra = (after - before) * 2
+  const v = Math.max(0, Math.min(routeCapacityLimit(s, r), Math.round(value)))
+  const atual = Math.floor(pernasDoDia(s, r, dow).length / 2)
+  if (v > atual) {
+    const extra = (v - atual) * 2
     if (slotsFree(s, r.from) < extra || slotsFree(s, r.to) < extra) {
-      r.freq[dow] = before
       return 'Sem slots para aumentar a frequência.'
     }
   }
-  return null
-}
-
-/**
- * Muda o horário de uma rotação.
- *
- * Grava o vetor inteiro, completado pelo padrão, e não só a posição mexida: a
- * rota pode nunca ter tido horário, e gravar uma posição solta deixaria as
- * outras indefinidas — o que a tela leria como padrão e o save gravaria como
- * buraco.
- */
-export function setHorario(s: GameState, routeId: string, indice: number, minutos: number): string | null {
-  const r = routeOf(s, routeId)
-  if (!r) return 'Rota não encontrada.'
-  const atuais = horariosDa(r)
-  if (indice < 0 || indice >= atuais.length) return 'Essa rotação não existe.'
-  const hora = ((Math.round(minutos) % DIA) + DIA) % DIA
-  // um avião não fica em dois lugares ao mesmo tempo
-  const choque = horarioCabe(s, r, indice, hora)
-  if (choque) return choque
-  atuais[indice] = hora
-  r.horarios = atuais
-  return null
-}
-
-/** Espalha as rotações pela janela operacional de novo. */
-export function espalharHorarios(s: GameState, routeId: string) {
-  const r = routeOf(s, routeId)
-  if (!r) return
-  r.horarios = horariosPadrao(
-    rotacoesPorDia(r),
-    2 * blocoMin(s, r) + soloMin(s, r),
-    Math.max(1, r.aircraftIds.length),
-  )
+  return montarRotacoes(s, routeId, dow, v)
 }
 
 export function setAllFrequencies(s: GameState, routeId: string, value: number) {
   for (let d = 0; d < 7; d++) setFrequency(s, routeId, d, value)
 }
 
-/** Máximo de rotações diárias que a frota alocada aguenta. */
+/**
+ * Máximo de rotações diárias que a frota da rota aguenta.
+ *
+ * Com a malha, "a frota da rota" é quem já voa nela mais quem está livre para
+ * voar: um avião sem escala nenhuma conta, porque é exatamente ele que o
+ * `montarRotacoes` vai procurar.
+ */
 export function routeCapacityLimit(s: GameState, r: Route): number {
   let total = 0
-  for (const id of r.aircraftIds) {
-    const ac = aircraftOf(s, id)
-    if (!ac) continue
-    total += maxDailyFrequency(typeOf(ac), r.distance) / 2
+  for (const ac of s.airline.fleet) {
+    const serve = r.aircraftIds.includes(ac.id) || escalaDe(s).every((p) => p.aircraftId !== ac.id)
+    if (!serve) continue
+    const t = typeOf(ac)
+    if (t.range < r.distance) continue
+    if ((t.payload !== undefined) !== !!r.cargo) continue
+    total += maxDailyFrequency(t, r.distance) / 2
   }
-  return Math.floor(total)
+  return Math.max(1, Math.floor(total))
 }
 
 export function setFare(s: GameState, routeId: string, cabin: keyof Cabins, mult: number) {
@@ -473,11 +502,20 @@ interface RouteDay {
   physicalSeats: number
   /** Passo médio por classe na rota, ponderado por assento. */
   pitch: Cabins
+  /** A cauda de cada perna do dia, na ordem da escala. */
+  pernas: Aircraft[]
 }
 
-function availableAircraft(s: GameState, r: Route) {
-  return r.aircraftIds
-    .map((id) => aircraftOf(s, id))
+/**
+ * As caudas que a escala manda voar esta rota hoje, uma por perna.
+ *
+ * Aeronave em manutenção pesada não voa, e a perna dela simplesmente não sai —
+ * que é o que acontece de verdade quando um avião fica em hangar: o voo é
+ * cancelado, não transferido para outro por mágica.
+ */
+function aeronavesDoDia(s: GameState, r: Route, dow: number): Aircraft[] {
+  return pernasDoDia(s, r, dow)
+    .map((p) => aircraftOf(s, p.aircraftId))
     .filter((a): a is Aircraft => !!a && a.groundedUntil <= s.day)
 }
 
@@ -493,28 +531,24 @@ export function advanceDay(s: GameState): GameState {
   // 1) O que a companhia coloca no ar hoje.
   const perRoute: RouteDay[] = []
   const carriersByOd = new Map<string, Carrier[]>()
-  const perCargo: { route: Route; flights: number; tons: number }[] = []
+  const perCargo: { route: Route; flights: number; tons: number; pernas: Aircraft[] }[] = []
   const playerQuality = (0.72 + 0.55 * s.airline.reputation) * (1 + Math.min(0.12, s.airline.marketing / 2.4e6))
 
   for (const r of s.airline.routes) {
-    const acs = availableAircraft(s, r)
-    if (acs.length === 0) continue
-    const limit = acs.reduce((sum, a) => sum + maxDailyFrequency(typeOf(a), r.distance) / 2, 0)
-    const flights = Math.max(0, Math.min(Math.floor(limit), r.freq[dow]))
-    if (flights === 0) continue
+    // Uma cauda por perna marcada: a escala é que diz quem voa o quê hoje.
+    const pernas = aeronavesDoDia(s, r, dow)
+    if (pernas.length === 0) continue
+    // Duas pernas fazem uma rotação, que é como a oferta sempre foi medida.
+    const flights = pernas.length / 2
 
     // Rota de carga não tem cabine: sai por outro caminho, com outro mercado.
     if (r.cargo) {
       let tons = 0
-      for (let i = 0; i < flights; i++) {
-        const t = typeOf(acs[i % acs.length])
-        tons += (t.payload ?? 0) * 2 * CARGO_SELLABLE
-      }
-      if (tons > 0) perCargo.push({ route: r, flights, tons })
+      for (const ac of pernas) tons += (typeOf(ac).payload ?? 0) * CARGO_SELLABLE
+      if (tons > 0) perCargo.push({ route: r, flights, tons, pernas })
       continue
     }
 
-    // Distribui os voos entre as aeronaves alocadas (rodízio).
     let seats: Cabins = emptyCabins()
     let physicalSeats = 0
     let comfort = 0
@@ -523,22 +557,21 @@ export function advanceDay(s: GameState): GameState {
     const pitchW: Cabins = emptyCabins()
     // Nem todo assento é vendável, e o mix de horários varia dia a dia.
     const sellable = SELLABLE * between(rng, 0.96, 1.02)
-    for (let i = 0; i < flights; i++) {
-      const ac = acs[i % acs.length]
+    for (const ac of pernas) {
       const t = typeOf(ac)
-      // Cada rotação oferece assentos nos dois sentidos.
+      // Agora a conta é por perna: cada uma oferece os assentos dela, uma vez.
       seats = addCabins(seats, {
-        y: ac.seats.y * 2 * sellable, w: ac.seats.w * 2 * sellable,
-        c: ac.seats.c * 2 * sellable, f: ac.seats.f * 2 * sellable,
+        y: ac.seats.y * sellable, w: ac.seats.w * sellable,
+        c: ac.seats.c * sellable, f: ac.seats.f * sellable,
       })
-      physicalSeats += sumCabins(ac.seats) * 2
+      physicalSeats += sumCabins(ac.seats)
       for (const cb of CABINS) {
         pitchAcc[cb] += ac.pitch[cb] * ac.seats[cb]
         pitchW[cb] += ac.seats[cb]
       }
       comfort += t.comfort * cabinComfort(t, ac.seats, ac.pitch) * (0.85 + 0.15 * ac.condition)
     }
-    comfort /= flights
+    comfort /= pernas.length
     const pitch: Cabins = {
       y: pitchW.y ? pitchAcc.y / pitchW.y : 31,
       w: pitchW.w ? pitchAcc.w / pitchW.w : 38,
@@ -554,7 +587,7 @@ export function advanceDay(s: GameState): GameState {
       quality: playerQuality * comfort * atratividadeDaRota(s, r, dow),
     })
     carriersByOd.set(key, list)
-    perRoute.push({ route: r, flights, seats, seatsTotal: sumCabins(seats), physicalSeats, pitch })
+    perRoute.push({ route: r, flights, seats, seatsTotal: sumCabins(seats), physicalSeats, pitch, pernas })
   }
 
   // 2) Concorrentes no mesmo par.
@@ -601,8 +634,8 @@ export function advanceDay(s: GameState): GameState {
      * passageiro local do concorrente, e não é isso que acontece — a fatia
      * registrada continua sendo a do mercado local, sem o acréscimo.
      */
-    const conexao = fatorConexao(s, r)
-    const noturno = fracaoNoturna(s, r)
+    const conexao = fatorConexao(s, r, doy)
+    const noturno = fracaoNoturna(s, r, dow)
     // teto no assento ofertado: conexão preenche poltrona vazia, não cria
     // poltrona. Sem isto o aproveitamento passava de 100%, que é impossível.
     const pax = limitarCabins(escalarCabins(mine?.pax ?? emptyCabins(), conexao), rd.seats)
@@ -613,20 +646,18 @@ export function advanceDay(s: GameState): GameState {
     const cargo = gross * (r.distance > 2200 ? 0.11 : 0.05)
     const revenue = (gross + cargo) * (1 - DISTRIBUTION_RATE)
 
-    // Custo: cada rotação são duas pernas.
-    const acs = availableAircraft(s, r)
+    // Custo: uma conta por perna voada, com a cauda que a escala pôs nela.
     let cost = 0
-    const legs = Math.max(1, rd.flights * 2)
+    const legs = Math.max(1, rd.pernas.length)
     const paxPerLeg = sumCabins(pax) / legs
     const premiumPerLeg = (pax.w + pax.c + pax.f) / legs
-    for (let i = 0; i < rd.flights; i++) {
-      const ac = acs[i % acs.length]
+    for (const ac of rd.pernas) {
       const t = typeOf(ac)
       const c = flightCost(t, r.distance, r.from, r.to, s.fuelPrice, ac.age, paxPerLeg, premiumPerLeg, crewFor(ac.seats), noturno)
-      cost += c.total * 2
-      ac.hours += c.blockH * 2
-      ac.cycles += 2
-      ac.condition = Math.max(0, ac.condition - (0.00055 + c.blockH * 0.00013))
+      cost += c.total
+      ac.hours += c.blockH
+      ac.cycles += 1
+      ac.condition = Math.max(0, ac.condition - (0.00028 + c.blockH * 0.00013))
     }
 
     const dayRes: DayResult = {
@@ -677,17 +708,16 @@ export function advanceDay(s: GameState): GameState {
 
     const revenue = tons * demandaC.refRate * r.fare.y * (1 - DISTRIBUTION_RATE)
 
-    const acs = availableAircraft(s, r)
     let cost = 0
-    for (let i = 0; i < cd.flights; i++) {
-      const ac = acs[i % acs.length]
+    const noturnoC = fracaoNoturna(s, r, dow)
+    for (const ac of cd.pernas) {
       const t = typeOf(ac)
       // Sem passageiro não há comissaria nem comissário: os dois entram zerados.
-      const c = flightCost(t, r.distance, r.from, r.to, s.fuelPrice, ac.age, 0, 0, 0, fracaoNoturna(s, r))
-      cost += c.total * 2
-      ac.hours += c.blockH * 2
-      ac.cycles += 2
-      ac.condition = Math.max(0, ac.condition - (0.00055 + c.blockH * 0.00013))
+      const c = flightCost(t, r.distance, r.from, r.to, s.fuelPrice, ac.age, 0, 0, 0, noturnoC)
+      cost += c.total
+      ac.hours += c.blockH
+      ac.cycles += 1
+      ac.condition = Math.max(0, ac.condition - (0.00028 + c.blockH * 0.00013))
     }
 
     const dayRes: DayResult = {
@@ -709,6 +739,28 @@ export function advanceDay(s: GameState): GameState {
     today.revenue += dayRes.revenue
     today.cost += dayRes.cost
   }
+
+  /**
+   * 3c) Os voos vazios que a escala obriga.
+   *
+   * Quando a semana de uma cauda não fecha — ela termina em Fortaleza e a
+   * primeira perna sai do Rio —, o avião não se teleporta: ele voa vazio até
+   * lá. Paga combustível, tripulação e taxa, e não vende um assento. É o preço
+   * real de uma escala malfeita, e aparece no custo do dia inteiro, rateado
+   * pelos sete dias porque a quebra é semanal e o apuramento é diário.
+   */
+  let ferry = 0
+  for (const pos of posicionamentos(s)) {
+    const ac = aircraftOf(s, pos.aircraftId)
+    if (!ac || ac.groundedUntil > s.day) continue
+    const dist = distanceBetween(pos.from, pos.to)
+    const t = typeOf(ac)
+    if (t.range < dist) continue
+    const c = flightCost(t, dist, pos.from, pos.to, s.fuelPrice, ac.age, 0, 0, 0, 0)
+    ferry += c.total / 7
+    ac.hours += c.blockH / 7
+  }
+  if (ferry > 0) today.cost += ferry
 
   // 4) Custos que não dependem de voar.
   let overhead = HQ_DAILY_BASE + s.airline.fleet.length * 2200 + s.airline.routes.length * 850

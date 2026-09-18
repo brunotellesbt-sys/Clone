@@ -367,3 +367,38 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
 .a2-seat { display: inline-flex; width: 22px; height: 24px; align-items: center; justify-content: center; }
 .a2-seat img { width: 100%; height: 100%; object-fit: contain; }
 @media (max-width: 600px) { .a2-seat { width: 16px; height: 21px; } .a2-seat-row { gap: 7px; } .a2-layer-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+
+/* ------------------------------------------------- grade semanal da aeronave
+ *
+ * Sete colunas de dia e uma régua de hora à esquerda. O bloco de voo é
+ * posicionado em cima da pista por `top` e `height` calculados em minuto, e
+ * não por linha de grid: um voo das 07:12 às 08:35 não cai em nenhuma linha
+ * inteira, e arredondá-lo para a hora cheia seria desenhar outra escala.
+ */
+.grade-topo { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.grade-topo .alerta { color: var(--amber); font-size: 12px; cursor: help; }
+.grade-corpo {
+  position: relative; display: flex; gap: 3px; min-width: 520px;
+  background: var(--sky-1); border: 1px solid var(--line-soft); border-radius: var(--r-sm); padding: 6px;
+}
+.grade-horas { position: relative; width: 44px; flex: 0 0 44px; }
+.grade-horas span {
+  position: absolute; right: 6px; font-size: 10px; color: var(--ink-3);
+  font-variant-numeric: tabular-nums; transform: translateY(-0.5em);
+}
+.grade-dia { flex: 1; min-width: 56px; display: flex; flex-direction: column; }
+.grade-dia-nome {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--ink-3); text-align: center; padding-bottom: 4px;
+}
+.grade-pista { position: relative; flex: 1; background: var(--panel); border-radius: var(--r-sm); overflow: hidden; }
+.grade-linha { position: absolute; left: 0; right: 0; height: 1px; background: var(--line-soft); }
+.grade-voo {
+  position: absolute; left: 2px; right: 2px; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  background: var(--panel-3); border: 1px solid var(--sky); border-left: 3px solid var(--sky);
+  border-radius: var(--r-sm); color: var(--ink); font-size: 11px; line-height: 1.15;
+  cursor: pointer; padding: 2px;
+}
+.grade-voo:hover { background: var(--panel-2); border-color: var(--amber); border-left-color: var(--amber); }
+.grade-seta { color: var(--ink-3); font-size: 9px; }

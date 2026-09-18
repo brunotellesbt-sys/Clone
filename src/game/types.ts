@@ -200,7 +200,20 @@ export interface Aircraft {
   cycles: number
   /** 0–1; abaixo de 0.35 a confiabilidade começa a doer. */
   condition: number
+  /**
+   * Rota à qual a cauda está dedicada, ou nulo quando ela circula na malha.
+   *
+   * **É derivado da escala, não o contrário.** Vale a rota quando todas as
+   * pernas da semana são dela; um avião que faz GIG–FOR, FOR–CGH e CGH–GIG não
+   * pertence a rota nenhuma, e é justamente o caso que a malha existe para
+   * permitir. `sincronizarMalha` recalcula isto depois de cada mudança.
+   */
   routeId: string | null
+  /**
+   * Onde a aeronave dorme quando não tem escala nenhuma — a base da companhia
+   * no dia da compra. É daí que a primeira perna dela pode sair.
+   */
+  base?: string
   leased: boolean
   /** Aluguel mensal, em dólares (0 se comprado). */
   lease: number
@@ -225,13 +238,37 @@ export interface DayResult {
   tonsOffered?: number
 }
 
+/**
+ * Uma perna de voo marcada na grade semanal — a unidade da malha.
+ *
+ * A escala do jogo era uma lista de rotações de ida e volta presas a uma rota,
+ * e por isso a aeronave nascia e morria no mesmo par de aeroportos. A perna é
+ * só um trecho: de onde, para onde, que dia e a que horas. Quem encadeia as
+ * pernas é a aeronave, e é isso que permite GIG–FOR, FOR–CGH e CGH–GIG na
+ * mesma cauda, como qualquer companhia de verdade faz.
+ */
+export interface Perna {
+  id: string
+  aircraftId: string
+  from: string
+  to: string
+  /** Dia da semana da **partida** (0 = domingo), na hora local da origem. */
+  dow: number
+  /** Hora local de partida na origem, em minutos depois da meia-noite. */
+  saida: number
+}
+
 export interface Route {
   id: string
   from: string
   to: string
   distance: number
+  /**
+   * Caudas que voam este par na semana. **Derivado da escala**, mantido aqui
+   * porque meia dúzia de telas e o estimador já liam daqui.
+   */
   aircraftIds: string[]
-  /** Frequências por dia da semana (0 = domingo). */
+  /** Partidas por sentido em cada dia da semana (0 = domingo). Derivado da escala. */
   freq: number[]
   /**
    * Multiplicador de tarifa por classe (1 = tarifa de referência). Em rota de
@@ -246,12 +283,8 @@ export interface Route {
    */
   cargo?: boolean
   /**
-   * Horário de partida de cada rotação, em minutos depois da meia-noite na hora
-   * local da base. Uma entrada por voo do dia de maior frequência.
-   *
-   * Ausente quer dizer "nunca mexi nisso": `horariosDa` completa com o padrão
-   * espalhado. Guardar só o que o jogador escolheu mantém o save de partida
-   * antiga válido — rota sem horário não é rota quebrada, é rota no padrão.
+   * Formato antigo: horário de partida de cada rotação de ida e volta. Só
+   * existe para migrar save de antes da malha, em `migrarEscala`.
    */
   horarios?: number[]
   openedDay: number
@@ -311,6 +344,15 @@ export interface Airline {
    * partidas antigas, que não tinham acordo nenhum.
    */
   acordos?: string[]
+  /**
+   * A malha: todas as pernas da semana, de todas as aeronaves.
+   *
+   * Uma lista só, e não uma lista por rota ou por avião, porque as duas visões
+   * que o jogo precisa mostrar — a grade da cauda e os voos de uma rota — são
+   * recortes dela, e duas listas seriam duas verdades que saem de sincronia.
+   * Ausente nas partidas antigas; `migrarEscala` monta a partir de `horarios`.
+   */
+  escala?: Perna[]
 }
 
 export interface Notice {
