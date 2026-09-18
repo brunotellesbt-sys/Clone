@@ -28,7 +28,7 @@ export interface MarketDemand {
  * passou a ser o movimento do aeroporto: são grandezas de ordem diferente, e o
  * `K` foi recalibrado para o mercado GRU-JFK continuar do tamanho que estava.
  */
-const K = 0.9
+export const K = 0.9
 /**
  * Teto de um par sobre o movimento da ponta menor.
  *

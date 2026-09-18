@@ -29,10 +29,19 @@
  * multiplicadores de média um: entram no dia a dia do jogo e saem do equilíbrio,
  * que é uma média de longo prazo. Incluí-los custaria nove milhões de hashes
  * por rodada sem mudar o resultado.
+ *
+ * ## Por que o `K` vem importado
+ *
+ * Porque já deu errado. A primeira versão repetia o valor aqui, o `K` do
+ * `demand.ts` mudou de 0,55 para 0,9 depois que os fatores foram calculados, e
+ * ninguém rodou de novo: as razões que eram 2,6 a 3,7 viraram 4,1 a 5,4 em
+ * silêncio. Número copiado de outro arquivo envelhece sem avisar; importado,
+ * não.
  */
 import { writeFileSync } from 'node:fs'
 import { AIRPORTS, vooPermitido, type Airport } from '../src/game/data/airports'
 import { distanceBetween } from '../src/game/geo'
+import { K } from '../src/game/demand'
 
 /** Quantas vezes o potencial de um aeroporto pode passar do que ele move. */
 const ABERTURA = 3
@@ -53,7 +62,7 @@ function nucleo(a: Airport, b: Airport): number {
   const sameRegion = Math.abs(a.lon - b.lon) < 45 && Math.abs(a.lat - b.lat) < 35 ? 1.12 : 1
   const hubBonus = 1 + 0.05 * (a.tier + b.tier - 4)
   const decay = 1 / (1 + Math.pow(dist / 700, 1.35))
-  let v = 0.9 * Math.pow(mass, 0.9) * gdp * Math.pow(tour, 0.55) * decay * sameCountry * sameRegion * hubBonus
+  let v = K * Math.pow(mass, 0.9) * gdp * Math.pow(tour, 0.55) * decay * sameCountry * sameRegion * hubBonus
   if (dist < 120) v *= 0.15
   return v
 }

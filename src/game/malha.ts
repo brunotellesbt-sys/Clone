@@ -270,6 +270,19 @@ export function voosColados(s: GameState, r: Route): [Rotacao, Rotacao][] {
 export const TETO_CONEXAO = 0.35
 export const POR_CONEXAO = 0.025
 
+/**
+ * O mesmo ganho, para uma concorrente.
+ *
+ * A IA não tem horário — as rotas dela são abstratas —, então o ganho sai do
+ * tamanho da malha no hub, que é o que de fato determina quanta conexão uma
+ * companhia consegue montar. Precisa existir: dar o bônus só ao jogador fez a
+ * receita dele passar a valer quase o dobro da maior concorrente assim que os
+ * mercados encolheram, e isso não era desenho, era esquecimento.
+ */
+export function fatorConexaoIA(rotasNoHub: number): number {
+  return 1 + Math.min(TETO_CONEXAO, POR_CONEXAO * Math.max(0, rotasNoHub - 1))
+}
+
 export function fatorConexao(s: GameState, r: Route): number {
   if (!r.horarios && rotacoesPorDia(r) === 0) return 1
   const { entrando, saindo } = conexoesDaRota(s, r)
