@@ -58,19 +58,38 @@ await page.screenshot({ path: artifact('grade-1-rota.png'), fullPage: true })
 
 // ------------------------------------------------------- marcar um voo
 conferir((await page.getByText('Marcar voo').count()) > 0, 'a rota abre com a tela de marcar voo')
-const disponiveis = page.locator('h4.sub', { hasText: /Disponíveis em GIG/ })
-conferir((await disponiveis.count()) > 0, 'a lista diz quem está disponível na base')
 
-const marcar = page.getByRole('button', { name: 'Marcar', exact: true }).first()
+// a rota nasce voando: uma ida e volta por dia, com a cauda que estava parada
+const jaVoa = await page.locator('.horarios tbody tr').count()
+conferir(jaVoa === 14, 'abrir rota já marca a semana inteira', `${jaVoa} voos`)
+
+// às 08:00 a cauda está no ar, cumprindo a rotação padrão das 07:00
+const noAr = await page.getByRole('button', { name: 'Marcar', exact: true }).count()
+conferir(noAr === 0, 'às 08:00 ela não é oferecida: está no ar')
+
+/*
+ * Às 15:00 ela já voltou de Fortaleza e pode sair de novo — mas só a ida a
+ * deixaria presa lá, porque a perna seguinte dela sai do Rio na manhã seguinte.
+ * A tela diz isso no lugar de recusar: a cauda cai no grupo do voo vazio, com o
+ * trecho que ela teria que fazer sem passageiro.
+ */
+await page.locator('input[type="time"]').first().fill('15:00')
+await page.waitForTimeout(500)
+const comVazio = page.locator('h4.sub', { hasText: /custam um voo vazio/ })
+conferir((await comVazio.count()) > 0, 'às 15:00 ela volta, mas só a ida exigiria voo vazio')
+const aviso = await page.locator('.warn').first().innerText().catch(() => '')
+conferir(/vazia/.test(aviso), 'e a tela diz qual trecho sairia vazio', aviso.replace(/\n/g, ' '))
+
+const marcar = page.getByRole('button', { name: 'Marcar assim', exact: true }).first()
 conferir((await marcar.count()) > 0, 'há ao menos uma cauda oferecida para o voo')
 await marcar.click()
 await page.waitForTimeout(700)
 
 const linhas = await page.locator('.horarios tbody tr').count()
-conferir(linhas >= 1, 'o voo marcado aparece na lista da semana', `${linhas} linha(s)`)
+conferir(linhas === jaVoa + 1, 'o voo marcado entra na lista da semana', `${jaVoa} → ${linhas}`)
 
-// no mesmo horário a cauda está no ar: ninguém pode ser oferecido como livre
-const aindaLivre = await page.getByRole('button', { name: 'Marcar', exact: true }).count()
+// no mesmo horário a cauda está no ar de novo: ninguém pode ser oferecido
+const aindaLivre = await page.getByRole('button', { name: /^Marcar/ }).count()
 const motivo = await page.locator('details').innerText().catch(() => '')
 conferir(
   aindaLivre === 0,
@@ -78,12 +97,12 @@ conferir(
   motivo.replace(/\n/g, ' ').slice(0, 90),
 )
 
-// ------------------------------------------ o voo de volta sai de Fortaleza
+// ---------------------------------- a volta desse voo sai de Fortaleza
 await page.getByRole('button', { name: /FOR → GIG/ }).click()
 await page.waitForTimeout(400)
-await page.locator('input[type="time"]').first().fill('14:00')
+await page.locator('input[type="time"]').first().fill('21:00')
 await page.waitForTimeout(500)
-const voltaMarcar = page.getByRole('button', { name: 'Marcar', exact: true }).first()
+const voltaMarcar = page.getByRole('button', { name: /^Marcar/ }).first()
 conferir((await voltaMarcar.count()) > 0, 'de FOR a cauda aparece disponível para voltar')
 await voltaMarcar.click()
 await page.waitForTimeout(700)
@@ -95,10 +114,13 @@ await page.screenshot({ path: artifact('grade-2-voos.png'), fullPage: true })
 await aba('Frota')
 await page.waitForTimeout(600)
 conferir((await page.locator('.grade-corpo').count()) > 0, 'a frota mostra a grade semanal')
+// fechada a ida com a volta, a escala volta a fechar a semana e o aviso some
+const quebrada = await page.locator('.aviso.erro').count()
+conferir(quebrada === 0, 'com a volta marcada, a escala fecha e o aviso de quebra some')
 const colunas = await page.locator('.grade-dia').count()
 conferir(colunas === 7, 'a grade tem os sete dias', `${colunas}`)
 const blocos = await page.locator('.grade-voo').count()
-conferir(blocos >= 2, 'os voos marcados aparecem como blocos na grade', `${blocos}`)
+conferir(blocos >= 4, 'os voos da semana aparecem como blocos na grade', `${blocos}`)
 const primeiro = await page.locator('.grade-voo').first().innerText()
 conferir(/GIG|FOR/.test(primeiro), 'o bloco nomeia as duas pontas do trecho', primeiro.replace(/\n/g, ' '))
 await page.screenshot({ path: artifact('grade-3-semana.png'), fullPage: true })

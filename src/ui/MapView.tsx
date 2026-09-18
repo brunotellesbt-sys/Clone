@@ -4,9 +4,10 @@ import { feature } from 'topojson-client'
 import type { FeatureCollection, Geometry as GeoGeometry } from 'geojson'
 import world from 'world-atlas/countries-110m.json'
 import { AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, type Airport } from '../game/data/airports'
-import { aircraftOf, km, metros, num, typeOf } from '../game/engine'
-import { interpolate } from '../game/geo'
-import type { GameState, Route } from '../game/types'
+import { aircraftOf, dowOf, km, metros, num, typeOf } from '../game/engine'
+import { blocoDe, DIA, DOW_CURTO, escalaDe, hhmm, rotaDoPar } from '../game/escala'
+import { distanceBetween, interpolate } from '../game/geo'
+import type { Aircraft, GameState, Perna, Route } from '../game/types'
 
 const W = 1000
 const H = 520
@@ -56,7 +57,13 @@ export function MapView({
   const [view, setView] = useState({ k: 1, x: 0, y: 0 })
   const [hover, setHover] = useState<{ iata: string; x: number; y: number } | null>(null)
   const [voo, setVoo] = useState<string | null>(null)
-  const [t, setT] = useState(0)
+  /**
+   * O relógio da tela, de 0 a 1 no dia. Começa às 8h e não à meia-noite: agora
+   * que o avião no mapa é uma perna de verdade da escala, a madrugada está
+   * vazia — como na vida real —, e abrir o mapa num pátio deserto parece
+   * defeito. Às oito da manhã a grade está cheia.
+   */
+  const [t, setT] = useState(8 / 24)
   const arrasto = useRef<{ px: number; py: number; vx: number; vy: number; id: number } | null>(null)
   /**
    * Se o ponteiro andou desde que desceu. Fica fora de `arrasto` de propósito:
@@ -130,6 +137,8 @@ export function MapView({
 
   const hubs = new Set(state.airline.hubs)
   const routes = state.airline.routes
+  /** O relógio do mapa é mostrado na hora da base principal. */
+  const refFuso = state.airline.hubs[0] ?? 'GRU'
   /**
    * Quem a companhia serve, num conjunto: com três mil aeroportos, perguntar
    * `routes.some(...)` para cada um era varrer a lista de rotas três mil vezes
@@ -191,23 +200,56 @@ export function MapView({
   }
 
   /**
-   * Onde cada avião está no traço da rota.
+   * Os voos no ar agora, tirados da escala.
    *
-   * A posição é da animação, não da simulação: o tick é diário e não acompanha
-   * aeronave no ar. O que o traçado mostra de verdade é a rota, o avião alocado
-   * a ela e para que lado ele vai — o resto é o relógio da tela.
+   * Antes era um avião por rota, com a fase espalhada por um contador — o mapa
+   * mostrava a rota, não a operação. Agora cada marcador é uma **perna** de
+   * verdade do dia da semana em curso, e ele só aparece enquanto aquela perna
+   * estaria no ar: o pico da manhã enche o mapa, a madrugada esvazia, e a
+   * aeronave que emenda para um terceiro aeroporto aparece indo para lá.
+   *
+   * O relógio ainda é o da tela, e isso continua sendo verdade: o tick é diário
+   * e não acompanha aeronave minuto a minuto. O que mudou é que o relógio da
+   * tela agora percorre a **grade que o jogador montou**, em vez de inventar
+   * uma fase por rota.
    */
-  const voos = useMemo(
-    () =>
-      routes.slice(0, 60).map((r, i) => {
-        const a = AIRPORT_BY_IATA[r.from]
-        const b = AIRPORT_BY_IATA[r.to]
-        return { r, a, b, fase: (t + i * 0.137) % 1 }
-      }).filter((v) => v.a && v.b),
-    [routes, t],
-  )
+  const voos = useMemo(() => {
+    const dow = dowOf(state)
+    /**
+     * O relógio da tela, em UTC.
+     *
+     * Tem que ser UTC, e não hora local de cada origem: a hora marcada na perna
+     * é local, então comparar hora local com hora local poria no ar, ao mesmo
+     * tempo, um voo que sai 08:00 de Guarulhos e outro que sai 08:00 de Lisboa —
+     * que estão a três horas de distância. É o mesmo erro que a escala já não
+     * comete, e o mapa não tem por que cometer sozinho.
+     */
+    const agora = t * DIA
+    const out: {
+      id: string; r: Route | undefined; ac: ReturnType<typeof aircraftOf>
+      a: Airport; b: Airport; fase: number; perna: Perna; bloco: number
+    }[] = []
+    for (const p of escalaDe(state)) {
+      if (p.dow !== dow) continue
+      const a = AIRPORT_BY_IATA[p.from]
+      const b = AIRPORT_BY_IATA[p.to]
+      if (!a || !b) continue
+      const bloco = blocoDe(state, p)
+      const partida = p.saida - a.fuso
+      const decorrido = ((agora - partida) % DIA + DIA) % DIA
+      if (decorrido >= bloco) continue
+      out.push({
+        id: p.id, perna: p, bloco, a, b,
+        r: rotaDoPar(state, p.from, p.to),
+        ac: aircraftOf(state, p.aircraftId),
+        fase: bloco > 0 ? decorrido / bloco : 0,
+      })
+      if (out.length >= 80) break
+    }
+    return out
+  }, [state, t])
 
-  const vooSel = voo ? voos.find((v) => v.r.id === voo) : null
+  const vooSel = voo ? voos.find((v) => v.id === voo) : null
 
   /**
    * De unidade de tela para unidade de mapa. O grupo já está escalado por
@@ -377,18 +419,18 @@ export function MapView({
           })}
           {/* avião por último: desenhado depois do aeroporto, ele fica por cima
               e o clique é dele — antes o marcador do aeroporto de origem roubava */}
-          {voos.map(({ r, a, b, fase }) => {
+          {voos.map(({ id, a, b, fase }) => {
             const [lon, lat] = interpolate(a, b, fase)
             const [x, y] = project(lon, lat)
             const [lon2, lat2] = interpolate(a, b, Math.min(1, fase + 0.01))
             const [x2, y2] = project(lon2, lat2)
             const ang = (Math.atan2(y2 - y, x2 - x) * 180) / Math.PI
-            const on = voo === r.id
+            const on = voo === id
             const s = (on ? 2.2 : 1.5) * fator
             return (
-              <g key={`p${r.id}`} transform={`translate(${x},${y}) rotate(${ang}) scale(${s})`}
+              <g key={`p${id}`} transform={`translate(${x},${y}) rotate(${ang}) scale(${s})`}
                 style={{ cursor: 'pointer' }}
-                onClick={(e) => { e.stopPropagation(); if (!andou.current) setVoo(on ? null : r.id) }}>
+                onClick={(e) => { e.stopPropagation(); if (!andou.current) setVoo(on ? null : id) }}>
                 {/* alvo de clique folgado: a seta tem 8 px de ponta a ponta */}
                 <circle r="6" fill="transparent" />
                 <path d="M4.5 0 L-3 2.6 L-1.6 0 L-3 -2.6 Z"
@@ -415,12 +457,20 @@ export function MapView({
             <span><i className="dot hub" /> base</span>
             <span><i className="dash good" /> rota no lucro</span>
             <span><i className="dash bad" /> rota no prejuízo</span>
-            {routes.length > 0 && <span className="muted">clique num avião para ver o trajeto</span>}
+            {routes.length > 0 && (
+              <>
+                <span className="muted">clique num avião para ver o trajeto</span>
+                <span className="relogio" title={`hora local em ${refFuso}; o relógio é da tela, o tick do jogo é diário`}>
+                  {hhmm(t * DIA + (AIRPORT_BY_IATA[refFuso]?.fuso ?? 0))} em {refFuso}
+                  {' · '}{voos.length} no ar
+                </span>
+              </>
+            )}
           </>
         )}
       </div>
 
-      {vooSel && <CartaoVoo state={state} r={vooSel.r} fase={vooSel.fase} onClose={() => setVoo(null)} />}
+      {vooSel && <CartaoVoo voo={vooSel} onClose={() => setVoo(null)} />}
 
       {hoverAp && (
         <div className="map-tip" style={{ left: Math.min(hover!.x - 8, window.innerWidth - 220), top: hover!.y - 62 }}>
@@ -437,23 +487,40 @@ export function MapView({
   )
 }
 
-/** O que o jogador quer saber ao clicar num avião: quem é, indo para onde. */
-function CartaoVoo({ state, r, fase, onClose }: { state: GameState; r: Route; fase: number; onClose: () => void }) {
-  const a = AIRPORT_BY_IATA[r.from]
-  const b = AIRPORT_BY_IATA[r.to]
-  const ac = r.aircraftIds.map((id) => aircraftOf(state, id)).find(Boolean)
+/**
+ * O que o jogador quer saber ao clicar num avião: qual cauda é, indo para onde
+ * e a que horas.
+ *
+ * A matrícula aqui é a da **perna**, e não mais a primeira cauda alocada à
+ * rota. Numa rota voada por três aviões, escolher a primeira da lista nomeava o
+ * avião errado dois terços das vezes — e agora que a cauda circula pela malha,
+ * ela também diz de onde ela veio e para onde segue depois.
+ */
+function CartaoVoo({
+  voo, onClose,
+}: {
+  voo: { a: Airport; b: Airport; fase: number; perna: Perna; bloco: number; ac: Aircraft | undefined; r: Route | undefined }
+  onClose: () => void
+}) {
+  const { a, b, fase, perna, bloco, ac, r } = voo
+  const dist = distanceBetween(perna.from, perna.to)
+  const restante = dist * (1 - fase)
   const tipo = ac ? typeOf(ac) : null
-  const restante = r.distance * (1 - fase)
+  const chegada = perna.saida + bloco + (b.fuso - a.fuso)
   return (
     <div className="map-card">
       <div className="row" style={{ justifyContent: 'space-between', gap: 10 }}>
-        <b>{r.from} → {r.to}</b>
+        <b>{perna.from} → {perna.to}</b>
         <button className="x" onClick={onClose} title="Fechar">×</button>
       </div>
       <div className="muted" style={{ fontSize: 12 }}>{a.city} → {b.city}</div>
+      <div className="row" style={{ justifyContent: 'space-between', fontSize: 11.5, marginTop: 2 }}>
+        <span className="dim">{DOW_CURTO[perna.dow]} {hhmm(perna.saida)}</span>
+        <span className="muted">chega {hhmm(chegada)}</span>
+      </div>
       <div className="voo-barra"><i style={{ width: `${fase * 100}%` }} /></div>
       <div className="row" style={{ justifyContent: 'space-between', fontSize: 11.5 }}>
-        <span className="dim">{km(r.distance - restante)} feitos</span>
+        <span className="dim">{km(dist - restante)} feitos</span>
         <span className="muted">faltam {km(restante)}</span>
       </div>
       {ac && tipo && (
@@ -461,7 +528,11 @@ function CartaoVoo({ state, r, fase, onClose }: { state: GameState; r: Route; fa
           {tipo.maker} {tipo.name} · {ac.reg}
         </div>
       )}
-      {!ac && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Nenhuma aeronave alocada.</div>}
+      {!r && (
+        <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+          Sem rota aberta neste par: o voo não vende assento.
+        </div>
+      )}
     </div>
   )
 }

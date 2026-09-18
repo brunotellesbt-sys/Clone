@@ -402,3 +402,9 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
 }
 .grade-voo:hover { background: var(--panel-2); border-color: var(--amber); border-left-color: var(--amber); }
 .grade-seta { color: var(--ink-3); font-size: 9px; }
+
+/* O relógio do mapa: a hora que os aviões desenhados estão seguindo. */
+.relogio {
+  margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink-2);
+  font-size: 11.5px; cursor: help;
+}

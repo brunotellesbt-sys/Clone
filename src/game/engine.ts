@@ -266,6 +266,18 @@ export function openRoute(s: GameState, from: string, to: string, cargo = false)
     openedDay: s.day,
     history: [],
   })
+  /**
+   * A rota nasce com um voo por dia, se houver cauda livre para ele.
+   *
+   * Antes da malha, `freq` nascia em 1 e a rota já voava. Com a escala por
+   * perna, abrir rota passou a não marcar nada — e o jogador ficava com uma
+   * linha no mapa sem avião nenhum, sem entender que faltava um passo. O padrão
+   * volta a ser "voa uma vez por dia"; quem quiser outra coisa remarca, e quem
+   * não tiver avião parado vê a rota vazia com o aviso que a tela já dá.
+   */
+  const nova = s.airline.routes[s.airline.routes.length - 1]
+  for (let dow = 0; dow < 7; dow++) montarRotacoes(s, nova.id, dow, 1)
+
   notify(s, 'good', `Rota ${cargo ? 'de carga ' : ''}${from}–${to} aberta (${km(dist)}).`)
   return null
 }
