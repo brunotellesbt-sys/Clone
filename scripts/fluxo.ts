@@ -38,7 +38,7 @@
  * silêncio. Número copiado de outro arquivo envelhece sem avisar; importado,
  * não.
  */
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { AIRPORTS, vooPermitido, type Airport } from '../src/game/data/airports'
 import { distanceBetween } from '../src/game/geo'
 import { K } from '../src/game/demand'
@@ -104,6 +104,30 @@ for (let i = 0; i < n; i++) {
   linha += p
 }
 linhas.push(linha.trimEnd())
-const saida = process.argv[2] ?? 'fluxo.txt'
-writeFileSync(saida, linhas.join('\n'))
-console.log(`\n${n} fatores em ${saida}`)
+const tabela = linhas.join('\n')
+
+/**
+ * Escreve direto no `movimento.ts` em vez de cuspir um arquivo para colar.
+ *
+ * O passo de colar à mão era o elo frouxo do processo: dava para rodar o script,
+ * esquecer de colar, e ficar com a tabela velha achando que tinha atualizado —
+ * que é primo do defeito do `K` desatualizado. Passar `--txt` volta ao
+ * comportamento antigo, para quem quiser só olhar o resultado.
+ */
+const destino = 'src/game/data/movimento.ts'
+if (process.argv.includes('--txt')) {
+  const saida = process.argv[process.argv.indexOf('--txt') + 1] ?? 'fluxo.txt'
+  writeFileSync(saida, tabela)
+  console.log(`\n${n} fatores em ${saida}`)
+} else {
+  const fonte = readFileSync(destino, 'utf8')
+  const abre = 'const FATOR_FLUXO: Record<string, number> = Object.fromEntries(\n  `'
+  const ini = fonte.indexOf(abre)
+  const fim = fonte.indexOf('`\n    .split(/\\s+/)', ini)
+  if (ini < 0 || fim < 0) {
+    console.error(`nao achei a tabela em ${destino}; use --txt e cole a mao`)
+    process.exit(1)
+  }
+  writeFileSync(destino, fonte.slice(0, ini + abre.length) + tabela + fonte.slice(fim))
+  console.log(`\n${n} fatores gravados em ${destino}`)
+}

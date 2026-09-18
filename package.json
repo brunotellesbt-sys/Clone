@@ -16,8 +16,8 @@
     "mapa": "node scripts/mapa.mjs",
     "escopo": "tsx scripts/escopo.ts",
     "malha": "tsx scripts/malha.ts",
-    "fluxo": "tsx scripts/fluxo.ts fluxo.txt",
-    "movimento": "python3 scripts/movimento.py movimento.json",
+    "fluxo": "tsx scripts/fluxo.ts",
+    "movimento": "python3 scripts/movimento.py",
     "prebuild": "node scripts/art.mjs || echo \"arte da Commons indisponivel; usando os desenhos vetoriais\"",
     "aircraft2d:check": "tsx scripts/aircraft2d-check.ts",
     "aircraft2d:ui": "node scripts/aircraft2d-ui.mjs"

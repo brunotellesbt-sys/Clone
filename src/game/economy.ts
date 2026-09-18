@@ -13,6 +13,18 @@ export const resaleValue = (t: AircraftType, age: number, condition: number) =>
 
 export const blockHours = (t: AircraftType, distNm: number) => distNm / t.speed + 0.45
 
+/**
+ * O que a madrugada cobra a mais, por unidade de fração noturna.
+ *
+ * São dois custos diferentes e por isso dois números: o adicional de
+ * tripulação incide na folha, a sobretaxa de ruído incide na taxa de pouso.
+ * Nenhum dos dois é grande o bastante para proibir voo noturno — o objetivo é
+ * que a madrugada seja uma **escolha** com os dois lados na conta, não um
+ * desconto de receita que sai de graça.
+ */
+export const ADICIONAL_NOTURNO = 0.18
+export const SOBRETAXA_RUIDO = 0.5
+
 /** Quantos voos por dia um avião consegue nessa etapa. */
 export function maxDailyFrequency(t: AircraftType, distNm: number): number {
   const cycle = blockHours(t, distNm) + t.turn / 60
@@ -43,6 +55,8 @@ export function flightCost(
   pax: number,
   premiumPax = 0,
   crewCount = t.crew,
+  /** Fração das rotações que sai na madrugada; ver `FATOR_NOTURNO`. */
+  noturno = 0,
 ): FlightCost {
   const blockH = blockHours(t, distNm)
   const a = AIRPORT_BY_IATA[from]
@@ -55,7 +69,13 @@ export function flightCost(
 
   // Acima de 7h de voo a tripulação técnica é reforçada.
   const pilots = 2 * 420 * (blockH > 7 ? 1.55 : 1)
-  const crew = (pilots + crewCount * 160) * blockH
+  /**
+   * Voo de madrugada custa mais tripulação: adicional noturno em folha, jornada
+   * que conta diferente e, quando a volta não fecha no dia, pernoite fora de
+   * base. O jogo tinha metade dessa conta — o horário mexia na procura e não
+   * mexia no custo, o que fazia a madrugada parecer só um desconto de receita.
+   */
+  const crew = (pilots + crewCount * 160) * blockH * (1 + ADICIONAL_NOTURNO * noturno)
 
   const ageFactor = 0.86 + 0.045 * Math.min(age, 28)
   const maintenance = t.maint * (420 + t.price * 11) * blockH * ageFactor
@@ -66,7 +86,16 @@ export function flightCost(
   // dez assentos em peso, que é a régua usada aqui.
   const porte = t.maxSeats || (t.payload ?? 0) * 10
   const landing = (tier: number) => (1.4 + 0.5 * tier) * porte * 2.2
-  const fees = landing(a.tier) + landing(b.tier) + pax * (4.5 + 0.8 * ((a.tier + b.tier) / 2))
+  /**
+   * Sobretaxa de ruído. Aeroporto grande cobra mais caro para pousar de
+   * madrugada, e cobra em cima da taxa de pouso — Frankfurt, Heathrow e Paris
+   * têm tabela noturna que chega a dobrar a faixa. Aqui vale meio a mais, e só
+   * nos degraus altos, que é onde a vizinhança reclama.
+   */
+  const ruido = 1 + SOBRETAXA_RUIDO * noturno
+  const fees = (landing(a.tier) * (a.tier >= 3 ? ruido : 1)
+    + landing(b.tier) * (b.tier >= 3 ? ruido : 1))
+    + pax * (4.5 + 0.8 * ((a.tier + b.tier) / 2))
   const handling = 700 + 5.5 * porte
   const catering = (pax - premiumPax) * (2 + 0.0022 * distNm) + premiumPax * (16 + 0.013 * distNm)
 

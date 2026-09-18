@@ -390,5 +390,42 @@ for titulo in PAGINAS:
     print(f"{titulo}: {len(p.tabelas)} tabelas, {len(pico) - antes} siglas novas (total {len(pico)})",
           file=sys.stderr)
 
-json.dump({k: round(v[0]) for k, v in pico.items()}, open(sys.argv[1], "w"), indent=0, sort_keys=True)
-print(f"\n{len(pico)} aeroportos gravados em {sys.argv[1]}", file=sys.stderr)
+dados = {k: round(v[0]) for k, v in pico.items()}
+
+# Escreve direto no movimento.ts em vez de cuspir um JSON para colar. Colar a
+# mao era o elo frouxo: dava para rodar, esquecer de colar, e ficar com a tabela
+# velha achando que tinha atualizado — primo do defeito do `K` desatualizado.
+# `--json arquivo` volta ao comportamento antigo.
+if "--json" in sys.argv:
+    alvo = sys.argv[sys.argv.index("--json") + 1]
+    json.dump(dados, open(alvo, "w"), indent=0, sort_keys=True)
+    print(f"\n{len(dados)} aeroportos em {alvo}", file=sys.stderr)
+    raise SystemExit
+
+DESTINO = "src/game/data/movimento.ts"
+fonte = open(DESTINO, encoding="utf-8").read()
+ABRE = "export const MOVIMENTO_ANUAL: Record<string, number> = Object.fromEntries(\n  `"
+ini = fonte.find(ABRE)
+fim = fonte.find("`\n    .split(/\\s+/)", ini)
+if ini < 0 or fim < 0:
+    print(f"nao achei a tabela em {DESTINO}; use --json e cole a mao", file=sys.stderr)
+    raise SystemExit(1)
+
+# so as siglas que o jogo conhece, em milhares, quebradas em 76 colunas
+siglas = set(re.findall(r"^([A-Z]{3})\|", fonte_aeroportos := open(
+    "src/game/data/airports.ts", encoding="utf-8").read(), re.M))
+linhas, linha = [], ""
+for k in sorted(dados):
+    if k not in siglas:
+        continue
+    pedaco = f"{k}:{round(dados[k] / 1000)} "
+    if len(linha) + len(pedaco) > 76:
+        linhas.append(linha.rstrip())
+        linha = ""
+    linha += pedaco
+linhas.append(linha.rstrip())
+open(DESTINO, "w", encoding="utf-8").write(
+    fonte[: ini + len(ABRE)] + "\n".join(linhas) + fonte[fim:])
+print(f"\n{sum(1 for k in dados if k in siglas)} aeroportos gravados em {DESTINO}",
+      file=sys.stderr)
+print("  reajuste a estimativa e rode `npm run fluxo` em seguida", file=sys.stderr)

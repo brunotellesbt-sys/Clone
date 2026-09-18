@@ -1,4 +1,5 @@
-import { AIRPORTS, AIRPORT_BY_IATA, vooPermitido } from './data/airports'
+import { AIRPORTS, AIRPORT_BY_IATA, noToqueDeRecolher, vooPermitido } from './data/airports'
+import { atratividadeHorario, DIA, horaDaConcorrente } from './malha'
 import { AI_AIRLINES } from './data/names'
 import { baseDemand } from './demand'
 import { distanceBetween, odKey } from './geo'
@@ -75,6 +76,23 @@ export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, play
       }
       if (pressure > 0.4 && chance(rng, 0.22 * comp.aggression)) r.freq = Math.min(11, r.freq + 1)
       if (pressure > 0.62 && chance(rng, 0.12)) r.freq = Math.max(1, r.freq - 1)
+      /**
+       * Remarca o horário quando está apanhando.
+       *
+       * O horário da concorrente era sorteado uma vez e ficava lá para sempre,
+       * o que deixava a disputa por faixa unilateral: o jogador escolhia o pico
+       * e a IA nunca revidava. Agora ela anda meia hora de cada vez na direção
+       * do horário mais valioso, e desiste de uma faixa em que não vai bem —
+       * que é o que uma companhia faz antes de abandonar a rota.
+       */
+      if (pressure > 0.33 && chance(rng, 0.3 * comp.aggression)) {
+        const atual = horaDaConcorrente(r)
+        const passo = chance(rng, 0.5) ? 30 : -30
+        const tentativa = ((atual + passo) % DIA + DIA) % DIA
+        const ap = AIRPORT_BY_IATA[r.from]
+        const melhora = atratividadeHorario(tentativa) > atratividadeHorario(atual)
+        if (melhora && ap && !noToqueDeRecolher(r.from, tentativa)) r.hora = tentativa
+      }
       r.quality = Math.min(1.3, r.quality * between(rng, 0.997, 1.006))
     }
 
