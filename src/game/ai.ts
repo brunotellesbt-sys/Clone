@@ -51,6 +51,7 @@ function addAiRoute(comp: Competitor, dest: string, rng: Rng) {
   const seats = Math.max(70, Math.min(360, Math.round(target / Math.max(1, freq) / between(rng, 0.7, 0.95))))
   comp.routes.push({
     key: odKey(comp.hub, dest),
+    hora: Math.round(6 * 60 + 15 * 60 * (rng() as number)),
     from: comp.hub,
     to: dest,
     seats,
