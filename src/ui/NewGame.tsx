@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AIRPORTS, AIRPORT_BY_IATA, CONTINENTE_LABEL, ESCOPO_LABEL } from '../game/data/airports'
+import { AIRPORTS, AIRPORT_BY_IATA, CONTINENTE_LABEL, ESCOPO_LABEL, temNomeOficial } from '../game/data/airports'
 import { suggestAirlineName, suggestCode } from '../game/data/names'
 import { LIVERY_PRESETS } from '../livery/presets'
 import { AIRCRAFT_BY_ID } from '../game/data/aircraft'
@@ -87,7 +87,9 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
               <b style={{ fontSize: 30, letterSpacing: '-0.03em' }}>{ap.iata}</b>
               <span className="chip">{['—', 'regional', 'secundário', 'nacional', 'internacional', 'mega-hub'][ap.tier]}</span>
             </div>
-            <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{ap.official}</div>
+            {temNomeOficial(ap) && (
+              <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{ap.official}</div>
+            )}
             <div className="fatos">
               <div><b>{num(ap.paxDia)}</b><span>pax/dia (pico)</span></div>
               <div><b>{metros(ap.runway)}</b><span>pista</span></div>

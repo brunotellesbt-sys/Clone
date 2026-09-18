@@ -4,7 +4,7 @@ Percorre as listas de "busiest airports" por região e por país, lê cada tabel
 acha a coluna de passageiros e guarda o MAIOR valor visto para cada sigla IATA
 — o ano de pico, que é o que o jogo quer.
 """
-import json, re, sys, time, urllib.request, urllib.parse
+import json, re, sys, time, unicodedata, urllib.request, urllib.parse
 from html.parser import HTMLParser
 
 PAGINAS = [
@@ -122,6 +122,50 @@ PAGINAS = [
 ]
 
 
+def normal(t):
+    """Nome de aeroporto reduzido ao que identifica: sem acento, sem pontuacao,
+    sem as palavras que todo aeroporto tem."""
+    t = unicodedata.normalize("NFD", t)
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn").lower()
+    t = re.sub(r"\[[^\]]*\]", " ", t)
+    t = re.sub(r"[^a-z0-9 ]", " ", t)
+    t = re.sub(
+        r"\b(airport|international|intl|airfield|aerodrome|aeroport|aeropuerto|"
+        r"aeroporto|flughafen|luchthaven|lufthavn|havalimani|the|of)\b", " ", t)
+    return " ".join(t.split())
+
+
+def mapa_de_nomes():
+    """Nome normalizado -> sigla IATA, da OurAirports.
+
+    Metade das listas por regiao — a da Europa e a do Canada, entre elas — nao
+    traz sigla nenhuma: o aeroporto aparece so pelo nome. Sem casar por nome,
+    Malpensa, Atenas, Viena, Zurique, Vancouver, Manchester, Praga, Budapeste e
+    Bruxelas ficavam de fora de tabelas que tinham o numero deles.
+    """
+    url = "https://davidmegginson.github.io/ourairports-data/airports.csv"
+    req = urllib.request.Request(url, headers={"User-Agent": "skyline-tycoon-data/1.0"})
+    texto = urllib.request.urlopen(req, timeout=180).read().decode("utf-8", "replace")
+    linhas = texto.splitlines()
+    campos = lambda l: [c.strip('"').replace('""', '"')
+                        for c in re.findall(r'("(?:[^"]|"")*"|[^,]*)(?:,|$)', l)][:-1]
+    cab = campos(linhas[0])
+    iI, iN, iM = cab.index("iata_code"), cab.index("name"), cab.index("municipality")
+    contagem, mapa = {}, {}
+    for l in linhas[1:]:
+        f = campos(l)
+        if len(f) <= max(iI, iN, iM) or not f[iI]:
+            continue
+        for bruto in (f[iN], f"{f[iM]} {f[iN]}"):
+            k = normal(bruto)
+            if len(k) < 4:
+                continue
+            contagem[k] = contagem.get(k, set()) | {f[iI]}
+            mapa[k] = f[iI]
+    # nome ambiguo nao serve: dois aeroportos com o mesmo nome reduzido
+    return {k: v for k, v in mapa.items() if len(contagem[k]) == 1}
+
+
 class Tabelas(HTMLParser):
     """Extrai tabelas como listas de listas de texto."""
 
@@ -216,6 +260,7 @@ def numero(s):
 
 
 pico = {}
+POR_NOME = {}
 
 
 def engolir(tabela, fonte, fator=1.0):
@@ -225,6 +270,16 @@ def engolir(tabela, fonte, fator=1.0):
     # colunas de passageiro: cabeçalho que fala de passageiro e não de carga
     cols_pax = [i for i, c in enumerate(cabecalho) if PAX.search(c) and not FORA.search(c)]
     dobrar = {i for i in cols_pax if EMBARQUE.search(cabecalho[i])}
+    # Cabeçalho com colspan não alinha com as linhas de dado: a lista da Europa
+    # põe "Passengers" cobrindo duas subcolunas de ano, e o índice da coluna
+    # passa a apontar para o lugar errado — Montreal saía com 8 milhões em vez
+    # de 22. Quando a largura não bate, o mapeamento não vale e é mais seguro
+    # varrer a linha inteira: número de passageiro é grande e não se confunde
+    # com percentual nem com ano.
+    larguras = [len(l) for l in tabela[1:] if len(l) > 1]
+    tipica = max(set(larguras), key=larguras.count) if larguras else 0
+    if tipica and len(cabecalho) != tipica:
+        cols_pax, dobrar = None, set()
     if not cols_pax:
         # tabela sem cabeçalho útil: aceita qualquer número grande na linha
         cols_pax, dobrar = None, set()
@@ -241,6 +296,12 @@ def engolir(tabela, fonte, fator=1.0):
                 continue
             for m in IATA_PAREN.finditer(c):
                 siglas.append(m.group(1))
+        if not siglas:
+            # sem sigla na linha: tenta casar cada celula pelo nome do aeroporto
+            for c in linha:
+                k = normal(c)
+                if len(k) >= 4 and k in POR_NOME:
+                    siglas.append(POR_NOME[k])
         siglas = list(dict.fromkeys(siglas))
         if len(siglas) != 1:
             continue
@@ -265,6 +326,56 @@ def engolir(tabela, fonte, fator=1.0):
         if v > pico.get(iata, (0, ""))[0]:
             pico[iata] = (v, fonte)
 
+
+def do_wikidata():
+    """Movimento anual direto do Wikidata, pela propriedade P3872.
+
+    Vale mais que todas as listas somadas: sao 2.365 aeroportos numa consulta
+    so, com o dado estruturado em vez de raspado de tabela. Heathrow 83,9
+    milhoes, Frankfurt 70,6, Atlanta 110,5 — confere com o publicado.
+
+    O servico de consulta as vezes esta sob limite duro de uma requisicao por
+    minuto; por isso as tentativas espacadas. Se nao vier, o levantamento segue
+    so com as listas, que e o que ele fazia antes.
+    """
+    q = ("SELECT ?iata ?pax WHERE { ?item wdt:P238 ?iata . "
+         "?item p:P3872 ?st . ?st ps:P3872 ?pax . }")
+    url = "https://query.wikidata.org/sparql?format=json&query=" + urllib.parse.quote(q)
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "skyline-tycoon-data/1.0", "Accept": "application/sparql-results+json"})
+    for tentativa in range(6):
+        try:
+            d = json.load(urllib.request.urlopen(req, timeout=240))
+            break
+        except Exception as e:
+            print(f"  wikidata: {e}; espera", file=sys.stderr)
+            time.sleep(70)
+    else:
+        return {}
+    out = {}
+    for r in d["results"]["bindings"]:
+        iata = r["iata"]["value"].strip().upper()
+        if len(iata) != 3 or not iata.isalpha():
+            continue
+        try:
+            v = float(r["pax"]["value"])
+        except ValueError:
+            continue
+        if 50_000 <= v <= 300_000_000 and v > out.get(iata, 0):
+            out[iata] = v
+    return out
+
+
+for iata, v in do_wikidata().items():
+    if v > pico.get(iata, (0, ""))[0]:
+        pico[iata] = (v, "Wikidata P3872")
+print(f"{len(pico)} siglas depois do Wikidata", file=sys.stderr)
+
+try:
+    POR_NOME = mapa_de_nomes()
+    print(f"{len(POR_NOME)} nomes de aeroporto para casar", file=sys.stderr)
+except Exception as e:
+    print(f"! sem a tabela de nomes ({e}); so as siglas serao lidas", file=sys.stderr)
 
 for titulo in PAGINAS:
     html = buscar(titulo)
