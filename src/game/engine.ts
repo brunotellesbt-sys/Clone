@@ -3,7 +3,7 @@ import { normalizeSeats, seatChangeCost } from './seatModels'
 import { AIRCRAFT_BY_ID, type AircraftType } from './data/aircraft'
 import { SAVE_VERSION } from './save'
 import { AIRPORT_BY_IATA, vooPermitido } from './data/airports'
-import { DIA, fatorConexao, horariosDa, horariosPadrao, rotacoesPorDia } from './malha'
+import { DIA, fatorConexao, fatorConexaoIA, horariosDa, horariosPadrao, rotacoesPorDia } from './malha'
 import { BLANK_LIVERY } from '../livery/presets'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from './demand'
 import { cabinComfort, checkCabin, clampPitch, crewFor, defaultCabin } from './cabin'
@@ -749,7 +749,9 @@ function computeCompetitorRevenue(s: GameState, doy: number) {
     alloc.forEach((a, i) => {
       const { comp, route } = list[i]
       const fare: Cabins = { y: route.fare, w: route.fare, c: route.fare, f: route.fare }
-      comp.revenue30 += ticketRevenue(a.pax, fare, demand.refFare) * (1 - DISTRIBUTION_RATE) * 30
+      // a concorrente também carrega conexão: ver `fatorConexaoIA`
+      const pax = escalarCabins(a.pax, fatorConexaoIA(comp.routes.length))
+      comp.revenue30 += ticketRevenue(pax, fare, demand.refFare) * (1 - DISTRIBUTION_RATE) * 30
     })
   }
   for (const c of s.competitors) c.fleetSize = Math.max(3, Math.round(c.routes.reduce((n, r) => n + r.freq, 0) / 2.6))

@@ -58,6 +58,67 @@ PAGINAS = [
     "List of the busiest airports in Egypt",
     "List of the busiest airports in Morocco",
     "List of the busiest airports in Nigeria",
+    # segunda leva: paises onde o levantamento anterior deixou mais buracos
+    "List of the busiest airports in Italy",
+    "List of the busiest airports in Greece",
+    "List of the busiest airports in Switzerland",
+    "List of the busiest airports in Austria",
+    "List of the busiest airports in Panama",
+    "List of the busiest airports in Iraq",
+    "List of airports in Brazil",
+    "List of airports in Canada",
+    "List of airports in Australia",
+    "List of the busiest airports in Kazakhstan",
+    "List of the busiest airports in Iran",
+    "List of the busiest airports in Algeria",
+    "List of the busiest airports in Pakistan",
+    "List of the busiest airports in Bangladesh",
+    "List of the busiest airports in Venezuela",
+    "List of the busiest airports in Ecuador",
+    "List of the busiest airports in Bolivia",
+    "List of the busiest airports in Uruguay",
+    "List of the busiest airports in Paraguay",
+    "List of the busiest airports in Costa Rica",
+    "List of the busiest airports in Cuba",
+    "List of the busiest airports in the Dominican Republic",
+    "List of the busiest airports in Guatemala",
+    "List of the busiest airports in Israel",
+    "List of the busiest airports in Jordan",
+    "List of the busiest airports in Lebanon",
+    "List of the busiest airports in Qatar",
+    "List of the busiest airports in Kuwait",
+    "List of the busiest airports in Oman",
+    "List of the busiest airports in Kenya",
+    "List of the busiest airports in Ethiopia",
+    "List of the busiest airports in Ghana",
+    "List of the busiest airports in Tanzania",
+    "List of the busiest airports in Tunisia",
+    "List of the busiest airports in Belgium",
+    "List of the busiest airports in the Czech Republic",
+    "List of the busiest airports in Hungary",
+    "List of the busiest airports in Romania",
+    "List of the busiest airports in Bulgaria",
+    "List of the busiest airports in Croatia",
+    "List of the busiest airports in Serbia",
+    "List of the busiest airports in Finland",
+    "List of the busiest airports in Estonia",
+    "List of the busiest airports in Latvia",
+    "List of the busiest airports in Lithuania",
+    "List of the busiest airports in Belarus",
+    "List of the busiest airports in Uzbekistan",
+    "List of the busiest airports in Azerbaijan",
+    "List of the busiest airports in Georgia (country)",
+    "List of the busiest airports in Armenia",
+    "List of the busiest airports in Sri Lanka",
+    "List of the busiest airports in Nepal",
+    "List of the busiest airports in Cambodia",
+    "List of the busiest airports in Myanmar",
+    "List of the busiest airports in Taiwan",
+    "List of the busiest airports in Papua New Guinea",
+    "List of the busiest airports in Fiji",
+    "List of the busiest airports in the Bahamas",
+    "List of the busiest airports in Jamaica",
+    "List of the busiest airports in Trinidad and Tobago",
 ]
 
 
@@ -114,10 +175,29 @@ def buscar(titulo):
 IATA = re.compile(r"^[A-Z]{3}$")
 # "ATL/KATL", "ATL / KATL", "GRU (SBGR)" — a sigla costuma vir colada ao ICAO
 IATA_ICAO = re.compile(r"^([A-Z]{3})\s*[/(]\s*[A-Z]{4}\)?$")
+# "Milan–Malpensa Airport (MXP)" — metade das listas por pais escreve assim, e
+# exigir a celula inteira igual a sigla deixava Malpensa, Atenas, Viena, Zurique
+# e o Panama de fora de uma tabela que tinha o numero deles
+IATA_PAREN = re.compile(r"\(([A-Z]{3})\)")
 NUMERO = re.compile(r"^[\d][\d,. ]*$")
 # colunas que NÃO são passageiro
 FORA = re.compile(r"cargo|freight|tonne|ton\b|movement|aircraft|rank|change|%|year|code|capacity|seats|metric", re.I)
-PAX = re.compile(r"passenger|pax|traffic|total", re.I)
+PAX = re.compile(r"passenger|pax|traffic|total|enplanement", re.I)
+# "Enplanements" e "boardings" contam so quem EMBARCA.
+EMBARQUE = re.compile(r"enplanement|boarding", re.I)
+
+# Paginas que publicam embarque em vez de passageiro total, e o fator que
+# converte. A lista americana usa o dado de enplanement da FAA e o cabecalho
+# dela e so o ano, entao nao da para descobrir pela coluna: e fato da pagina.
+#
+# Todo embarque tem um desembarque correspondente, dai o dobro. Confere onde as
+# duas medidas existem: Atlanta 2024 teve 52,5 milhoes de embarques e 108,1
+# milhoes de passageiros — razao 2,06. Sem esta conta, Filadelfia, Baltimore,
+# San Diego, Tampa e Portland saiam com metade do movimento real, porque sao os
+# que ficam de fora da lista mundial e so tinham a fonte americana.
+FATOR_PAGINA = {
+    "List of the busiest airports in the United States": 2.0,
+}
 
 
 def numero(s):
@@ -138,30 +218,47 @@ def numero(s):
 pico = {}
 
 
-def engolir(tabela, fonte):
+def engolir(tabela, fonte, fator=1.0):
     if len(tabela) < 2:
         return
     cabecalho = tabela[0]
     # colunas de passageiro: cabeçalho que fala de passageiro e não de carga
     cols_pax = [i for i, c in enumerate(cabecalho) if PAX.search(c) and not FORA.search(c)]
+    dobrar = {i for i in cols_pax if EMBARQUE.search(cabecalho[i])}
     if not cols_pax:
         # tabela sem cabeçalho útil: aceita qualquer número grande na linha
-        cols_pax = None
+        cols_pax, dobrar = None, set()
     for linha in tabela[1:]:
         siglas = []
         for c in linha:
             c = c.strip()
             if IATA.match(c):
                 siglas.append(c)
-            else:
-                m = IATA_ICAO.match(c)
-                if m:
-                    siglas.append(m.group(1))
+                continue
+            m = IATA_ICAO.match(c)
+            if m:
+                siglas.append(m.group(1))
+                continue
+            for m in IATA_PAREN.finditer(c):
+                siglas.append(m.group(1))
+        siglas = list(dict.fromkeys(siglas))
         if len(siglas) != 1:
             continue
         iata = siglas[0]
-        alvos = linha if cols_pax is None else [linha[i] for i in cols_pax if i < len(linha)]
-        valores = [v for v in (numero(c) for c in alvos) if v and 50_000 <= v <= 300_000_000]
+        if cols_pax is None:
+            alvos = [(c, False) for c in linha]
+        else:
+            alvos = [(linha[i], i in dobrar) for i in cols_pax if i < len(linha)]
+        valores = []
+        for texto, ehEmbarque in alvos:
+            v = numero(texto)
+            if not v:
+                continue
+            v *= fator
+            if ehEmbarque:
+                v *= 2
+            if 50_000 <= v <= 300_000_000:
+                valores.append(v)
         if not valores:
             continue
         v = max(valores)
@@ -177,7 +274,7 @@ for titulo in PAGINAS:
     p.feed(html)
     antes = len(pico)
     for t in p.tabelas:
-        engolir(t, titulo)
+        engolir(t, titulo, FATOR_PAGINA.get(titulo, 1.0))
     time.sleep(1.5)
     print(f"{titulo}: {len(p.tabelas)} tabelas, {len(pico) - antes} siglas novas (total {len(pico)})",
           file=sys.stderr)

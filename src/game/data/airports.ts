@@ -52,6 +52,14 @@ export interface Airport {
    *
    * Sem isso, La Paz (13.355 ft) e Quito (7.841 ft) eram tratados como nível do
    * mar, e Ponta Grossa — 1.430 m de pista a 2.588 ft — aceitava 737-800.
+   *
+   * Vem da OurAirports. Quatorze aeroportos ficaram em zero por o campo estar
+   * vazio na fonte — treze chineses e um indiano —, e zero ali não é "nível do
+   * mar", é "não sei": Lincang está a 6.102 ft e Ulanqab a 4.619 ft, e o portão
+   * de pista os tratava como praia. Foram fechados pela **altitude do terreno**
+   * na coordenada que o próprio jogo guarda, medida na SRTM. O método foi
+   * conferido onde havia as duas fontes: Huangshan 132 m contra 134 m da ficha,
+   * Tongren 709 contra 705, Jiujiang 41 contra 50.
    */
   elev: number
   tier: 1 | 2 | 3 | 4 | 5
@@ -194,7 +202,7 @@ ITM|Osaka|Japao|JP|34.78|135.44|19.10|1.30|1.00|9840|3|50
 CZX|Changzhou|China|CN|31.92|119.78|18.16|0.80|1.00|11155|3|33
 DMK|Banguecoque|Tailandia|TH|13.91|100.61|17.40|0.60|1.50|12139|3|9
 SAW|Istambul|Turquia|TR|40.90|29.31|16.00|0.70|1.20|11614|3|312
-WEF|Weifang|China|CN|36.65|119.12|15.77|0.80|1.00|8530|3|0
+WEF|Weifang|China|CN|36.65|119.12|15.77|0.80|1.00|8530|3|125
 TSA|Taipe|Taiwan|TW|25.07|121.55|15.61|1.15|1.30|8547|3|18
 LOS|Lagos|Nigeria|NG|6.58|3.32|15.40|0.45|0.60|12794|3|135
 CCU|Calcuta|India|IN|22.65|88.45|15.30|0.45|0.80|11919|3|16
@@ -686,12 +694,12 @@ KZN|Kazan|Russia|RU|55.61|49.28|1.44|0.71|1.05|12303|2|411
 TKG|Bandar Lampung|Indonesia|ID|-5.25|105.18|1.44|0.50|0.90|9088|2|282
 CBB|Cochabamba|Bolivia|BO|-17.42|-66.18|1.43|0.46|1.05|12460|2|8360
 CMH|Columbus|EUA|US|40.00|-82.89|1.43|1.10|1.10|10114|2|815
-JIU|Jiujiang|China|CN|29.48|115.80|1.43|0.80|1.00|9186|2|0
+JIU|Jiujiang|China|CN|29.48|115.80|1.43|0.80|1.00|9186|2|135
 JXA|Jixi|China|CN|45.29|131.19|1.43|0.80|1.00|7546|2|760
 MWZ|Mwanza|Tanzania|TZ|-2.45|32.94|1.43|0.32|1.45|10212|2|3763
 NDJ|N'Djamena|Chade|TD|12.13|15.03|1.43|0.20|0.50|9186|2|968
 RSU|Yeosu|Coreia do Sul|KR|34.84|127.62|1.43|1.12|1.30|6890|2|53
-AQG|Anqing|China|CN|30.58|117.05|1.42|0.80|1.00|9186|2|0
+AQG|Anqing|China|CN|30.58|117.05|1.42|0.80|1.00|9186|2|46
 CBT|Catumbela|Angola|AO|-12.48|13.49|1.42|0.38|0.60|12139|2|23
 AWA|Hawassa|Etiopia|ET|7.10|38.40|1.41|0.35|0.80|9843|2|5450
 KCZ|Nankoku|Japao|JP|33.55|133.67|1.41|1.23|1.50|8203|2|42
@@ -758,7 +766,7 @@ KNH|Shang-I|Taiwan|TW|24.43|118.36|1.23|1.07|1.15|9843|2|93
 PKU|Pekanbaru|Indonesia|ID|0.46|101.44|1.22|0.50|0.90|7360|2|102
 THD|Thanh Hoa|Vietna|VN|19.90|105.47|1.22|0.58|1.40|10499|2|59
 BJL|Banjul|Gambia|GM|13.34|-16.65|1.21|0.26|1.30|11811|2|95
-CIH|Changzhi|China|CN|36.25|113.13|1.21|0.80|1.00|8530|2|0
+CIH|Changzhi|China|CN|36.25|113.13|1.21|0.80|1.00|8530|2|3018
 GBI|Kalaburagi|India|IN|17.31|76.97|1.21|0.52|0.90|10417|2|1571
 HMB|Suhaj|Egito|EG|26.34|31.74|1.21|0.45|2.00|9843|2|322
 IXK|Keshod|India|IN|21.32|70.27|1.21|0.52|0.90|4500|2|167
@@ -801,7 +809,7 @@ CBQ|Calabar|Nigeria|NG|4.98|8.35|1.15|0.47|0.55|8040|2|210
 CUC|Cucuta|Colombia|CO|7.93|-72.51|1.15|0.55|1.10|7700|2|1096
 BFJ|Bijie|China|CN|27.27|105.47|1.14|0.80|1.00|8530|2|4751
 LLW|Lumbadzi|Malaui|MW|-13.79|33.78|1.14|0.20|0.80|11614|2|4035
-KQH|Ajmer|India|IN|26.59|74.81|1.13|0.52|0.90|7060|2|0
+KQH|Ajmer|India|IN|26.59|74.81|1.13|0.52|0.90|7060|2|1457
 LTU|Latur|India|IN|18.41|76.46|1.13|0.52|0.90|7546|2|2136
 MIU|Maiduguri|Nigeria|NG|11.85|13.08|1.13|0.47|0.55|9846|2|1099
 ADE|Aden|Iemen|YE|12.83|45.03|1.12|0.20|0.50|10171|2|7
@@ -897,7 +905,7 @@ POZ|Poznan|Polonia|PL|52.42|16.82|0.97|0.81|1.10|8215|2|308
 ERF|Erfurt|Alemanha|DE|50.98|10.96|0.96|1.15|1.00|8530|2|1036
 GRQ|Groningen|Holanda|NL|53.12|6.58|0.96|1.25|1.25|8202|2|17
 MNU|Mawlamyine|Mianmar|MM|16.44|97.66|0.96|0.30|0.70|5260|2|52
-SZH|Shuozhou|China|CN|39.27|112.69|0.96|0.80|1.00|8530|2|0
+SZH|Shuozhou|China|CN|39.27|112.69|0.96|0.80|1.00|8530|2|3428
 ZAZ|Zaragoza|Espanha|ES|41.67|-1.04|0.96|0.85|1.90|12198|2|863
 BFN|Bloemfontein|Africa do Sul|ZA|-29.09|26.30|0.95|0.65|1.20|8396|2|4457
 BOY|Bobo Dioulasso|Burquina Faso|BF|11.16|-4.33|0.95|0.26|0.60|10826|2|1511
@@ -935,7 +943,7 @@ WRO|Wroclaw|Polonia|PL|51.10|16.88|0.90|0.80|0.90|8212|2|404
 BHU|Bhavnagar|India|IN|21.75|72.19|0.89|0.52|0.90|6300|2|44
 BLI|Bellingham|EUA|US|48.79|-122.54|0.89|1.10|1.10|6700|2|170
 CUL|Culiacan|Mexico|MX|24.77|-107.48|0.89|0.69|1.30|7365|2|108
-DXJ|Xiangxi|China|CN|28.50|109.52|0.89|0.80|1.00|8530|2|0
+DXJ|Xiangxi|China|CN|28.50|109.52|0.89|0.80|1.00|8530|2|2169
 PZI|Panzhihua|China|CN|26.54|101.80|0.89|0.80|1.00|9186|2|1620
 SKD|Samarkand|Uzbequistao|UZ|39.70|66.98|0.89|0.50|0.80|10187|2|2224
 BNS|Barinas|Venezuela|VE|8.62|-70.21|0.88|0.45|0.70|6560|2|615
@@ -972,7 +980,7 @@ MLX|Malatya|Turquia|TR|38.44|38.09|0.81|0.65|1.30|10990|2|2828
 NTE|Nantes|Franca|FR|47.15|-1.61|0.81|1.12|1.35|9514|2|90
 SFN|Santa Fe|Argentina|AR|-31.71|-60.81|0.81|0.60|1.50|7628|2|55
 TOF|Tomsk|Russia|RU|56.38|85.21|0.81|0.71|1.05|8202|2|597
-UCB|Ulanqab|China|CN|41.13|113.11|0.81|0.80|1.00|10499|2|0
+UCB|Ulanqab|China|CN|41.13|113.11|0.81|0.80|1.00|10499|2|4619
 ALC|Alicante|Espanha|ES|38.28|-0.56|0.80|0.82|1.80|9842|2|142
 BSL|Basileia|Suica|CH|47.60|7.52|0.80|1.20|0.90|12795|2|885
 EIN|Eindhoven|Holanda|NL|51.45|5.37|0.80|1.10|0.70|9843|2|74
@@ -1025,7 +1033,7 @@ CFK|Chlef|Argelia|DZ|36.22|1.34|0.74|0.60|0.70|8793|2|463
 COS|Colorado Springs|EUA|US|38.81|-104.70|0.74|1.10|1.10|13500|2|6187
 JGN|Jiayuguan|China|CN|39.86|98.34|0.74|0.80|1.00|9843|2|5112
 REW|Rewa|India|IN|24.50|81.22|0.74|0.52|0.90|4593|2|1000
-TXN|Huangshan|China|CN|29.73|118.26|0.74|0.80|1.00|8530|2|0
+TXN|Huangshan|China|CN|29.73|118.26|0.74|0.80|1.00|8530|2|433
 CUE|Cuenca|Equador|EC|-2.89|-78.98|0.73|0.57|1.05|6234|2|8306
 DJB|Jambi|Indonesia|ID|-1.64|103.65|0.73|0.50|0.90|8537|2|82
 FCN|Wurster Nordseekuste|Alemanha|DE|53.77|8.66|0.73|1.15|1.00|8002|2|74
@@ -1082,7 +1090,7 @@ GRV|Grozny|Russia|RU|43.39|45.70|0.66|0.71|1.05|8202|2|548
 IPN|Ipatinga|Brasil|BR|-19.47|-42.49|0.66|0.68|0.85|6575|2|786
 KVX|Kirov|Russia|RU|58.50|49.35|0.66|0.71|1.05|7230|2|479
 PGZ|Ponta Grossa|Brasil|BR|-25.18|-50.14|0.66|0.68|0.85|4692|2|2588
-TEN|Tongren|China|CN|27.88|109.31|0.66|0.80|1.00|9022|2|0
+TEN|Tongren|China|CN|27.88|109.31|0.66|0.80|1.00|9022|2|2326
 TTJ|Tottori|Japao|JP|35.53|134.17|0.66|1.23|1.50|6562|2|65
 BHJ|Bhuj|India|IN|23.29|69.67|0.65|0.52|0.90|8205|2|268
 CAW|Campos dos Goytacazes|Brasil|BR|-21.70|-41.30|0.65|0.68|0.85|5066|2|59
@@ -1159,7 +1167,7 @@ BZI|Balikesir|Turquia|TR|39.62|27.93|0.56|0.65|1.30|9810|2|340
 HGA|Hargeisa|Somalia|SO|9.51|44.08|0.56|0.20|0.50|12139|2|4471
 ODB|Cordoba|Espanha|ES|37.84|-4.85|0.56|0.85|1.90|7352|2|297
 PZU|Port Sudan|Sudao|SD|19.43|37.23|0.56|0.24|0.50|8202|2|135
-XIL|Xilinhot|China|CN|43.92|115.96|0.56|0.80|1.00|9186|2|0
+XIL|Xilinhot|China|CN|43.92|115.96|0.56|0.80|1.00|9186|2|3333
 ASF|Astrakhan|Russia|RU|46.28|48.01|0.55|0.71|1.05|10499|2|-65
 CDT|Castellon de la Plana|Espanha|ES|40.21|0.07|0.55|0.85|1.90|8858|2|1182
 DJE|Mellita|Tunisia|TN|33.87|10.78|0.55|0.55|1.30|10171|2|19
@@ -2341,7 +2349,7 @@ BIS|Bismarck|EUA|US|46.77|-100.75|0.10|1.10|1.10|8794|1|1661
 BTV|Burlington|EUA|US|44.47|-73.15|0.10|1.10|1.10|8319|1|335
 BXG|Bendigo|Australia|AU|-36.74|144.33|0.10|1.20|1.40|5249|1|705
 CLY|Calvi|Franca|FR|42.53|8.79|0.10|1.12|1.35|7579|1|209
-CWJ|Lincang|China|CN|23.28|99.37|0.10|0.80|1.00|8530|1|0
+CWJ|Lincang|China|CN|23.28|99.37|0.10|0.80|1.00|8530|1|6102
 DHN|Dothan|EUA|US|31.32|-85.45|0.10|1.10|1.10|8500|1|401
 HMA|Khanty-Mansiysk|Russia|RU|61.03|69.09|0.10|0.71|1.05|9180|1|76
 IGR|Puerto Iguazu|Argentina|AR|-25.74|-54.47|0.10|0.55|2.00|10827|1|916
@@ -2381,7 +2389,7 @@ HOT|Hot Springs|EUA|US|34.48|-93.10|0.09|1.10|1.10|6595|1|540
 IDA|Idaho Falls|EUA|US|43.51|-112.07|0.09|1.10|1.10|9002|1|4744
 IOA|Ioannina|Grecia|GR|39.70|20.82|0.09|0.77|2.10|7874|1|1558
 JOE|Joensuu|Finlandia|FI|62.66|29.62|0.09|1.30|1.10|8202|1|398
-JSJ|Jiansanjiang|China|CN|47.11|132.66|0.09|0.80|1.00|8202|1|0
+JSJ|Jiansanjiang|China|CN|47.11|132.66|0.09|0.80|1.00|8202|1|180
 KRW|Turkmenbasy|Turcomenistao|TM|40.06|53.01|0.09|0.45|0.60|11483|1|279
 LFM|Lamerd|Ira|IR|27.37|53.19|0.09|0.45|0.80|10020|1|1337
 LST|Launceston|Australia|AU|-41.54|147.21|0.09|1.20|1.40|6499|1|562
@@ -2427,7 +2435,7 @@ HVB|Hervey Bay|Australia|AU|-25.32|152.88|0.08|1.20|1.40|6561|1|60
 KHS|Khasab|Oma|OM|26.17|56.24|0.08|0.95|1.30|8202|1|100
 KOK|Kokkola / Kruunupyy|Finlandia|FI|63.72|23.14|0.08|1.30|1.10|8202|1|84
 LIO|Limon|Costa Rica|CR|9.96|-83.02|0.08|0.61|1.85|5906|1|7
-LLB|Qiannan|China|CN|25.45|107.96|0.08|0.80|1.00|7546|1|0
+LLB|Qiannan|China|CN|25.45|107.96|0.08|0.80|1.00|7546|1|2694
 MHC|Dalcahue|Chile|CL|-42.34|-73.72|0.08|0.70|1.30|6562|1|528
 MHK|Manhattan|EUA|US|39.14|-96.67|0.08|1.10|1.10|7400|1|1057
 MJT|Mytilene|Grecia|GR|39.06|26.60|0.08|0.77|2.10|7894|1|60
@@ -3229,12 +3237,95 @@ ZA:AF ZM:AF ZW:AF`
  *
  * **O escopo é índice de jogo, não cadastro aduaneiro.** Não existe lista
  * pública de posto de fronteira para os 3.085 aeroportos, então ele sai de dois
- * sinais — o degrau do aeroporto e a palavra "internacional" no nome oficial,
- * que só existe para os que têm nome curado — mais as exceções conhecidas
- * abaixo. Onde o jogo erra, erra para o lado de deixar operar.
+ * sinais — o degrau do aeroporto e a palavra "internacional" no nome, tanto no
+ * oficial curado quanto no da OurAirports — mais as exceções conhecidas abaixo.
+ * Onde o jogo erra, erra para o lado de deixar operar.
+ *
+ * A primeira versão só olhava o nome curado, que existe para 180 aeroportos, e
+ * por isso 2.749 saíam domésticos — entre eles Malpensa, Atenas, Viena,
+ * Vancouver e o Tocumen. Com o nome da OurAirports, que cobre 3.014, a conta
+ * ficou 1.873 domésticos, 972 regionais e 240 internacionais.
  */
 const MARCA_INTERNACIONAL =
   /international|internacional|internationale|internationaal|intl\b|国际|国際|международн|uluslararası|nemzetközi|międzynarodow|mezinárodní|διεθν/i
+
+/**
+ * Aeroportos cujo nome na OurAirports diz "internacional".
+ *
+ * A primeira versão do escopo só olhava o nome oficial curado à mão, e esse
+ * existe para **180** dos 3.085 aeroportos — o resto caía no rótulo genérico
+ * "Cidade (SIGLA)", que nunca carrega a palavra. Resultado: 2.749 aeroportos
+ * saíam domésticos, e entre eles Malpensa, Atenas, Viena, Vancouver e o
+ * Tocumen do Panamá. Errado, e errado para o lado que **fecha** o jogo.
+ *
+ * O nome da OurAirports cobre 3.014 dos 3.085 e carrega a marca em 1.132 —
+ * mil a mais que a tabela curada. Continua sendo um sinal indireto e não um
+ * cadastro aduaneiro: um aeroporto pode ter alfândega sem "internacional" no
+ * nome (Heathrow, Zurique, Congonhas até 1985), e é para isso que existem o
+ * degrau e a lista à mão abaixo.
+ */
+const MARCADOS_INTERNACIONAL = new Set(
+  `AAC AAN AAP AAY ABA ABB ABD ABE ABJ ABQ ABV ABZ ACA ACC ACY ADB ADD ADE ADJ
+ADL ADZ AER AEX AEY AGT AGU AHB AJF AKL AKX ALA ALB ALP AMA AMD AMM AMQ ANC
+ANF ANR ANU APW AQI AQJ AQP ARI ART ARW ASB ASF ASM ASR ASU ASW ATH ATL ATQ
+ATW ATZ AUA AUH AUS AVP AVV AWA AWZ AXA AYJ AYT AZN AZO AZS BAH BAQ BAV BAX
+BAY BBI BBK BBQ BBU BCD BCM BCU BDA BDH BDJ BDL BDO BDQ BEL BEN BEW BEY BFI
+BFN BFS BGF BGI BGR BGW BGY BHK BHM BHO BIA BIL BJL BJM BJV BJX BKI BKN BKO
+BLA BLB BLI BLR BLZ BME BNA BND BNE BNX BOC BOG BOM BON BOR BOS BPN BPS BQN
+BQT BRC BRI BRM BRO BRX BSA BSB BSG BSR BSZ BTC BTH BTJ BTV BUD BUF BUQ BUS
+BVB BVC BWA BWI BWN BXY BZE BZN BZV CAI CAN CAP CBB CBQ CCE CCJ CCP CCS CCU
+CDG CEB CEI CEK CEN CFK CFU CGB CGK CGO CGP CGQ CGY CHC CHQ CHS CIA CIT CIU
+CIX CJB CJJ CJS CJU CKG CKY CLE CLJ CLO CLQ CLT CMB CME CMG CMH CMN CMW CND
+CNF CNN CNS CNX COK COO COR COV CPE CPR CPT CRA CRD CRK CRP CRZ CSW CSX CTC
+CTG CTM CTU CUC CUF CUL CUN CUR CUU CUZ CVG CVM CWB CWL CXI CXR CYB CYO CZL
+CZM CZX DAB DAC DAD DAM DAR DAT DAV DAY DBB DDG DEB DEL DEN DFW DGO DHX DIA
+DIL DIR DJE DJJ DJT DKR DLA DLC DLH DLM DMB DME DMK DMM DOH DPS DQM DRP DRW
+DSM DSN DSS DSY DUD DUR DVO DWC DXB DXN DYU DZA EBB EBL ECN ECP EDL EHU EIS
+ELP ELQ ENO ENU EQS ERI ERL ERZ ESB ESM ETR EUN EVN EWR EXT EYW EZE FAI FAO
+FAR FAT FBM FCA FCO FDF FEG FEZ FIH FJR FKI FLL FLN FNA FNC FNJ FNT FOC FOR
+FPO FRL FRS FRW FTE FTW FUN FWA GAN GAQ GAU GBB GBE GCM GDL GDT GEG GEM GEO
+GES GFK GGT GHV GIG GMO GMP GND GNJ GOH GOI GOJ GOM GOU GOX GPT GRB GRR GRU
+GRV GSM GSO GSP GSV GTF GUA GUM GUW GVA GWD GXF GYD GYE GYM GYN GYY GZT HAH
+HAK HAN HAQ HAS HAV HBA HBE HDY HEA HER HET HFE HGA HGH HIR HKG HKT HLA HLE
+HLP HLZ HMB HMO HND HNL HOF HOG HPH HRB HRE HRG HRI HRL HSA HSG HSN HSR HSS
+HSV HTA HUI HUX HWR HYD IAD IAG IAR IAS ICN IFN IGR IGU IKA IKG IKT IKU ILM
+ILO ILR ILS IMF INC IND INL INU IPC IQQ IQT ISB ISE ISK ISU ITM ITO IUE IXC
+IXE IXZ JAF JAI JAN JAX JBQ JED JFK JGN JHB JHG JIJ JJN JMU JNB JNU JOG JPA
+JRO JTR JUB JUJ JUL KAC KAD KAN KBL KBP KBV KCH KDH KDU KEF KEJ KER KGL KGP
+KGS KHG KHH KHI KHN KHT KIH KIK KIN KIS KIX KJA KLO KMG KMS KNO KOA KOS KOV
+KQT KRK KRR KRT KRW KSA KSC KSN KTI KTM KTN KTT KTW KUF KUL KUN KUT KVA KWE
+KWI KWL KZN KZO LAD LAE LAL LAN LAO LAP LAQ LAS LAX LBB LBD LBV LCA LCE LCK
+LET LFW LGB LGK LHE LHW LIM LIO LJG LKO LLK LLW LMM LOP LOS LPB LPQ LRD LRM
+LRU LSP LTK LTO LTX LUM LUN LUX LVI LWN LXA LXR LYP MAA MAF MAJ MAK MAM MAO
+MAR MBA MBD MBJ MBS MCI MCO MCP MCT MCX MCZ MDC MDE MDG MDL MDQ MDT MDW MDZ
+MEC MEM MEX MFE MFM MFR MFU MGA MGQ MHD MHH MIA MID MIR MIU MJI MJT MKE MKQ
+MKZ MLA MLB MLE MLI MLM MME MNC MNL MOT MQF MQP MRA MRU MSP MSS MSU MSY MSZ
+MTT MTY MUB MUH MUN MUX MVB MVD MWX MWZ MXL MXP MXZ MYP MYR MZO MZR MZT NAG
+NAJ NAN NAP NAS NAT NBE NBJ NBO NCU NDB NDJ NDR NGB NGO NIM NJF NKC NKG NLA
+NLD NLK NLU NMA NMF NMI NNG NOS NOU NQN NQZ NRT NSI NSK NTG NVI NVT NYT NZG
+OAX OCJ OCS OGG OGS OGZ OHS OKA OMO OMR ONT ORD ORF ORK ORN ORU OSL OSS OST
+OTP OUA OXB OZZ PAC PAE PAP PBC PBG PBH PBM PCL PDG PDP PDS PDV PDX PEE PEG
+PEI PEK PEM PEN PER PET PEV PEW PFO PGU PHB PHC PHE PHF PHH PHL PHX PIA PIE
+PIT PIU PKU PKV PKX PKZ PLQ PLS PLX PLZ PMC PMV PNH PNI PNK PNQ PNR PNS POA
+POG POM POP POS PPE PPG PPK PPS PPT PQC PQI PRN PSA PSD PSE PSP PTG PTP PTY
+PUJ PUQ PUS PVD PVG PVH PVR PWM PWQ PXM PYK PZO PZU QOW RAI RAR RBR RDU REC
+RES REX RFD RGA RGL RGN RHD RHO RIC RIH RIX RIY RKT RMF RMI RML RMO RMQ RMU
+RNO ROB ROC ROP ROR ROS RSD RSI RST RSW RTB RUH SAH SAI SAL SAN SAP SAT SAV
+SAW SBD SBN SBT SBZ SCL SCO SCU SCV SDD SDF SDQ SEA SEZ SFA SFB SFJ SFO SFS
+SGC SGN SHA SHE SHJ SHO SID SJC SJD SJJ SJO SJU SJW SKB SKD SKG SKO SKP SKT
+SKX SKZ SLA SLC SLL SLP SLW SLZ SMF SMR SNA SNC SNU SOC SON SPN SPX SRE SRQ
+SRY SSA SSG SSH STD STI STL STM STV SUB SUF SUI SUJ SUV SVD SVO SVZ SWF SXM
+SXR SYD SYQ SYR SYX SYZ SZB SZX TAB TAE TAG TAI TAM TAO TAP TAS TAZ TBJ TBP
+TBS TBT TBU TBZ TCP TCQ TFU TGM TGZ THR TIA TIF TIJ TIQ TIR TJM TJQ TJU TKG
+TKK TLC TLH TLV TML TNA TNJ TNN TNR TOE TPA TPE TQO TRC TRK TRU TRV TRW TRZ
+TSA TSN TSR TUA TUC TUK TUL TUN TUS TUU TVT TYL TYN TZL TZX UAI UBN UET UFA
+UGC UIO UKK ULH UPG UPN URA URC USH USM UTH UTP UUD UUS UVF UYU VAM VAV VCA
+VCP VDO VER VFA VGA VIE VIX VKO VLI VLN VNO VNS VOG VOZ VRA VSA VTE VVI VVO
+VXE WDH WLG WNZ WUH WUX WVB WWK XBJ XCH XIY XMN XNN XPL XUZ XWA YAP YCU YEG
+YFC YHM YHZ YIA YKF YKS YLW YMM YMX YNB YNT YNY YNZ YOW YQB YQG YQM YQQ YQR
+YQT YQX YUL YUM YVR YWG YXC YXE YXS YXU YXX YXY YYC YYJ YYT YYZ YZF ZAG ZAH
+ZAM ZBR ZCL ZCO ZIA ZIH ZLO ZNZ ZSA ZTH ZYL`.split(/\s+/),
+)
 
 /**
  * Onde a derivação erra e a verdade é conhecida. Cada linha tem uma razão:
@@ -3259,7 +3350,7 @@ const ESCOPO_A_MAO: Record<string, Escopo> = {
 const escopoDe = (iata: string, tier: number, official: string): Escopo => {
   const mao = ESCOPO_A_MAO[iata]
   if (mao) return mao
-  const marca = MARCA_INTERNACIONAL.test(official)
+  const marca = MARCADOS_INTERNACIONAL.has(iata) || MARCA_INTERNACIONAL.test(official)
   if (tier >= 4 || (marca && tier >= 3)) return 'int'
   if (marca || tier === 3) return 'reg'
   return 'dom'
