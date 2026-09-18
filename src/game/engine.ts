@@ -3,12 +3,14 @@ import { normalizeSeats, seatChangeCost } from './seatModels'
 import { AIRCRAFT_BY_ID, type AircraftType } from './data/aircraft'
 import { SAVE_VERSION } from './save'
 import { AIRPORT_BY_IATA, vooPermitido } from './data/airports'
+import { DIA, fatorConexao, horariosDa, horariosPadrao, rotacoesPorDia } from './malha'
 import { BLANK_LIVERY } from '../livery/presets'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from './demand'
 import { cabinComfort, checkCabin, clampPitch, crewFor, defaultCabin } from './cabin'
 import { engineIdFor, pistaServe, withEngine } from './spec'
 import {
-  addCabins, allocateCargoMarket, allocateMarket, blockHours, CARGO_SELLABLE,
+  addCabins, allocateCargoMarket, allocateMarket, blockHours, CARGO_SELLABLE, escalarCabins,
+  limitarCabins,
   DISTRIBUTION_RATE, emptyCabins, flightCost, leaseMonthly, marketPrice,
   maxDailyFrequency, resaleValue, SELLABLE, sumCabins, ticketRevenue,
   type CargoCarrier, type Carrier,
@@ -296,6 +298,30 @@ export function setFrequency(s: GameState, routeId: string, dow: number, value: 
   return null
 }
 
+/**
+ * Muda o horário de uma rotação.
+ *
+ * Grava o vetor inteiro, completado pelo padrão, e não só a posição mexida: a
+ * rota pode nunca ter tido horário, e gravar uma posição solta deixaria as
+ * outras indefinidas — o que a tela leria como padrão e o save gravaria como
+ * buraco.
+ */
+export function setHorario(s: GameState, routeId: string, indice: number, minutos: number): string | null {
+  const r = routeOf(s, routeId)
+  if (!r) return 'Rota não encontrada.'
+  const atuais = horariosDa(r)
+  if (indice < 0 || indice >= atuais.length) return 'Essa rotação não existe.'
+  atuais[indice] = ((Math.round(minutos) % DIA) + DIA) % DIA
+  r.horarios = atuais
+  return null
+}
+
+/** Espalha as rotações pela janela operacional de novo. */
+export function espalharHorarios(s: GameState, routeId: string) {
+  const r = routeOf(s, routeId)
+  if (r) r.horarios = horariosPadrao(rotacoesPorDia(r))
+}
+
 export function setAllFrequencies(s: GameState, routeId: string, value: number) {
   for (let d = 0; d < 7; d++) setFrequency(s, routeId, d, value)
 }
@@ -510,7 +536,19 @@ export function advanceDay(s: GameState): GameState {
     const carriers = carriersByOd.get(key) ?? []
     const alloc = allocateMarket(demand, carriers)
     const mine = alloc.find((a) => a.id === `P:${r.id}`)
-    const pax = mine?.pax ?? emptyCabins()
+    /**
+     * Passageiro de conexão entra **somando**, depois do rateio do mercado.
+     *
+     * Quem voa Recife–São Paulo–Lisboa não estava no mercado Recife–São Paulo:
+     * ele existe porque as duas pontas se encaixam no horário. Se o ganho da
+     * malha entrasse no rateio, o jogo estaria dizendo que a conexão rouba
+     * passageiro local do concorrente, e não é isso que acontece — a fatia
+     * registrada continua sendo a do mercado local, sem o acréscimo.
+     */
+    const conexao = fatorConexao(s, r)
+    // teto no assento ofertado: conexão preenche poltrona vazia, não cria
+    // poltrona. Sem isto o aproveitamento passava de 100%, que é impossível.
+    const pax = limitarCabins(escalarCabins(mine?.pax ?? emptyCabins(), conexao), rd.seats)
     s.lastShare[key] = mine?.share ?? 0
     pressure[key] = mine?.share ?? 0
 

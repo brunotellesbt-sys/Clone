@@ -4,13 +4,23 @@ import { feature } from 'topojson-client'
 import type { FeatureCollection, Geometry as GeoGeometry } from 'geojson'
 import world from 'world-atlas/countries-110m.json'
 import { AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, type Airport } from '../game/data/airports'
-import { aircraftOf, km, metros, typeOf } from '../game/engine'
+import { aircraftOf, km, metros, num, typeOf } from '../game/engine'
 import { interpolate } from '../game/geo'
 import type { GameState, Route } from '../game/types'
 
 const W = 1000
 const H = 520
-const K_MAX = 9
+/**
+ * Até onde aproxima. Nove deixava o mapa parando no tamanho de estado; 40 chega
+ * na escala de cidade, que é onde dá para separar Congonhas de Guarulhos a olho.
+ */
+const K_MAX = 40
+/**
+ * O tamanho do que é desenhado cresce com a raiz do zoom, mas para de crescer
+ * aqui. Sem o teto, no zoom fundo o marcador de aeroporto virava uma bola
+ * cobrindo a cidade inteira — o zoom serve para separar, não para engordar.
+ */
+const K_DESENHO = 9
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const land = feature(world as any, (world as any).objects.countries) as unknown as FeatureCollection<GeoGeometry>
@@ -199,8 +209,15 @@ export function MapView({
 
   const vooSel = voo ? voos.find((v) => v.r.id === voo) : null
 
-  const dotR = (tier: number) => (1.4 + tier * 0.62) / Math.sqrt(view.k)
-  const stroke = (w: number) => w / Math.sqrt(view.k)
+  /**
+   * De unidade de tela para unidade de mapa. O grupo já está escalado por
+   * `view.k`, então dividir por ele devolve tamanho constante na tela; a raiz
+   * por cima faz o marcador crescer um pouco ao aproximar, e o teto faz ele
+   * parar de crescer no zoom fundo.
+   */
+  const fator = Math.sqrt(Math.min(view.k, K_DESENHO)) / view.k
+  const dotR = (tier: number) => (1.4 + tier * 0.62) * fator
+  const stroke = (w: number) => w * fator
 
   function onDown(e: React.PointerEvent) {
     if (e.button > 0) return
@@ -347,8 +364,8 @@ export function MapView({
                 {(isHub || isSel || (view.k > 2.6 && a.tier >= 4)) && (
                   <text
                     x={px + dotR(a.tier) * 2}
-                    y={py + 2.5 / Math.sqrt(view.k)}
-                    fontSize={7.5 / Math.sqrt(view.k)}
+                    y={py + 2.5 * fator}
+                    fontSize={7.5 * fator}
                     fill={isSel ? '#ffe0ac' : isHub ? '#bae6fd' : '#8ea3c9'}
                     style={{ pointerEvents: 'none', fontWeight: 700 }}
                   >
@@ -367,7 +384,7 @@ export function MapView({
             const [x2, y2] = project(lon2, lat2)
             const ang = (Math.atan2(y2 - y, x2 - x) * 180) / Math.PI
             const on = voo === r.id
-            const s = (on ? 2.2 : 1.5) / Math.sqrt(view.k)
+            const s = (on ? 2.2 : 1.5) * fator
             return (
               <g key={`p${r.id}`} transform={`translate(${x},${y}) rotate(${ang}) scale(${s})`}
                 style={{ cursor: 'pointer' }}
@@ -410,7 +427,9 @@ export function MapView({
           <b>{hoverAp.iata}</b> · {hoverAp.city}, {hoverAp.country}
           <br />
           <span className="muted">
-            {ESCOPO_LABEL[hoverAp.escopo]} · pista {metros(hoverAp.runway)} · {hoverAp.pop.toFixed(1)} mi hab
+            {ESCOPO_LABEL[hoverAp.escopo]} · pista {metros(hoverAp.runway)}
+            <br />
+            {num(hoverAp.paxDia)} pax/dia no pico · {hoverAp.pop.toFixed(1)} mi hab
           </span>
         </div>
       )}

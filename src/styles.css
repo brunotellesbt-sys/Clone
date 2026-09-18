@@ -277,6 +277,34 @@ label.field span { display: block; font-size: 10.5px; text-transform: uppercase;
 .voo-barra { height: 4px; border-radius: 999px; background: #1b2740; overflow: hidden; margin: 3px 0 1px; }
 .voo-barra > i { display: block; height: 100%; background: linear-gradient(90deg, var(--sky), var(--sky-2)); }
 
+/* ------------------------------------------------- horários e conexões */
+.rolagem-x { overflow-x: auto; }
+.horarios td { padding: 5px 8px; }
+.horarios input[type='time'] {
+  width: 104px; padding: 4px 8px; font-variant-numeric: tabular-nums;
+  background: #0a1220; border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--ink);
+}
+.horarios .alerta { color: var(--amber); cursor: help; }
+h4.sub {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--ink-3); font-weight: 700; margin: 0 0 7px;
+}
+.conexoes { display: grid; gap: 3px; }
+.conexao {
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: baseline;
+  padding: 5px 8px; background: var(--panel-2); border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm); font-size: 12px;
+}
+.conexao b { font-variant-numeric: tabular-nums; }
+.conexao span:nth-child(2) { text-align: right; font-variant-numeric: tabular-nums; font-size: 11.5px; }
+.conexao small { grid-column: 1 / -1; font-size: 10.5px; }
+.conexao > span:nth-child(3) { grid-column: 2; text-align: right; font-weight: 650; }
+.aviso {
+  margin: 10px 0 0; padding: 8px 11px; font-size: 12px; line-height: 1.45;
+  background: rgba(255, 181, 71, 0.08); border: 1px solid rgba(255, 181, 71, 0.3);
+  border-radius: var(--r-sm); color: var(--ink-2);
+}
+
 /* ---------------------------------------------------------------- toasts */
 .toasts { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 50; }
 .toast {

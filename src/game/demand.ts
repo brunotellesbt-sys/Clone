@@ -21,7 +21,26 @@ export interface MarketDemand {
   distance: number
 }
 
-const K = 1750
+/**
+ * Escala do mercado de passageiro.
+ *
+ * Mudou de valor quando a massa do modelo deixou de ser a população da cidade e
+ * passou a ser o movimento do aeroporto: são grandezas de ordem diferente, e o
+ * `K` foi recalibrado para o mercado GRU-JFK continuar do tamanho que estava.
+ */
+const K = 0.9
+/**
+ * Teto de um par sobre o movimento da ponta menor.
+ *
+ * Nenhuma ligação isolada pode ser mais que isto do que o aeroporto menor move
+ * no dia inteiro. Sem o teto o modelo gravitacional produzia, num aeroporto de
+ * ilha com dois destinos, um par maior que o aeroporto inteiro — e é assim que
+ * a demanda fica coerente com as **duas** pontas e não só com a maior.
+ *
+ * Meio é generoso de propósito: existe aeroporto regional cuja ligação com o
+ * hub é de fato metade do movimento dele. O que o teto corta é o absurdo.
+ */
+const TETO_PAR = 0.5
 /**
  * Escala global da carga, o análogo do `K` do passageiro, e a tarifa de
  * referência por tonelada. Os dois foram calibrados juntos contra a régua do
@@ -50,7 +69,21 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
   const a = AIRPORT_BY_IATA[from]
   const b = AIRPORT_BY_IATA[to]
   const dist = distanceBetween(from, to)
-  const mass = Math.sqrt(a.pop * b.pop)
+  /**
+   * A massa do par é o movimento dos **aeroportos**, não a população das
+   * cidades. Era `sqrt(a.pop * b.pop)`, e por isso Guarulhos, Congonhas e
+   * Viracopos disputavam mercados idênticos: os três herdavam os mesmos 22
+   * milhões de paulistanos. Guarulhos move 129 mil passageiros por dia,
+   * Congonhas 47 mil e Viracopos 25 mil, e agora o modelo sabe disso.
+   */
+  const mass = Math.sqrt(a.paxDia * b.paxDia)
+  /**
+   * Equilíbrio de fluxo: cada ponta traz o fator que faz a soma dos mercados
+   * dela bater com o que o aeroporto move. Sem ele o modelo dava a Recife dez
+   * vezes o movimento real e a Guarulhos três — inflando o pequeno em relação
+   * ao grande, que é o avesso do que se quer.
+   */
+  const fluxo = Math.sqrt(a.fluxo * b.fluxo)
   const gdp = (a.gdp + b.gdp) / 2
   const tour = (a.tour + b.tour) / 2
   const sameCountry = a.cc === b.cc ? 1.55 : a.country === b.country ? 1.3 : 1
@@ -64,6 +97,7 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
   let total =
     K *
     Math.pow(mass, 0.9) *
+    fluxo *
     gdp *
     Math.pow(tour, 0.55) *
     decay *
@@ -76,7 +110,8 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
     WEEKDAY[(day + 4) % 7]
 
   if (dist < 120) total *= 0.15 // pares colados não sustentam voo
-  total = Math.max(0, total)
+  // a ponta menor é o gargalo: o par não pode passar do que ela move no dia
+  total = Math.max(0, Math.min(total, TETO_PAR * Math.min(a.paxDia, b.paxDia)))
 
   // Mistura de classes: renda e distância empurram para a frente do avião.
   const premium = Math.min(0.34, 0.03 + 0.13 * Math.max(0, gdp - 0.55) + 0.075 * Math.min(dist / 4200, 1))

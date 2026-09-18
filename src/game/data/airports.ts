@@ -33,6 +33,7 @@
 // ajuste de balanceamento, e o dado público não sabe nada sobre isso. Deles só a
 // coordenada e a pista foram corrigidas pelo fato.
 import { AIRPORT_NAMES } from './airportNames'
+import { estimarMovimento, fatorFluxo, MOVIMENTO_ANUAL, movimentoDiario } from './movimento'
 
 export interface Airport {
   iata: string
@@ -56,6 +57,17 @@ export interface Airport {
   tier: 1 | 2 | 3 | 4 | 5
   /** Continente do país, da tabela da OurAirports. É a região de um `reg`. */
   cont: Continente
+  /**
+   * Passageiros por dia que o aeroporto move, nos dois sentidos, no ano de
+   * maior movimento da história dele. Ver `movimento.ts`: é dado onde existe e
+   * estimativa onde não existe.
+   *
+   * É este número, e não a população da cidade, que dimensiona o mercado — é o
+   * que separa Guarulhos de Congonhas e de Viracopos.
+   */
+  paxDia: number
+  /** Fator de equilíbrio do fluxo; ver `movimento.ts`. */
+  fluxo: number
   /**
    * Até onde o aeroporto recebe voo. Ver `ESCOPO` abaixo: `dom` só doméstico,
    * `reg` doméstico e internacional do mesmo continente, `int` qualquer um.
@@ -3272,6 +3284,10 @@ export const AIRPORTS: Airport[] = RAW.split('\n').map((line) => {
     elev: Number(elev),
     tier: t,
     cont: CONTINENTE[cc] ?? 'AN',
+    paxDia: movimentoDiario(
+      MOVIMENTO_ANUAL[iata] ?? estimarMovimento(Number(pop), Number(gdp), t),
+    ),
+    fluxo: fatorFluxo(iata),
     escopo: escopoDe(iata, t, AIRPORT_NAMES[iata] ?? ''),
     slots: SLOTS_BY_TIER[t],
     name: `${city} (${iata})`,
