@@ -145,6 +145,12 @@ await page.getByRole('button', { name: /^Abrir por/ }).click()
 await page.waitForTimeout(500)
 conferir(/km/.test(await page.locator('table').first().textContent()), 'a tabela de rotas mostra km')
 
+// a rota nasce sem voo: quem marca é o jogador, e sem perna marcada não há
+// avião no mapa para clicar
+await page.getByRole('button', { name: 'Marcar', exact: true }).first().click()
+await page.waitForTimeout(600)
+conferir((await page.locator('.horarios tbody tr').count()) > 0, 'o voo marcado entra na semana')
+
 await page.getByRole('button', { name: 'Painel', exact: true }).click()
 await page.waitForTimeout(900)
 

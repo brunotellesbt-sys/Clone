@@ -252,15 +252,51 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
           state.startYear + state.day / 365 >= t.since,
       )
     : []
+  /**
+   * Cada aeronave é medida na **melhor frequência dela**, não numa arbitrada.
+   *
+   * A versão anterior dava a cada modelo a frequência que enchia o avião três
+   * vezes — e isso premia avião pequeno por construção: frequência entra na
+   * disputa por passageiro, então o menor, voando mais vezes, levava mais
+   * fatia. O resultado ficava errado de um jeito visível: o A320neo aparecia
+   * **abaixo** do A320-200 que ele substitui, embora custe $39,98 por assento
+   * contra $43,04 do ceo. A conta não estava comparando aeronave, estava
+   * comparando frequência.
+   *
+   * Agora cada modelo é varrido pela faixa de frequências que ele aguenta e
+   * entra na lista com a que der mais lucro — que é o que um planejador faz. A
+   * frequência escolhida aparece no cartão: é decisão, não detalhe.
+   */
   const best = chosen && usable.length
     ? usable
-        .map((t) => ({
-          t,
-          // Frequência de partida: encher o avião umas três vezes. No cargueiro
-          // a conta é a mesma, com a carga paga no lugar do assento.
-          est: estimateRoute(state, hub, chosen.a.iata, t.id,
-            Math.max(1, Math.round(chosen.demand.total / ((t.maxSeats || (t.payload ?? 1)) * 3)))),
-        }))
+        .map((t) => {
+          const porAviao = t.maxSeats || (t.payload ?? 1)
+          const cheio = Math.max(1, Math.round(chosen.demand.total / (porAviao * 3)))
+          /**
+           * O teto é o slot, não a vontade.
+           *
+           * Sem ele a varredura saturava no maior número que ela tentava — em
+           * Santos Dumont–Congonhas todo modelo "queria" quarenta voos por dia,
+           * porque o mercado é grande o bastante para absorver e o modelo não
+           * cobra nada por isso. Quem cobra é o aeroporto: cada rotação gasta
+           * dois movimentos em cada ponta, e é a mesma conta que `setFrequency`
+           * já faz na hora de marcar de verdade.
+           */
+          const teto = Math.max(
+            1,
+            Math.min(
+              Math.floor(Math.min(slotsFree(state, hub), slotsFree(state, chosen.a.iata)) / 2),
+              cheio * 3,
+            ),
+          )
+          let melhor = { freq: 1, est: estimateRoute(state, hub, chosen.a.iata, t.id, 1) }
+          for (const freq of [2, 3, 4, 6, 8, 10, 14, 20, 28, 40, teto]) {
+            if (freq > teto) continue
+            const est = estimateRoute(state, hub, chosen.a.iata, t.id, freq)
+            if (est.profit > melhor.est.profit) melhor = { freq, est }
+          }
+          return { t, freq: melhor.freq, est: melhor.est }
+        })
         .sort((x, y) => y.est.profit - x.est.profit)
         .slice(0, 4)
     : []
@@ -302,7 +338,7 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
         </label>
       </div>
 
-      <div className="split" style={{ gridTemplateColumns: 'minmax(0,1fr) 330px' }}>
+      <div className="split detalhe">
         <div className="scroll" style={{ maxHeight: 400 }}>
           <table>
             <thead>
@@ -356,14 +392,15 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
                   <h4 style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--ink-3)' }}>
                     Melhores aviões para a etapa
                   </h4>
-                  {best.map(({ t, est }) => (
+                  {best.map(({ t, freq, est }) => (
                     <div key={t.id} style={{ padding: '6px 0', borderBottom: '1px solid var(--line-soft)' }}>
                       <div className="row" style={{ justifyContent: 'space-between' }}>
                         <b>{acLabel(t)}</b>
                         <span className={est.profit >= 0 ? 'good' : 'bad'}>{money(est.profit)}/dia</span>
                       </div>
                       <span className="muted" style={{ fontSize: 12 }}>
-                        {est.blockH.toFixed(1)} h de voo · {num(est.pax)} {carga ? 't/dia' : 'pax/dia'} · receita {money(est.revenue)}
+                        {freq}×/dia · {est.blockH.toFixed(1)} h de voo · {num(est.pax)} {carga ? 't/dia' : 'pax/dia'}
+                        {' · '}receita {money(est.revenue)}
                       </span>
                       <Bar value={est.revenue ? Math.max(0, est.profit / est.revenue) : 0} />
                     </div>

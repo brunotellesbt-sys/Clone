@@ -53,6 +53,7 @@ regra mais importante do repositório.
 | `npm run mapa` | confere arrasto, zoom, clique no avião e escolha de base (precisa do `npm run dev` de pé) |
 | `npm run grade` | confere a malha na tela: grade semanal, quem está disponível e o encadeamento (precisa do `npm run dev` de pé) |
 | `npm run toque` | confere o mapa num celular: pinça, arrasto com um dedo e toque (precisa do `npm run dev` de pé) |
+| `npm run mobile` | mede o transbordo horizontal de cada tela num celular — no celular só se rola para baixo (precisa do `npm run dev` de pé) |
 | `node scripts/textos.mjs` | mede, em pixel, onde letreiro, prefixo, bandeira e faixa caem em cada aeronave |
 | `npm run shots` | fotos das telas para o README |
 

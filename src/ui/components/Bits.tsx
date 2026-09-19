@@ -33,14 +33,17 @@ export function Bar({ value, tone }: { value: number; tone?: string }) {
 }
 
 export function Spark({ values, w = 160, h = 34, color = '#38bdf8' }: { values: number[]; w?: number; h?: number; color?: string }) {
-  if (values.length < 2) return <svg className="spark" width={w} height={h} />
+  if (values.length < 2) return <svg className="spark" width="100%" height={h} />
   const min = Math.min(...values, 0)
   const max = Math.max(...values, 1)
   const span = max - min || 1
   const pts = values.map((v, i) => `${(i / (values.length - 1)) * w},${h - ((v - min) / span) * (h - 4) - 2}`)
   const zeroY = h - ((0 - min) / span) * (h - 4) - 2
   return (
-    <svg className="spark" width={w} height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+    /* largura fluida, não em pixel: `w` passa a ser só a escala do `viewBox`.
+       Fixa, ela era a maior fonte de deslizamento lateral no celular — o
+       gráfico de 640 px das finanças sozinho empurrava a tela 274 px */
+    <svg className="spark" width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
       {min < 0 && <line x1="0" y1={zeroY} x2={w} y2={zeroY} stroke="#2b3a5c" strokeWidth="1" strokeDasharray="3 3" />}
       <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
     </svg>

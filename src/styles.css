@@ -126,7 +126,24 @@ main { flex: 1; overflow: auto; padding: 18px 16px 28px; }
 .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .split { display: grid; grid-template-columns: minmax(0, 1fr) 392px; gap: 14px; align-items: start; }
-@media (max-width: 1080px) { .split, .g3, .g4 { grid-template-columns: 1fr; } .g2 { grid-template-columns: 1fr; } }
+/*
+ * Uma coluna quando a tela aperta — e `minmax(0, 1fr)`, não `1fr`.
+ *
+ * Os dois parecem iguais e não são: `1fr` é `minmax(auto, 1fr)`, e `auto` não
+ * deixa a coluna encolher abaixo do conteúdo. Uma tabela de oito colunas dentro
+ * dela fixa um piso de uns 600 px, e esse piso empurrava a página inteira para
+ * o lado no celular. Foi a causa de quase todo o deslizamento lateral medido
+ * pelo `npm run mobile`: 214 px no painel, 276 px nas finanças.
+ */
+@media (max-width: 1080px) {
+  .split, .g2, .g3, .g4 { grid-template-columns: minmax(0, 1fr); }
+  /* a coluna estreita fixa do detalhe de rota também vira linha */
+  .split.detalhe { grid-template-columns: minmax(0, 1fr); }
+}
+/* fora do celular, o detalhe da rota mantém a coluna estreita da projeção */
+@media (min-width: 1081px) {
+  .split.detalhe { grid-template-columns: minmax(0, 1fr) 330px; }
+}
 
 .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--amber); font-weight: 700; }
 .titulo { font-size: 30px; letter-spacing: -0.035em; line-height: 1.12; margin-top: 4px; }
@@ -197,7 +214,10 @@ input[type='text'], input[type='search'], input[type='number'], select, textarea
 }
 input:hover, select:hover { border-color: var(--panel-3); }
 input:focus, select:focus, textarea:focus { outline: 2px solid rgba(255, 181, 71, .5); outline-offset: -1px; border-color: var(--amber); }
-input[type='range'] { width: 100%; accent-color: var(--amber); }
+/* `margin: 0` não é enfeite: o padrão do navegador põe 2 px de cada lado, e
+   com `width: 100%` isso estoura a caixa em 4 px — em toda tarifa, todo
+   controle deslizante, toda tela */
+input[type='range'] { width: 100%; margin: 0; accent-color: var(--amber); }
 label.field { display: block; margin-bottom: 11px; }
 label.field span { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); margin-bottom: 5px; font-weight: 650; }
 
@@ -327,7 +347,7 @@ h4.sub {
 .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(26px, 1fr)); gap: 5px; }
 .swatch { width: 100%; aspect-ratio: 1; border-radius: 6px; border: 1px solid rgba(255,255,255,.14); cursor: pointer; }
 .swatch.on { outline: 2px solid var(--amber); outline-offset: 1px; }
-.spark { display: block; }
+.spark { display: block; width: 100%; }
 .scroll { max-height: 420px; overflow: auto; }
 .list-empty { padding: 26px; text-align: center; color: var(--ink-3); }
 .notice { display: flex; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); font-size: 12.5px; }
@@ -407,4 +427,73 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
 .relogio {
   margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink-2);
   font-size: 11.5px; cursor: help;
+}
+
+/* ------------------------------------------------------------- celular
+ *
+ * Aqui só se rola para baixo. Cada regra abaixo tira uma largura fixa do
+ * caminho ou aperta um espaçamento — o alvo é `npm run mobile` sem nenhuma
+ * sobra lateral em nenhuma tela, não "parecer melhor".
+ */
+@media (max-width: 760px) {
+  main { padding: 12px 10px 24px; }
+
+  /*
+   * Nada mais largo que a coluna, em nenhum nível.
+   *
+   * O transbordo não vinha de um elemento só: cada caixa da cadeia herdava uma
+   * largura mínima implícita do que tinha dentro — o SVG do mapa, com razão de
+   * aspecto e altura fixa, pedia mais de 800 px de largura e empurrava cartão,
+   * grade e embrulho junto. `min-width: 0` corta a herança e `max-width: 100%`
+   * fecha a conta.
+   */
+  .wrap, .grid, .split, .card, .mapwrap, .mapwrap svg { min-width: 0; max-width: 100%; }
+  .wrap { max-width: 100%; }
+  .grid { gap: 10px; }
+
+  /* os quatro indicadores viram 2×2, e os pares rótulo/valor ficam em dois:
+     empilhar tudo rende meia tela de rolagem para ler o que cabe num quadrado */
+  .g2, .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* a barra de abas quebra em duas linhas em vez de rolar para o lado */
+  .nav { flex-wrap: wrap; overflow-x: visible; padding: 7px 10px; }
+  .nav button { padding: 5px 11px; font-size: 12.5px; }
+
+  .topbar { gap: 10px; padding: 8px 12px; }
+  .brand { padding-right: 10px; font-size: 14px; }
+  .brand small { display: none; }
+  .stat { min-width: 62px; }
+  .stat b { font-size: 14px; }
+  .speed button { padding: 5px 8px; }
+
+  .card { padding: 12px; }
+  .card.tight { padding: 10px 11px; }
+  .card h3 { margin-bottom: 9px; }
+  .kpi b { font-size: 19px; }
+  .titulo { font-size: 23px; }
+  .start { padding: 16px 0 28px; }
+  .fatos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* modal ocupa a tela: centralizar algo mais largo que ela corta dos dois
+     lados, e o lado esquerdo fica inalcançável — era o "brir nova rota" */
+  .overlay { padding: 8px; align-items: start; }
+  .modal { padding: 14px; max-height: 94vh; width: 100%; }
+  .modal h2 { font-size: 16px; }
+
+  /* nenhum controle passa da caixa */
+  input, select, textarea { max-width: 100%; }
+  .field { min-width: 0; }
+  .row { flex-wrap: wrap; }
+  .row > .field { flex: 1 1 100% !important; }
+
+  /* tabela larga rola dentro da própria caixa, não arrasta a página */
+  .scroll, .rolagem-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { font-size: 12.5px; }
+  /* linha de uma altura só: a coluna estreita quebrava "SDU → CGH" em três
+     linhas e inchava a tabela. Ela rola de lado dentro da própria caixa, então
+     a célula pode ser larga — o que não pode é ser alta */
+  th, td { padding: 6px 7px; white-space: nowrap; }
+
+  .map-legend { font-size: 10px; gap: 8px; padding: 5px 9px; left: 8px; bottom: 8px; }
+  .grade-corpo { min-width: 420px; }
 }

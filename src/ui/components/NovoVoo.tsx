@@ -5,7 +5,7 @@ import {
 } from '../../game/escala'
 import { acLabel } from '../../game/data/aircraft'
 import { sumCabins } from '../../game/economy'
-import { km, slotsFree } from '../../game/engine'
+import { dowOf, km, slotsFree } from '../../game/engine'
 import { distanceBetween } from '../../game/geo'
 import type { Route } from '../../game/types'
 import { useGame } from '../../store/useGame'
@@ -27,7 +27,14 @@ import { Card } from './Bits'
 export function NovoVoo({ route }: { route: Route }) {
   const { state, act, toast } = useGame()
   const [sentido, setSentido] = useState<'ida' | 'volta'>('ida')
-  const [dow, setDow] = useState(1)
+  /**
+   * O dia começa em **hoje**, não numa segunda fixa.
+   *
+   * Marcar um voo e não achar o avião no mapa não é defeito do mapa: era a
+   * grade sendo marcada para outro dia da semana. O padrão que não surpreende
+   * é o dia em que o jogo está.
+   */
+  const [dow, setDow] = useState(() => dowOf(state))
   const [hora, setHora] = useState('08:00')
 
   const from = sentido === 'ida' ? route.from : route.to

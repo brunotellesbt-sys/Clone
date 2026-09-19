@@ -144,11 +144,11 @@ Medido neste repositório, `npm run sim -- GRU 1460`, com a estratégia burra do
 próprio script:
 
 ```
-dia 1460 | patrim $2.0 bi | frota 58 | rotas 55 | LF 89.2% | fuel $1.02
-utilização da frota: 17.0 h/dia por cauda | 0 parado | 0 voo vazio
+dia 1460 | patrim $1.55 bi | frota 46 | rotas 43 | LF 89.2% | fuel $1.02
+utilização da frota: 15.9 h/dia por cauda | 0 parado | 0 voo vazio
 rota exemplo GRU-DXB (12.217 km, 1x/dia): margem 51.3%, LF 90.7%
-ranking 30d: primeiro rival $574 mi (53 aviões, $10.8 mi/avião)
-             você $490 mi (58 aviões, $8.5 mi/avião)
+ranking 30d: primeiro rival $596 mi (64 aviões, $9.3 mi/avião)
+             você $364 mi (46 aviões, $7.9 mi/avião)
 ```
 
 As duas linhas novas são as que a malha trouxe, e são as que mais dizem:
@@ -174,8 +174,10 @@ balanceamento — não como defeito a consertar por conta própria:
   apertada. Margem alta perdoa escolha ruim, e perdoar escolha ruim é o que
   transforma simulador em planilha de crescimento automático.
 
-O contrapeso, e é real: o jogador termina 4 anos com US$ 490 mi contra US$ 574
-mi do primeiro rival, e produz US$ 8,5 mi por avião contra os US$ 10,8 mi dele.
+O contrapeso, e é real: o jogador termina 4 anos com US$ 364 mi contra US$ 596
+mi do primeiro rival, e produz US$ 7,9 mi por avião contra os US$ 9,3 mi dele.
+Rota aberta nasce **sem voo** — quem monta a escala é o jogador —, e por isso o
+script, que é burro, rende menos do que renderia se o jogo marcasse por ele.
 A dificuldade não está em sobreviver, está em alcançar — o que é uma escolha de
 design legítima. Só decida qual das duas o jogo quer ser antes de mexer:
 apertar margem e demanda junto com essa distância para os rivais produz um jogo
