@@ -13,6 +13,9 @@
 import { AIRPORT_BY_IATA as AP, noToqueDeRecolher } from '../src/game/data/airports'
 import { AIRCRAFT, AIRCRAFT_BY_ID } from '../src/game/data/aircraft'
 import { blockHours } from '../src/game/economy'
+// Geometria de tela, não de simulação — mas é aritmética pura, e aritmética
+// pura se mede aqui em vez de num navegador. Ver `gradeEscala.ts`.
+import { ALTURA_MAXIMA, escalaDaGrade, menorIntervaloDoDia } from '../src/ui/gradeEscala'
 import { distanceBetween } from '../src/game/geo'
 import {
   assinarAcordo, assignAircraft, buyAircraft, MINUTOS_REAIS_POR_HORA, MS_POR_DIA, newGame,
@@ -587,6 +590,45 @@ console.log('\ntempo de etapa na ponte aérea do Sudeste\n')
   }
   conferir(Math.abs(soma / pedidos.length) < 0.6, 'e a média dos seis bate com a pedida',
     `${(soma / pedidos.length).toFixed(2)} min de viés`)
+}
+
+// ------------------------------------------- a escala vertical da grade
+//
+// A grade é a tela onde a escala é lida, e ela desenhava por cima de si mesma
+// no dia cheio. O caso é este, medido de uma tela de verdade: um E195-E2 com
+// doze partidas por dia, de 85 em 85 minutos, numa janela de 05:00 às 24:00.
+// Em 360px isso dava 27px entre uma partida e a seguinte, e o bloco de voo
+// precisa de 28 para caber hora e rota — o de cima cobria o de baixo e o
+// último do dia saía cortado pela borda.
+//
+// Aqui se mede a aritmética, não o desenho: quantos pixels vale o intervalo
+// entre dois voos consecutivos. O desenho em si tem trava própria, no
+// `npm run grade`, que mede na página.
+{
+  const janela = 19 * 60
+  const blocos = Array.from({ length: 12 * 7 }, (_, i) => ({
+    dow: i % 7, de: 6 * 60 + 35 + Math.floor(i / 7) * 85,
+  }))
+  const intervalo = menorIntervaloDoDia(blocos, janela)
+  conferir(intervalo === 85, 'o dia cheio tem 85 minutos entre uma partida e a seguinte',
+    `${intervalo} min`)
+
+  for (const [onde, bloco, base] of [['no celular', 28, 360], ['no monitor', 30, 560]] as const) {
+    const { porMinuto, altura } = escalaDaGrade(janela, intervalo, bloco, base)
+    conferir(intervalo * porMinuto >= bloco - 0.01,
+      `${onde}, o intervalo do dia cheio comporta um bloco inteiro`,
+      `${(intervalo * porMinuto).toFixed(0)}px para um bloco de ${bloco}px · grade de ${altura}px`)
+  }
+
+  // E o dia vazio continua como era: crescer sem motivo é o outro defeito.
+  const folgado = escalaDaGrade(janela, 8 * 60, 28, 360)
+  conferir(folgado.altura === 360, 'o dia de poucos voos não estica a grade',
+    `${folgado.altura}px`)
+
+  // O teto segura o caso patológico: duas partidas coladas não viram um poço.
+  const absurdo = escalaDaGrade(janela, 1, 28, 360)
+  conferir(absurdo.altura <= ALTURA_MAXIMA, 'e duas partidas coladas não viram uma grade sem fim',
+    `${absurdo.altura}px`)
 }
 
 console.log(`\n${falhas === 0 ? 'tudo certo' : `${falhas} falha(s)`}`)

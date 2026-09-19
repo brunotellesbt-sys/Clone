@@ -459,11 +459,15 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
   position: relative; display: flex; gap: 3px; min-width: 520px;
   background: var(--sky-1); border: 1px solid var(--line-soft); border-radius: var(--r-sm); padding: 6px;
 }
-.grade-horas { position: relative; width: 44px; flex: 0 0 44px; }
+.grade-horas { width: 44px; flex: 0 0 44px; display: flex; flex-direction: column; }
+.grade-regua { position: relative; }
 .grade-horas span {
   position: absolute; right: 6px; font-size: 10px; color: var(--ink-3);
-  font-variant-numeric: tabular-nums; transform: translateY(-0.5em);
+  font-variant-numeric: tabular-nums; line-height: 1; transform: translateY(-50%);
 }
+/* `-50%` da própria caixa, e não `-0.5em` do tipo: com a entrelinha padrão a
+   caixa é mais alta que a letra, e o número saía três pixels acima da linha
+   que ele nomeia. Três pixels numa régua de hora são quinze minutos. */
 /* Coluna mais larga: com 56px, "CGH" já encostava nas duas bordas e a hora
    não cabia de jeito nenhum. A grade rola de lado dentro da própria caixa. */
 .grade-dia { flex: 1; min-width: 74px; display: flex; flex-direction: column; }
@@ -471,21 +475,23 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
   font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em;
   color: var(--ink-3); text-align: center; padding-bottom: 4px;
 }
-.grade-pista { position: relative; flex: 1; background: var(--panel); border-radius: var(--r-sm); overflow: hidden; }
+.grade-pista { position: relative; flex: 0 0 auto; background: var(--panel); border-radius: var(--r-sm); overflow: hidden; }
 .grade-linha { position: absolute; left: 0; right: 0; height: 1px; background: var(--line-soft); }
-/* Uma linha, em pé quando cabe e deitada quando não cabe.
-   O bloco de um voo curto tem menos de 30px de altura: ali só cabe uma linha,
-   e é a hora com o destino. `nowrap` e `text-overflow` são o que impede a
-   palavra de ser cortada no meio — antes ela era, e ninguém lia nada. */
+/* Duas linhas empilhadas: a hora e a rota.
+   Ficam uma sobre a outra, e não lado a lado, porque a coluna de um dia tem
+   74px no monitor e menos de 50 no celular — "07:10 SDU→CGH" em linha só cabe
+   num dos dois, e o que sobra no outro é meia palavra cortada. `nowrap` e
+   `text-overflow` continuam valendo em cada linha, pelo mesmo motivo. */
 .grade-voo {
   position: absolute; left: 2px; right: 2px; overflow: hidden;
-  display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 4px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: var(--panel-3); border: 1px solid var(--sky); border-left: 3px solid var(--sky);
-  border-radius: var(--r-sm); color: var(--ink); font-size: 11px; line-height: 1.1;
+  border-radius: var(--r-sm); color: var(--ink); font-size: 11px; line-height: 1.15;
   cursor: pointer; padding: 1px 3px; white-space: nowrap;
 }
-.grade-voo > * { overflow: hidden; text-overflow: ellipsis; }
-.grade-hora { color: var(--ink-3); font-variant-numeric: tabular-nums; font-size: 10px; }
+.grade-voo > * { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.grade-hora { color: var(--ink); font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 600; }
+.grade-rota { color: var(--ink-3); font-size: 9.5px; letter-spacing: 0.02em; }
 .grade-voo:hover, .grade-voo.on { background: var(--panel-2); border-color: var(--amber); border-left-color: var(--amber); }
 
 /* A perna aberta: hora editável e o botão de tirar, embaixo da grade em vez
@@ -577,15 +583,24 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
 
   .map-legend { font-size: 10px; gap: 8px; padding: 5px 9px; left: 8px; bottom: 8px; }
   /* A semana inteira na tela, sem rolar de lado: ver `ehCelular` em Grade.tsx.
-     A régua encolhe para duas casas ("06"), o dia vira uma letra e o bloco
-     mostra só a hora — o destino sai para o editor que abre no toque. */
+     A régua encolhe para duas casas ("06") e o dia vira uma letra. O bloco
+     mantém as duas linhas — hora e rota —, só em corpo menor. */
   .grade-corpo.apertada { min-width: 0; gap: 2px; padding: 4px; }
   .grade-corpo.apertada .grade-horas { width: 22px; flex: 0 0 22px; }
   .grade-corpo.apertada .grade-horas span { right: 3px; font-size: 9px; }
   .grade-corpo.apertada .grade-dia { min-width: 0; }
   .grade-corpo.apertada .grade-dia-nome { font-size: 9.5px; letter-spacing: 0; padding-bottom: 2px; }
-  .grade-corpo.apertada .grade-voo { font-size: 9.5px; padding: 0 1px; left: 1px; right: 1px; }
-  .grade-corpo.apertada .grade-hora { font-size: 9.5px; color: var(--ink); }
+  /* Cada pixel da coluna é do texto, e os corpos saíram de medida, não de
+     gosto: num telefone de 390px a coluna de um dia tem 43px e o bloco fica
+     com 37 úteis depois do recuo. "SDU→CGH" pede 38 a 8px e 36 a 7,5px com a
+     seta apertada — por isso 7,5px. Um pixel a mais e a última letra sai
+     cortada, e rota pela metade é pior do que rota nenhuma. */
+  .grade-corpo.apertada .grade-voo { padding: 0; left: 1px; right: 1px; line-height: 1.1; }
+  .grade-corpo.apertada .grade-hora { font-size: 10px; }
+  /* Mais claro do que no monitor: a 7,5px o cinza de apoio some no fundo do
+     bloco, e uma rota que não dá para ler não está escrita. */
+  .grade-corpo.apertada .grade-rota { font-size: 7.5px; letter-spacing: 0; color: var(--ink-2); }
+  .grade-corpo.apertada .grade-seta { font-size: 6.5px; margin: 0 -1px; }
 
   /*
    * Lista longa no celular: quatro linhas, e o resto rola dentro dela.
