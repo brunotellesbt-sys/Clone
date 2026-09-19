@@ -33,6 +33,26 @@ import {
 } from './types'
 
 /**
+ * A escala do relógio: quanto vale, em tempo real, uma hora de jogo a 1×.
+ *
+ * Dois minutos e meio, o que põe o dia de jogo em uma hora de relógio. É
+ * decisão do dono do jogo, e é uma mudança grande: o dia passava em 900 ms, ou
+ * seja, uma hora de jogo em trinta e sete milissegundos. O jogo virava um
+ * cronômetro correndo — dava para abrir uma rota e perder um mês antes de
+ * terminar de ler a tela.
+ *
+ * As outras velocidades são múltiplos disto, como sempre foram: 4× põe o dia
+ * em quinze minutos, 12× em cinco, 40× em um e meio.
+ *
+ * O mapa segue a **mesma** escala. Ele tinha um laço próprio que rodava o dia
+ * em trinta e quatro segundos independente da velocidade, e com isso o avião
+ * desenhado nunca esteve onde a simulação dizia. Agora os dois contam a mesma
+ * hora.
+ */
+export const MINUTOS_REAIS_POR_HORA = 2.5
+export const MS_POR_DIA = 24 * MINUTOS_REAIS_POR_HORA * 60 * 1000
+
+/**
  * Caixa de fundação. Dá para comprar uma frota de verdade no primeiro ano em
  * vez de começar arrendando um turboélice — a partida deixa de ser sobre
  * sobreviver ao primeiro mês e passa a ser sobre escolher a malha.

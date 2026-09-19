@@ -4,10 +4,16 @@
 // Existe porque o travamento ao arrastar só aparecia com os eventos de ponteiro
 // chegando colados — reproduzir na mão não pega, e "parece que funciona" não
 // serve para um defeito que apagava a tela do jogador.
-import { browserPath, artifact } from './browser.mjs'
+import { browserPath, artifact, comRelogio } from './browser.mjs'
 import { chromium } from 'playwright'
 
-const URL = process.env.URL ?? 'http://localhost:5173/'
+/*
+ * Este roteiro precisa **ver** o avião cruzar o mapa, então ele não usa o
+ * acelerador cheio dos outros: com o dia em 900 ms o marcador pisca por cem
+ * milissegundos e a varredura vira sorteio. Cento e vinte põe o dia em trinta
+ * segundos, que é o passo em que a animação do mapa foi desenhada.
+ */
+const URL = comRelogio(process.env.URL ?? 'http://localhost:5173/', 120)
 const browser = await chromium.launch({ executablePath: browserPath })
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 const erros = []

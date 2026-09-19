@@ -1,4 +1,4 @@
-import { browserPath, artifact } from './browser.mjs'
+import { browserPath, artifact, comRelogio } from './browser.mjs'
 import { chromium } from 'playwright'
 import { createServer } from 'node:http'
 import { readFileSync, existsSync, statSync } from 'node:fs'
@@ -20,7 +20,7 @@ const errors = []
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push('PAGEERROR: ' + e.message))
 
-await page.goto('http://localhost:4173/', { waitUntil: 'networkidle' })
+await page.goto(comRelogio('http://localhost:4173/'), { waitUntil: 'networkidle' })
 await page.waitForTimeout(800)
 await page.screenshot({ path: artifact('shot-1-novo.png') })
 
