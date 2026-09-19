@@ -1,6 +1,6 @@
 import type { AircraftType } from '../game/data/aircraft'
 import { CABIN_LABEL, type CabinClass, type Cabins, type SeatConfig } from '../game/types'
-import { rowLayout } from '../game/cabin'
+import { comportaClasse, rowLayout } from '../game/cabin'
 import { rowCount, SEAT_BY_ID, SEAT_MODELS, seatLayouts } from '../game/seatModels'
 import { asset2d, use2d, type LibraryItem } from '../livery/aircraft2d'
 
@@ -9,7 +9,9 @@ export function SeatMapEditor({ type, seats, pitch, config, change }: {
 }) {
   const { data: library = [] } = use2d<LibraryItem[]>('library.json')
   const byName = new Map(library.map(a => [a.id, a]))
-  const order: CabinClass[] = ['f', 'c', 'w', 'y']
+  // Da frente para o fundo, e só as classes que a aeronave comporta: um ATR
+  // não tem primeira nem executiva para escolher poltrona.
+  const order = (['f', 'c', 'w', 'y'] as CabinClass[]).filter(c => comportaClasse(type, c))
   return <section className="a2-cabin">
     <h3>Poltronas e mapa da cabine</h3>
     <p className="dim">Escolha o modelo da poltrona e os blocos da fileira. A distribuição entra no cálculo de espaço e no custo da reforma. O mapa é esquemático; cabines com dois conveses usam o comprimento equivalente do jogo.</p>

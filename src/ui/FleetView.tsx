@@ -7,7 +7,7 @@ import { useState } from 'react'
 import { AIRCRAFT_BY_ID, acLabel, ehCargueiro } from '../game/data/aircraft'
 import { ENGINES, engineLabel } from '../game/data/engines'
 import {
-  cabinLength, checkCabin, crewFor, LAYOUTS, pitchFare, pitchName, sumSeats,
+  cabinLength, checkCabin, crewFor, layoutsDe, pitchFare, pitchName, sumSeats, textoDasClasses,
 } from '../game/cabin'
 import { CLASS_FARE_MULT } from '../game/demand'
 import { resaleValue, sumCabins } from '../game/economy'
@@ -214,11 +214,11 @@ function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
         A cabine do {t.name} tem <b>{(inches / 39.37).toFixed(1)} m</b> úteis e limite de saídas de{' '}
         <b>{t.maxSeats} passageiros</b>. Cada fileira come o passo que você escolher: passo maior
         rende mais por assento e leva menos gente. É a conta que a companhia faz de verdade.
-      </p>
+      {' '}{textoDasClasses(t)}</p>
 
       <h4 className="sub">Partir de um padrão</h4>
       <div className="row tight" style={{ flexWrap: 'wrap', marginBottom: 12 }}>
-        {LAYOUTS.map((l) => (
+        {layoutsDe(t).map((l) => (
           <button key={l.id} className="btn sm" title={l.note}
             onClick={() => carregar({ ...l.build(t), seatConfig: {} })}>
             {l.name}

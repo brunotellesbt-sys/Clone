@@ -1,4 +1,6 @@
 import { AIRPORT_BY_IATA, temIrmao, type Airport } from './data/airports'
+import { AIRCRAFT_BY_ID } from './data/aircraft'
+import { aeroportoServe } from './spec'
 import { derivaDoPais } from './data/crescimento'
 import { distanceBetween, odKey } from './geo'
 import { hashStr } from './rng'
@@ -130,6 +132,57 @@ const AFINIDADE_IGUAL = 1.7
 const AFINIDADE_CRUZADA = 0.58
 
 /** Demanda estrutural de um par O&D, antes de preço e concorrência. */
+// ------------------------------------------------------------------- piso
+
+/**
+ * O piso de demanda de um par, em passageiros por dia.
+ *
+ * Dois degraus, e cada um é a cabine cheia da menor aeronave que o par aceita:
+ *
+ * - **par que aceita jato regional** — 112 na econômica e 8 na econômica
+ *   premium, que é o E195 de duas classes do próprio catálogo do jogo;
+ * - **par que só aceita turboélice** — 38 na econômica, o ATR 42 em classe
+ *   única, e nada na premium, porque turboélice não tem premium.
+ *
+ * Pista e porte decidem, nas duas pontas, com a mesma conta que a tela de
+ * abrir rota usa (`aeroportoServe`): elevação entra, e o teto de porte de
+ * Pampulha também. Par que não aceita nem turboélice não tem piso — o jogo tem
+ * aeroporto de pista curta demais para a frota inteira, e inventar demanda lá
+ * seria demanda que ninguém pode servir.
+ */
+export const PISO_JATO: { y: number; w: number } = { y: 112, w: 8 }
+export const PISO_TURBO: { y: number; w: number } = { y: 38, w: 0 }
+const SEM_PISO = { y: 0, w: 0 }
+
+/**
+ * Cache por aeroporto: são 3.087 aeroportos e milhões de consultas de par por
+ * partida, e a resposta não muda durante o jogo — pista e porte são do
+ * catálogo.
+ */
+const aceita = new Map<string, { jato: boolean; turbo: boolean }>()
+
+function aceitaDe(ap: Airport) {
+  let v = aceita.get(ap.iata)
+  if (!v) {
+    v = {
+      jato: aeroportoServe(AIRCRAFT_BY_ID.e195, ap),
+      turbo: TURBOELICES.some((t) => aeroportoServe(t, ap)),
+    }
+    aceita.set(ap.iata, v)
+  }
+  return v
+}
+
+const TURBOELICES = Object.values(AIRCRAFT_BY_ID).filter((t) => t.family === 'turboprop')
+
+export function pisoDoPar(a: Airport, b: Airport) {
+  const x = aceitaDe(a)
+  const y = aceitaDe(b)
+  if (x.jato && y.jato) return PISO_JATO
+  if (x.turbo && y.turbo) return PISO_TURBO
+  return SEM_PISO
+}
+
 export function baseDemand(from: string, to: string, day: number, dayOfYear: number): MarketDemand {
   const a = AIRPORT_BY_IATA[from]
   const b = AIRPORT_BY_IATA[to]
@@ -224,6 +277,35 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
     c: total * cShare,
     f: total * fShare,
   }
+
+  /**
+   * O piso, e o piso é do jogo, não do mundo.
+   *
+   * Um par que aceita jato regional nunca vale menos do que um E195 cheio por
+   * dia, e um par que só aceita turboélice nunca vale menos do que um ATR 42
+   * cheio. É decisão de projeto do dono do jogo, pedida com esses números, e
+   * ela **descola o aeroporto pequeno do movimento publicado** — o teto por
+   * par continua valendo para cima, mas para baixo passa a mandar o piso. Sem
+   * esse aviso aqui alguém vai achar daqui a um ano que o modelo gravitacional
+   * regrediu; não regrediu, ele tem um chão por baixo.
+   *
+   * O piso segue a cabine que a aeronave comporta, e é por isso que o do
+   * turboélice não tem econômica premium: turboélice de linha voa em classe
+   * única (ver `classesDe`), e reservar oito assentos de uma classe que não
+   * existe seria demanda que ninguém pode atender.
+   *
+   * Ele fica **fora** do equilíbrio de fluxo de propósito. O `npm run fluxo`
+   * ajusta o modelo gravitacional para a soma de cada aeroporto bater com o
+   * movimento publicado; se o piso entrasse nessa conta, o que ele acrescenta
+   * num par pequeno sairia do fator de todos os outros pares do aeroporto — o
+   * chão de um par viraria desconto no vizinho. Rodar o `fluxo` depois desta
+   * mudança devolve os mesmos 3.087 fatores, byte a byte, e é assim que tem
+   * que ser.
+   */
+  const piso = pisoDoPar(a, b)
+  pax.y = Math.max(pax.y, piso.y)
+  pax.w = Math.max(pax.w, piso.w)
+  total = pax.y + pax.w + pax.c + pax.f
 
   /**
    * Tarifa de referência: uma parte fixa por bilhete e uma por quilômetro.

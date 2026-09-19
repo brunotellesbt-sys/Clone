@@ -15,13 +15,14 @@
  * por dia continua no vermelho, e tem que continuar.
  */
 import { AIRCRAFT_BY_ID } from '../src/game/data/aircraft'
-import { AIRPORT_BY_IATA } from '../src/game/data/airports'
-import { baseDemand } from '../src/game/demand'
+import { AIRPORTS, AIRPORT_BY_IATA } from '../src/game/data/airports'
+import { baseDemand, pisoDoPar } from '../src/game/demand'
 import { distanceBetween } from '../src/game/geo'
-import { pistaServe } from '../src/game/spec'
+import { aeroportoServe, pistaServe } from '../src/game/spec'
 import { estimateRoute, newGame, num } from '../src/game/engine'
 
 const s = newGame({ name: 'Teste', code: 'TT', hub: 'SDU', seed: 42 })
+const TURBO = Object.values(AIRCRAFT_BY_ID).filter((t) => t.family === 'turboprop')
 const falhas: string[] = []
 const conferir = (ok: boolean, oque: string, extra = '') => {
   console.log(`${ok ? 'ok   ' : 'FALHA'} ${oque}${extra ? `  ${extra}` : ''}`)
@@ -61,17 +62,46 @@ for (const [from, to] of [['SDU', 'CAW'], ['GRU', 'CAW'], ['SDU', 'MEA'], ['GRU'
     `${m.id || 'nenhuma'} ${m.freq}×/dia · ${num(m.profit)}/dia · mercado ${num(d.total)} pax/dia`)
 }
 
+// ------------------------------------------------------------------- o piso
+//
+// O piso de demanda é decisão de projeto, com número dado: um par que aceita
+// jato regional vale pelo menos um E195 cheio — 112 na econômica e 8 na
+// premium —, e um par que só aceita turboélice vale pelo menos um ATR 42
+// cheio, 38 em classe única e nada na premium.
+//
+// Ele **substituiu** a trava anterior, que exigia que Rio–Cabo Frio não
+// fechasse. Cabo Frio aceita E195, então agora ele tem piso e fecha; a trava
+// velha e o piso novo não podem valer ao mesmo tempo, e quem manda é o pedido.
+for (const [from, to] of [['SDU', 'CFB'], ['SDU', 'CAW'], ['GRU', 'MEA'], ['CNF', 'PLU']]) {
+  const d = baseDemand(from, to, 0, 180)
+  const piso = pisoDoPar(AIRPORT_BY_IATA[from], AIRPORT_BY_IATA[to])
+  conferir(d.pax.y >= piso.y - 0.5 && d.pax.w >= piso.w - 0.5,
+    `${from}–${to} respeita o piso de ${piso.y}+${piso.w}`,
+    `y ${num(d.pax.y)} · w ${num(d.pax.w)}`)
+}
+
+// Par que só aceita turboélice não ganha premium: turboélice não tem premium.
+{
+  const so = AIRPORTS.filter((a) => !aeroportoServe(AIRCRAFT_BY_ID.e195, a) &&
+    TURBO.some((t) => aeroportoServe(t, a)))
+  conferir(so.length > 0, 'existe aeroporto que só aceita turboélice', `${so.length} deles`)
+  const par = so.length > 1 ? [so[0], so[1]] : null
+  if (par) {
+    const piso = pisoDoPar(par[0], par[1])
+    conferir(piso.y === 38 && piso.w === 0,
+      `par só de turboélice tem piso de 38 em classe única (${par[0].iata}–${par[1].iata})`,
+      `${piso.y}+${piso.w}`)
+  }
+}
+
 // ------------------------------------------------- o que tem que continuar caro
 //
-// Cabo Frio move 137 passageiros por dia — e o jogo já é generoso com ele: o
-// publicado é 23.714 no ano (2015) e o jogo usa 50.000. Rota diária para lá não
-// pode fechar, e na vida real não fecha: o que sustenta Cabo Frio é fretamento
-// de temporada, não linha. Se um dia esta trava virar, foi a tarifa ou o custo
-// que saiu do lugar.
+// O piso é um chão, não um nivelamento: par grande continua grande. Se um dia
+// o mercado de Congonhas encostar no piso, alguma coisa zerou a conta inteira.
 {
-  const m = melhorRota('SDU', 'CFB')
-  conferir(m.profit < 0, 'Rio–Cabo Frio, 60 km e 137 pax/dia no aeroporto, não fecha',
-    `melhor caso ${num(m.profit)}/dia`)
+  const d = baseDemand('SDU', 'CGH', 0, 180)
+  conferir(d.total > 5000, 'o par grande continua muito acima do piso',
+    `${num(d.total)} pax/dia`)
 }
 
 // ------------------------------------------ e o grande continua sendo o grande

@@ -6,7 +6,7 @@ import { baseAbreast, confortoDaPoltrona, rowCount, SEAT_BY_ID, seatLayouts } fr
 // contrário. Por cima de tudo isso está o limite de saídas de emergência, que
 // nenhuma configuração pode furar.
 import type { AircraftType } from './data/aircraft'
-import { CABINS, type CabinClass, type Cabins, type SeatConfig } from './types'
+import { CABIN_LABEL, CABINS, type CabinClass, type Cabins, type SeatConfig } from './types'
 
 /** Passo de poltrona em polegadas: mínimo praticado, padrão e máximo. */
 export const PITCH_RANGE: Record<CabinClass, [number, number, number]> = {
@@ -160,6 +160,47 @@ export const rowsOf = (t: AircraftType, seats: Cabins, c: CabinClass, config?: S
   Math.ceil(seats[c] / abreastOf(t, c, config))
 
 /**
+ * Que classes a aeronave comporta, por família.
+ *
+ * Não é balanceamento, é o que existe: um turboélice de linha voa em classe
+ * única — não há Dash 8 nem ATR com executiva de verdade, e o que as
+ * companhias vendem como "conforto" ali é a mesma poltrona com uma fileira
+ * vazia ao lado. Regional e corredor único chegam à executiva e param: 737 e
+ * A320 têm executiva doméstica, e **primeira classe não existe** em
+ * narrowbody. Primeira é de fuselagem larga, onde há largura para a suíte.
+ *
+ * Isto é a porteira única: `limiteDaClasse` devolve zero para classe barrada,
+ * então o padrão do catálogo, o controle da tela, a trava de capacidade e a
+ * cabine de fábrica passam todos por aqui sem cada um ter a própria regra.
+ */
+const FAMILIA_LABEL: Record<AircraftType['family'], string> = {
+  turboprop: 'turboélice', regional: 'jato regional', narrowbody: 'corredor único',
+  widebody: 'fuselagem larga', freighter: 'cargueiro',
+}
+
+const CLASSES_POR_FAMILIA: Record<AircraftType['family'], CabinClass[]> = {
+  turboprop: ['y'],
+  regional: ['y', 'w', 'c'],
+  narrowbody: ['y', 'w', 'c'],
+  widebody: ['y', 'w', 'c', 'f'],
+  freighter: [],
+}
+
+export const classesDe = (t: AircraftType): CabinClass[] =>
+  CLASSES_POR_FAMILIA[t.family] ?? ['y', 'w', 'c']
+
+export const comportaClasse = (t: AircraftType, c: CabinClass) => classesDe(t).includes(c)
+
+/** A regra de classes em uma frase, para a tela dizer por que falta classe. */
+export function textoDasClasses(t: AircraftType): string {
+  if (t.family === 'turboprop') {
+    return 'Turboélice de linha voa em classe única: não há executiva nem premium para montar aqui.'
+  }
+  if (t.family === 'widebody') return 'Fuselagem larga é a única que comporta primeira classe.'
+  return 'Corredor único e jato regional vão até a executiva — primeira classe é de fuselagem larga.'
+}
+
+/**
  * Quantos assentos a classe `c` ainda pode receber, dadas as outras.
  *
  * É a trava dura. Antes o controle ia até `maxSeats` em toda classe, e o jogo
@@ -176,7 +217,7 @@ export function limiteDaClasse(
   t: AircraftType, seats: Cabins, pitch: Cabins, c: CabinClass, config?: SeatConfig,
 ): number {
   const ab = abreastOf(t, c, config)
-  if (ab <= 0) return 0
+  if (ab <= 0 || !comportaClasse(t, c)) return 0
   const outras = { ...seats, [c]: 0 }
   // o que sobra depois das outras classes, já descontada a divisória que esta
   // classe passa a exigir quando deixa de ser vazia
@@ -266,6 +307,19 @@ export function checkCabin(t: AircraftType, seats: Cabins, pitch: Cabins, config
   const overLimit = total > t.maxSeats
   const invalid = CABINS.some(c => !Number.isInteger(seats[c]) || seats[c] < 0 || !Number.isFinite(pitch[c]) || pitch[c] < PITCH_RANGE[c][0] || pitch[c] > PITCH_RANGE[c][2]) || total <= 0 || t.abreast <= 0
   let seatError: string | undefined
+  /**
+   * Classe que a família não comporta é erro, não aviso.
+   *
+   * A tela já não oferece o controle, mas a trava mora aqui porque `setCabin`
+   * é chamado com o que vier — save antigo, cabine guardada de outro modelo,
+   * encomenda de fábrica montada antes desta regra existir. Quem barra é uma
+   * porteira só.
+   */
+  for (const c of CABINS) {
+    if (seats[c] > 0 && !comportaClasse(t, c)) {
+      seatError = `${CABIN_LABEL[c]} não existe num ${FAMILIA_LABEL[t.family]}.`
+    }
+  }
   for (const c of CABINS) {
     const setting = config?.[c]
     if (!setting || seats[c] === 0) continue
@@ -325,6 +379,15 @@ export interface Layout {
   id: string
   name: string
   note: string
+  /**
+   * As classes da frente que o padrão existe para montar.
+   *
+   * Sem isto, "Longo curso" aparecia num ATR — e como `fill` apara a classe
+   * que a família não comporta, ele montava a mesma cabine de classe única que
+   * "Alta densidade", com outro nome. Seis botões para três cabines iguais não
+   * é escolha, é ruído.
+   */
+  exige: CabinClass[]
   build: (t: AircraftType) => { seats: Cabins; pitch: Cabins }
 }
 
@@ -347,7 +410,9 @@ export interface Layout {
 function fill(t: AircraftType, alvos: Cabins, pitch: Cabins): { seats: Cabins; pitch: Cabins } {
   let seats: Cabins = { y: 0, w: 0, c: 0, f: 0 }
   for (const c of ['f', 'c', 'w'] as const) {
-    if (alvos[c] <= 0) continue
+    // classe que a família não comporta nem é tentada: um turboélice com
+    // "quatro classes" no catálogo era o padrão do jogo mentindo
+    if (alvos[c] <= 0 || !comportaClasse(t, c)) continue
     const ab = abreastOf(t, c)
     const cabe = Math.floor(limiteDaClasse(t, seats, pitch, c) / ab) * ab
     seats[c] = Math.max(0, Math.min(alvos[c], cabe))
@@ -368,18 +433,21 @@ const wide = (t: AircraftType) => t.family === 'widebody'
 export const LAYOUTS: Layout[] = [
   {
     id: 'dense',
+    exige: [],
     name: 'Alta densidade',
     note: 'Uma classe só, no passo mínimo. Máximo de assento por avião; é como voa uma companhia de baixo custo.',
     build: (t) => fill(t, P(0, 0, 0, 0), P(29, 38, 60, 83)),
   },
   {
     id: 'lowcost',
+    exige: ['w'],
     name: 'Baixo custo com frente',
     note: 'Econômica apertada e um punhado de fileiras com espaço extra, vendidas como assento pago.',
     build: (t) => fill(t, P(0, seatsFor(t, 'w', 0.09), 0, 0), P(29, 35, 60, 83)),
   },
   {
     id: 'domestic',
+    exige: ['c'],
     name: 'Doméstico duas classes',
     note: 'O padrão de mercado doméstico: executiva reclinável na frente, econômica no passo normal.',
     /**
@@ -396,6 +464,7 @@ export const LAYOUTS: Layout[] = [
   },
   {
     id: 'regional3',
+    exige: ['w', 'c'],
     name: 'Regional três classes',
     note: 'Executiva reclinável, econômica premium e econômica — o que se usa em etapa média.',
     build: (t) =>
@@ -403,6 +472,7 @@ export const LAYOUTS: Layout[] = [
   },
   {
     id: 'longhaul',
+    exige: ['w', 'c'],
     name: 'Longo curso',
     note: 'Cama plana na executiva, premium de verdade e econômica no passo normal. Cabe menos gente e rende muito mais por assento.',
     build: (t) =>
@@ -410,6 +480,7 @@ export const LAYOUTS: Layout[] = [
   },
   {
     id: 'premium',
+    exige: ['w', 'c', 'f'],
     name: 'Quatro classes',
     note: 'Com primeira classe em suíte. Só se sustenta em rota de prestígio, com demanda corporativa de sobra.',
     build: (t) =>
@@ -422,6 +493,10 @@ export const LAYOUTS: Layout[] = [
 ]
 
 export const LAYOUT_BY_ID = Object.fromEntries(LAYOUTS.map((l) => [l.id, l]))
+
+/** Os padrões que fazem sentido nesta aeronave. Ver `Layout.exige`. */
+export const layoutsDe = (t: AircraftType) =>
+  LAYOUTS.filter((l) => l.exige.every((c) => comportaClasse(t, c)))
 
 /**
  * Configuração de partida para um tipo, dado o "peso" premium da operação.

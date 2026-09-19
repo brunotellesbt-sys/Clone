@@ -1,9 +1,10 @@
 import type { AircraftType } from '../../game/data/aircraft'
 import {
-  abreastOf, limiteDaClasse, passoMaximo, PITCH_RANGE, pitchFare, pitchName, rowLayout, rowsOf,
+  abreastOf, classesDe, limiteDaClasse, passoMaximo, PITCH_RANGE, pitchFare, pitchName, rowLayout,
+  rowsOf,
 } from '../../game/cabin'
 import { CLASS_FARE_MULT } from '../../game/demand'
-import { CABIN_LABEL, CABINS, type Cabins, type SeatConfig } from '../../game/types'
+import { CABIN_LABEL, type Cabins, type SeatConfig } from '../../game/types'
 
 /**
  * Os controles de cabine — assentos e passo por classe.
@@ -34,7 +35,9 @@ export function CabineTabela({ t, seats, pitch, seatConfig, setAssentos, setPass
           </tr>
         </thead>
         <tbody>
-          {CABINS.map((c) => {
+          {/* Classe que a família não comporta não tem controle: um turboélice
+              não ganha executiva por arrastar uma barra. Ver `classesDe`. */}
+          {classesDe(t).map((c) => {
             const [min] = PITCH_RANGE[c]
             const rows = seats[c] > 0 ? rowsOf(t, seats, c, seatConfig) : 0
             /**
