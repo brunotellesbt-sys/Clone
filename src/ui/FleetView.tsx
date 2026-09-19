@@ -1,4 +1,5 @@
 import { SeatMapEditor } from './SeatMapEditor'
+import { CabineTabela } from './components/CabineTabela'
 import { useCabine } from './useCabine'
 import { SOURCE_2D } from '../livery/aircraft2d'
 import { seatChangeCost } from '../game/seatModels'
@@ -6,8 +7,7 @@ import { useState } from 'react'
 import { AIRCRAFT_BY_ID, acLabel, ehCargueiro } from '../game/data/aircraft'
 import { ENGINES, engineLabel } from '../game/data/engines'
 import {
-  abreastOf, cabinLength, checkCabin, crewFor, LAYOUTS,
-  limiteDaClasse, passoMaximo, PITCH_RANGE, pitchFare, pitchName, rowLayout, rowsOf, sumSeats,
+  cabinLength, checkCabin, crewFor, LAYOUTS, pitchFare, pitchName, sumSeats,
 } from '../game/cabin'
 import { CLASS_FARE_MULT } from '../game/demand'
 import { resaleValue, sumCabins } from '../game/economy'
@@ -16,7 +16,7 @@ import {
   sellAircraft, setCabin, typeOf, unassignAircraft,
 } from '../game/engine'
 import { useGame } from '../store/useGame'
-import { CABIN_LABEL, CABINS, type Aircraft } from '../game/types'
+import { CABINS, type Aircraft } from '../game/types'
 import { AircraftArt } from '../livery/AircraftArt'
 import { Bar, Card, Empty, Modal } from './components/Bits'
 import { Grade } from './components/Grade'
@@ -244,65 +244,8 @@ function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
         </>
       )}
 
-      <div className="scroll cabine-tabela">
-        <table className="cabine">
-          <thead>
-            <tr>
-              <th>Classe</th><th className="r">Fileira</th><th>Assentos</th>
-              <th>Passo</th><th className="r">Fileiras</th>
-              <th className="r">Ocupa</th><th className="r">Tarifa</th>
-            </tr>
-          </thead>
-          <tbody>
-            {CABINS.map((c) => {
-              const [min] = PITCH_RANGE[c]
-              const rows = seats[c] > 0 ? rowsOf(t, seats, c, seatConfig) : 0
-              /**
-               * O teto mostrado é o **alcançável**, não o livre agora: nas
-               * classes da frente ele conta com a econômica cedendo espaço, que
-               * é o que o controle faz. Mostrar "cabem 0" numa executiva que o
-               * próprio controle consegue pôr seria mentira da tela.
-               */
-              const tetoAssentos = c === 'y'
-                ? limiteDaClasse(t, seats, pitch, c, seatConfig)
-                : limiteDaClasse(t, { ...seats, y: 0 }, pitch, c, seatConfig)
-              const tetoPasso = passoMaximo(t, seats, pitch, c, seatConfig)
-              return (
-                <tr key={c}>
-                  <td><b>{CABIN_LABEL[c]}</b><br /><small className="muted">{pitchName(c, pitch[c])}</small></td>
-                  <td className="r muted">{rowLayout(t, c, seatConfig)}</td>
-                  <td>
-                    <div className="campo">
-                      <input
-                        type="range" min={0} max={Math.max(tetoAssentos, seats[c])}
-                        step={abreastOf(t, c, seatConfig)}
-                        value={seats[c]} onChange={(e) => setAssentos(c, +e.target.value)}
-                      />
-                      <input aria-label={`Assentos na ${CABIN_LABEL[c]}`} type="number"
-                        min={0} max={tetoAssentos} step={1} value={seats[c]}
-                        onChange={(e) => setAssentos(c, +e.target.value)} />
-                    </div>
-                    {/* O teto fica à vista: controle que para sem dizer por que
-                        parou parece travado, e não limitado. */}
-                    <small className="muted">cabem {tetoAssentos}</small>
-                  </td>
-                  <td>
-                    <div className="campo">
-                      <input type="range" min={min} max={Math.max(tetoPasso, pitch[c])}
-                        value={pitch[c]} onChange={(e) => setPasso(c, +e.target.value)} />
-                      <b>{pitch[c]}″</b>
-                    </div>
-                    <small className="muted">até {tetoPasso}″</small>
-                  </td>
-                  <td className="r">{rows || '—'}</td>
-                  <td className="r">{rows ? `${((rows * pitch[c]) / 39.37).toFixed(1)} m` : '—'}</td>
-                  <td className="r">{(CLASS_FARE_MULT[c] * pitchFare(c, pitch[c])).toFixed(2)}×</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+      <CabineTabela t={t} seats={seats} pitch={pitch} seatConfig={seatConfig}
+        setAssentos={setAssentos} setPasso={setPasso} />
 
       <div className="resumo-cabine">
         <div>

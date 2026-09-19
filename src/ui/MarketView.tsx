@@ -3,20 +3,22 @@ import { AIRCRAFT_ALL, acLabel, ehCargueiro, FAMILY_OF, type AircraftType } from
 import { AIRPORT_BY_IATA } from '../game/data/airports'
 import { engineLabel, type Engine } from '../game/data/engines'
 import {
-  abreastOf, cabinLength, defaultCabin, LAYOUTS, limiteDaClasse, passoMaximo, PITCH_RANGE,
-  rowLayout, sumSeats,
+  cabinComfort, cabinLength, defaultCabin, LAYOUTS, rowLayout, sumSeats,
 } from '../game/cabin'
-import { custoDeFabrica } from '../game/seatModels'
+import { custoDeFabrica, SEAT_MODELS } from '../game/seatModels'
 import { SOURCE_2D } from '../livery/aircraft2d'
 import { SeatMapEditor } from './SeatMapEditor'
 import { useCabine } from './useCabine'
 import { leaseMonthly, marketPrice } from '../game/economy'
-import { buyAircraft, cabinesDoModelo, km, metros, money, num } from '../game/engine'
+import {
+  buyAircraft, cabinesDoModelo, km, metros, money, num, PRAZO_DO_ARRENDAMENTO,
+} from '../game/engine'
 import { enginesOf, withEngine } from '../game/spec'
 import { useGame } from '../store/useGame'
 import { AircraftArt } from '../livery/AircraftArt'
 import { Card } from './components/Bits'
-import { CABIN_LABEL, CABINS, type Cabins, type SeatConfig } from '../game/types'
+import { CabineTabela } from './components/CabineTabela'
+import { CABINS, type Cabins, type SeatConfig } from '../game/types'
 
 const FAMILY_LABEL: Record<string, string> = {
   turboprop: 'Turboélice', regional: 'Regional', narrowbody: 'Corredor único', widebody: 'Fuselagem larga',
@@ -193,10 +195,29 @@ function Encomenda({ model, price, lease, available, since, onAcquire }: {
   // Só cobra interior de quem encomendou: a cabine de série já vem no preço.
   const extra = mexeu && !carga ? custoDeFabrica(cab.seats, cab.seatConfig) : 0
   const mostrada = mexeu ? encomenda : serie
+  const conforto = cabinComfort(model, mostrada.seats, mostrada.pitch, mexeu ? cab.seatConfig : undefined)
+  // O arrendador não cobra o interior à vista: ele dilui no contrato. Ver
+  // `buyAircraft`, que é quem manda — aqui só se repete a conta para a tela.
+  const mensal = lease + extra / PRAZO_DO_ARRENDAMENTO
   const comprar = (arrendar: boolean) => onAcquire(arrendar, mexeu && !carga ? encomenda : undefined)
 
+  /**
+   * Carrega um padrão já com a poltrona mais simples de cada classe escolhida.
+   *
+   * Os padrões do catálogo não nomeiam poltrona — eles dizem quantos assentos
+   * e em que passo. Carregar um deles e deixar a poltrona em "configuração
+   * atual do jogo" fazia a foto sumir e escondia justamente a escolha que esta
+   * tela existe para oferecer. A mais barata da classe custa zero, então o
+   * padrão continua saindo pelo mesmo preço — o que muda é ele ficar à vista.
+   */
   const carregar = (b: { seats: Cabins; pitch: Cabins; seatConfig?: SeatConfig }) => {
-    cab.carregar(b)
+    const cfg: SeatConfig = { ...b.seatConfig }
+    for (const c of CABINS) {
+      if (cfg[c]) continue
+      const base = SEAT_MODELS.find((m) => m.cabin === c && m.minPitch <= b.pitch[c])
+      if (base) cfg[c] = { style: base.id, layout: rowLayout(model, c) }
+    }
+    cab.carregar({ ...b, seatConfig: cfg })
     setMexeu(true)
   }
 
@@ -233,29 +254,9 @@ function Encomenda({ model, price, lease, available, since, onAcquire }: {
             ))}
           </div>
 
-          <table className="cabine">
-            <tbody>
-              {CABINS.map((c) => (
-                <tr key={c}>
-                  <td>{CABIN_LABEL[c]}</td>
-                  <td className="r num">{cab.seats[c]}</td>
-                  <td>
-                    <input type="range" aria-label={`Assentos ${CABIN_LABEL[c]}`}
-                      min={0} max={limiteDaClasse(model, cab.seats, cab.pitch, c, cab.seatConfig)}
-                      step={abreastOf(model, c, cab.seatConfig)} value={cab.seats[c]}
-                      onChange={(e) => { cab.setAssentos(c, +e.target.value); setMexeu(true) }} />
-                  </td>
-                  <td>
-                    <input type="range" aria-label={`Passo ${CABIN_LABEL[c]}`}
-                      min={PITCH_RANGE[c][0]} max={passoMaximo(model, cab.seats, cab.pitch, c, cab.seatConfig)}
-                      value={cab.pitch[c]}
-                      onChange={(e) => { cab.setPasso(c, +e.target.value); setMexeu(true) }} />
-                  </td>
-                  <td className="r muted">{cab.pitch[c]}&quot;</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <CabineTabela t={model} seats={cab.seats} pitch={cab.pitch} seatConfig={cab.seatConfig}
+            setAssentos={(c, v) => { cab.setAssentos(c, v); setMexeu(true) }}
+            setPasso={(c, v) => { cab.setPasso(c, v); setMexeu(true) }} />
 
           {SOURCE_2D[model.id] && (
             <SeatMapEditor
@@ -265,6 +266,9 @@ function Encomenda({ model, price, lease, available, since, onAcquire }: {
           )}
 
           <p className="muted" style={{ fontSize: 12, marginBottom: 0, marginTop: 10 }}>
+            Conforto desta cabine: <b>{(conforto * 100).toFixed(0)}</b> — passo e modelo de
+            poltrona entram nele, e a média da frota puxa a reputação da companhia mês a mês.
+            {' '}
             {mexeu
               ? `Interior encomendado: ${money(extra)}, cobrado junto com a aeronave. O avião entra voando — quem remonta depois paga a reforma e fica com a cauda parada.`
               : 'De série, o avião chega com a cabine padrão do modelo, sem custo de interior. Mexa em qualquer coisa acima para encomendar a sua.'}
@@ -278,9 +282,10 @@ function Encomenda({ model, price, lease, available, since, onAcquire }: {
         </div>
         <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
           <span className="dim">Arrendamento</span>
-          <b className="num">{money(lease)}/mês{' '}
+          <b className="num">{money(mensal)}/mês{' '}
             <span className="muted" style={{ fontWeight: 400 }}>
-              + 2 meses de caução{extra > 0 ? ` e ${money(extra)} de interior` : ''}
+              + 2 meses de caução
+              {extra > 0 ? ` · o interior entra na mensalidade, em ${PRAZO_DO_ARRENDAMENTO} meses` : ''}
             </span>
           </b>
         </div>
@@ -294,7 +299,7 @@ function Encomenda({ model, price, lease, available, since, onAcquire }: {
             onClick={() => comprar(false)}>
             Comprar
           </button>
-          <button className="btn" disabled={!available || state.airline.cash < lease * 2 + extra}
+          <button className="btn" disabled={!available || state.airline.cash < mensal * 2}
             onClick={() => comprar(true)}>
             Arrendar
           </button>
