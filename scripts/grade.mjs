@@ -23,6 +23,81 @@ const conferir = (ok, oque, extra = '') => {
   if (!ok) falhas.push(oque)
 }
 
+/**
+ * A grade medida em pixel, dentro da página.
+ *
+ * O que se mede aqui é o desenho, não a intenção: onde cada bloco está, se ele
+ * cabe na pista, se encosta no vizinho, e se o número da régua fica na altura
+ * da linha que ele nomeia. Três desses já falharam de uma vez — a escala era
+ * calculada sobre a altura da caixa e desenhada dentro da pista, que é mais
+ * baixa, então o último voo do dia saía cortado e a régua inteira ficava uma
+ * linha acima do lugar.
+ */
+const MEDIR = () => {
+  const c = document.querySelector('.grade-corpo')
+  if (!c) return null
+  const dias = [...document.querySelectorAll('.grade-dia')]
+  const caixa = (e) => e.getBoundingClientRect()
+  /** Por dia: os blocos em ordem, com a pista que os contém. */
+  const porDia = dias.map((d) => {
+    const pista = caixa(d.querySelector('.grade-pista'))
+    return {
+      pista: { topo: pista.top, base: pista.bottom },
+      voos: [...d.querySelectorAll('.grade-voo')].map((v) => {
+        const r = caixa(v)
+        return {
+          topo: r.top, base: r.bottom, largura: r.width,
+          hora: v.querySelector('.grade-hora')?.textContent ?? '',
+          rota: v.querySelector('.grade-rota')?.textContent ?? '',
+          // texto que não coube é texto que não foi lido
+          cortado: [...v.children].some((s) => s.scrollWidth > s.clientWidth + 1),
+        }
+      }).sort((a, b) => a.topo - b.topo),
+    }
+  })
+  /** A régua contra as linhas: cada número deve cair na sua própria linha. */
+  const linhas = [...dias[0].querySelectorAll('.grade-linha')].map((l) => caixa(l).top)
+  const regua = [...document.querySelectorAll('.grade-horas span')].map((s) => {
+    const r = caixa(s)
+    return { texto: s.textContent.trim(), meio: r.top + r.height / 2 }
+  })
+  const desvio = regua.length && linhas.length
+    ? Math.max(...regua.map((n, i) => (linhas[i] === undefined ? 0 : Math.abs(n.meio - linhas[i]))))
+    : 0
+  return {
+    rola: Math.round(c.parentElement.scrollWidth - c.parentElement.clientWidth),
+    ultimoDentro: Math.round(caixa(dias[6]).right) <= innerWidth + 1,
+    altura: Math.round(caixa(c).height),
+    nomes: dias.map((d) => d.querySelector('.grade-dia-nome').textContent).join(' '),
+    porDia, desvio: Math.round(desvio), marcas: regua.length,
+  }
+}
+
+/** As três coisas que o desenho da grade não pode fazer, em qualquer largura. */
+const medirDesenho = (m, onde) => {
+  const voos = m.porDia.flatMap((d) => d.voos)
+  const fora = m.porDia.flatMap((d) =>
+    d.voos.filter((v) => v.topo < d.pista.topo - 1 || v.base > d.pista.base + 1))
+  conferir(fora.length === 0, `${onde}, nenhum voo é cortado pela borda da grade`,
+    `${voos.length} blocos, ${fora.length} fora`)
+
+  const encavalados = m.porDia.flatMap((d) =>
+    d.voos.filter((v, i) => i > 0 && v.topo < d.voos[i - 1].base - 1))
+  conferir(encavalados.length === 0, `${onde}, um bloco não cobre o outro`,
+    `${encavalados.length} encavalados`)
+
+  const semRota = voos.filter((v) => !/^[A-Z]{3}→[A-Z]{3}$/.test(v.rota.replace(/\s/g, '')))
+  conferir(voos.length > 0 && semRota.length === 0, `${onde}, todo bloco mostra a rota inteira`,
+    voos[0] ? `${voos[0].hora} ${voos[0].rota}` : 'nenhum bloco')
+
+  const cortados = voos.filter((v) => v.cortado)
+  conferir(cortados.length === 0, `${onde}, nenhuma hora ou rota sai cortada no meio`,
+    cortados.length ? `${cortados[0].hora} ${cortados[0].rota}` : `largura ${Math.round(voos[0]?.largura ?? 0)}px`)
+
+  conferir(m.desvio <= 2, `${onde}, o número da régua cai na linha que ele nomeia`,
+    `${m.desvio}px de desvio em ${m.marcas} marcas`)
+}
+
 await page.goto(URL, { waitUntil: 'networkidle' })
 await page.waitForTimeout(1200)
 
@@ -202,27 +277,20 @@ conferir(depois < blocos, 'o botão de tirar tira o voo da escala', `${blocos} �
   await page.waitForTimeout(700)
   await page.locator('tbody tr.click').first().click()
   await page.waitForTimeout(700)
+  // no monitor primeiro, com a semana já cheia
+  medirDesenho(await page.evaluate(MEDIR), 'no monitor')
+
   await page.setViewportSize({ width: 390, height: 844 })
   await page.waitForTimeout(800)
-  const m = await page.evaluate(() => {
-    const c = document.querySelector('.grade-corpo')
-    if (!c) return null
-    const dias = [...document.querySelectorAll('.grade-dia')]
-    return {
-      rola: Math.round(c.parentElement.scrollWidth - c.parentElement.clientWidth),
-      ultimoDentro: Math.round(dias[6].getBoundingClientRect().right) <= innerWidth + 1,
-      altura: Math.round(c.getBoundingClientRect().height),
-      nomes: dias.map((d) => d.querySelector('.grade-dia-nome').textContent).join(' '),
-    }
-  })
+  const m = await page.evaluate(MEDIR)
   conferir(m !== null, 'a grade está na tela para medir')
   if (m) {
     conferir(m.rola <= 1, 'no celular a grade não rola de lado', `${m.rola}px`)
     conferir(m.ultimoDentro, 'o sábado cabe na tela sem arrastar')
-    conferir(m.altura <= 420, 'e ela não vira um poço vertical', `${m.altura}px de altura`)
     // o CSS põe em caixa alta; o texto do nó continua "Dom"
     conferir(/dom/i.test(m.nomes) && /sáb/i.test(m.nomes),
       'os sete dias continuam nomeados por extenso', m.nomes)
+    medirDesenho(m, 'no celular')
   }
   await page.screenshot({ path: artifact('grade-5-celular.png'), fullPage: true })
   await page.setViewportSize({ width: 1600, height: 1000 })

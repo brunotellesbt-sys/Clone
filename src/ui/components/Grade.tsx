@@ -6,6 +6,7 @@ import { typeOf } from '../../game/engine'
 import type { Aircraft } from '../../game/types'
 import { useGame } from '../../store/useGame'
 import { useEffect, useState } from 'react'
+import { escalaDaGrade, menorIntervaloDoDia } from '../gradeEscala'
 
 /**
  * A grade não mostra mais as vinte e quatro horas.
@@ -25,6 +26,26 @@ const ALTURA_CELULAR = 360
 const FOLGA = 60
 
 /**
+ * O bloco de voo tem altura mínima, e ela manda na escala da grade.
+ *
+ * Dentro dele vão duas linhas — a hora e a rota —, e duas linhas precisam de
+ * pixel. Quando a escala apertava, o mínimo de 18px atropelava a aritmética:
+ * doze voos por dia a 85 minutos de intervalo, numa janela de dezenove horas
+ * espremida em 360px, davam 27px de distância entre partidas para blocos que
+ * pediam mais que isso — eles encavalavam, e o último saía cortado pela borda.
+ *
+ * Então a altura deixou de ser constante. A janela continua sendo a da escala,
+ * mas a grade cresce até o menor intervalo do dia caber num bloco inteiro. Num
+ * dia de dois voos nada muda; num dia de doze ela fica mais alta e a página
+ * rola para baixo, que é o único sentido em que o celular rola.
+ *
+ * A conta em si está em `gradeEscala.ts`, fora do React, para poder ser medida
+ * no terminal — foi ela que errou, não o desenho.
+ */
+const BLOCO = 30
+const BLOCO_CELULAR = 28
+
+/**
  * No celular a grade cabe inteira na tela, sem rolar de lado.
  *
  * Ela rolava: sete colunas de 74px mais a régua pediam 570px, e num telefone
@@ -32,12 +53,17 @@ const FOLGA = 60
  * arrastar, e comparar segunda com sexta ficava impossível, que é justamente o
  * que uma grade semanal existe para deixar fazer.
  *
- * Cabe porque o bloco perde o que não é essencial: no telefone ele mostra só a
- * **hora**, e o destino sai para o rótulo do toque e para o editor que abre
- * embaixo. O nome do dia fica inteiro — "D S T Q Q S S" economiza quinze
- * pixels que não faziam falta e troca segunda por sábado e terça por quinta. A altura também encolhe, de 560 para 360, porque a tela do celular
- * é estreita e comprida — uma grade de 560px de altura com 46px de coluna é um
- * poço, não uma semana.
+ * Cabe porque a coluna encolhe e a fonte encolhe junto — não porque o bloco
+ * perde informação. Ele já mostrou só a hora, e a grade virava doze horários
+ * empilhados sem dizer para onde nenhum deles ia; quem quisesse saber tinha
+ * que tocar em cada um. Hora em cima, rota embaixo, nas duas larguras: é a
+ * mesma leitura no telefone e no monitor.
+ *
+ * O nome do dia fica inteiro — "D S T Q Q S S" economiza quinze pixels que não
+ * faziam falta e troca segunda por sábado e terça por quinta. A altura de
+ * partida também encolhe, de 560 para 360, porque a tela do celular é estreita
+ * e comprida: uma grade de 560px com 46px de coluna é um poço, não uma semana.
+ * De partida, e não final — o dia cheio estica a grade, como diz `BLOCO`.
  */
 const ehCelular = () => typeof window !== 'undefined' && window.innerWidth <= 760
 
@@ -101,10 +127,21 @@ export function Grade({ ac }: { ac: Aircraft }) {
     ? Math.min(24 * 60, Math.ceil((Math.max(...minutos) + FOLGA) / 60) * 60)
     : 22 * 60
   const janela = Math.max(60, ate - de)
-  const altura = estreito ? ALTURA_CELULAR : ALTURA
-  const porMinuto = altura / janela
-  /** As marcas de hora: de duas em duas, ou de hora em hora se a janela é curta. */
-  const passo = janela > 10 * 60 ? (estreito ? 180 : 120) : 60
+  const blocoMin = estreito ? BLOCO_CELULAR : BLOCO
+  const { porMinuto, altura } = escalaDaGrade(
+    janela, menorIntervaloDoDia(blocos, janela), blocoMin, estreito ? ALTURA_CELULAR : ALTURA,
+  )
+
+  /**
+   * As marcas de hora seguem a escala, não um número que eu tenha escolhido.
+   *
+   * O passo era fixo por largura de tela — de três em três horas no celular —,
+   * e numa grade que agora cresce com a lotação do dia isso deixava a régua
+   * rala no meio de um monte de linha de voo. A regra é uma só: duas marcas
+   * vizinhas precisam de 26 pixels entre elas, que é o que um número de dez
+   * pixels pede para não encostar no de baixo.
+   */
+  const passo = [60, 120, 180, 360].find((p) => p * porMinuto >= 26) ?? 360
   const marcas: number[] = []
   for (let m = Math.ceil(de / passo) * passo; m <= ate; m += passo) marcas.push(m)
 
@@ -163,40 +200,62 @@ export function Grade({ ac }: { ac: Aircraft }) {
         ))}
 
       <div className="rolagem-x">
-        <div className={`grade-corpo ${estreito ? 'apertada' : ''}`} style={{ height: altura }}>
+        <div className={`grade-corpo ${estreito ? 'apertada' : ''}`}>
+          {/*
+            * A régua começa onde a pista começa.
+            *
+            * O espaço do nome do dia aparece vazio aqui de propósito: a régua
+            * mora na mesma coluna flex que as pistas, e sem esse pedaço ela
+            * arrancava lá de cima, jogando cada número uma linha acima da hora
+            * que ele nomeia — "09" ao lado do voo das 08:00. Pelo mesmo motivo
+            * a altura da escala agora é a da **pista**, e não a da caixa
+            * inteira: era a diferença entre as duas que cortava o último voo
+            * do dia pela borda.
+            */}
           <div className="grade-horas">
-            {marcas.map((m) => (
-              <span key={m} style={{ top: (m - de) * porMinuto }}>{estreito ? hhmm(m).slice(0, 2) : hhmm(m)}</span>
-            ))}
+            <div className="grade-dia-nome" aria-hidden>&nbsp;</div>
+            <div className="grade-regua" style={{ height: altura }}>
+              {marcas.map((m) => (
+                <span key={m} style={{ top: (m - de) * porMinuto }}>{estreito ? hhmm(m).slice(0, 2) : hhmm(m)}</span>
+              ))}
+            </div>
           </div>
           {DOW_CURTO.map((nome, dow) => (
             <div key={dow} className="grade-dia">
               <div className="grade-dia-nome">{nome}</div>
-              <div className="grade-pista">
+              <div className="grade-pista" style={{ height: altura }}>
                 {marcas.map((m) => (
                   <div key={m} className="grade-linha" style={{ top: (m - de) * porMinuto }} />
                 ))}
-                {blocos.filter((b) => b.dow === dow).map((b, i) => (
+                {blocos.filter((b) => b.dow === dow).map((b, i) => {
+                  const alto = Math.max(blocoMin, (b.ate - b.de) * porMinuto)
+                  // O bloco de um voo curto é maior que o voo; perto da borda
+                  // essa sobra passava do fim da pista e sumia no corte. Ela
+                  // sobe em vez de sumir — o topo continua na hora certa em
+                  // todo voo que não encosta na última linha da grade.
+                  const topo = Math.min((b.de - de) * porMinuto, altura - alto)
+                  return (
                   <button
                     key={`${b.p.perna.id}:${i}`}
                     className={`grade-voo ${aberto === b.p.perna.id ? 'on' : ''}`}
-                    style={{
-                      top: (b.de - de) * porMinuto,
-                      height: Math.max(18, (b.ate - b.de) * porMinuto),
-                    }}
+                    style={{ top: topo, height: alto }}
                     title={`${b.p.perna.from} ${hhmm(b.p.perna.saida)} → ${b.p.perna.to} ${hhmm(b.p.chegadaLocal)} · ${AIRPORT_BY_IATA[b.p.perna.to].city} · clique para mexer`}
                     onClick={() => setAberto((x) => (x === b.p.perna.id ? null : b.p.perna.id))}
                   >
-                    {/* Uma linha só, e nesta ordem: a hora é o que o jogador
-                        procura na grade, e o destino é o que identifica a
-                        perna. A origem sai — ela é a ponta onde o bloco
-                        começa, e já está dita pelo voo anterior. Três linhas
-                        empilhadas num retângulo de vinte pixels não cabiam, e
-                        o que sobrava na tela era meia palavra cortada. */}
+                    {/* Duas linhas, nesta ordem: a hora é o que se procura na
+                        grade, a rota é o que diz qual voo é aquele. A origem
+                        fica — sem ela a grade de uma cauda que serve três
+                        pontas vira uma lista de destinos sem começo, e é
+                        justamente quem emenda trecho que precisa ler a ponta
+                        de onde o próximo sai. Cabem porque a escala da grade
+                        agora é calculada para caberem. */}
                     <span className="grade-hora">{hhmm(b.p.perna.saida)}</span>
-                    {!estreito && <b>{b.p.perna.to}</b>}
+                    <span className="grade-rota">
+                      {b.p.perna.from}<span className="grade-seta">→</span>{b.p.perna.to}
+                    </span>
                   </button>
-                ))}
+                  )
+                })}
               </div>
             </div>
           ))}
