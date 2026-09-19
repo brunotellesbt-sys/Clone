@@ -187,7 +187,20 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
     growth *
     WEEKDAY[(day + 4) % 7]
 
-  if (dist < 120) total *= 0.15 // pares colados não sustentam voo
+  /**
+   * Par colado não sustenta voo — mas o corte era um degrau.
+   *
+   * Era `dist < 120 → ×0,15`: a 119 km o mercado valia 15% e a 121 km valia
+   * 100%, um salto de sete vezes em dois quilômetros. Quem pagava era o par
+   * que cai perto da linha — Rio–Cabo Frio, a 66 km, levava o mesmo corte de
+   * um par colado de verdade, e nada entre 60 e 120 km existia no jogo.
+   *
+   * Agora é rampa: até 60 km continua valendo 15% (ninguém voa o que se faz de
+   * carro em uma hora) e sobe até valer inteiro nos 120 km, onde o corte
+   * acabava de qualquer jeito. Acima de 120 km nada muda.
+   */
+  const colado = Math.min(1, Math.max(0, (dist - 60) / 60))
+  if (dist < 120) total *= 0.15 + 0.85 * colado
   /**
    * A ponta menor é o gargalo: o par não pode passar do que ela move no dia.
    *
@@ -212,7 +225,21 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
     f: total * fShare,
   }
 
-  const refFare = (34 + 0.088 * dist) * (0.68 + 0.5 * gdp)
+  /**
+   * Tarifa de referência: uma parte fixa por bilhete e uma por quilômetro.
+   *
+   * A parte fixa é o que a etapa curta tem de caro e não depende da distância
+   * — check-in, embarque, taxa de aeroporto, o ciclo de decolagem e pouso. Ela
+   * era 34, e com isso um bilhete de 126 km saía por 46 dólares enquanto o voo
+   * custava o dobro disso por assento: **toda** rota regional curta nascia no
+   * vermelho, por mais gente que houvesse para voar. Quem cobre um pouso e uma
+   * decolagem é o bilhete, e o bilhete curto é caro por quilômetro — é assim
+   * na tabela de qualquer companhia.
+   *
+   * Os 44 mexem quase só no curto, por construção: são 21% a mais num bilhete
+   * de 126 km, 7% num de 1.100 km e 1% num de doze mil.
+   */
+  const refFare = (44 + 0.088 * dist) * (0.68 + 0.5 * gdp)
   return { pax, total, refFare, distance: dist }
 }
 

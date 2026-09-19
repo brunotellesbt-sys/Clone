@@ -282,6 +282,22 @@ function Porte({ lista, carga, de, para }: {
   )
 }
 
+/**
+ * Etapa mais curta que a lista oferece, em quilômetros.
+ *
+ * Eram 110, e 110 escondia aeroporto que existe: Santos Dumont–Macaé são 84 km
+ * e foi rota de linha de verdade por causa do petróleo, porque a estrada leva
+ * três horas. Cabo Frio, a 60, sumia pelo mesmo motivo. O jogador procurava
+ * pelo nome e não achava nada — o aeroporto estava no catálogo, a lista é que
+ * não mostrava.
+ *
+ * Quem decide se o par vale a pena é a demanda, que já cobra caro por etapa
+ * colada (15% até 60 km, subindo até os 120). Aqui só ficam de fora os pares
+ * que são a mesma cidade — Galeão e Santos Dumont a 8 km, Guarulhos e
+ * Congonhas a 25, Heathrow e Gatwick a 40 —, que é o que estes 45 km cortam.
+ */
+const ETAPA_MINIMA = 45
+
 function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: (id: string) => void }) {
   const { state, act, toast } = useGame()
   const [hub, setHub] = useState(state.airline.hubs[0])
@@ -319,7 +335,7 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
         // o jogador aprende a regra de alfândega em vez de nunca ver o aeroporto
         return { a, dist, demand: d, rivals: rivais.get(odKey(hub, a.iata)) ?? 0, barrado: vooPermitido(base, a) }
       })
-      .filter((o) => o.dist > 110)
+      .filter((o) => o.dist > ETAPA_MINIMA)
       .sort((x, y) => Number(!!x.barrado) - Number(!!y.barrado) || y.demand.total - x.demand.total)
       .slice(0, 90)
   }, [hub, q, state, doy, carga])

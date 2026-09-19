@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "sim": "tsx scripts/balance.ts",
+    "regional": "tsx scripts/regional.ts",
     "art": "node scripts/art.mjs",
     "nose": "tsx scripts/nose.tsx",
     "cabines": "tsx scripts/cabins.ts",
