@@ -18,6 +18,7 @@ export const AIRPORT_NAMES: Record<string, string> = {
   SDU: 'Aeroporto Santos Dumont',
   BSB: 'Aeroporto Internacional de Brasília – Presidente Juscelino Kubitschek',
   CNF: 'Aeroporto Internacional de Belo Horizonte – Tancredo Neves (Confins)',
+  PLU: 'Aeroporto da Pampulha – Carlos Drummond de Andrade',
   POA: 'Aeroporto Internacional Salgado Filho',
   CWB: 'Aeroporto Internacional Afonso Pena',
   REC: 'Aeroporto Internacional do Recife – Guararapes/Gilberto Freyre',

@@ -8,6 +8,8 @@
  */
 import { AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, vooPermitido, type Escopo } from '../src/game/data/airports'
 import { baseDemand } from '../src/game/demand'
+import { AIRCRAFT_BY_ID } from '../src/game/data/aircraft'
+import { aeroportoServe } from '../src/game/spec'
 
 /** O que cada aeroporto deve ser, e por quê. */
 const ESPERADO: [string, Escopo, string][] = [
@@ -146,6 +148,80 @@ for (const [iata, cidade] of [
   const ok = a?.city === cidade
   if (!ok) falhas++
   console.log(`${ok ? 'ok   ' : 'FALHA'} ${iata} é ${cidade}${ok ? '' : ` — está como ${a?.city}`}`)
+}
+
+// ------------------------------------------------- teto de porte do aeroporto
+//
+// Onde a pista não é quem manda, o catálogo carrega um teto à mão. Ele é fácil
+// de perder de vista: some numa regravação do catálogo e ninguém nota, porque
+// o jogo continua funcionando — só volta a oferecer A321neo em Pampulha.
+console.log('\nteto de porte\n')
+for (const [iata, maior, barrado] of [
+  ['PLU', 'b73g', 'a319'],
+] as const) {
+  const ap = AIRPORT_BY_IATA[iata]
+  const passa = ap && aeroportoServe(AIRCRAFT_BY_ID[maior], ap)
+  const barra = ap && !aeroportoServe(AIRCRAFT_BY_ID[barrado], ap)
+  if (!passa || !barra) falhas++
+  console.log(
+    `${passa && barra ? 'ok   ' : 'FALHA'} ${iata} recebe ${AIRCRAFT_BY_ID[maior].name} ` +
+      `e recusa ${AIRCRAFT_BY_ID[barrado].name}` +
+      (passa && barra ? ` (teto ${ap.tetoAssentos} lugares)` : ''),
+  )
+}
+
+// O movimento de Pampulha é o de 2004, o ano em que ela ainda era o aeroporto
+// de Belo Horizonte — em 2005 o movimento foi para Confins. Se este número cair
+// para o de hoje, a regra do pico histórico deixou de valer em algum lugar.
+{
+  const plu = AIRPORT_BY_IATA.PLU
+  const anual = plu ? plu.paxDia * 365 : 0
+  const ok = plu?.medido && anual > 2.8e6 && anual < 3.2e6
+  if (!ok) falhas++
+  console.log(
+    `${ok ? 'ok   ' : 'FALHA'} PLU no pico de 2004 (${(anual / 1e6).toFixed(2)} mi/ano, ` +
+      `${plu?.medido ? 'medido' : 'ESTIMADO'})`,
+  )
+}
+
+// ------------------------------------------- movimento que não pode ser real
+//
+// A raspagem das listas erra de um jeito só: atribui a linha ao aeroporto
+// errado. E quando erra, erra por ordem de grandeza — YXU, o aeroporto de
+// London em Ontário, saiu com os 84 milhões de passageiros de Heathrow e
+// liderou o Canadá à frente de Toronto por dois anos sem ninguém notar,
+// porque o jogo continua funcionando com um número errado.
+//
+// A assinatura é essa: um aeroporto de degrau baixo liderando o próprio país
+// por cima de um de degrau alto. Aeroporto pequeno pode ter muito movimento —
+// Aeroparque passa Ezeiza —, mas não por cima de um degrau 4 ou 5.
+console.log('\nmovimento plausível\n')
+{
+  const porPais = new Map<string, typeof AIRPORTS>()
+  for (const a of AIRPORTS) {
+    const l = porPais.get(a.cc) ?? []
+    l.push(a)
+    porPais.set(a.cc, l)
+  }
+  const suspeitos: string[] = []
+  for (const [, lista] of porPais) {
+    const ordem = [...lista].sort((x, y) => y.paxDia - x.paxDia)
+    const topo = ordem[0]
+    const grande = ordem.find((a) => a.tier >= 4)
+    if (topo.tier <= 2 && grande && grande.paxDia < topo.paxDia) {
+      suspeitos.push(
+        `${topo.iata} (${topo.city}, ${topo.country}) tem ${(topo.paxDia * 365 / 1e6).toFixed(0)} mi/ano ` +
+          `e passa ${grande.iata} com ${(grande.paxDia * 365 / 1e6).toFixed(0)} mi`,
+      )
+    }
+  }
+  // Aeroparque à frente de Ezeiza é real: é o aeroporto doméstico de Buenos
+  // Aires e move mais gente que o internacional. Fica na lista conhecida.
+  const conhecidos = ['AEP', 'FBM']
+  const novos = suspeitos.filter((s) => !conhecidos.some((c) => s.startsWith(c)))
+  if (novos.length) falhas++
+  console.log(`${novos.length === 0 ? 'ok   ' : 'FALHA'} nenhum aeroporto pequeno lidera o país por engano` +
+    (novos.length ? `\n      ${novos.join('\n      ')}` : ''))
 }
 
 console.log(falhas ? `\n${falhas} falha(s)` : '\ntudo certo')

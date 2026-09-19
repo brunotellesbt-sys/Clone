@@ -3,6 +3,9 @@ import { AIRPORTS, AIRPORT_BY_IATA, CONTINENTE_LABEL, ESCOPO_LABEL, temNomeOfici
 import { suggestAirlineName, suggestCode } from '../game/data/names'
 import { LIVERY_PRESETS } from '../livery/presets'
 import { AIRCRAFT_BY_ID } from '../game/data/aircraft'
+import { DENSIDADES, DENSIDADE_PADRAO, paisesDe } from '../game/ai'
+import { vagasDoMundo } from '../game/mundo'
+import type { Densidade } from '../game/types'
 import { newGame, money, num, START_CASH, metros } from '../game/engine'
 import { makeRng } from '../game/rng'
 import type { GameState } from '../game/types'
@@ -26,7 +29,21 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
   const [code, setCode] = useState(() => suggestCode(rng))
   const [hub, setHub] = useState('GRU')
   const [preset, setPreset] = useState(0)
+  const [densidade, setDensidade] = useState<Densidade>(DENSIDADE_PADRAO)
   const ap = AIRPORT_BY_IATA[hub]
+  /**
+   * O mundo escolhido, contado das próprias vagas em vez de deduzido dos
+   * cortes: duas fontes de verdade para a mesma regra viram uma regra e um
+   * defeito no dia em que a primeira mudar.
+   */
+  const mundo = useMemo(() => {
+    const vagas = vagasDoMundo(paisesDe(densidade), ap.cc)
+    return {
+      total: Math.max(0, vagas.length - 1),
+      // uma das vagas do país é a do jogador
+      emCasa: Math.max(0, vagas.filter((v) => v.cc === ap.cc).length - 1),
+    }
+  }, [ap.cc, densidade])
   const livery = LIVERY_PRESETS[preset].livery
 
   const preview = useMemo(() => newGame({ name, code, hub, livery, seed: 1 }), [name, code, hub, livery])
@@ -131,6 +148,34 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
           </div>
 
           <div className="card">
+            <h3>Concorrência</h3>
+            <div className="row tight" style={{ flexWrap: 'wrap' }}>
+              {DENSIDADES.map((d) => (
+                <button key={d.id} className={`btn sm ${d.id === densidade ? 'primary' : ''}`}
+                  onClick={() => setDensidade(d.id)}>
+                  {d.label}
+                </button>
+              ))}
+            </div>
+            <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
+              {mundo.total} concorrentes no mundo — {DENSIDADES.find((d) => d.id === densidade)?.texto}.{' '}
+              {/* O jogador precisa saber o que ele mesmo vai enfrentar em casa,
+                  que é diferente do total: o número grande é o mundo, o pequeno
+                  é a briga dele. */}
+              {/* Sem preposição antes do país: "Em Brasil" e "Em Estados Unidos"
+                  estão errados, e acertar o artigo de 233 países exigiria uma
+                  tabela de gênero e número para ganhar meia palavra. */}
+              {ap.country}: {mundo.emCasa === 0
+                ? 'nenhum concorrente local'
+                : `você disputa com ${mundo.emCasa} ${mundo.emCasa === 1 ? 'companhia' : 'companhias'} de casa`}.
+            </p>
+            <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
+              O mundo não fica parado: de tempos em tempos alguém funda uma companhia
+              nova onde há demanda sobrando — raro, e nunca antes de quinze anos de jogo.
+            </p>
+          </div>
+
+          <div className="card">
             <h3>Pintura inicial</h3>
             <div className="plane-frame" style={{ marginBottom: 10 }}>
               <AircraftArt
@@ -153,7 +198,9 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
           <button
             className="btn primary grande cta"
             disabled={!name.trim() || code.length < 2}
-            onClick={() => onStart(newGame({ name: name.trim(), code, hub, livery: structuredClone(livery) }))}
+            onClick={() => onStart(newGame({
+              name: name.trim(), code, hub, livery: structuredClone(livery), densidade,
+            }))}
           >
             Decolar de {hub}
           </button>

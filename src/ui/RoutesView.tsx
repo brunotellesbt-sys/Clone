@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react'
-import { AIRCRAFT_BY_ID, acLabel, ehCargueiro } from '../game/data/aircraft'
-import { AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, vooPermitido } from '../game/data/airports'
+import { AIRCRAFT_BY_ID, acLabel, ehCargueiro, type AircraftType } from '../game/data/aircraft'
+import {
+  AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, vooPermitido, type Airport,
+} from '../game/data/airports'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from '../game/demand'
 import { sumCabins } from '../game/economy'
 import { distanceBetween, odKey } from '../game/geo'
-import { pistaServe } from '../game/spec'
+import { CAMBIO, moedaDoPais, tarifa } from '../game/money'
+import { aeroportoServe, pistaServe } from '../game/spec'
 import {
   assignAircraft, closeRoute, dayOfYear, estimateRoute, km, money, num, openRoute, pct,
   routeCapacityLimit, routeEconomics, routeSlotCost, setAllFrequencies, setFare, setFrequency,
@@ -82,6 +85,8 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
   // é a posição dela no horário, e disso cuida `assignAircraft`
   const free = state.airline.fleet
   const hist = route.history.map((h) => h.profit)
+  // A passagem é vendida onde a viagem começa: a rota é lida na moeda da origem.
+  const moeda = moedaDoPais(AIRPORT_BY_IATA[route.from].cc)
 
   return (
     <div className="grid" style={{ gap: 14 }}>
@@ -90,7 +95,10 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
           <div><span className="muted">Distância</span><br />{km(route.distance)}</div>
           <div><span className="muted">Mercado hoje</span><br />{num(e.demand.total)} {e.unidade}/dia</div>
           <div><span className="muted">Sua fatia</span><br />{pct(e.share, 1)}</div>
-          <div><span className="muted">{e.cargo ? 'Frete base' : 'Tarifa base'}</span><br />${e.demand.refFare.toFixed(0)}{e.cargo ? '/t' : ''}</div>
+          <div>
+            <span className="muted">{e.cargo ? 'Frete base' : 'Tarifa base'}</span><br />
+            {tarifa(e.demand.refFare, moeda, e.cargo ? '/t' : '')}
+          </div>
         </div>
         <Spark values={hist.length > 1 ? hist : [0, 0]} w={330} h={44} color={e.profit >= 0 ? '#34d399' : '#fb7185'} />
         <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -179,7 +187,7 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
           return (
             <label className="field" key={c}>
               <span>
-                {CABIN_LABEL[c]} — ${abs.toFixed(0)} ({route.fare[c].toFixed(2)}× a referência)
+                {CABIN_LABEL[c]} — {tarifa(abs, moeda)} ({route.fare[c].toFixed(2)}× a referência)
               </span>
               <input
                 type="range" min={0.55} max={1.9} step={0.01} value={route.fare[c]}
@@ -191,6 +199,10 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
         <p className="muted" style={{ fontSize: 12, margin: 0 }}>
           Barato enche o avião e rouba mercado, mas derruba a receita por passageiro. A econômica é a mais
           sensível a preço; a executiva quase não liga.
+          {moeda !== 'USD' && (
+            <> A passagem é vendida em {CAMBIO[moeda].nome}, a moeda de {AIRPORT_BY_IATA[route.from].country};
+            o resto da companhia — caixa, custo, frota — segue em dólar.</>
+          )}
         </p>
       </Card>
 
@@ -198,6 +210,75 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
         Encerrar rota
       </button>
     </div>
+  )
+}
+
+/**
+ * Até que aeronave o par aceita — o ícone, e o menu por trás dele.
+ *
+ * Distância e mercado dizem se a rota vale; nenhum dos dois diz **com o quê**
+ * voar, e essa é a primeira pergunta de quem planeja. Antes o jogador só
+ * descobria depois de escolher o destino e ler a lista de melhores aviões, o
+ * que transforma a lista de noventa destinos numa fila de tentativa e erro.
+ *
+ * O rótulo fechado é o teto: o maior que pousa nas duas pontas. Aberto, o menu
+ * mostra os cinco maiores, e o que barra o resto — pista ou porte, com o número
+ * que faltou.
+ *
+ * O menu é `position: fixed` ancorado no próprio botão, e não `absolute`, por um
+ * motivo simples: a lista de destinos rola, e um filho posicionado dentro de um
+ * `overflow: auto` é cortado pela borda dele. Na quarta linha — a última
+ * visível, que é exatamente onde o jogador mais desce para olhar — o menu
+ * aparecia pela metade.
+ */
+function Porte({ lista, carga, de, para }: {
+  lista: AircraftType[]; carga: boolean; de: string; para: string
+}) {
+  const [onde, setOnde] = useState<{ top: number; right: number } | null>(null)
+  const medida = (t: AircraftType) => (carga ? `${t.payload ?? 0} t` : `${t.maxSeats} lug`)
+  if (lista.length === 0) {
+    return <span className="bad" style={{ fontSize: 11 }}>nenhuma</span>
+  }
+  const teto = lista[0]
+  // O gargalo é a ponta que aceita menos: é ela que o jogador precisa ver.
+  const pontas = [AIRPORT_BY_IATA[de], AIRPORT_BY_IATA[para]]
+  const gargalo = pontas.find((p) => !aeroportoServe(teto, p)) ??
+    [...pontas].sort((x, y) => (x.tetoAssentos ?? x.runway) - (y.tetoAssentos ?? y.runway))[0]
+  return (
+    <details
+      className="porte"
+      onClick={(e) => e.stopPropagation()}
+      onToggle={(e) => {
+        const d = e.currentTarget
+        if (!d.open) return setOnde(null)
+        const r = d.getBoundingClientRect()
+        setOnde({ top: r.bottom + 5, right: window.innerWidth - r.right })
+      }}
+    >
+      {/* O rótulo é o **modelo**, não o número de lugares: "até 853 lug" é uma
+          medida, e quem planeja frota pensa em "até A380". A medida fica no
+          menu, ao lado de cada modelo. */}
+      <summary title={`Até ${acLabel(teto)} — ${medida(teto)}`}>
+        <span aria-hidden>✈</span> {teto.name}
+      </summary>
+      {onde && (
+        <div className="porte-menu" style={{ top: onde.top, right: onde.right }}>
+          <h5>Maiores que operam {de} ↔ {para}</h5>
+          {lista.slice(0, 5).map((t) => (
+            <div key={t.id} className="row" style={{ justifyContent: 'space-between', gap: 10 }}>
+              <span>{acLabel(t)}</span>
+              <span className="muted">{medida(t)}</span>
+            </div>
+          ))}
+          <p className="muted">
+            {gargalo.tetoAssentos !== undefined
+              ? `${gargalo.iata} recebe até ${gargalo.tetoAssentos} lugares — teto do aeroporto, não da pista.`
+              : `${gargalo.iata} tem ${num(gargalo.runway)} ft de pista a ${num(gargalo.elev)} ft.`}
+            {' '}Acima disso a aeronave não sai de uma das duas pontas.
+          </p>
+        </div>
+      )}
+    </details>
   )
 }
 
@@ -242,6 +323,24 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
       .sort((x, y) => Number(!!x.barrado) - Number(!!y.barrado) || y.demand.total - x.demand.total)
       .slice(0, 90)
   }, [hub, q, state, doy, carga])
+
+  /**
+   * O que **as duas pontas** aceitam, do maior para o menor.
+   *
+   * Filtrar só pelo destino responde a pergunta errada. Uma base de pista curta
+   * não deixa de ser pista curta porque o destino é Guarulhos: o voo tem duas
+   * decolagens, e a menor das duas é que manda. Mostrar um A350 no teto de um
+   * destino que a base do jogador não consegue encher seria vender aeronave que
+   * ele nunca vai poder marcar naquele par.
+   */
+  const porteAte = (destino: Airport) => {
+    const b = AIRPORT_BY_IATA[hub]
+    const ano = state.startYear + state.day / 365
+    return Object.values(AIRCRAFT_BY_ID)
+      .filter((t) => ehCargueiro(t) === carga && ano >= t.since &&
+        aeroportoServe(t, b) && aeroportoServe(t, destino))
+      .sort((x, y) => (y.maxSeats || y.payload || 0) - (x.maxSeats || x.payload || 0))
+  }
 
   const chosen = options.find((o) => o.a.iata === dest) ?? null
   const usable = chosen
@@ -339,26 +438,37 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
       </div>
 
       <div className="split detalhe">
-        <div className="scroll" style={{ maxHeight: 400 }}>
-          <table>
+        {/*
+          * Quatro por vez, e não sete.
+          *
+          * A lista é de noventa destinos, então ela rola de qualquer jeito — o
+          * que muda com a altura é quanto sobra da tela para a projeção do lado,
+          * que é onde a decisão acontece. No celular, onde o painel desce para
+          * baixo da lista, sete linhas empurravam a projeção para fora da tela.
+          */}
+        <div className="scroll lista-destinos">
+          <table className="compacta">
             <thead>
-              <tr><th>Destino</th><th className="r">Distância</th><th className="r">Mercado</th><th className="r">Tarifa base</th><th className="r">Concorrentes</th></tr>
+              <tr>
+                <th>Destino</th><th className="r">Distância</th><th className="r">Mercado</th>
+                <th className="r">Tarifa</th><th className="r">Conc.</th><th className="r">Porte</th>
+              </tr>
             </thead>
             <tbody>
               {options.map((o) => (
                 <tr key={o.a.iata} className={`click ${dest === o.a.iata ? 'on' : ''} ${o.barrado ? 'off' : ''}`}
                   onClick={() => !o.barrado && setDest(o.a.iata)}>
                   <td>
-                    <b>{o.a.iata}</b> {o.a.city} <span className="muted">{o.a.country}</span>
-                    <br />
+                    <b>{o.a.iata}</b> {o.a.city}{' '}
                     <span className="muted" style={{ fontSize: 11 }}>
-                      {ESCOPO_LABEL[o.a.escopo]}{o.barrado ? ` · ${o.barrado}` : ''}
+                      {o.a.country} · {ESCOPO_LABEL[o.a.escopo]}{o.barrado ? ` · ${o.barrado}` : ''}
                     </span>
                   </td>
                   <td className="r">{km(o.dist)}</td>
-                  <td className="r">{num(o.demand.total)}/dia</td>
-                  <td className="r">${o.demand.refFare.toFixed(0)}</td>
+                  <td className="r">{num(o.demand.total)}</td>
+                  <td className="r">{tarifa(o.demand.refFare, moedaDoPais(AIRPORT_BY_IATA[hub].cc))}</td>
                   <td className="r">{o.rivals || <span className="good">livre</span>}</td>
+                  <td className="r"><Porte lista={porteAte(o.a)} carga={carga} de={hub} para={o.a.iata} /></td>
                 </tr>
               ))}
             </tbody>

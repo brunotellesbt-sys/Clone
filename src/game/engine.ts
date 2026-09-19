@@ -14,7 +14,7 @@ import {
 import { BLANK_LIVERY } from '../livery/presets'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from './demand'
 import { cabinComfort, checkCabin, clampPitch, crewFor, defaultCabin } from './cabin'
-import { engineIdFor, pistaServe, withEngine } from './spec'
+import { engineIdFor, motivoDoPar, withEngine } from './spec'
 import {
   addCabins, allocateCargoMarket, allocateMarket, blockHours, CARGO_SELLABLE, escalarCabins,
   limitarCabins,
@@ -23,11 +23,13 @@ import {
   type CargoCarrier, type Carrier,
 } from './economy'
 import { distanceBetween, odKey } from './geo'
-import { createCompetitors, stepCompetitors } from './ai'
+import {
+  createCompetitors, DENSIDADE_PADRAO, fundarCompanhia, limparCacheDestinos, stepCompetitors,
+} from './ai'
 import { between, chance, hashStr, makeRng, type Rng } from './rng'
 import {
   CABINS, type Aircraft, type Cabins, type Competitor, type DayResult, type GameState, type Livery,
-  type Notice, type Route,
+  type Notice, type Route, type Densidade,
 } from './types'
 
 /**
@@ -51,9 +53,16 @@ export function registration(rng: Rng, cc: string): string {
   return `${l()}${l()}-${l()}${l()}${l()}`
 }
 
-export function newGame(opts: { name: string; code: string; hub: string; livery?: Livery; seed?: number }): GameState {
+export function newGame(opts: {
+  name: string; code: string; hub: string; livery?: Livery; seed?: number
+  /** Quantas concorrentes enfrentar; ver `DENSIDADES` em `ai.ts`. */
+  densidade?: Densidade
+}): GameState {
   const seed = opts.seed ?? Math.floor(Math.random() * 1e9)
   const rng = makeRng(seed)
+  // o ranking de destinos é guardado entre chamadas; partida nova não herda o
+  // mundo da anterior, que na tela de fundação muda a cada tecla digitada
+  limparCacheDestinos()
   return {
     version: SAVE_VERSION,
     seed,
@@ -72,7 +81,9 @@ export function newGame(opts: { name: string; code: string; hub: string; livery?
       loans: [],
       marketing: 0,
     },
-    competitors: createCompetitors(rng),
+    competitors: createCompetitors(rng, opts.densidade ?? DENSIDADE_PADRAO, opts.hub),
+    densidade: opts.densidade ?? DENSIDADE_PADRAO,
+    fundadas: {},
     ledger: [],
     notices: [{ day: 0, kind: 'info', text: `${opts.name} recebeu o certificado de operador. Bem-vindo ao mercado.` }],
     lastShare: {},
@@ -312,9 +323,11 @@ export function assignAircraft(s: GameState, acId: string, routeId: string): str
   if (t.range < r.distance) return `${t.name} não alcança ${km(r.distance)} (limite ${km(t.range)}).`
   const from = AIRPORT_BY_IATA[r.from]
   const to = AIRPORT_BY_IATA[r.to]
-  // `pistaServe`, não `runway`: o que decide é a pista em que o avião opera de
-  // fato, com peso reduzido, corrigida pela elevação de cada ponta.
-  if (!pistaServe(t, from, to)) return 'Pista curta demais em uma das pontas.'
+  // `motivoDoPar`, não `runway`: o que decide é a pista em que o avião opera de
+  // fato, com peso reduzido, corrigida pela elevação de cada ponta — e, onde a
+  // pista não é quem manda, o teto de porte do aeroporto.
+  const barrado = motivoDoPar(t, from, to)
+  if (barrado) return barrado
 
   let marcou = 0
   let ultimoErro: string | null = null
@@ -821,6 +834,20 @@ export function advanceDay(s: GameState): GameState {
   // 7) Concorrência reage uma vez por semana.
   if (s.day % 7 === 0) {
     stepCompetitors(s.competitors, s.day, rng, pressure)
+    /**
+     * E, muito de vez em quando, alguém funda uma companhia.
+     *
+     * Na mesma batida semanal porque é uma decisão do mundo, não do jogador, e
+     * porque a conta só é feita quando há país habilitado — o que quase nunca
+     * há. Ver `fundarCompanhia`.
+     */
+    const nova = fundarCompanhia(s.competitors, s.day, rng, s.airline.hubs, (s.fundadas ??= {}))
+    if (nova) {
+      s.competitors.push(nova)
+      notify(s, 'info',
+        `${nova.name} recebeu certificado de operador em ${AIRPORT_BY_IATA[nova.hub]?.city ?? nova.hub} ` +
+        `e estreia com ${nova.routes.length} ${nova.routes.length === 1 ? 'rota' : 'rotas'}.`)
+    }
     computeCompetitorRevenue(s, doy)
   }
 

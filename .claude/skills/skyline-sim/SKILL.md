@@ -9,7 +9,7 @@ description: Como mexer na simulação do Skyline Tycoon — demanda, custos de 
 
 A economia do jogo é uma cadeia de multiplicações. Um número mexido no meio
 dela não erra sozinho: ele reaparece somado ao longo de 2.920 dias de partida,
-em 70 rotas, contra 12 concorrentes. Uma mudança que parece inofensiva —
+em 70 rotas, contra 425 concorrentes. Uma mudança que parece inofensiva —
 subir 10% um custo — pode transformar um jogo apertado num jogo onde nenhuma
 rota fecha, e isso só aparece no ano 4.
 
@@ -144,12 +144,25 @@ Medido neste repositório, `npm run sim -- GRU 1460`, com a estratégia burra do
 próprio script:
 
 ```
-dia 1460 | patrim $1.55 bi | frota 46 | rotas 43 | LF 89.2% | fuel $1.02
-utilização da frota: 15.9 h/dia por cauda | 0 parado | 0 voo vazio
-rota exemplo GRU-DXB (12.217 km, 1x/dia): margem 51.3%, LF 90.7%
-ranking 30d: primeiro rival $596 mi (64 aviões, $9.3 mi/avião)
-             você $364 mi (46 aviões, $7.9 mi/avião)
+dia 1460 | patrim $3.83 bi | frota 58 | rotas 57 | LF 89.0% | fuel $1.02
+utilização da frota: 17.2 h/dia por cauda | 0 parado | 0 voo vazio
+rota exemplo GRU-DXB (12.217 km, 2x/dia): margem 50.0%, LF 90.7%
+ranking 30d: primeiro rival $904 mi (73 aviões, $12.4 mi/avião)
+             você $535 mi (58 aviões, $9.2 mi/avião)
 ```
+
+**O baseline subiu de $1,55 bi para $3,83 bi, e não é afrouxamento.** Três
+mudanças o empurraram, nesta ordem:
+
+1. o teto do par virou assíntota em vez de parede, e os pares que encostavam
+   nele voltaram a se diferenciar;
+2. o mundo passou a crescer **por país**, e o teto do par cresce junto — antes
+   uma rota grande ficava congelada no mercado do dia 1;
+3. o mundo ganhou 425 concorrentes no lugar de 12, o que aumenta a disputa nas
+   rotas grandes e **não** compensa os dois primeiros.
+
+Se este número cair muito abaixo de $3,8 bi sem uma mudança deliberada de
+dificuldade, alguma das três regrediu.
 
 As duas linhas novas são as que a malha trouxe, e são as que mais dizem:
 **utilização** (horas de voo por cauda por dia) e **voo vazio** (quantos
@@ -220,7 +233,43 @@ concorrência pesada e longo curso, SIN quase tudo internacional).
 
 As concorrentes não simulam frota avião a avião — carregam `routes` agregadas
 com assentos, frequência, tarifa e qualidade, e reagem via `aggression`. Isso é
-proposital: 12 companhias com simulação completa custaria o tempo do tick.
+proposital, e virou obrigatório: são **até 425 companhias**, e simulação
+completa em cada uma custaria o tick inteiro.
+
+### De onde elas vêm (`mundo.ts`)
+
+Não existe mais lista escrita à mão. O mundo é gerado do catálogo de
+aeroportos: 4 companhias por país acima de 300 mil pax/dia, 3 acima de 60 mil,
+2 acima de 6 mil, 1 abaixo, 0 onde não há rede possível (um aeroporto só, e ele
+doméstico). O jogador ocupa uma das vagas do país dele.
+
+A densidade que o jogador escolhe conta **países**, não companhias — contar
+companhias com a fila intercalada por posição dá um país, uma companhia, e
+acaba com a disputa em casa, que é o que ela existe para criar.
+
+### Alcance: doméstica → regional → internacional
+
+`alcanceDe` decide até onde cada companhia voa, por **idade e tamanho juntos**.
+Idade sozinha promoveria quem só sobreviveu; tamanho sozinho deixaria quem
+nasceu grande pular a fila. Uma companhia fundada durante a partida começa
+ligando o próprio país.
+
+Não há regra de cabotagem, e é deliberado: o que se modela é a ordem em que uma
+companhia cresce, não onde ela tem direito de voar.
+
+### Companhia nova
+
+`fundarCompanhia` roda uma vez por semana e quase sempre não faz nada. A
+chance é **global**, nunca por país: multiplicá-la pelo número de candidatos
+transforma "raro" em certeza — na primeira versão, 157 países fundaram
+companhia no mesmo mês. O número de candidatos escolhe **onde**, nunca **se**.
+
+### Cache do ranking de destinos
+
+`candidateDestinations` varre 3.086 aeroportos e é o caminho quente do tick.
+O resultado é guardado por hub com validade de dois anos de jogo, porque a
+ordem por demanda muda devagar. Mexer nisso sem medir o tick é como o baseline
+volta a 24,8 ms por dia.
 
 O preço dessa abstração é que elas poderiam prometer frequência que nenhum
 avião cumpre, enquanto o jogador marca perna a perna. `limitarPelaFrota` fecha

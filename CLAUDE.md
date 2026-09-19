@@ -48,10 +48,12 @@ regra mais importante do repositório.
 | `npm run malha` | confere a escala por perna: posição da aeronave, horário, conexões e os três tempos mínimos |
 | `npm run movimento` | relevanta o movimento de passageiros (Wikidata + listas) e grava direto no `movimento.ts` |
 | `npm run cidades` | confere a cidade de cada aeroporto contra a OurAirports; `-- --gravar` corrige o catálogo |
+| `npm run crescimento` | relevanta o crescimento de cada país no Banco Mundial e grava no `crescimento.ts` |
 | `npm run fluxo` | recalcula os fatores de equilíbrio do fluxo (Furness) e grava direto; rode **depois** do `movimento` e de qualquer mexida no núcleo da demanda |
 | `npx tsx scripts/cargo-check.ts GRU MIA a332f` | roda uma rota de carga de ponta a ponta no tick |
 | `npm run smoke` | abre o jogo num navegador headless e joga sozinho |
 | `npm run mapa` | confere arrasto, zoom, clique no avião e escolha de base (precisa do `npm run dev` de pé) |
+| `npm run destinos` | confere a lista de abrir rota: quatro destinos por vez, o menu de porte e o que cabe num celular (precisa do `npm run dev` de pé) |
 | `npm run grade` | confere a malha na tela: grade semanal, quem está disponível e o encadeamento (precisa do `npm run dev` de pé) |
 | `npm run toque` | confere o mapa num celular: pinça, arrasto com um dedo e toque (precisa do `npm run dev` de pé) |
 | `npm run mobile` | mede o transbordo horizontal de cada tela num celular — no celular só se rola para baixo (precisa do `npm run dev` de pé) |

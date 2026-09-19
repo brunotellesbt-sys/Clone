@@ -4,7 +4,7 @@
 // e pista firme de pelo menos 4.400 ft — a pista que o ATR 72 pede no catálogo
 // do próprio jogo. O critério é esse e não "aeroporto grande" porque o que
 // interessa é onde a frota do jogo **pode pousar**: a menor aeronave de linha
-// dela define o piso, e a lista fica com 3.085 destinos em 231 países.
+// dela define o piso, e a lista fica com 3.086 destinos em 231 países.
 //
 // Fato e índice de jogo estão misturados de propósito, e a diferença importa:
 //
@@ -101,7 +101,34 @@ export interface Airport {
    * — mostrar "Recife (REC)" como se fosse nome oficial é ruído, não dado.
    */
   official: string
+  /**
+   * Maior aeronave que o aeroporto recebe de fato, em assentos certificados.
+   * Ausente onde quem manda é a pista, que é a esmagadora maioria.
+   *
+   * Ver `TETO_ASSENTOS`.
+   */
+  tetoAssentos?: number
 }
+
+/**
+ * Aeroportos onde a operação é menor do que a pista comportaria.
+ *
+ * A regra do jogo é a pista, e ela acerta quase sempre. Pampulha é o caso em
+ * que ela erra sozinha: 8.333 ft a 2.589 ft de elevação passam A321neo pela
+ * conta de decolagem, e A321neo nunca operou ali. O que limita Pampulha não é
+ * o asfalto, é a vizinhança — aeroporto dentro da cidade, e a transferência
+ * do movimento para Confins em 2005 foi decidida por isso, não por pista.
+ *
+ * O número é o **maior que voou de verdade**, em assentos certificados: no ano
+ * de pico de Pampulha, 2004, o maior de linha era o 737-300, com 149. Ele não
+ * está no catálogo do jogo — o catálogo começa depois dele —, mas o sucessor
+ * direto está, com o mesmo limite de 149: o 737-700. É ele que passa a ser o
+ * teto, e o A319, com 156, é o primeiro que fica de fora.
+ *
+ * Lista de um. Só entra aqui aeroporto em que dê para dizer qual avião voou e
+ * qual não voou; palpite sobre "aeroporto pequeno" continua sendo a pista.
+ */
+export const TETO_ASSENTOS: Record<string, number> = { PLU: 149 }
 
 const RAW = `
 HND|Toquio|Japao|JP|35.55|139.79|37.40|1.40|1.50|11024|5|35
@@ -264,6 +291,7 @@ CGQ|Changchun|China|CN|44.00|125.68|6.10|0.80|1.00|10500|3|706
 SKT|Sialkot|Paquistao|PK|32.54|74.36|6.07|0.40|0.60|11811|3|837
 BWI|Baltimore|EUA|US|39.18|-76.67|6.03|1.45|1.30|10503|3|146
 CNF|Belo Horizonte|Brasil|BR|-19.64|-43.97|6.00|0.75|0.80|11811|3|2721
+PLU|Belo Horizonte|Brasil|BR|-19.85|-43.95|6.00|0.75|0.80|8333|2|2589
 PEW|Peshawar|Paquistao|PK|33.99|71.51|5.95|0.40|0.60|9000|3|1158
 BFY|Bengbu|China|CN|33.17|117.06|5.85|0.80|1.00|8530|3|75
 SJC|Sao Francisco|EUA|US|37.36|-121.93|5.82|1.60|1.60|11000|3|62
@@ -3251,7 +3279,7 @@ ZA:AF ZM:AF ZW:AF`
  * `reg`: doméstico mais internacional do próprio continente.
  *
  * **O escopo é índice de jogo, não cadastro aduaneiro.** Não existe lista
- * pública de posto de fronteira para os 3.085 aeroportos, então ele sai de dois
+ * pública de posto de fronteira para os 3.086 aeroportos, então ele sai de dois
  * sinais — o degrau do aeroporto e a palavra "internacional" no nome, tanto no
  * oficial curado quanto no da OurAirports — mais as exceções conhecidas abaixo.
  * Onde o jogo erra, erra para o lado de deixar operar.
@@ -3268,12 +3296,12 @@ const MARCA_INTERNACIONAL =
  * Aeroportos cujo nome na OurAirports diz "internacional".
  *
  * A primeira versão do escopo só olhava o nome oficial curado à mão, e esse
- * existe para **180** dos 3.085 aeroportos — o resto caía no rótulo genérico
+ * existe para **180** dos 3.086 aeroportos — o resto caía no rótulo genérico
  * "Cidade (SIGLA)", que nunca carrega a palavra. Resultado: 2.749 aeroportos
  * saíam domésticos, e entre eles Malpensa, Atenas, Viena, Vancouver e o
  * Tocumen do Panamá. Errado, e errado para o lado que **fecha** o jogo.
  *
- * O nome da OurAirports cobre 3.014 dos 3.085 e carrega a marca em 1.132 —
+ * O nome da OurAirports cobre 3.015 dos 3.086 e carrega a marca em 1.132 —
  * mil a mais que a tabela curada. Continua sendo um sinal indireto e não um
  * cadastro aduaneiro: um aeroporto pode ter alfândega sem "internacional" no
  * nome (Heathrow, Zurique, Congonhas até 1985), e é para isso que existem o
@@ -3377,7 +3405,7 @@ const escopoDe = (iata: string, tier: number, official: string): Escopo => {
  * Era `Math.round(lon / 15) * 60` — hora solar. Funciona onde o fuso segue o
  * sol e erra onde ele segue decreto, que é o caso de metade do mundo: a China
  * inteira no horário de Pequim, a Espanha no de Berlim, a Índia com meia hora
- * de deslocamento, o Nepal com quarenta e cinco minutos. **1.249 dos 3.085
+ * de deslocamento, o Nepal com quarenta e cinco minutos. **1.249 dos 3.086
  * aeroportos mudaram de fuso** quando isto entrou.
  *
  * Sai do `zone1970.tab` do tzdata, que é a base que todo sistema operacional
@@ -3458,6 +3486,7 @@ const FUSO: Record<string, number> = Object.fromEntries(
 -180=GIG,GRU,GVR,IGR,IMP,IOS,IPN,IQQ,IRJ,ITB,IZA,JDF,JDO,JJD,JJG,JOI
 -180=JPA,JTC,JUJ,LAJ,LDB,LEC,LHS,LSC,LUQ,MAB,MCP,MCZ,MDQ,MDZ,MHC,MII
 -180=MOC,MPN,MVD,MVF,NAT,NEC,NQN,NVT,OES,OPP,PAV,PBM,PDP,PET,PFB,PGZ
+-180=PLU
 -180=PHB,PMC,PMQ,PMW,PMY,PNT,PNZ,POA,PRA,PSS,PUD,PUQ,PYT,RAO,REC,REL
 -180=RES,RGA,RGL,RHD,RIA,ROS,RSA,RYO,SCL,SDE,SDU,SET,SFN,SJK,SJP,SLA
 -180=SLZ,SOD,SSA,SST,STM,THE,TMT,TUC,TUR,UAQ,UBA,UDI,UNA,USH,VAL,VCP
@@ -3629,6 +3658,7 @@ export const AIRPORTS: Airport[] = RAW.split('\n').map((line) => {
     slots: SLOTS_BY_TIER[t],
     name: `${city} (${iata})`,
     official: AIRPORT_NAMES[iata] ?? `${city} (${iata})`,
+    tetoAssentos: TETO_ASSENTOS[iata],
   } as Airport
 })
 
@@ -3671,7 +3701,7 @@ const kmEntre = (a: Airport, b: Airport) => {
  */
 export const IRMAOS: Record<string, string[]> = (() => {
   const out: Record<string, string[]> = {}
-  // varredura por faixa de latitude: comparar 3.085 com 3.085 são 9,5 milhões
+  // varredura por faixa de latitude: comparar 3.086 com 3.086 são 9,5 milhões
   // de pares, e ordenar corta isso para uma vizinhança por aeroporto
   const ordenados = [...AIRPORTS].sort((x, y) => x.lat - y.lat)
   const grau = RAIO_IRMAOS / 111
