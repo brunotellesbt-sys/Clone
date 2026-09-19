@@ -1,12 +1,23 @@
-import { AIRPORT_BY_IATA } from '../game/data/airports'
+import { useState } from 'react'
+import { AIRPORT_BY_IATA, ESCOPO_LABEL } from '../game/data/airports'
+import { BuscaAeroporto } from './components/BuscaAeroporto'
 import { sumCabins } from '../game/economy'
-import { debtTotal, fleetValue, km, money, netWorth, num, pct, period, routeEconomics } from '../game/engine'
+import {
+  addHub, debtTotal, fleetValue, HUB_COST, km, money, netWorth, num, pct, period, routeEconomics,
+} from '../game/engine'
 import { useGame } from '../store/useGame'
 import { Card, Kpi, Spark } from './components/Bits'
 import { MapView } from './MapView'
 
 export function Dashboard({ go }: { go: (tab: string) => void }) {
-  const { state } = useGame()
+  const { state, act, toast } = useGame()
+  const [hub, setHub] = useState('')
+  /**
+   * Base nova sai de busca, não de lista suspensa, e sem piso de degrau: a
+   * trava que existia deixava Santos Dumont e Congonhas de fora por serem
+   * degrau 2 e 3 numa lista que só aceitava 3 para cima.
+   */
+  const jaEBase = (a: { iata: string }) => state.airline.hubs.includes(a.iata)
   const p30 = period(state, 30)
   const p7 = period(state, 7)
   const daily = state.ledger.slice(-60).map((d) => d.profit)
@@ -55,6 +66,53 @@ export function Dashboard({ go }: { go: (tab: string) => void }) {
               <Kpi label="Bases" value={state.airline.hubs.join(' · ')} />
               <Kpi label="Combustível" value={`$${state.fuelPrice.toFixed(2)}/kg`} tone={state.fuelPrice > 1 ? 'warn' : undefined} />
             </div>
+          </Card>
+
+          {/*
+            * O cartão de bases mora aqui, e não nas Finanças.
+            *
+            * Ele existia — em Finanças → Bases — e ninguém achava, porque
+            * ninguém procura "abrir base" na tela de dinheiro. Abrir base é
+            * decisão de malha: acontece olhando o mapa e percebendo que a
+            * próxima rota não sai de lugar nenhum. É aqui, ao lado do mapa,
+            * que a pergunta nasce.
+            */}
+          <Card title="Bases">
+            <div className="row tight" style={{ marginBottom: 10 }}>
+              {state.airline.hubs.map((h) => (
+                <span key={h} className="chip">{h} · {AIRPORT_BY_IATA[h].city}</span>
+              ))}
+            </div>
+            <label className="field">
+              <span>Abrir nova base</span>
+              <BuscaAeroporto
+                placeholder="sigla, cidade ou país"
+                fora={jaEBase}
+                extra={(a) => ESCOPO_LABEL[a.escopo]}
+                onPick={setHub}
+              />
+            </label>
+            {hub && (
+              <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+                <span>
+                  <b>{hub}</b> <span className="muted">{AIRPORT_BY_IATA[hub].city}</span>
+                  {' · '}{money(HUB_COST)}
+                </span>
+                <button className="btn sm" onClick={() => setHub('')}>Trocar</button>
+              </div>
+            )}
+            <button className="btn" disabled={!hub} onClick={() => {
+              const err = act((s) => addHub(s, hub))
+              if (err) toast(err, 'error')
+              else setHub('')
+            }}>
+              Abrir base
+            </button>
+            <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>
+              Base custa {money(HUB_COST)} em qualquer aeroporto e exige reputação — quanto maior
+              o aeroporto, mais reputação. O escopo dele decide o que a base alcança: um
+              doméstico não abre nenhuma rota internacional.
+            </p>
           </Card>
 
           <Card title="Avisos">

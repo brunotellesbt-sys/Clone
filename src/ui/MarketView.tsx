@@ -2,13 +2,19 @@ import { useMemo, useState } from 'react'
 import { AIRCRAFT_ALL, acLabel, ehCargueiro, FAMILY_OF, type AircraftType } from '../game/data/aircraft'
 import { AIRPORT_BY_IATA } from '../game/data/airports'
 import { engineLabel, type Engine } from '../game/data/engines'
-import { cabinLength, defaultCabin, rowLayout, sumSeats } from '../game/cabin'
+import { cabinLength, defaultCabin, LAYOUTS, rowLayout, sumSeats } from '../game/cabin'
+import { custoDeFabrica, SEAT_MODELS, seatLayouts } from '../game/seatModels'
 import { leaseMonthly, marketPrice } from '../game/economy'
-import { buyAircraft, km, metros, money, num } from '../game/engine'
+import { buyAircraft, cabinesDoModelo, km, metros, money, num } from '../game/engine'
 import { enginesOf, withEngine } from '../game/spec'
 import { useGame } from '../store/useGame'
 import { AircraftArt } from '../livery/AircraftArt'
 import { Card } from './components/Bits'
+import { CABINS, type CabinClass, type SeatConfig } from '../game/types'
+
+const CLASSE_LABEL: Record<CabinClass, string> = {
+  y: 'Econômica', w: 'Premium', c: 'Executiva', f: 'Primeira',
+}
 
 const FAMILY_LABEL: Record<string, string> = {
   turboprop: 'Turboélice', regional: 'Regional', narrowbody: 'Corredor único', widebody: 'Fuselagem larga',
@@ -21,6 +27,9 @@ export function MarketView() {
   const [fam, setFam] = useState('todos')
   const [query, setQuery] = useState('')
   const [engineId, setEngineId] = useState<string | null>(null)
+  /** `serie`, o id de um layout do catálogo, ou `salva:<id>` de uma cabine guardada. */
+  const [cabineId, setCabineId] = useState('serie')
+  const [poltronas, setPoltronas] = useState<SeatConfig>({})
   const year = state.startYear + state.day / 365
 
   const model = AIRCRAFT_ALL.find((a) => a.id === selId) ?? AIRCRAFT_ALL[0]
@@ -37,17 +46,50 @@ export function MarketView() {
   function pick(t: AircraftType) {
     setSelId(t.id)
     setEngineId(null)
+    // cabine guardada e poltrona escolhida são do modelo anterior: trocar de
+    // avião sem limpar isso venderia um interior que não cabe na fuselagem nova
+    setCabineId('serie')
+    setPoltronas({})
   }
 
+  const salvas = cabinesDoModelo(state, model.id)
+
+  /** A cabine que vai sair da fábrica, já com as poltronas escolhidas. */
+  const cabine = useMemo(() => {
+    const salva = cabineId.startsWith('salva:')
+      ? salvas.find((c) => c.id === cabineId.slice(6))
+      : undefined
+    const base = salva
+      ? { seats: salva.seats, pitch: salva.pitch, seatConfig: salva.seatConfig }
+      : { ...(LAYOUTS.find((l) => l.id === cabineId)?.build(model) ?? defaultCabin(model, 1)),
+          seatConfig: undefined as SeatConfig | undefined }
+    const config: SeatConfig = { ...base.seatConfig }
+    for (const c of CABINS) {
+      const escolha = poltronas[c]
+      // só vale a poltrona que cabe no passo desta cabine — ver o filtro em
+      // `modelosQueCabem`; sem isso, trocar de layout deixaria uma suíte de 80″
+      // pendurada num passo de 60
+      if (escolha && SEAT_MODELS.some((m) => m.id === escolha.style && m.minPitch <= base.pitch[m.cabin]))
+        config[c] = escolha
+    }
+    return { ...base, seatConfig: config }
+  }, [cabineId, model, poltronas, salvas])
+
+  const deSerie = cabineId === 'serie' && !CABINS.some((c) => poltronas[c])
+  const extra = deSerie ? 0 : custoDeFabrica(cabine.seats, cabine.seatConfig)
+
   function acquire(lease: boolean) {
-    const err = act((s) => buyAircraft(s, model.id, lease, { engineId: chosen?.id }))
+    const err = act((s) => buyAircraft(s, model.id, lease, {
+      engineId: chosen?.id,
+      cabine: deSerie ? undefined : cabine,
+    }))
     if (err) toast(err, 'error')
   }
 
   const price = marketPrice(sel)
   const lease = leaseMonthly(sel)
   const available = year >= sel.since
-  const cabin = defaultCabin(model, 1)
+  const cabin = deSerie ? defaultCabin(model, 1) : cabine
 
   return (
     <div className="split">
@@ -153,24 +195,79 @@ export function MarketView() {
           </Card>
         )}
 
+        {!ehCargueiro(model) && (
+          <Card
+            title="Cabine de fábrica"
+            right={<span className="muted" style={{ fontSize: 12 }}>{sumSeats(cabine.seats)} assentos</span>}
+          >
+            {/*
+              Escolher aqui sai mais barato do que escolher depois: as poltronas
+              custam o mesmo, mas a reforma — 240 mil e dois a quatro dias de
+              avião parado — só existe para quem recebe o interior de série e
+              troca em seguida.
+            */}
+            <div className="row tight" style={{ flexWrap: 'wrap' }}>
+              <button className={`btn sm ${cabineId === 'serie' ? 'primary' : ''}`}
+                onClick={() => setCabineId('serie')}>De série</button>
+              {LAYOUTS.map((l) => (
+                <button key={l.id} className={`btn sm ${cabineId === l.id ? 'primary' : ''}`}
+                  title={l.note} onClick={() => setCabineId(l.id)}>{l.name}</button>
+              ))}
+              {salvas.map((c) => (
+                <button key={c.id} className={`btn sm ${cabineId === `salva:${c.id}` ? 'primary' : ''}`}
+                  onClick={() => setCabineId(`salva:${c.id}`)}>{c.nome}</button>
+              ))}
+            </div>
+            <div className="grid g2" style={{ gap: 8, marginTop: 12 }}>
+              {CABINS.filter((c) => cabine.seats[c] > 0).map((c) => {
+                const cabem = SEAT_MODELS.filter((m) => m.cabin === c && m.minPitch <= cabine.pitch[c])
+                const atual = cabine.seatConfig?.[c]?.style ?? cabem[0]?.id ?? ''
+                return (
+                  <label key={c} className="field" style={{ marginBottom: 0 }}>
+                    <span>{CLASSE_LABEL[c]} — {cabine.seats[c]} a {cabine.pitch[c]}&quot;</span>
+                    <select value={atual} onChange={(e) => {
+                      const style = e.target.value
+                      setPoltronas((p) => ({
+                        ...p, [c]: { style, layout: seatLayouts(model, c, style).at(-1)! },
+                      }))
+                    }}>
+                      {cabem.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}{m.extraCost > 0 ? ` — ${money(m.extraCost)}/assento` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )
+              })}
+            </div>
+            <p className="muted" style={{ fontSize: 12, marginBottom: 0, marginTop: 10 }}>
+              {deSerie
+                ? 'De série, o avião chega pronto para voar com a cabine padrão do modelo, sem custo de interior.'
+                : `Interior encomendado: ${money(extra)}, cobrado junto com a aeronave. O avião entra voando — quem remonta depois paga a reforma e fica com a cauda parada.`}
+              {' '}Só aparecem as poltronas que cabem no passo desta cabine.
+            </p>
+          </Card>
+        )}
+
         <Card title="Aquisição">
           <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
-            <span className="dim">Compra à vista</span><b className="num">{money(price)}</b>
+            <span className="dim">Compra à vista</span><b className="num">{money(price + extra)}</b>
           </div>
           <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
             <span className="dim">Arrendamento</span>
-            <b className="num">{money(lease)}/mês <span className="muted" style={{ fontWeight: 400 }}>+ 2 meses de caução</span></b>
+            <b className="num">{money(lease)}/mês <span className="muted" style={{ fontWeight: 400 }}>+ 2 meses de caução{extra > 0 ? ` e ${money(extra)} de interior` : ''}</span></b>
           </div>
           <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
             {ehCargueiro(model)
               ? `Leva até ${model.payload} t de carga paga e só voa em rota de carga.`
-              : `Entra com ${sumSeats(cabin.seats)} assentos${cabin.seats.c > 0 ? `, ${cabin.seats.c} na executiva` : ', em classe única'}. A cabine se remonta depois, na tela da frota.`}
+              : `Entra com ${sumSeats(cabin.seats)} assentos${cabin.seats.c > 0 ? `, ${cabin.seats.c} na executiva` : ', em classe única'}. Dá para remontar depois, na tela da frota, pagando a reforma.`}
           </p>
           <div className="row">
-            <button className="btn primary" disabled={!available || state.airline.cash < price} onClick={() => acquire(false)}>
+            <button className="btn primary" disabled={!available || state.airline.cash < price + extra} onClick={() => acquire(false)}>
               Comprar
             </button>
-            <button className="btn" disabled={!available || state.airline.cash < lease * 2} onClick={() => acquire(true)}>
+            <button className="btn" disabled={!available || state.airline.cash < lease * 2 + extra} onClick={() => acquire(true)}>
               Arrendar
             </button>
           </div>

@@ -35,6 +35,36 @@ export const SEAT_MODELS: SeatModel[] = [
   { id: 'first_room_suite', name: 'Suíte quarto', cabin: 'f', icon: 'apartment', minPitch: 100, extraCost: 50000, maxRow: 2 },
 ]
 export const SEAT_BY_ID = Object.fromEntries(SEAT_MODELS.map(m => [m.id, m]))
+
+/** O modelo mais caro de cada classe, para normalizar o conforto dentro dela. */
+const TETO_POR_CLASSE: Record<CabinClass, number> = CABINS.reduce((acc, c) => {
+  acc[c] = Math.max(1, ...SEAT_MODELS.filter(m => m.cabin === c).map(m => m.extraCost))
+  return acc
+}, {} as Record<CabinClass, number>)
+
+/**
+ * Quanto a poltrona escolhida vale de conforto, de 0 a 1 dentro da classe.
+ *
+ * O catálogo já ordenava as poltronas — 28 modelos, de Super slim a Suíte
+ * quarto, com custo de 0 a 50 mil por assento — e o jogo cobrava por elas. O
+ * que ele não fazia era **usá-las**: `cabinComfort` lia só o passo, então uma
+ * suíte de 50 mil e uma Super slim no mesmo passo davam conforto idêntico. A
+ * escolha custava e não valia nada.
+ *
+ * O conforto sai do próprio custo, e de propósito: o preço já ordena o
+ * catálogo, e um segundo número por modelo seria uma segunda lista para
+ * alguém manter desencontrada da primeira. A normalização é **por classe**
+ * porque as escalas não se comparam — a econômica mais cara custa mil, e é
+ * a executiva mais barata que custa zero.
+ *
+ * A raiz achata a diferença: dobrar o preço da poltrona não dobra o conforto
+ * de quem senta nela, e sem isso só o topo do catálogo teria efeito.
+ */
+export const confortoDaPoltrona = (style?: string): number => {
+  const m = SEAT_BY_ID[style ?? '']
+  if (!m) return 0
+  return Math.sqrt(m.extraCost / TETO_POR_CLASSE[m.cabin])
+}
 export const rowCount = (layout: string) => layout.split('-').reduce((n, part) => n + Number(part), 0)
 const ROWS = ['1-1', '1-2', '2-1', '1-1-1', '2-2', '1-2-1', '2-3', '3-2', '2-1-2', '3-3', '2-2-2', '2-3-2', '2-4-2', '3-3-3', '3-4-3']
 export function baseAbreast(t: AircraftType, c: CabinClass) {
@@ -56,7 +86,24 @@ export function normalizeSeats(t: AircraftType, config: SeatConfig | undefined):
   }
   return out
 }
+/** O que as poltronas em si custam, sem a reforma. */
+export const custoDasPoltronas = (seats: Record<CabinClass, number>, config?: SeatConfig) =>
+  2600 * seats.w + 34000 * seats.c + 90000 * seats.f +
+  CABINS.reduce((n, c) => n + seats[c] * (SEAT_BY_ID[config?.[c]?.style ?? '']?.extraCost ?? 0), 0)
+
+/** Os mesmos 240 mil de reforma: arrancar o interior velho e certificar o novo. */
+export const TAXA_DE_REFORMA = 240000
+
 export function seatChangeCost(seats: Record<CabinClass, number>, config?: SeatConfig) {
-  return 240000 + 2600 * seats.w + 34000 * seats.c + 90000 * seats.f +
-    CABINS.reduce((n, c) => n + seats[c] * (SEAT_BY_ID[config?.[c]?.style ?? '']?.extraCost ?? 0), 0)
+  return TAXA_DE_REFORMA + custoDasPoltronas(seats, config)
 }
+
+/**
+ * O que a cabine custa quando sai assim da fábrica.
+ *
+ * As poltronas se pagam igual — são as mesmas poltronas —, mas a reforma não
+ * existe: não há interior velho para arrancar nem avião parado esperando a
+ * oficina. É a razão de escolher a configuração na hora da compra em vez de
+ * comprar e reconfigurar depois.
+ */
+export const custoDeFabrica = custoDasPoltronas

@@ -127,8 +127,21 @@ export function MapView({
   const landPath = useMemo(() => path(land) ?? '', [path])
   const gratPath = useMemo(() => path(geoGraticule10()) ?? '', [path])
 
-  // animação das aeronaves
+  /**
+   * Animação das aeronaves — e ela respeita a pausa.
+   *
+   * Este laço era o defeito por trás de "o jogo não pausa quando aperto em
+   * pausar". O relógio do jogo parava certinho: o dia trava no clique, medido
+   * a 1×, 4×, 12× e 40×. O que não parava era **o mapa** — ele tem o próprio
+   * `requestAnimationFrame` para mover os aviões pela rota, e ele não olhava
+   * `paused`. O jogador pausava, via a frota continuar voando e concluía, com
+   * razão, que a pausa não funcionava.
+   *
+   * O relógio da legenda sai daqui também, então parar o laço para os dois
+   * juntos, que é o que se espera de uma pausa.
+   */
   useEffect(() => {
+    if (state.paused || state.speed === 0) return
     let raf = 0
     let last = performance.now()
     const loop = (now: number) => {
@@ -140,7 +153,7 @@ export function MapView({
     }
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [])
+  }, [state.paused, state.speed])
 
   // centraliza numa base ao trocar de foco
   useEffect(() => {

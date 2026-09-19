@@ -1,5 +1,5 @@
 import type { SeatConfig } from './types'
-import { normalizeSeats, seatChangeCost } from './seatModels'
+import { custoDeFabrica, normalizeSeats, seatChangeCost } from './seatModels'
 import { AIRCRAFT_BY_ID, type AircraftType } from './data/aircraft'
 import { SAVE_VERSION } from './save'
 import { AIRPORT_BY_IATA, vooPermitido } from './data/airports'
@@ -154,6 +154,14 @@ export interface BuyOptions {
   engineId?: string
   /** Peso premium da configuração inicial de cabine. */
   seatBias?: number
+  /**
+   * Cabine encomendada de fábrica, no lugar da de série.
+   *
+   * Quem escolhe aqui paga as poltronas junto com a aeronave e recebe o avião
+   * pronto para voar; quem escolhe depois paga as mesmas poltronas **mais** a
+   * reforma, e fica com a cauda parada enquanto a oficina trabalha.
+   */
+  cabine?: { seats: Cabins; pitch: Cabins; seatConfig?: SeatConfig }
 }
 
 export function buyAircraft(s: GameState, typeId: string, lease: boolean, opts: BuyOptions = {}): string | null {
@@ -166,11 +174,22 @@ export function buyAircraft(s: GameState, typeId: string, lease: boolean, opts: 
   if (year < t.since) return `Essa motorização só passa a ser oferecida em ${t.since}.`
   const price = marketPrice(t)
   const upfront = lease ? leaseMonthly(t) * 2 : price
-  if (s.airline.cash < upfront) return 'Caixa insuficiente.'
   const rng = makeRng(s.seed + s.day + s.airline.fleet.length * 977)
   const hubCc = AIRPORT_BY_IATA[s.airline.hubs[0]]?.cc ?? 'BR'
-  const cabin = defaultCabin(model, opts.seatBias ?? 1)
-  s.airline.cash -= upfront
+  const encomenda = opts.cabine
+  const cabin = encomenda
+    ? { seats: encomenda.seats, pitch: clampPitch(encomenda.pitch) }
+    : defaultCabin(model, opts.seatBias ?? 1)
+  if (encomenda) {
+    const chk = checkCabin(t, cabin.seats, cabin.pitch, encomenda.seatConfig)
+    if (chk.invalid || chk.seatError || chk.overLength || chk.overLimit)
+      return chk.seatError ?? 'A cabine encomendada não cabe nesta aeronave.'
+  }
+  // A fábrica cobra as poltronas à parte, arrendamento inclusive: o arrendador
+  // repassa o interior que você pediu, não o dele.
+  const poltronas = encomenda ? custoDeFabrica(cabin.seats, encomenda.seatConfig) : 0
+  if (s.airline.cash < upfront + poltronas) return 'Caixa insuficiente.'
+  s.airline.cash -= upfront + poltronas
   s.airline.fleet.push({
     id: nextId('ac'),
     typeId,
@@ -179,6 +198,7 @@ export function buyAircraft(s: GameState, typeId: string, lease: boolean, opts: 
     cc: hubCc,
     seats: cabin.seats,
     pitch: cabin.pitch,
+    seatConfig: encomenda ? normalizeSeats(model, encomenda.seatConfig) : undefined,
     age: lease ? between(rng, 0.5, 6) : 0,
     hours: 0,
     cycles: 0,
@@ -645,7 +665,7 @@ export function advanceDay(s: GameState): GameState {
         pitchAcc[cb] += ac.pitch[cb] * ac.seats[cb]
         pitchW[cb] += ac.seats[cb]
       }
-      comfort += t.comfort * cabinComfort(t, ac.seats, ac.pitch) * (0.85 + 0.15 * ac.condition)
+      comfort += t.comfort * cabinComfort(t, ac.seats, ac.pitch, ac.seatConfig) * (0.85 + 0.15 * ac.condition)
     }
     comfort /= pernas.length
     const pitch: Cabins = {
@@ -879,9 +899,26 @@ export function advanceDay(s: GameState): GameState {
     ? s.airline.fleet.reduce((x, a) => x + a.condition, 0) / s.airline.fleet.length
     : 0.8
   const lfPenalty = today.loadFactor > 0.93 ? (today.loadFactor - 0.93) * 1.4 : 0
+  /**
+   * O conforto da cabine puxa a reputação, e não só a divisão de mercado.
+   *
+   * Quem voa numa suíte não escolhe só aquele voo: ele passa a ser cliente da
+   * companhia. Sem isso, poltrona boa rendia passageiro no dia e nada no ano —
+   * e a conta de trocar o interior nunca fechava. É de propósito que pese
+   * menos que o estado da frota: assento macio não desfaz voo atrasado.
+   */
+  const conforto = s.airline.fleet.length
+    ? s.airline.fleet.reduce(
+        (x, a) => x + cabinComfort(modelOf(a), a.seats, a.pitch, a.seatConfig), 0,
+      ) / s.airline.fleet.length
+    : 1
   const target = Math.max(
     0.1,
-    Math.min(0.97, 0.28 + 0.42 * avgCondition + Math.min(0.16, s.airline.marketing / 1.6e6) - lfPenalty),
+    Math.min(
+      0.97,
+      0.28 + 0.42 * avgCondition + Math.min(0.12, Math.max(-0.06, (conforto - 1) * 0.55)) +
+        Math.min(0.16, s.airline.marketing / 1.6e6) - lfPenalty,
+    ),
   )
   s.airline.reputation += (target - s.airline.reputation) * 0.012
 

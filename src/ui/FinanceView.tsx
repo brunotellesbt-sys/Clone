@@ -1,30 +1,20 @@
 import { useState } from 'react'
 import { sumCabins } from '../game/economy'
 import {
-  addHub, assinarAcordo, creditLimit, custoDoAcordo, debtTotal, fleetValue, HUB_COST, money,
+  assinarAcordo, creditLimit, custoDoAcordo, debtTotal, fleetValue, money,
   netWorth, num, pct, period, repayLoan, REPUTACAO_ACORDO, romperAcordo, setMarketing, takeLoan,
 } from '../game/engine'
-import { AIRPORT_BY_IATA, ESCOPO_LABEL, type Airport } from '../game/data/airports'
 import { useGame } from '../store/useGame'
 import { Card, Kpi, Spark } from './components/Bits'
-import { BuscaAeroporto } from './components/BuscaAeroporto'
 
 export function FinanceView() {
   const { state, act, toast } = useGame()
   const [amount, setAmount] = useState(30)
-  const [hub, setHub] = useState('')
   const p30 = period(state, 30)
   const p90 = period(state, 90)
   const p365 = period(state, 365)
   const limit = creditLimit(state)
   const fuelSeries = state.ledger.slice(-90).map((d) => d.cost / Math.max(1, d.flights))
-
-  /**
-   * Base nova sai de busca, não de lista suspensa, e sem piso de degrau: a
-   * trava que existia aqui deixava Santos Dumont e Congonhas de fora por serem
-   * degrau 2 e 3 numa lista que só aceitava 3 para cima.
-   */
-  const jaEBase = (a: Airport) => state.airline.hubs.includes(a.iata)
 
   /** Concorrentes que tocam alguma base sua: são as únicas com o que conectar. */
   const parceiras = state.competitors
@@ -153,43 +143,6 @@ export function FinanceView() {
             </p>
           </Card>
 
-          <Card title="Bases">
-            <div className="row tight" style={{ marginBottom: 10 }}>
-              {state.airline.hubs.map((h) => (
-                <span key={h} className="chip">{h} · {AIRPORT_BY_IATA[h].city}</span>
-              ))}
-            </div>
-            <label className="field">
-              <span>Abrir nova base</span>
-              <BuscaAeroporto
-                placeholder="sigla, cidade ou país"
-                fora={jaEBase}
-                extra={(a) => ESCOPO_LABEL[a.escopo]}
-                onPick={setHub}
-              />
-            </label>
-            {hub && (
-              <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
-                <span>
-                  <b>{hub}</b> <span className="muted">{AIRPORT_BY_IATA[hub].city}</span>
-                  {' · '}{money(HUB_COST)}
-                </span>
-                <button className="btn sm" onClick={() => setHub('')}>Trocar</button>
-              </div>
-            )}
-            <button className="btn" disabled={!hub} onClick={() => {
-              const err = act((s) => addHub(s, hub))
-              if (err) toast(err, 'error')
-              else setHub('')
-            }}>
-              Abrir base
-            </button>
-            <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>
-              Base custa {money(HUB_COST)} em qualquer aeroporto e exige reputação — quanto maior
-              o aeroporto, mais reputação. O escopo dele decide o que a base alcança: um
-              doméstico não abre nenhuma rota internacional.
-            </p>
-          </Card>
         </div>
       </div>
 
