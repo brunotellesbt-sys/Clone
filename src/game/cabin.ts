@@ -367,7 +367,17 @@ export const LAYOUTS: Layout[] = [
     id: 'domestic',
     name: 'Doméstico duas classes',
     note: 'O padrão de mercado doméstico: executiva reclinável na frente, econômica no passo normal.',
-    build: (t) => fill(t, P(0, 0, seatsFor(t, 'c', wide(t) ? 0.1 : 0.09), 0), P(31, 38, 40, 83)),
+    /**
+     * Sete por cento de executiva a 38″, e não nove a 40″.
+     *
+     * Medido contra a capacidade publicada de dez modelos (`npm run cabines`):
+     * com 9% a 40″ o padrão saía 5,4% abaixo do que o fabricante publica, e no
+     * 737 MAX 8 chegava a 13% — o jogo montava 154 onde a Boeing publica 178.
+     * A cabine não estava curta; a executiva é que estava grande demais. Um
+     * 737 de duas classes tem três fileiras de executiva, não quatro, e o passo
+     * dela é 38″.
+     */
+    build: (t) => fill(t, P(0, 0, seatsFor(t, 'c', wide(t) ? 0.1 : 0.07), 0), P(31, 38, 38, 83)),
   },
   {
     id: 'regional3',

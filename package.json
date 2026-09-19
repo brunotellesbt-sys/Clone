@@ -14,6 +14,7 @@
     "shots": "node scripts/shots.mjs",
     "smoke": "node scripts/smoke.mjs",
     "mapa": "node scripts/mapa.mjs",
+    "assentos": "python3 scripts/assentos.py",
     "cabine": "node scripts/cabine.mjs",
     "destinos": "node scripts/destinos.mjs",
     "grade": "node scripts/grade.mjs",
