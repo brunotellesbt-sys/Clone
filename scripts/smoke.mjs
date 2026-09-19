@@ -51,12 +51,12 @@ await page.screenshot({ path: artifact('shot-4-abrir-rota.png') })
 await page.getByRole('button', { name: /^Abrir por/ }).click()
 await page.waitForTimeout(500)
 
-// alocar o avião e subir a frequência
-const sel = page.locator('select').filter({ hasText: 'escolher' }).first()
-if (await sel.count()) { await sel.selectOption({ index: 1 }); await page.waitForTimeout(300) }
-const maxBtn = page.getByRole('button', { name: 'Máximo' })
-if (await maxBtn.count()) await maxBtn.click()
-await page.waitForTimeout(300)
+// marcar a semana inteira: dedicar cauda e frequência saíram da tela da rota,
+// e quem marca voo agora é o cartão "Marcar voo", com dia, hora e cauda
+const todos = page.getByRole('button', { name: 'Todos', exact: true })
+if (await todos.count()) { await todos.click(); await page.waitForTimeout(300) }
+const marcar = page.getByRole('button', { name: /^Marcar/ }).first()
+if (await marcar.count()) { await marcar.click(); await page.waitForTimeout(600) }
 await page.screenshot({ path: artifact('shot-5-rota.png') })
 
 // rodar o tempo

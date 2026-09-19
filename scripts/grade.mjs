@@ -59,6 +59,14 @@ await page.screenshot({ path: artifact('grade-1-rota.png'), fullPage: true })
 // ------------------------------------------------------- marcar um voo
 conferir((await page.getByText('Marcar voo').count()) > 0, 'a rota abre com a tela de marcar voo')
 
+// E só ela. "Dedicar uma cauda" e "Frequência" eram o jeito antigo de operar,
+// de quando a rota era dona do avião: dois caminhos para a mesma coisa, com
+// outro vocabulário e sem controle de horário. Saíram da tela.
+for (const sumiu of ['Dedicar uma cauda', 'Frequência']) {
+  conferir((await page.getByText(sumiu, { exact: false }).count()) === 0,
+    `"${sumiu}" saiu da tela da rota`)
+}
+
 // a rota nasce vazia: quem marca voo é o jogador
 const jaVoa = await page.locator('.horarios tbody tr').count()
 conferir(jaVoa === 0, 'abrir rota não marca voo sozinho', `${jaVoa} voos`)
@@ -180,6 +188,44 @@ conferir(depois < blocos, 'o botão de tirar tira o voo da escala', `${blocos} �
   conferir(depois - antes > 1, 'um clique com a semana escolhida marca mais de um dia',
     `${antes} → ${depois} voos na semana`)
   await page.screenshot({ path: artifact('grade-4-semana.png'), fullPage: true })
+}
+
+// ------------------------------------------------ a semana cabe no celular
+//
+// A grade rolava de lado num telefone: sete colunas de 74px mais a régua
+// pediam 570px, e ver sexta-feira exigia arrastar. Comparar segunda com sexta
+// é o que uma grade semanal existe para deixar fazer, então ela cabe inteira.
+{
+  // o roteiro terminou na tela da rota; a grade mora na da frota
+  await page.locator('.nav button').filter({ hasText: 'Frota' }).first().click()
+  await page.waitForTimeout(700)
+  await page.locator('tbody tr.click').first().click()
+  await page.waitForTimeout(700)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.waitForTimeout(800)
+  const m = await page.evaluate(() => {
+    const c = document.querySelector('.grade-corpo')
+    if (!c) return null
+    const dias = [...document.querySelectorAll('.grade-dia')]
+    return {
+      rola: Math.round(c.parentElement.scrollWidth - c.parentElement.clientWidth),
+      ultimoDentro: Math.round(dias[6].getBoundingClientRect().right) <= innerWidth + 1,
+      altura: Math.round(c.getBoundingClientRect().height),
+      nomes: dias.map((d) => d.querySelector('.grade-dia-nome').textContent).join(' '),
+    }
+  })
+  conferir(m !== null, 'a grade está na tela para medir')
+  if (m) {
+    conferir(m.rola <= 1, 'no celular a grade não rola de lado', `${m.rola}px`)
+    conferir(m.ultimoDentro, 'o sábado cabe na tela sem arrastar')
+    conferir(m.altura <= 420, 'e ela não vira um poço vertical', `${m.altura}px de altura`)
+    // o CSS põe em caixa alta; o texto do nó continua "Dom"
+    conferir(/dom/i.test(m.nomes) && /sáb/i.test(m.nomes),
+      'os sete dias continuam nomeados por extenso', m.nomes)
+  }
+  await page.screenshot({ path: artifact('grade-5-celular.png'), fullPage: true })
+  await page.setViewportSize({ width: 1600, height: 1000 })
+  await page.waitForTimeout(500)
 }
 
 // ------------------------------------------------------------- integridade

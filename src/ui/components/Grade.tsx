@@ -5,7 +5,7 @@ import { AIRPORT_BY_IATA } from '../../game/data/airports'
 import { typeOf } from '../../game/engine'
 import type { Aircraft } from '../../game/types'
 import { useGame } from '../../store/useGame'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 /**
  * A grade não mostra mais as vinte e quatro horas.
@@ -21,7 +21,25 @@ import { useState } from 'react'
  * quem manda é a escala, não um horário fixo que eu tenha escolhido aqui.
  */
 const ALTURA = 560
+const ALTURA_CELULAR = 360
 const FOLGA = 60
+
+/**
+ * No celular a grade cabe inteira na tela, sem rolar de lado.
+ *
+ * Ela rolava: sete colunas de 74px mais a régua pediam 570px, e num telefone
+ * de 360 isso é a semana pela metade — para ver sexta-feira era preciso
+ * arrastar, e comparar segunda com sexta ficava impossível, que é justamente o
+ * que uma grade semanal existe para deixar fazer.
+ *
+ * Cabe porque o bloco perde o que não é essencial: no telefone ele mostra só a
+ * **hora**, e o destino sai para o rótulo do toque e para o editor que abre
+ * embaixo. O nome do dia fica inteiro — "D S T Q Q S S" economiza quinze
+ * pixels que não faziam falta e troca segunda por sábado e terça por quinta. A altura também encolhe, de 560 para 360, porque a tela do celular
+ * é estreita e comprida — uma grade de 560px de altura com 46px de coluna é um
+ * poço, não uma semana.
+ */
+const ehCelular = () => typeof window !== 'undefined' && window.innerWidth <= 760
 
 /**
  * A semana de uma cauda, hora a hora.
@@ -37,6 +55,14 @@ const FOLGA = 60
  * verdade.
  */
 export function Grade({ ac }: { ac: Aircraft }) {
+  // A largura da janela entra no desenho, então ela é estado: sem isto, virar
+  // o telefone de lado deixava a grade com a altura da orientação anterior.
+  const [estreito, setEstreito] = useState(ehCelular)
+  useEffect(() => {
+    const ao = () => setEstreito(ehCelular())
+    window.addEventListener('resize', ao)
+    return () => window.removeEventListener('resize', ao)
+  }, [])
   const { state, act, toast } = useGame()
   /**
    * O voo aberto para mexer, e não apagado no clique.
@@ -75,9 +101,10 @@ export function Grade({ ac }: { ac: Aircraft }) {
     ? Math.min(24 * 60, Math.ceil((Math.max(...minutos) + FOLGA) / 60) * 60)
     : 22 * 60
   const janela = Math.max(60, ate - de)
-  const porMinuto = ALTURA / janela
+  const altura = estreito ? ALTURA_CELULAR : ALTURA
+  const porMinuto = altura / janela
   /** As marcas de hora: de duas em duas, ou de hora em hora se a janela é curta. */
-  const passo = janela > 10 * 60 ? 120 : 60
+  const passo = janela > 10 * 60 ? (estreito ? 180 : 120) : 60
   const marcas: number[] = []
   for (let m = Math.ceil(de / passo) * passo; m <= ate; m += passo) marcas.push(m)
 
@@ -123,10 +150,10 @@ export function Grade({ ac }: { ac: Aircraft }) {
       ))}
 
       <div className="rolagem-x">
-        <div className="grade-corpo" style={{ height: ALTURA }}>
+        <div className={`grade-corpo ${estreito ? 'apertada' : ''}`} style={{ height: altura }}>
           <div className="grade-horas">
             {marcas.map((m) => (
-              <span key={m} style={{ top: (m - de) * porMinuto }}>{hhmm(m)}</span>
+              <span key={m} style={{ top: (m - de) * porMinuto }}>{estreito ? hhmm(m).slice(0, 2) : hhmm(m)}</span>
             ))}
           </div>
           {DOW_CURTO.map((nome, dow) => (
@@ -154,7 +181,7 @@ export function Grade({ ac }: { ac: Aircraft }) {
                         empilhadas num retângulo de vinte pixels não cabiam, e
                         o que sobrava na tela era meia palavra cortada. */}
                     <span className="grade-hora">{hhmm(b.p.perna.saida)}</span>
-                    <b>{b.p.perna.to}</b>
+                    {!estreito && <b>{b.p.perna.to}</b>}
                   </button>
                 ))}
               </div>
