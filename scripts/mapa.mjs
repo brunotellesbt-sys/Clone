@@ -148,8 +148,18 @@ conferir(/km/.test(await page.locator('table').first().textContent()), 'a tabela
 await page.getByRole('button', { name: 'Painel', exact: true }).click()
 await page.waitForTimeout(900)
 
+// O avião no mapa é uma perna da escala, e ela só está no ar durante o bloco:
+// o relógio da tela roda o dia inteiro, então o marcador aparece e some. Contar
+// num instante é sorteio; o que vale conferir é que ele aparece no dia.
 const aviao = page.locator('.mapwrap svg g[transform*="rotate"]').first()
-conferir((await aviao.count()) > 0, 'o avião aparece no mapa')
+let apareceu = false
+for (let i = 0; i < 60 && !apareceu; i++) {
+  apareceu = (await aviao.count()) > 0
+  if (!apareceu) await page.waitForTimeout(500)
+}
+conferir(apareceu, 'o avião aparece no mapa em algum momento do dia')
+conferir(/\d{2}:\d{2} em \w{3}/.test(await page.locator('.map-legend').innerText()),
+  'a legenda mostra a hora que os aviões estão seguindo')
 await aviao.click({ force: true })
 await page.waitForTimeout(400)
 conferir((await page.locator('.map-card').count()) > 0, 'clicar no avião abre o cartão do voo')

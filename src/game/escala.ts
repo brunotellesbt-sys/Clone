@@ -453,6 +453,35 @@ const INICIO = 6 * 60
 const JANELA = 17 * 60 // 06:00 às 23:00
 
 /**
+ * As idas e voltas que a rota tem num dia, agrupadas pela cauda que as voa.
+ *
+ * Uma rotação é uma perna de ida e a perna seguinte **da mesma cauda** que
+ * desfaz o trecho. Numa malha triangular não existe essa volta — a cauda segue
+ * para um terceiro aeroporto —, e essas pernas não formam rotação nenhuma:
+ * ficam de fora, porque o agendador automático não as montou e não tem como
+ * desfazê-las sem quebrar a cadeia do jogador.
+ */
+export function rotacoesNoDia(s: GameState, r: Route, dow: number): Perna[][] {
+  const out: Perna[][] = []
+  const usadas = new Set<string>()
+  for (const p of pernasDoDia(s, r, dow)) {
+    if (usadas.has(p.id) || p.from !== r.from) continue
+    const cadeia = pernasDe(s, p.aircraftId)
+    const i = cadeia.findIndex((x) => x.perna.id === p.id)
+    const volta = i >= 0 ? cadeia[(i + 1) % cadeia.length] : undefined
+    if (!volta || volta.perna.to !== p.from || usadas.has(volta.perna.id)) continue
+    usadas.add(p.id)
+    usadas.add(volta.perna.id)
+    out.push([p, volta.perna])
+  }
+  return out
+}
+
+/** O que a rotação vale: a média da atratividade das duas pernas. */
+const valorDaRotacao = (rot: Perna[]) =>
+  rot.reduce((soma, p) => soma + atratividadeHorario(p.saida), 0) / Math.max(1, rot.length)
+
+/**
  * Marca uma ida e volta inteira com uma cauda, ou não marca nada.
  *
  * A meia rotação é o pior resultado possível: a ida sai e o avião fica parado na
@@ -503,13 +532,25 @@ export function montarRotacoes(s: GameState, routeId: string, dow: number, quant
   const atuais = pernasDoDia(s, r, dow)
   // tira o que sobra pela hora: sai o voo de pior horário, não o último marcado
   if (atuais.length / 2 > alvo) {
-    const fora = [...atuais]
-      .sort((a, b) => atratividadeHorario(a.saida) - atratividadeHorario(b.saida))
-      .slice(0, atuais.length - alvo * 2)
-    for (const p of fora) removerVoo(s, p.id)
+    /**
+     * Corta **rotações inteiras**, nunca pernas soltas.
+     *
+     * A primeira versão ordenava todas as pernas do dia por atratividade e
+     * tirava as piores. A volta quase sempre cai em horário pior que a ida —
+     * ela sai no meio da tarde ou à noite, depois do bloco e do solo —, então o
+     * corte tirava as voltas e deixava só idas: "sábado: GRU-REC 07:00 |
+     * GRU-REC 07:00", com o avião preso em Recife e o jogo cobrando voo vazio
+     * de uma escala que ele mesmo montou. O agendador automático só desfaz o
+     * que ele saberia montar, e o que ele monta é ida e volta.
+     */
+    const rotacoes = rotacoesNoDia(s, r, dow)
+    const fora = [...rotacoes]
+      .sort((a, b) => valorDaRotacao(a) - valorDaRotacao(b))
+      .slice(0, Math.max(0, rotacoes.length - alvo))
+    for (const rot of fora) for (const p of rot) removerVoo(s, p.id)
     return null
   }
-  let faltam = alvo - Math.floor(atuais.length / 2)
+  let faltam = alvo - rotacoesNoDia(s, r, dow).length
   if (faltam <= 0) return null
 
   let marcou = 0

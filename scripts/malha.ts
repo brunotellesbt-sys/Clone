@@ -304,8 +304,19 @@ console.log('\nfrota parada\n')
   conferir(paradas.length === 1 && paradas[0].iata === 'GIG', 'aeronave sem escala dorme na base')
   conferir(paradas[0].ocioso, 'e é marcada como ociosa')
   openRoute(t, 'GIG', 'FOR')
+  const r = t.airline.routes[0]
+  // rota nova nasce voando uma vez por dia, se houver cauda parada para isso
+  conferir(
+    pernasDaRota(t, r).length === 14,
+    'abrir rota marca uma ida e volta em cada dia da semana',
+    `${pernasDaRota(t, r).length} pernas`,
+  )
+  conferir(quebrasDe(t, t.airline.fleet[0].id).length === 0, 'e a escala que ela monta fecha a semana')
+
+  // esvaziada de novo, a cauda volta a dormir na base e a ser oferecida de lá
+  unassignAircraft(t, t.airline.fleet[0].id)
   const livres = aeronavesPara(t, 'GIG', 'FOR', 2, 9 * 60).filter((c) => !c.impedimento)
-  conferir(livres.length === 1, 'ela aparece como disponível para o primeiro voo')
+  conferir(livres.length === 1 && !livres[0].ferryDe, 'esvaziada, ela aparece livre na base')
   const foraDeCasa = aeronavesPara(t, 'FOR', 'GIG', 2, 9 * 60).filter((c) => !c.impedimento)
   conferir(
     foraDeCasa.length === 1 && foraDeCasa[0].ferryDe === 'GIG',
