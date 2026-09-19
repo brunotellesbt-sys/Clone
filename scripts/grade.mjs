@@ -6,10 +6,11 @@
 // é fácil de verificar no terminal e fácil de quebrar na tela: basta a lista
 // oferecer uma cauda que a gravação recusa, ou a grade desenhar o voo no dia
 // errado, e o jogador passa a montar escala no escuro.
-import { browserPath, artifact } from './browser.mjs'
+import { browserPath, artifact, comRelogio } from './browser.mjs'
 import { chromium } from 'playwright'
 
-const URL = process.env.URL ?? 'http://localhost:5173/'
+// o relógio do jogo anda devagar de propósito; os roteiros usam o acelerado
+const URL = comRelogio(process.env.URL ?? 'http://localhost:5173/')
 const browser = await chromium.launch({ executablePath: browserPath })
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
 const erros = []

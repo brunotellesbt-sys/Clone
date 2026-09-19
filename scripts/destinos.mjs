@@ -6,10 +6,11 @@
 // menu depende do `overflow` do contêiner que rola. O menu de porte já nasceu
 // `absolute` dentro de um `overflow: auto` e aparecia pela metade na última
 // linha visível — que é justamente onde o jogador mais desce para olhar.
-import { browserPath, artifact } from './browser.mjs'
+import { browserPath, artifact, comRelogio } from './browser.mjs'
 import { chromium } from 'playwright'
 
-const URL = process.env.URL ?? 'http://localhost:5173/'
+// o relógio do jogo anda devagar de propósito; os roteiros usam o acelerado
+const URL = comRelogio(process.env.URL ?? 'http://localhost:5173/')
 const browser = await chromium.launch({ executablePath: browserPath })
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
 const erros = []

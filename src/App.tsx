@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { advanceDay, gameDate, money, netWorth, pct, period } from './game/engine'
+import { MS_POR_DIA_NA_TELA } from './ui/relogio'
 import { clearSave, exportSave, hasSave, importSave, loadGame, saveGame } from './game/save'
 import type { GameState } from './game/types'
 import { GameContext, useGame } from './store/useGame'
@@ -57,7 +58,11 @@ export function App() {
   // laço do jogo
   useEffect(() => {
     if (!state || state.paused || state.speed === 0) return
-    const interval = Math.max(45, 900 / state.speed)
+    /**
+     * Um dia de jogo por `MS_POR_DIA_NA_TELA / velocidade`. O piso de 16 ms é
+     * um quadro de tela: abaixo disso o navegador não entrega mais batidas.
+     */
+    const interval = Math.max(16, MS_POR_DIA_NA_TELA / state.speed)
     const id = setInterval(() => {
       const s = stateRef.current
       /**

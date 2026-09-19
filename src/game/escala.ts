@@ -29,7 +29,7 @@
  * Nada de React aqui: é `src/game/`.
  */
 import { AIRPORT_BY_IATA, noToqueDeRecolher, TOQUE_DE_RECOLHER, vooPermitido } from './data/airports'
-import { AIRCRAFT_BY_ID } from './data/aircraft'
+import { AIRCRAFT_BY_ID, type AircraftType } from './data/aircraft'
 import { blockHours } from './economy'
 import { distanceBetween } from './geo'
 import { motivoDoPar, withEngine } from './spec'
@@ -322,17 +322,62 @@ export function cabeNaEscala(
     (a, b) => adianteNaSemana(chegada, a.partida) - adianteNaSemana(chegada, b.partida),
   )[0]
 
-  if (adianteNaSemana(anterior.chegada, partida) < anterior.solo) {
+  /**
+   * **O voo vazio também leva tempo.**
+   *
+   * Ele continua sendo permitido e continua sendo cobrado — mas deixou de ser
+   * de graça no relógio. Um avião que pousa em Congonhas às 22:20 não amanhece
+   * em Santos Dumont porque sim: ele tem que fazer o trecho vazio, e esse
+   * trecho gasta solo nas duas pontas mais o tempo de voo. Sem isso a escala
+   * aceitava pernoite impossível — a cauda "voltava" de graça durante a noite,
+   * inclusive para aeroporto fechado, e a grade fechava no papel.
+   *
+   * O vazio entra na conta como a perna que ele é, e por isso passa pelo mesmo
+   * toque de recolher: o Congonhas–Santos Dumont das duas da manhã não existe,
+   * nem cheio nem vazio.
+   */
+  const vazio = (de: string, para: string) =>
+    Math.round(blockHours(t, distanceBetween(de, para)) * 60)
+
+  const precisaVirDe = anterior.perna.to === from ? null : anterior.perna.to
+  const folgaAntes = adianteNaSemana(anterior.chegada, partida)
+  const pedeAntes = anterior.solo + (precisaVirDe ? vazio(precisaVirDe, from) + solo : 0)
+  if (folgaAntes < pedeAntes) {
     return {
       ok: false,
-      motivo: `${ac.reg} pousa em ${anterior.perna.to} ${hhmm(anterior.chegadaLocal)} e não tem os ${anterior.solo} min de solo antes desta partida.`,
+      motivo: precisaVirDe
+        ? `${ac.reg} pousa em ${precisaVirDe} ${hhmm(anterior.chegadaLocal)} e não dá tempo de fazer o trecho vazio até ${from}: são ${pedeAntes} min de solo e voo, e há ${folgaAntes}.`
+        : `${ac.reg} pousa em ${anterior.perna.to} ${hhmm(anterior.chegadaLocal)} e não tem os ${anterior.solo} min de solo antes desta partida.`,
     }
   }
-  if (adianteNaSemana(chegada, seguinte.partida) < solo) {
+  if (precisaVirDe) {
+    const v = cabeUmVazio(
+      t, precisaVirDe, from,
+      naSemana(anterior.chegada + anterior.solo),
+      naSemana(anterior.chegada + anterior.solo) +
+        (folgaAntes - anterior.solo - vazio(precisaVirDe, from) - solo),
+    )
+    if (!v.ok) return { ok: false, motivo: `${ac.reg} teria que vir vazia de ${precisaVirDe}, e ${v.motivo}` }
+  }
+
+  const precisaIrPara = seguinte.perna.from === to ? null : seguinte.perna.from
+  const folgaDepois = adianteNaSemana(chegada, seguinte.partida)
+  const pedeDepois = solo + (precisaIrPara ? vazio(to, precisaIrPara) + solo : 0)
+  if (folgaDepois < pedeDepois) {
     return {
       ok: false,
-      motivo: `${ac.reg} não tem ${solo} min de solo em ${to} antes de ${seguinte.perna.from}–${seguinte.perna.to}, ${DOW_CURTO[seguinte.perna.dow]} ${hhmm(seguinte.perna.saida)}.`,
+      motivo: precisaIrPara
+        ? `${ac.reg} pousaria em ${to} e não dá tempo do trecho vazio até ${precisaIrPara} antes de ${seguinte.perna.from}–${seguinte.perna.to}, ${DOW_CURTO[seguinte.perna.dow]} ${hhmm(seguinte.perna.saida)}: são ${pedeDepois} min de solo e voo, e há ${folgaDepois}.`
+        : `${ac.reg} não tem ${solo} min de solo em ${to} antes de ${seguinte.perna.from}–${seguinte.perna.to}, ${DOW_CURTO[seguinte.perna.dow]} ${hhmm(seguinte.perna.saida)}.`,
     }
+  }
+  if (precisaIrPara) {
+    const v = cabeUmVazio(
+      t, to, precisaIrPara,
+      naSemana(chegada + solo),
+      naSemana(chegada + solo) + (folgaDepois - solo - vazio(to, precisaIrPara) - solo),
+    )
+    if (!v.ok) return { ok: false, motivo: `${ac.reg} teria que seguir vazia de ${to} para ${precisaIrPara}, e ${v.motivo}` }
   }
   const rotulo = (p: PernaNoTempo) =>
     `${p.perna.from}–${p.perna.to}, ${DOW_CURTO[p.perna.dow]} ${hhmm(p.perna.saida)}`
@@ -371,6 +416,45 @@ export function aeronaveServe(s: GameState, ac: Aircraft, from: string, to: stri
 }
 
 /** Toque de recolher nas duas pontas da perna. */
+/**
+ * O mesmo toque de recolher, mas para um trecho vazio agendado em UTC.
+ *
+ * `curfewDaPerna` recebe a hora local da origem, que é o que a tela digita. O
+ * vazio não é digitado por ninguém: ele é deduzido da folga entre duas pernas,
+ * e nasce em minuto da semana em UTC. Converter aqui evita duas contas de fuso
+ * espalhadas pelo módulo.
+ */
+function cabeUmVazio(
+  t: AircraftType, from: string, to: string, cedo: number, tarde: number,
+): { ok: true; parte: number } | { ok: false; motivo: string } {
+  const bloco = Math.round(blockHours(t, distanceBetween(from, to)) * 60)
+  /**
+   * O vazio não tem hora marcada: ele cabe em qualquer momento da folga.
+   *
+   * A primeira versão o punha sempre no último instante possível, e isso o
+   * fazia bater no toque de recolher sem necessidade: o avião pousava em
+   * Congonhas às 07:55 de domingo e tinha a semana toda pela frente, mas o
+   * vazio era agendado para as 05:45 de segunda, dentro da janela fechada, e a
+   * escala inteira era recusada. Quem opera escolhe a hora; o que o jogo
+   * precisa responder é se **existe** hora, e é isso que a varredura faz — de
+   * quinze em quinze minutos, do momento em que a cauda fica livre até o
+   * último em que ela ainda chega a tempo.
+   */
+  for (let parte = cedo; parte <= tarde; parte += 15) {
+    const local = noDia(parte + fuso(from))
+    const chegadaLocal = local + bloco + (fuso(to) - fuso(from))
+    if (!noToqueDeRecolher(from, local) && !noToqueDeRecolher(to, chegadaLocal)) {
+      return { ok: true, parte }
+    }
+  }
+  const fechado = TOQUE_DE_RECOLHER[from] ? from : to
+  const [fecha, abre] = TOQUE_DE_RECOLHER[fechado] ?? [0, 0]
+  return {
+    ok: false,
+    motivo: `${fechado} não opera das ${String(fecha).padStart(2, '0')}h às ${String(abre).padStart(2, '0')}h — não sobra hora para esse trecho.`,
+  }
+}
+
 export function curfewDaPerna(
   s: GameState, aircraftId: string, from: string, to: string, saida: number,
 ): string | null {

@@ -9,10 +9,11 @@
 // A régua é a largura de rolagem contra a largura visível. Tabela larga dentro
 // da própria caixa de rolagem não conta: ali o dedo rola a tabela, não a
 // interface, que é o comportamento que se quer.
-import { browserPath, artifact } from './browser.mjs'
+import { browserPath, artifact, comRelogio } from './browser.mjs'
 import { chromium, devices } from 'playwright'
 
-const URL = process.env.URL ?? 'http://localhost:5173/'
+// o relógio do jogo anda devagar de propósito; os roteiros usam o acelerado
+const URL = comRelogio(process.env.URL ?? 'http://localhost:5173/')
 const browser = await chromium.launch({ executablePath: browserPath })
 const context = await browser.newContext({ ...devices['Pixel 7'] })
 const page = await context.newPage()

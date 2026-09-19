@@ -15,16 +15,16 @@ import { AIRCRAFT, AIRCRAFT_BY_ID } from '../src/game/data/aircraft'
 import { blockHours } from '../src/game/economy'
 import { distanceBetween } from '../src/game/geo'
 import {
-  assinarAcordo, assignAircraft, buyAircraft, newGame, openRoute, romperAcordo,
-  setAllFrequencies, setFrequency, unassignAircraft,
+  assinarAcordo, assignAircraft, buyAircraft, MINUTOS_REAIS_POR_HORA, MS_POR_DIA, newGame,
+  openRoute, romperAcordo, setAllFrequencies, setFrequency, unassignAircraft,
 } from '../src/game/engine'
 import {
   atratividadeHorario, conexoesNaBase, hhmm, MCT_ALFANDEGA, MCT_DOMESTICA,
   MCT_INTERNACIONAL, mct, voosColados,
 } from '../src/game/malha'
 import {
-  aeronavesPara, cabeNaEscala, DOW_CURTO, marcarVoo, noTempo, paradasDe, pernasDaRota, pernasDe,
-  posicionamentos, quebrasDe, remarcarVoo, removerVoo,
+  aeronavesPara, cabeNaEscala, curfewDaPerna, DOW_CURTO, marcarVoo, noTempo, paradasDe,
+  pernasDaRota, pernasDe, posicionamentos, quebrasDe, remarcarVoo, removerVoo,
 } from '../src/game/escala'
 
 let falhas = 0
@@ -384,6 +384,78 @@ console.log('\ntirar a cauda de uma rota\n')
   unassignAircraft(t, cauda, rRec.id)
   conferir(pernasDaRota(t, rRec).length === 0, 'os voos de GRU-REC saíram')
   conferir(pernasDe(t, cauda).length === 2, 'os de GRU-SSA ficaram', `${pernasDe(t, cauda).length}`)
+}
+
+console.log('\no relógio\n')
+/**
+ * Uma hora de jogo em dois minutos e meio de relógio, a 1× — o dia em uma
+ * hora. As outras velocidades são múltiplos disso, como sempre foram.
+ */
+{
+  conferir(MINUTOS_REAIS_POR_HORA === 2.5, 'uma hora de jogo custa 2,5 min reais a 1×',
+    `${MINUTOS_REAIS_POR_HORA} min`)
+  for (const [v, min] of [[1, 60], [4, 15], [12, 5], [40, 1.5]] as [number, number][]) {
+    const real = MS_POR_DIA / v / 60000
+    conferir(Math.abs(real - min) < 0.01, `a ${v}× o dia de jogo leva ${min} min`,
+      `${real.toFixed(2)} min`)
+  }
+}
+
+console.log('\ntoque de recolher: cada ponta no próprio relógio\n')
+/**
+ * Congonhas e Santos Dumont não operam das 23h às 6h — mas a regra é do
+ * **movimento naquele aeroporto**, não do voo inteiro. Um voo que sai às 04:30
+ * de um aeroporto aberto e pousa em Santos Dumont depois das 6 é legal; um que
+ * sai de Congonhas às 22:30 e chega de madrugada num aeroporto que opera de
+ * noite também. O que não existe é partir ou pousar dentro da janela fechada.
+ */
+{
+  const t = newGame({ name: 'Curfew', code: 'CF', hub: 'SDU', seed: 9 })
+  t.airline.cash = 5e9
+  openRoute(t, 'SDU', 'CGH')
+  openRoute(t, 'SDU', 'REC')
+  openRoute(t, 'REC', 'SDU')
+  buyAircraft(t, 'e195e2', false)
+  const cauda = t.airline.fleet[0].id
+  const casos: [string, string, number, boolean, string][] = [
+    ['SDU', 'CGH', 2 * 60, false, 'SDU 02:00 é dentro da janela fechada'],
+    ['SDU', 'CGH', 22 * 60 + 30, false, 'sai 22:30 de SDU mas pousaria 23:15 em CGH'],
+    ['SDU', 'REC', 22 * 60 + 30, true, 'sai 22:30 de SDU e pousa de madrugada em Recife, que opera'],
+    ['REC', 'SDU', 4 * 60 + 30, true, 'sai 04:30 de Recife e pousa em SDU depois das 6'],
+    ['REC', 'SDU', 2 * 60, false, 'sai 02:00 de Recife e pousaria em SDU às 04:30'],
+  ]
+  for (const [de, para, hora, deveDeixar, oque] of casos) {
+    const r = curfewDaPerna(t, cauda, de, para, hora)
+    conferir(deveDeixar === (r === null), `${de}–${para} ${hhmm(hora)}: ${oque}`, r ?? '')
+  }
+}
+
+console.log('\no voo vazio também gasta tempo\n')
+/**
+ * O vazio continua permitido e continua cobrado — mas deixou de ser de graça
+ * no relógio. Um avião que pousa em Congonhas às 22:20 não amanhece em Santos
+ * Dumont de graça: o trecho vazio gasta solo nas duas pontas mais o voo, e
+ * passa pelo mesmo toque de recolher. É o que bloqueia o pernoite impossível.
+ */
+{
+  const t = newGame({ name: 'Vazio2', code: 'V2', hub: 'SDU', seed: 11 })
+  t.airline.cash = 5e9
+  openRoute(t, 'SDU', 'CGH')
+  buyAircraft(t, 'e195e2', false)
+  const cauda = t.airline.fleet[0].id
+  let feitos = 0
+  for (let d = 0; d < 7; d++) if (!marcarVoo(t, cauda, 'SDU', 'CGH', d, 7 * 60 + 10)) feitos++
+  conferir(feitos === 7, 'a ida de manhã nos sete dias cabe: o vazio de volta voa de dia',
+    `${feitos} de 7`)
+
+  const noite = cabeNaEscala(t, cauda, 'SDU', 'CGH', 2, 21 * 60 + 35)
+  conferir(!noite.ok, 'a ida das 21:35 não cabe: o vazio de volta cairia na janela fechada',
+    noite.motivo ?? '(aceitou)')
+  conferir(/CGH/.test(noite.motivo ?? '') && /23h/.test(noite.motivo ?? ''),
+    'e o motivo nomeia o aeroporto e a janela', noite.motivo ?? '')
+
+  const tarde = cabeNaEscala(t, cauda, 'SDU', 'CGH', 2, 19 * 60)
+  conferir(tarde.ok, 'a das 19:00 cabe: o vazio ainda sai antes das 23h')
 }
 
 console.log('\no vazio diz qual perna o obriga\n')

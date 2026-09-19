@@ -5,6 +5,7 @@ import type { FeatureCollection, Geometry as GeoGeometry } from 'geojson'
 import world from 'world-atlas/countries-110m.json'
 import { AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, type Airport } from '../game/data/airports'
 import { aircraftOf, dowOf, km, metros, num, typeOf } from '../game/engine'
+import { MS_POR_DIA_NA_TELA } from './relogio'
 import { blocoDe, DIA, DOW_CURTO, escalaDe, hhmm, rotaDoPar } from '../game/escala'
 import { distanceBetween, interpolate } from '../game/geo'
 import type { Aircraft, GameState, Perna, Route } from '../game/types'
@@ -145,8 +146,19 @@ export function MapView({
     let raf = 0
     let last = performance.now()
     const loop = (now: number) => {
-      if (now - last > 55) {
-        setT((v) => (v + 0.0016) % 1)
+      /**
+       * O relógio do mapa anda na mesma escala do jogo.
+       *
+       * Ele andava 0,0016 de dia a cada 55 ms — um dia inteiro em trinta e
+       * quatro segundos, a 1× e a 40× igual. O avião desenhado nunca esteve
+       * onde a simulação dizia que ele estava, e a legenda mostrava uma hora
+       * que não era a de ninguém. Agora o passo é o tempo que passou dividido
+       * pelo que um dia custa nesta velocidade (`MS_POR_DIA_NA_TELA`, que é
+       * a **mesma** escala da batida do dia — ver `src/ui/relogio.ts`).
+       */
+      const dt = now - last
+      if (dt > 55) {
+        setT((v) => (v + (dt * state.speed) / MS_POR_DIA_NA_TELA) % 1)
         last = now
       }
       raf = requestAnimationFrame(loop)
