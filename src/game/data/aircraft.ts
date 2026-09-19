@@ -264,7 +264,11 @@ export const AIRCRAFT: AircraftType[] = [
   A('crj1000', 'CRJ1000', 'Bombardier', 'regional', 104, 4, 1650, 447, 1050, 50, 6300, 0.97, 0.9, 27, 2010,
     ['cf348c5a1'],
     S(39.13, 2.69, 7.47, 26.17, 'low', 'ttail', 2, 'rear', false, 'single', 'fence')),
-  A('e170', 'E170', 'Embraer', 'regional', 80, 4, 2150, 447, 880, 41, 5000, 0.9, 0.98, 22, 2004,
+  // 78, e nao 80: e o que a tabela de especificacao da familia E-Jet publica
+  // como "Maximum seats". Achado pelo `npm run assentos`, que confere o
+  // catalogo inteiro contra o publicado — os outros quatorze modelos com
+  // limite publicado conferem.
+  A('e170', 'E170', 'Embraer', 'regional', 78, 4, 2150, 447, 880, 41, 5000, 0.9, 0.98, 22, 2004,
     ['cf348e5'],
     S(29.9, 3.01, 9.85, 26.0, 'low', 'conv', 2, 'wing', false, 'single', 'fence')),
   A('e175', 'E175', 'Embraer', 'regional', 88, 4, 2200, 447, 970, 50, 4900, 0.92, 0.99, 25, 2005,

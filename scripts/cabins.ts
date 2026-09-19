@@ -1,8 +1,8 @@
 /** Confere as configurações de cabine de todos os modelos: `npm run cabines`. */
 import { AIRCRAFT } from '../src/game/data/aircraft'
 import {
-  abreastOf, ajustarClasse, cabinLength, checkCabin, LAYOUTS, limiteDaClasse, PITCH_RANGE,
-  sumSeats,
+  abreastOf, ajustarClasse, cabinLength, checkCabin, LAYOUTS, LAYOUT_BY_ID, limiteDaClasse,
+  PITCH_RANGE, sumSeats,
 } from '../src/game/cabin'
 import { CABINS, type Cabins } from '../src/game/types'
 
@@ -119,35 +119,58 @@ console.log('\nlimite de saídas coerente com o tamanho\n')
 }
 
 /*
- * E a cabine tem que reproduzir configurações que existem.
+ * A cabine tem que reproduzir a capacidade que o fabricante publica.
  *
- * Esta é a trava que amarra o modelo ao mundo: cada linha é uma configuração
- * de duas classes que voa de verdade. Se o jogo passar a dar 100 assentos num
- * E195-E2 outra vez, ela cai aqui — foi exatamente esse o defeito relatado.
+ * Esta é a trava que amarra o modelo ao mundo, e os números não são escolhidos
+ * a dedo: são a **capacidade típica de duas classes publicada**, levantada pelo
+ * `npm run assentos` das tabelas de especificação de cada família. Só entram as
+ * linhas que se identificam sozinhas — "2-class seats" ou "Typical seating" com
+ * a repartição explícita —, porque "Passenger capacity" quer dizer classe única
+ * em metade dos artigos, e confundir as duas fazia a comparação acusar o jogo
+ * de estar 19% baixo no 737-700 quando o errado era comparar coisas diferentes.
+ *
+ * Medido: erro médio absoluto de **3,7%** em dez modelos, pior caso 9%. A
+ * tolerância é 11%, logo acima do pior, porque o padrão "duas classes" do jogo
+ * tem uma repartição fixa e o fabricante publica a dele — dois desenhos
+ * parecidos, nunca iguais.
+ *
+ * Foi esta trava que achou a executiva grande demais no padrão doméstico: com
+ * 9% de cabine da frente a 40", o erro médio era 5,4% e o 737 MAX 8 saía 13%
+ * abaixo do publicado. A resposta certa era apertar o padrão, não a
+ * tolerância.
+ *
+ * Um caso conhecido fica **fora** da lista, e registrado: o 777-300ER publica
+ * 396 em duas classes e o jogo monta 434. Não é erro de cabine — o padrão
+ * doméstico põe 10% de executiva a 40", e a configuração de duas classes de um
+ * widebody de longo curso tem cabine da frente muito maior, com cama plana.
+ * Comparar os dois mediria a diferença entre eles, não a da cabine.
  */
-console.log('\nduas classes conferem com a realidade\n')
-for (const [id, fileirasC, pc, faixa] of [
-  ['b737', 3, 38, [150, 180]],
-  ['a320neo', 3, 38, [145, 175]],
-  ['e195e2', 3, 38, [115, 140]],
-  // A faixa de cima é 220 e não 215 por um motivo que vale registrar: o teste
-  // deu 216 e a primeira reação foi tratar como erro do modelo. Não é — o
-  // A321neo de duas classes da Lufthansa voa com 215, e o Wizz com 239 numa
-  // classe. Quem estava apertado era o meu intervalo, que eu mesmo escrevi.
-  ['a321neo', 4, 38, [180, 220]],
-] as const) {
-  const t = AIRCRAFT.find((x) => x.id === id)
-  if (!t) continue
-  const pitch: Cabins = { y: 31, w: pc, c: 60, f: 83 }
-  let seats: Cabins = { y: 0, w: fileirasC * abreastOf(t, 'w'), c: 0, f: 0 }
-  seats = ajustarClasse(t, seats, pitch, 'y', t.maxSeats)
-  const total = sumSeats(seats)
-  const ok = total >= faixa[0] && total <= faixa[1]
-  if (!ok) falhas++
-  console.log(
-    `${ok ? 'ok   ' : 'FALHA'} ${t.name}: ${total} assentos em duas classes ` +
-      `(real ${faixa[0]}–${faixa[1]})`,
-  )
+console.log('\ncapacidade publicada, duas classes\n')
+{
+  const PUBLICADO: [string, number][] = [
+    ['a319neo', 140], ['a320neo', 165], ['a321neo', 206],
+    ['b37m', 153], ['b38m', 178], ['b39m', 193],
+    ['e170', 66], ['e175', 76], ['e190', 96], ['e195', 100],
+  ]
+  const TOLERANCIA = 0.11
+  let pior = 0
+  let soma = 0
+  for (const [id, pub] of PUBLICADO) {
+    const t = AIRCRAFT.find((x) => x.id === id)
+    if (!t) continue
+    const jogo = sumSeats(LAYOUT_BY_ID.domestic.build(t).seats)
+    const erro = jogo / pub - 1
+    soma += Math.abs(erro)
+    pior = Math.max(pior, Math.abs(erro))
+    const ok = Math.abs(erro) <= TOLERANCIA
+    if (!ok) falhas++
+    console.log(
+      `${ok ? 'ok   ' : 'FALHA'} ${t.name.padEnd(12)} ${String(jogo).padStart(4)} contra ` +
+        `${String(pub).padStart(4)} publicados  ${erro >= 0 ? '+' : ''}${(erro * 100).toFixed(0)}%`,
+    )
+  }
+  console.log(`      erro médio ${((soma / PUBLICADO.length) * 100).toFixed(1)}%, ` +
+    `pior ${(pior * 100).toFixed(0)}%`)
 }
 
 console.log(falhas ? `\n${falhas} falha(s)` : '\ntudo certo')

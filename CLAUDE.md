@@ -43,7 +43,8 @@ regra mais importante do repositório.
 | `npm run build` | `tsc -b` + build estático em `dist/` |
 | `npm run sim -- GRU 2920` | joga sozinho 8 anos a partir de um hub e imprime a evolução financeira |
 | `npm run nose -- b737 a321neo` | render da silhueta para conferir o desenho (`FULL=1` para o avião inteiro) |
-| `npm run cabines` | confere as configurações de cabine |
+| `npm run cabines` | confere as configurações de cabine, e mede o jogo contra a capacidade publicada |
+| `npm run assentos` | levanta a capacidade publicada de cada aeronave na Wikipédia e confere contra o catálogo; **não grava nada** |
 | `npm run escopo` | confere o escopo dos aeroportos contra os casos reais conhecidos |
 | `npm run malha` | confere a escala por perna: posição da aeronave, horário, conexões e os três tempos mínimos |
 | `npm run movimento` | relevanta o movimento de passageiros (Wikidata + listas) e grava direto no `movimento.ts` |
