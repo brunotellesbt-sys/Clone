@@ -1,11 +1,12 @@
 import { SeatMapEditor } from './SeatMapEditor'
+import { useCabine } from './useCabine'
 import { SOURCE_2D } from '../livery/aircraft2d'
 import { seatChangeCost } from '../game/seatModels'
 import { useState } from 'react'
 import { AIRCRAFT_BY_ID, acLabel, ehCargueiro } from '../game/data/aircraft'
 import { ENGINES, engineLabel } from '../game/data/engines'
 import {
-  abreastOf, ajustarClasse, cabinLength, checkCabin, clampPitch, crewFor, LAYOUTS,
+  abreastOf, cabinLength, checkCabin, crewFor, LAYOUTS,
   limiteDaClasse, passoMaximo, PITCH_RANGE, pitchFare, pitchName, rowLayout, rowsOf, sumSeats,
 } from '../game/cabin'
 import { CLASS_FARE_MULT } from '../game/demand'
@@ -15,7 +16,7 @@ import {
   sellAircraft, setCabin, typeOf, unassignAircraft,
 } from '../game/engine'
 import { useGame } from '../store/useGame'
-import { CABIN_LABEL, CABINS, type Aircraft, type Cabins, type SeatConfig } from '../game/types'
+import { CABIN_LABEL, CABINS, type Aircraft } from '../game/types'
 import { AircraftArt } from '../livery/AircraftArt'
 import { Bar, Card, Empty, Modal } from './components/Bits'
 import { Grade } from './components/Grade'
@@ -34,7 +35,7 @@ export function FleetView() {
         {fleet.length === 0 ? (
           <Empty>Nenhuma aeronave. Compre ou arrende no mercado.</Empty>
         ) : (
-          <div className="scroll" style={{ maxHeight: 560 }}>
+          <div className="scroll alta">
             <table>
               <thead>
                 <tr>
@@ -193,51 +194,14 @@ export function FleetView() {
 function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
   const { state, act, toast } = useGame()
   const t = AIRCRAFT_BY_ID[ac.typeId]
-  const [seats, setSeats] = useState<Cabins>({ ...ac.seats })
-  const [pitch, setPitch] = useState<Cabins>(clampPitch(ac.pitch))
-  const [seatConfig, setSeatConfig] = useState<SeatConfig>(ac.seatConfig ?? {})
+  const { seats, pitch, seatConfig, aplicar, setAssentos, setPasso, carregar } =
+    useCabine(t, { seats: ac.seats, pitch: ac.pitch, seatConfig: ac.seatConfig ?? {} })
   const [nome, setNome] = useState('')
 
   const chk = checkCabin(t, seats, pitch, seatConfig)
   const total = sumSeats(seats)
   const inches = cabinLength(t)
   const salvas = cabinesDoModelo(state, ac.typeId)
-
-  /**
-   * Toda mudança passa por aqui, e por isso a trava não tem por onde vazar.
-   *
-   * Mexer numa classe muda o teto das outras três — subir a executiva reduz o
-   * que a econômica comporta —, então depois de cada mexida as demais são
-   * aparadas ao novo teto. Sem isso daria para encher a econômica, encher a
-   * executiva por cima e acabar estourado sem nenhum controle ter passado do
-   * próprio limite.
-   */
-  const aplicar = (next: { seats: Cabins; pitch: Cabins; config?: SeatConfig }, mexida?: keyof Cabins) => {
-    const cfg = next.config ?? seatConfig
-    const s2 = { ...next.seats }
-    const p2 = { ...next.pitch }
-    for (const c of CABINS) {
-      if (c === mexida) continue
-      s2[c] = Math.min(s2[c], limiteDaClasse(t, s2, p2, c, cfg))
-      p2[c] = Math.min(p2[c], passoMaximo(t, s2, p2, c, cfg))
-    }
-    setSeats(s2)
-    setPitch(p2)
-    if (next.config) setSeatConfig(next.config)
-  }
-
-  const setAssentos = (c: keyof Cabins, v: number) => {
-    aplicar({ seats: ajustarClasse(t, seats, pitch, c, v, seatConfig), pitch }, c)
-  }
-  const setPasso = (c: keyof Cabins, v: number) => {
-    const teto = passoMaximo(t, seats, pitch, c, seatConfig)
-    aplicar({ seats, pitch: { ...pitch, [c]: Math.max(PITCH_RANGE[c][0], Math.min(teto, Math.round(v))) } }, c)
-  }
-  const carregar = (b: { seats: Cabins; pitch: Cabins; seatConfig?: SeatConfig }) => {
-    setSeatConfig(b.seatConfig ?? {})
-    setSeats({ ...b.seats })
-    setPitch(clampPitch(b.pitch))
-  }
 
   // Quanto a configuração rende, em "assentos econômicos padrão".
   const units = CABINS.reduce((sum, c) => sum + seats[c] * CLASS_FARE_MULT[c] * pitchFare(c, pitch[c]), 0)

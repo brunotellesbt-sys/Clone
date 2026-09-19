@@ -106,6 +106,37 @@ async function vazamentos() {
   })
 }
 
+/**
+ * Lista comprida demais para o celular.
+ *
+ * A outra metade do pedido: no celular a tela só rola para baixo, e uma lista
+ * de quinze linhas come essa rolagem inteira antes de chegar no que vem
+ * depois. A régua é quatro linhas de conteúdo mais o cabeçalho — quem passa
+ * disso devolve o quanto passou, em linhas, para não ficar adivinhando qual
+ * caixa é.
+ */
+async function listasCompridas() {
+  return page.evaluate(() => {
+    const out = []
+    for (const el of document.querySelectorAll('.scroll, .lista-curta, .a2-layer-grid, .a2-seatmap')) {
+      const h = el.clientHeight
+      if (h === 0) continue
+      const linha = el.querySelector('tbody tr, .btn')?.getBoundingClientRect().height ?? 33
+      // fila de botão quebra em linhas com espaço entre elas; a conta de quatro
+      // linhas é quatro botões mais os três vãos, senão o vão vira meia linha
+      const vao = parseFloat(getComputedStyle(el).rowGap) || 0
+      const teto = el.matches('.a2-layer-grid, .a2-seatmap')
+        ? innerHeight * 0.55
+        : (el.querySelector('thead') ? 28 : 0) + 4 * linha + 3 * vao + 6
+      if (h > teto + 2) {
+        out.push({ cls: el.className, h: Math.round(h), teto: Math.round(teto),
+          linhas: +((h + vao) / (linha + vao)).toFixed(1) })
+      }
+    }
+    return out
+  })
+}
+
 async function medir(nome) {
   await page.waitForTimeout(450)
   const largura = await page.evaluate(() => {
@@ -127,6 +158,9 @@ async function medir(nome) {
     folga > 1 ? `rola ${folga}px para o lado` : vaza.length ? `${vaza.length} elemento(s) fora` : '',
   )
   for (const v of vaza) console.log(`       ↳ +${v.passa}px  ${v.tag}.${v.cls}  "${v.txt}"`)
+  const longas = await listasCompridas()
+  conferir(longas.length === 0, `${nome}: nenhuma lista passa de quatro linhas`,
+    longas.map((l) => `${l.cls} ${l.h}px (~${l.linhas} linhas)`).join(' | '))
   return folga
 }
 
