@@ -3,10 +3,10 @@
  *
  * O relato foi direto: Rio–Campos dos Goytacazes dava resultado negativo com
  * qualquer aeronave do catálogo. Dava mesmo, e não por falta de passageiro —
- * 70 por dia num par de 126 km não é pouco para um turboélice. Dois números
+ * 70 por dia num par de 126 nm (233 km) não é pouco para um turboélice. Dois
  * matavam a rota antes de ela existir: um handling de 700 fixos por decolagem,
  * que cobrava de um ATR de 48 lugares quase o que cobra de um 777, e uma
- * tarifa de referência com só 34 de parte fixa, que num bilhete de 126 km
+ * tarifa de referência com só 34 de parte fixa, que num bilhete de 126 nm
  * dava menos da metade do que o assento custava para voar.
  *
  * Isso é medível, e sem medida volta. A régua aqui é modesta de propósito:
@@ -48,7 +48,7 @@ function melhorRota(from: string, to: string) {
 
 // ------------------------------------------------------- o par do relato
 //
-// Campos dos Goytacazes: 97.382 passageiros no ano publicado (2017), 126 km de
+// Campos dos Goytacazes: 97.382 passageiros no ano publicado (2017), 126 nm de
 // Santos Dumont. É o menor par que ainda é rota de linha de verdade no Brasil,
 // e é o piso que o jogo tem que sustentar.
 //
@@ -60,6 +60,25 @@ for (const [from, to] of [['SDU', 'CAW'], ['GRU', 'CAW'], ['SDU', 'MEA'], ['GRU'
   const d = baseDemand(from, to, 0, 180)
   conferir(m.profit > 0, `${from}–${to} fecha no azul com alguma aeronave`,
     `${m.id || 'nenhuma'} ${m.freq}×/dia · ${num(m.profit)}/dia · mercado ${num(d.total)} pax/dia`)
+}
+
+// ------------------------------------------------------------- a unidade
+//
+// `distanceBetween` devolve **milha náutica**, e a simulação inteira trabalha
+// assim — a tela converte para quilômetro só na hora de mostrar. Isto está
+// medido aqui porque já custou caro em prosa: comentários e mensagens de PR
+// descreveram como "km" números que eram nm, errando por um fator de 1,85 sem
+// que nada no código estivesse errado. Duas distâncias conhecidas resolvem.
+{
+  const pares: [string, string, number][] = [
+    ['GRU', 'REC', 1134], // Guarulhos–Recife, 2.100 km
+    ['SDU', 'CGH', 197],  // Santos Dumont–Congonhas, 365 km
+  ]
+  for (const [a, b, nm] of pares) {
+    const d = distanceBetween(a, b)
+    conferir(Math.abs(d - nm) < 2, `${a}–${b} mede ${nm} nm, não ${nm} km`,
+      `${num(d)} nm = ${num(d * 1.852)} km`)
+  }
 }
 
 // ------------------------------------------------------------------- o piso

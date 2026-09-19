@@ -258,8 +258,18 @@ function Porte({ lista, carga, de, para }: {
       {/* O rótulo é o **modelo**, não o número de lugares: "até 853 lug" é uma
           medida, e quem planeja frota pensa em "até A380". A medida fica no
           menu, ao lado de cada modelo. */}
-      <summary title={`Até ${acLabel(teto)} — ${medida(teto)}`}>
+      {/* Quem limita aparece no próprio rótulo quando é a **base**, que é o
+          caso que confunde: ver "A320neo" ao lado de Cabo Frio faz parecer que
+          o teto é de Cabo Frio, quando os 2.550 m de lá recebem A330 e quem
+          tem 4.341 ft é Santos Dumont. O menu já explicava; o rótulo, não, e é
+          o rótulo que se lê sem clicar.
+
+          No celular ele some: a coluna do destino tem 140px de folga medidos
+          pelo `npm run destinos`, e a sigla extra comia 32 deles. Lá o menu
+          continua sendo o caminho, e ele cabe. */}
+      <summary title={`Até ${acLabel(teto)} — ${medida(teto)} · quem limita é ${gargalo.iata}`}>
         <span aria-hidden>✈</span> {teto.name}
+        {gargalo.iata === de && <span className="muted so-largo"> · {de}</span>}
       </summary>
       {onde && (
         <div className="porte-menu" style={{ top: onde.top, right: onde.right }}>
@@ -283,18 +293,24 @@ function Porte({ lista, carga, de, para }: {
 }
 
 /**
- * Etapa mais curta que a lista oferece, em quilômetros.
+ * Etapa mais curta que a lista oferece, em **milhas náuticas**.
  *
- * Eram 110, e 110 escondia aeroporto que existe: Santos Dumont–Macaé são 84 km
- * e foi rota de linha de verdade por causa do petróleo, porque a estrada leva
- * três horas. Cabo Frio, a 60, sumia pelo mesmo motivo. O jogador procurava
+ * A unidade é a da simulação inteira — `distanceBetween` devolve nm, e a tela
+ * converte para quilômetro só na hora de mostrar. Um comentário anterior aqui
+ * dizia "quilômetros" no mesmo número, e a prosa mentia por um fator de 1,85.
+ *
+ * Eram 110, e 110 escondia aeroporto que existe: Santos Dumont–Macaé são 84 nm
+ * (156 km) e foi rota de linha de verdade por causa do petróleo, porque a
+ * estrada leva três horas. Cabo Frio, a 60 nm (112 km), sumia pelo mesmo
+ * motivo. O jogador procurava
  * pelo nome e não achava nada — o aeroporto estava no catálogo, a lista é que
  * não mostrava.
  *
  * Quem decide se o par vale a pena é a demanda, que já cobra caro por etapa
- * colada (15% até 60 km, subindo até os 120). Aqui só ficam de fora os pares
- * que são a mesma cidade — Galeão e Santos Dumont a 8 km, Guarulhos e
- * Congonhas a 25, Heathrow e Gatwick a 40 —, que é o que estes 45 km cortam.
+ * colada (15% até 60 nm, subindo até as 120). Aqui só ficam de fora os pares
+ * que são a mesma cidade — Galeão e Santos Dumont a 8 nm, Guarulhos e
+ * Congonhas a 13, Heathrow e Gatwick a 21 —, que é o que estas 45 nm (83 km)
+ * cortam.
  */
 const ETAPA_MINIMA = 45
 

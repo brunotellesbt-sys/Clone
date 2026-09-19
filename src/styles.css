@@ -552,6 +552,10 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
      a célula pode ser larga — o que não pode é ser alta */
   th, td { padding: 6px 7px; white-space: nowrap; }
 
+  /* Detalhe que só cabe na tela grande. Ver o rótulo de porte em RoutesView:
+     no celular a largura dele sai da coluna do destino. */
+  .so-largo { display: none; }
+
   .map-legend { font-size: 10px; gap: 8px; padding: 5px 9px; left: 8px; bottom: 8px; }
   .grade-corpo { min-width: 420px; }
 

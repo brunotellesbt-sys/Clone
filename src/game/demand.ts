@@ -186,7 +186,7 @@ export function pisoDoPar(a: Airport, b: Airport) {
 export function baseDemand(from: string, to: string, day: number, dayOfYear: number): MarketDemand {
   const a = AIRPORT_BY_IATA[from]
   const b = AIRPORT_BY_IATA[to]
-  const dist = distanceBetween(from, to)
+  const distNm = distanceBetween(from, to)
   /**
    * A massa do par é o movimento dos **aeroportos**, não a população das
    * cidades. Era `sqrt(a.pop * b.pop)`, e por isso Guarulhos, Congonhas e
@@ -208,7 +208,7 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
   const afinidade = afinidadeDeAeroporto(a, b)
   const sameRegion = Math.abs(a.lon - b.lon) < 45 && Math.abs(a.lat - b.lat) < 35 ? 1.12 : 1
   const hubBonus = 1 + 0.05 * (a.tier + b.tier - 4)
-  const decay = 1 / (1 + Math.pow(dist / 700, 1.35))
+  const decay = 1 / (1 + Math.pow(distNm / 700, 1.35))
   const season = (seasonFactor(dayOfYear, a.lat) + seasonFactor(dayOfYear, b.lat)) / 2
   const noise = 0.82 + 0.36 * hashStr(odKey(from, to))
   /**
@@ -243,17 +243,22 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
   /**
    * Par colado não sustenta voo — mas o corte era um degrau.
    *
-   * Era `dist < 120 → ×0,15`: a 119 km o mercado valia 15% e a 121 km valia
-   * 100%, um salto de sete vezes em dois quilômetros. Quem pagava era o par
-   * que cai perto da linha — Rio–Cabo Frio, a 66 km, levava o mesmo corte de
-   * um par colado de verdade, e nada entre 60 e 120 km existia no jogo.
+   * Era `distNm < 120 → ×0,15`: a 119 o mercado valia 15% e a 121 valia 100%,
+   * um salto de sete vezes em duas milhas. Quem pagava era o par que cai perto
+   * da linha, e nada entre 60 e 120 existia no jogo.
    *
-   * Agora é rampa: até 60 km continua valendo 15% (ninguém voa o que se faz de
-   * carro em uma hora) e sobe até valer inteiro nos 120 km, onde o corte
-   * acabava de qualquer jeito. Acima de 120 km nada muda.
+   * Agora é rampa: até 60 nm (111 km) continua valendo 15% — ninguém voa o que
+   * se faz de carro em uma hora — e sobe até valer inteiro nas 120 nm (222 km),
+   * onde o corte acabava de qualquer jeito. Acima disso nada muda.
+   *
+   * **A unidade é milha náutica**, como em todo o resto da simulação:
+   * `distanceBetween` devolve nm, e a tela converte para quilômetro na hora de
+   * mostrar. Uma versão anterior deste comentário dizia "km" nos mesmos
+   * números, o que fazia a prosa mentir por um fator de 1,85 — o código estava
+   * certo e o texto, não.
    */
-  const colado = Math.min(1, Math.max(0, (dist - 60) / 60))
-  if (dist < 120) total *= 0.15 + 0.85 * colado
+  const colado = Math.min(1, Math.max(0, (distNm - 60) / 60))
+  if (distNm < 120) total *= 0.15 + 0.85 * colado
   /**
    * A ponta menor é o gargalo: o par não pode passar do que ela move no dia.
    *
@@ -267,9 +272,9 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
   total = Math.max(0, satura(total, TETO_PAR * Math.min(a.paxDia * derivaA, b.paxDia * derivaB)))
 
   // Mistura de classes: renda e distância empurram para a frente do avião.
-  const premium = Math.min(0.34, 0.03 + 0.13 * Math.max(0, gdp - 0.55) + 0.075 * Math.min(dist / 4200, 1))
-  const fShare = dist > 2600 && gdp > 0.95 ? premium * 0.11 : 0
-  const cShare = premium * (dist > 1500 ? 0.6 : 0.5)
+  const premium = Math.min(0.34, 0.03 + 0.13 * Math.max(0, gdp - 0.55) + 0.075 * Math.min(distNm / 4200, 1))
+  const fShare = distNm > 2600 && gdp > 0.95 ? premium * 0.11 : 0
+  const cShare = premium * (distNm > 1500 ? 0.6 : 0.5)
   const wShare = premium - cShare - fShare
   const pax: Cabins = {
     y: total * (1 - premium),
@@ -312,17 +317,17 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
    *
    * A parte fixa é o que a etapa curta tem de caro e não depende da distância
    * — check-in, embarque, taxa de aeroporto, o ciclo de decolagem e pouso. Ela
-   * era 34, e com isso um bilhete de 126 km saía por 46 dólares enquanto o voo
-   * custava o dobro disso por assento: **toda** rota regional curta nascia no
-   * vermelho, por mais gente que houvesse para voar. Quem cobre um pouso e uma
-   * decolagem é o bilhete, e o bilhete curto é caro por quilômetro — é assim
-   * na tabela de qualquer companhia.
+   * era 34, e com isso um bilhete de 126 nm (233 km) saía por 46 dólares
+   * enquanto o voo custava o dobro disso por assento: **toda** rota regional
+   * curta nascia no vermelho, por mais gente que houvesse para voar. Quem cobre
+   * um pouso e uma decolagem é o bilhete, e o bilhete curto é caro por milha —
+   * é assim na tabela de qualquer companhia.
    *
    * Os 44 mexem quase só no curto, por construção: são 21% a mais num bilhete
-   * de 126 km, 7% num de 1.100 km e 1% num de doze mil.
+   * de 126 nm, 7% num de 1.100 nm (2.037 km) e 1% num de seis mil.
    */
-  const refFare = (44 + 0.088 * dist) * (0.68 + 0.5 * gdp)
-  return { pax, total, refFare, distance: dist }
+  const refFare = (44 + 0.088 * distNm) * (0.68 + 0.5 * gdp)
+  return { pax, total, refFare, distance: distNm }
 }
 
 export interface CargoDemand {

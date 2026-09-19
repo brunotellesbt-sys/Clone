@@ -17,6 +17,10 @@ const ESPERADO: [string, Escopo, string][] = [
   ['SDU', 'dom', 'Santos Dumont não opera com aeroporto internacional'],
   ['AEP', 'reg', 'Aeroparque: cabotagem mais regional'],
   ['IGU', 'reg', 'Foz do Iguaçu: internacional de fronteira'],
+  // O nome da OurAirports é "Cabo Frio Airport", sem a palavra que o escopo
+  // procura — e por isso ele saía doméstico. É Internacional de Cabo Frio,
+  // com alfândega, linha da Aerolíneas de Buenos Aires e 747 já recebido.
+  ['CFB', 'int', 'Cabo Frio: internacional que o nome público não declara'],
   ['LCY', 'reg', 'London City: pista curta, alfândega de curto curso'],
   ['GRU', 'int', 'Guarulhos'],
   ['GIG', 'int', 'Galeão'],

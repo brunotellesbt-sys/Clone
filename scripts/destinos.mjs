@@ -111,7 +111,8 @@ await page.screenshot({ path: artifact('destinos-2-plu.png'), fullPage: true })
 // ------------------------------------------- o vizinho curto aparece na lista
 //
 // A lista escondia qualquer destino a menos de 110 km da base, e com isso
-// escondia aeroporto que existe: do Galeão, Macaé são 87 km e Cabo Frio 66. O
+// escondia aeroporto que existe: do Galeão, Macaé são 87 nm (161 km) e Cabo
+// Frio 66 nm (122 km) — a simulação mede em milha náutica, e a tela converte. O
 // jogador procurava pelo nome e não achava nada — o aeroporto estava no
 // catálogo, a lista é que não mostrava. Quem decide se o par vale a pena é a
 // demanda, não o filtro.

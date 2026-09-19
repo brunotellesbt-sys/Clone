@@ -425,6 +425,7 @@ export const AIRPORT_NAMES: Record<string, string> = {
   CAH: 'Cà Mau Airport',
   CAK: 'Akron Canton Regional Airport',
   CAT: 'Cascais Airport',
+  CFB: 'Aeroporto Internacional de Cabo Frio',
   CAW: 'Bartolomeu Lisandro Airport',
   MEA: 'Joaquim de Azevedo Mancebo Airport',
   CAY: 'Cayenne – Félix Eboué Airport',

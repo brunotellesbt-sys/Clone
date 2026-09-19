@@ -3385,6 +3385,17 @@ const ESCOPO_A_MAO: Record<string, Escopo> = {
   LCY: 'reg', // London City
   TSA: 'reg', // Taipei Songshan: Tóquio, Seul e Xangai, e nada além
   HND: 'int', // Haneda voltou ao longo curso em 2010
+  /*
+   * Cabo Frio: internacional de verdade, e o dado público não sabia.
+   *
+   * Ele saía doméstico porque o escopo se apoia na palavra "internacional" no
+   * nome, e o nome que a OurAirports traz é "Cabo Frio Airport" — sem ela. O
+   * aeroporto é o Internacional de Cabo Frio, tem alfândega, recebeu linha da
+   * Aerolíneas Argentinas de Buenos Aires e fretamento internacional de
+   * temporada, e a pista de 2.550 m já recebeu 747. Dois sinais que não
+   * enxergam o terceiro é o caso clássico de exceção à mão.
+   */
+  CFB: 'int',
   // Fronteira seca: internacional de verdade, mas só com o vizinho.
   IGU: 'reg', // Foz do Iguaçu
   TBT: 'reg', // Tabatinga, na tríplice fronteira com Colômbia e Peru
