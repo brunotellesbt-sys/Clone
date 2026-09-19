@@ -581,6 +581,21 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
   .a2-layer-grid, .a2-seatmap { max-height: 52vh; }
 }
 
+/* ------------------------------------------------------- dias da semana */
+
+/* O rótulo "Dias" é um `div`, não um `label`: ele manda em sete botões, e um
+   `label` com sete controles não aponta para nenhum. Repete o estilo de
+   `label.field span` para a coluna ficar alinhada com "Parte às" ao lado. */
+.campo-dias > span {
+  display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--ink-3); margin-bottom: 5px; font-weight: 650;
+}
+.separador-dias { width: 10px; }
+.dias-semana .btn.atalho-dias {
+  border-style: dashed; color: var(--ink-3); background: transparent;
+}
+.dias-semana .btn.atalho-dias:hover { color: var(--ink-1); }
+
 /* ------------------------------------------------------ montagem da cabine */
 
 /* Configuração guardada: o botão que aplica e o × que apaga, colados. */
