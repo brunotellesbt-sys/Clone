@@ -576,9 +576,16 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
   .so-largo { display: none; }
 
   .map-legend { font-size: 10px; gap: 8px; padding: 5px 9px; left: 8px; bottom: 8px; }
-  /* Sete colunas de 74px mais a régua de hora. Ela rola de lado dentro da
-     caixa; o que não pode é a coluna encolher até a sigla não caber. */
-  .grade-corpo { min-width: 570px; }
+  /* A semana inteira na tela, sem rolar de lado: ver `ehCelular` em Grade.tsx.
+     A régua encolhe para duas casas ("06"), o dia vira uma letra e o bloco
+     mostra só a hora — o destino sai para o editor que abre no toque. */
+  .grade-corpo.apertada { min-width: 0; gap: 2px; padding: 4px; }
+  .grade-corpo.apertada .grade-horas { width: 22px; flex: 0 0 22px; }
+  .grade-corpo.apertada .grade-horas span { right: 3px; font-size: 9px; }
+  .grade-corpo.apertada .grade-dia { min-width: 0; }
+  .grade-corpo.apertada .grade-dia-nome { font-size: 9.5px; letter-spacing: 0; padding-bottom: 2px; }
+  .grade-corpo.apertada .grade-voo { font-size: 9.5px; padding: 0 1px; left: 1px; right: 1px; }
+  .grade-corpo.apertada .grade-hora { font-size: 9.5px; color: var(--ink); }
 
   /*
    * Lista longa no celular: quatro linhas, e o resto rola dentro dela.

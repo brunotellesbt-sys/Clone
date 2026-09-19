@@ -4,22 +4,17 @@ import {
   AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, vooPermitido, type Airport,
 } from '../game/data/airports'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from '../game/demand'
-import { sumCabins } from '../game/economy'
 import { distanceBetween, odKey } from '../game/geo'
 import { CAMBIO, moedaDoPais, tarifa } from '../game/money'
 import { aeroportoServe, pistaServe } from '../game/spec'
 import {
-  assignAircraft, closeRoute, dayOfYear, estimateRoute, km, money, num, openRoute, pct,
-  routeCapacityLimit, routeEconomics, routeSlotCost, setAllFrequencies, setFare, setFrequency,
-  slotsFree, typeOf, unassignAircraft,
+  closeRoute, dayOfYear, estimateRoute, km, money, num, openRoute, pct,
+  routeEconomics, routeSlotCost, setFare, slotsFree,
 } from '../game/engine'
-import { pernasDaRota, pernasDe } from '../game/escala'
 import { CABIN_LABEL, CABINS, type Route } from '../game/types'
 import { useGame } from '../store/useGame'
 import { Bar, Card, Empty, Modal, Spark } from './components/Bits'
 import { Horarios } from './components/Horarios'
-
-const DOW = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
 export function RoutesView() {
   const { state } = useGame()
@@ -78,12 +73,8 @@ export function RoutesView() {
 }
 
 function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }) {
-  const { state, act, toast } = useGame()
+  const { state, act } = useGame()
   const e = routeEconomics(state, route)
-  const limit = routeCapacityLimit(state, route)
-  // qualquer cauda serve: com a malha, "livre" deixou de existir — o que decide
-  // é a posição dela no horário, e disso cuida `assignAircraft`
-  const free = state.airline.fleet
   const hist = route.history.map((h) => h.profit)
   // A passagem é vendida onde a viagem começa: a rota é lida na moeda da origem.
   const moeda = moedaDoPais(AIRPORT_BY_IATA[route.from].cc)
@@ -107,79 +98,21 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
         </div>
       </Card>
 
-      <Card title="Quem voa esta rota">
-        {route.aircraftIds.length === 0 && <p className="bad" style={{ marginTop: 0 }}>Sem voo marcado: a rota não voa.</p>}
-        {route.aircraftIds.map((id) => {
-          const ac = state.airline.fleet.find((a) => a.id === id)
-          if (!ac) return null
-          const minhas = pernasDaRota(state, route).filter((p) => p.aircraftId === id).length
-          const total = pernasDe(state, id).length
-          return (
-            <div key={id} className="row" style={{ justifyContent: 'space-between', padding: '4px 0' }}>
-              <span>
-                {ac.reg} · {acLabel(typeOf(ac))}{' '}
-                <span className="muted">{ehCargueiro(typeOf(ac)) ? `${typeOf(ac).payload} t` : `${sumCabins(ac.seats)} assentos`}</span>
-                <br />
-                <span className="muted" style={{ fontSize: 12 }}>
-                  {minhas} de {total} voos da semana dela são nesta rota
-                </span>
-              </span>
-              <button className="btn sm" title="tira desta rota os voos desta cauda; os voos dela em outras rotas ficam"
-                onClick={() => act((s) => unassignAircraft(s, id, route.id))}>
-                Tirar
-              </button>
-            </div>
-          )
-        })}
-        <label className="field" style={{ marginTop: 8 }}>
-          <span>Dedicar uma cauda a esta rota</span>
-          <select
-            value=""
-            onChange={(ev) => {
-              const err = act((s) => assignAircraft(s, ev.target.value, route.id))
-              if (err) toast(err, 'error')
-            }}
-          >
-            <option value="">— escolher —</option>
-            {free.map((a) => (
-              <option key={a.id} value={a.id}>{a.reg} · {acLabel(typeOf(a))}</option>
-            ))}
-          </select>
-        </label>
-        <p className="muted" style={{ fontSize: 12, margin: 0 }}>
-          Dedicar monta ida e volta nos sete dias com essa cauda. Para a aeronave circular pela
-          malha — chegar aqui e seguir para outro destino — marque voo a voo abaixo. Slots livres:{' '}
-          {slotsFree(state, route.from)} em {route.from}, {slotsFree(state, route.to)} em {route.to}.
-        </p>
-      </Card>
-
-      <Card title="Frequência" right={
-        <div className="row tight">
-          <button className="btn sm" onClick={() => act((s) => setAllFrequencies(s, route.id, limit))}>Máximo</button>
-          <button className="btn sm" onClick={() => act((s) => setAllFrequencies(s, route.id, 1))}>1×</button>
-        </div>
-      }>
-        <div className="row tight" style={{ justifyContent: 'space-between' }}>
-          {route.freq.map((f, i) => (
-            <div key={i} style={{ textAlign: 'center', flex: 1 }}>
-              <div className="muted" style={{ fontSize: 11 }}>{DOW[i]}</div>
-              <input
-                type="number" min={0} max={Math.max(1, limit)} value={f}
-                style={{ textAlign: 'center', padding: '5px 2px' }}
-                onChange={(ev) => {
-                  const err = act((s) => setFrequency(s, route.id, i, +ev.target.value))
-                  if (err) toast(err, 'error')
-                }}
-              />
-            </div>
-          ))}
-        </div>
-        <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
-          O número é <b>resultado</b>, não ordem: o jogo procura cauda parada na base naquelas horas
-          e marca o que couber. Pedir cinco e receber três quer dizer que não havia avião livre — e é
-          a informação que faltava antes, quando a frequência era só um número na rota.
-        </p>
-      </Card>
+      {/*
+        * Duas telas saíram daqui: "Quem voa esta rota" e "Frequência".
+        *
+        * Elas eram o jeito antigo de operar, de quando a rota era dona da
+        * aeronave — dedicar uma cauda montava ida e volta nos sete dias, e a
+        * frequência pedia um número por dia e o jogo marcava o que coubesse.
+        * Desde que a escala passou a ser por perna, as duas viraram um segundo
+        * caminho para a mesma coisa, com outro vocabulário e nenhum controle
+        * de horário: o jogador pedia cinco, recebia três e não sabia em que
+        * hora nem com qual cauda.
+        *
+        * Quem marca voo agora é `NovoVoo`, logo abaixo, com dia, hora e cauda
+        * à vista — e tirar continua sendo por perna, na lista da semana ou no
+        * próprio bloco da grade.
+        */}
 
       <Card title="Tarifas">
         {CABINS.map((c) => {

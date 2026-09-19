@@ -45,8 +45,8 @@ export function Horarios({ route }: { route: Route }) {
       <Card title={`Voos da semana (${pernas.length})`}>
         {pernas.length === 0 ? (
           <p className="muted" style={{ margin: 0 }}>
-            Nenhum voo marcado. Use <b>Marcar voo</b> acima, ou a frequência, que monta a semana
-            sozinha com as aeronaves que estiverem livres.
+            Nenhum voo marcado. Use <b>Marcar voo</b> acima: escolha o sentido, a hora e os dias,
+            e o jogo mostra que caudas estão na base naquele horário.
           </p>
         ) : (
           <div className="rolagem-x">
