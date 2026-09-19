@@ -432,7 +432,29 @@ for titulo in PAGINAS:
 # ja gravado: aeroporto de degrau baixo liderando o proprio pais por cima de um
 # de degrau alto. Ela nao descarta nada — ela avisa.
 
+# ------------------------------------------------------------------ curados
+#
+# O levantamento automatico erra por baixo em aeroporto pequeno, e erra por um
+# motivo mecanico: o Wikidata so entra com valor a partir de 50 mil por ano, e
+# as listas de "busiest airports" cortam bem acima disso. Sobra o ultimo ano
+# publicado em vez do ano de pico, que e o que esta tabela promete — Campos dos
+# Goytacazes entrou com 52 mil porque 52 mil e o que ficou depois do fim do
+# ciclo do petroleo, nao o que o aeroporto ja moveu.
+#
+# Aqui entra o numero conferido a mao, com a fonte ao lado, e ele vence o
+# automatico. So entra sigla com numero **publicado** de um ano nomeado:
+# percentual de variacao, media de periodo e "deve ser uns" ficam de fora.
+CURADOS = {
+    # Macae so entrou no jogo agora: pista nova de 1.410 m, de 2024.
+    "MEA": (217_304, "2025, en.wikipedia/Zurich Airport Brasil"),
+    "CAW": (97_382, "2017, en.wikipedia (ANAC)"),
+}
+
 dados = {k: round(v[0]) for k, v in pico.items()}
+for iata, (valor, fonte_curada) in CURADOS.items():
+    if dados.get(iata, 0) < valor:
+        print(f"  curado {iata}: {dados.get(iata, 0)} -> {valor}  ({fonte_curada})", file=sys.stderr)
+        dados[iata] = valor
 
 # Escreve direto no movimento.ts em vez de cuspir um JSON para colar. Colar a
 # mao era o elo frouxo: dava para rodar, esquecer de colar, e ficar com a tabela

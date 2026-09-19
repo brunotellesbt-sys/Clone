@@ -46,6 +46,7 @@ regra mais importante do repositório.
 | `npm run cabines` | confere as configurações de cabine, e mede o jogo contra a capacidade publicada |
 | `npm run assentos` | levanta a capacidade publicada de cada aeronave na Wikipédia e confere contra o catálogo; **não grava nada** |
 | `npm run escopo` | confere o escopo dos aeroportos contra os casos reais conhecidos |
+| `npm run regional` | confere se a etapa regional curta fecha a conta — e se a curta demais continua não fechando |
 | `npm run malha` | confere a escala por perna: posição da aeronave, horário, conexões e os três tempos mínimos |
 | `npm run movimento` | relevanta o movimento de passageiros (Wikidata + listas) e grava direto no `movimento.ts` |
 | `npm run cidades` | confere a cidade de cada aeroporto contra a OurAirports; `-- --gravar` corrige o catálogo |

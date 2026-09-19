@@ -250,6 +250,7 @@ scripts/
 
 ```
 npm run sim -- GRU 2920      # 8 anos a partir de Guarulhos
+npm run regional             # a etapa curta fecha a conta?
 ```
 
 ## Sobre nomes e marcas

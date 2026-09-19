@@ -108,6 +108,25 @@ conferir(
 )
 await page.screenshot({ path: artifact('destinos-2-plu.png'), fullPage: true })
 
+// ------------------------------------------- o vizinho curto aparece na lista
+//
+// A lista escondia qualquer destino a menos de 110 km da base, e com isso
+// escondia aeroporto que existe: do Galeão, Macaé são 87 km e Cabo Frio 66. O
+// jogador procurava pelo nome e não achava nada — o aeroporto estava no
+// catálogo, a lista é que não mostrava. Quem decide se o par vale a pena é a
+// demanda, não o filtro.
+for (const [termo, sigla] of [['Macae', 'MEA'], ['Cabo Frio', 'CFB'], ['Campos dos', 'CAW']]) {
+  await page.getByPlaceholder(/cidade, país ou código/).fill(termo)
+  await page.waitForTimeout(650)
+  const achou = await page.locator('.lista-destinos tbody tr', { hasText: sigla }).count()
+  conferir(achou > 0, `procurar por "${termo}" acha ${sigla} na lista`)
+}
+// e o irmão de metrópole continua fora: Santos Dumont fica a 8 km do Galeão
+await page.getByPlaceholder(/cidade, país ou código/).fill('SDU')
+await page.waitForTimeout(650)
+conferir((await page.locator('.lista-destinos tbody tr', { hasText: 'SDU' }).count()) === 0,
+  'o aeroporto da própria cidade continua fora da lista')
+
 // ------------------------------------------------------------- no celular
 //
 // A medida do `npm run mobile` é a da página, e ela passa mesmo quando a tabela

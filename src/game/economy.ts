@@ -42,8 +42,17 @@ export interface FlightCost {
   blockH: number
 }
 
-/** Fator de jogo: os custos reais deixariam quase toda rota no zero a zero. */
-const COST_TUNING = 0.82
+/**
+ * Fator de jogo: os custos reais deixariam quase toda rota no zero a zero.
+ *
+ * Subiu de 0,82 para 0,85 junto com o conserto do handling e da tarifa curta.
+ * Aqueles dois foram feitos para a etapa regional, e a etapa regional é onde
+ * eles pesam — mas alguma coisa sobrava também no resto da malha, e oito anos
+ * de simulação fechavam 12% mais ricos do que antes. Os três pontos aqui
+ * devolvem essa sobra sem desfazer o conserto: na rota curta o ganho era muito
+ * maior que 4%.
+ */
+const COST_TUNING = 0.85
 
 export function flightCost(
   t: AircraftType,
@@ -96,7 +105,20 @@ export function flightCost(
   const fees = (landing(a.tier) * (a.tier >= 3 ? ruido : 1)
     + landing(b.tier) * (b.tier >= 3 ? ruido : 1))
     + pax * (4.5 + 0.8 * ((a.tier + b.tier) / 2))
-  const handling = 700 + 5.5 * porte
+  /**
+   * Handling: rampa, escada, bagagem, limpeza, água, esgoto, push-back.
+   *
+   * Era `700 + 5,5 × porte`, e os 700 fixos não têm defesa: eles cobravam de um
+   * turboélice de 48 lugares quase o mesmo que de um 777 pelo serviço de pátio,
+   * quando o que se paga ali é equipe e equipamento — e um ATR não usa nem
+   * ponte, nem esteira, nem trator de push-back. Numa etapa de meia hora esses
+   * 700 eram 27% do custo do voo, e era o que sozinho matava a rota regional.
+   *
+   * A troca por `200 + 6,5 × porte` mantém o avião grande onde ele estava (um
+   * 777 paga 1% a mais) e devolve ao pequeno o que nunca foi dele: o ATR 42
+   * paga 47% menos.
+   */
+  const handling = 200 + 6.5 * porte
   const catering = (pax - premiumPax) * (2 + 0.0022 * distNm) + premiumPax * (16 + 0.013 * distNm)
 
   const total = (fuel + crew + maintenance + fees + handling + catering) * COST_TUNING
