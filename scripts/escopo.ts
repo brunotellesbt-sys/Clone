@@ -184,5 +184,45 @@ for (const [iata, maior, barrado] of [
   )
 }
 
+// ------------------------------------------- movimento que não pode ser real
+//
+// A raspagem das listas erra de um jeito só: atribui a linha ao aeroporto
+// errado. E quando erra, erra por ordem de grandeza — YXU, o aeroporto de
+// London em Ontário, saiu com os 84 milhões de passageiros de Heathrow e
+// liderou o Canadá à frente de Toronto por dois anos sem ninguém notar,
+// porque o jogo continua funcionando com um número errado.
+//
+// A assinatura é essa: um aeroporto de degrau baixo liderando o próprio país
+// por cima de um de degrau alto. Aeroporto pequeno pode ter muito movimento —
+// Aeroparque passa Ezeiza —, mas não por cima de um degrau 4 ou 5.
+console.log('\nmovimento plausível\n')
+{
+  const porPais = new Map<string, typeof AIRPORTS>()
+  for (const a of AIRPORTS) {
+    const l = porPais.get(a.cc) ?? []
+    l.push(a)
+    porPais.set(a.cc, l)
+  }
+  const suspeitos: string[] = []
+  for (const [, lista] of porPais) {
+    const ordem = [...lista].sort((x, y) => y.paxDia - x.paxDia)
+    const topo = ordem[0]
+    const grande = ordem.find((a) => a.tier >= 4)
+    if (topo.tier <= 2 && grande && grande.paxDia < topo.paxDia) {
+      suspeitos.push(
+        `${topo.iata} (${topo.city}, ${topo.country}) tem ${(topo.paxDia * 365 / 1e6).toFixed(0)} mi/ano ` +
+          `e passa ${grande.iata} com ${(grande.paxDia * 365 / 1e6).toFixed(0)} mi`,
+      )
+    }
+  }
+  // Aeroparque à frente de Ezeiza é real: é o aeroporto doméstico de Buenos
+  // Aires e move mais gente que o internacional. Fica na lista conhecida.
+  const conhecidos = ['AEP', 'FBM']
+  const novos = suspeitos.filter((s) => !conhecidos.some((c) => s.startsWith(c)))
+  if (novos.length) falhas++
+  console.log(`${novos.length === 0 ? 'ok   ' : 'FALHA'} nenhum aeroporto pequeno lidera o país por engano` +
+    (novos.length ? `\n      ${novos.join('\n      ')}` : ''))
+}
+
 console.log(falhas ? `\n${falhas} falha(s)` : '\ntudo certo')
 process.exit(falhas ? 1 : 0)

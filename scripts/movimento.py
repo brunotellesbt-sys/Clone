@@ -151,19 +151,42 @@ def mapa_de_nomes():
                         for c in re.findall(r'("(?:[^"]|"")*"|[^,]*)(?:,|$)', l)][:-1]
     cab = campos(linhas[0])
     iI, iN, iM = cab.index("iata_code"), cab.index("name"), cab.index("municipality")
-    contagem, mapa = {}, {}
+    iC = cab.index("iso_country")
+    contagem, paises, mapa = {}, {}, {}
     for l in linhas[1:]:
         f = campos(l)
-        if len(f) <= max(iI, iN, iM) or not f[iI]:
+        if len(f) <= max(iI, iN, iM, iC) or not f[iI]:
             continue
         for bruto in (f[iN], f"{f[iM]} {f[iN]}"):
             k = normal(bruto)
             if len(k) < 4:
                 continue
             contagem[k] = contagem.get(k, set()) | {f[iI]}
+            paises[k] = paises.get(k, set()) | {f[iC]}
             mapa[k] = f[iI]
-    # nome ambiguo nao serve: dois aeroportos com o mesmo nome reduzido
-    return {k: v for k, v in mapa.items() if len(contagem[k]) == 1}
+        # A cidade sozinha NAO vira chave, mas entra na contagem de donos.
+        #
+        # `normal` tira "International", e com isso "London International
+        # Airport" — que e o aeroporto de Ontario — vira a chave "london".
+        # Nenhum aeroporto britanico produz essa chave, porque os deles sao
+        # "London Heathrow" e "London Gatwick", entao a checagem de ambiguidade
+        # por sigla nao via conflito nenhum e dava a chave a YXU. Qualquer linha
+        # de tabela que dissesse so "London" ia para o Canada: foi assim que o
+        # aeroporto de Ontario ficou com os 84 milhoes de Heathrow, mais
+        # movimento que Toronto.
+        #
+        # Registrar a cidade como dona resolve a classe inteira do problema:
+        # "london" passa a ter donos no Canada e no Reino Unido, vira ambigua e
+        # e descartada — que e a resposta certa, porque "London" sozinho nao
+        # identifica aeroporto nenhum.
+        kc = normal(f[iM])
+        if len(kc) >= 4:
+            contagem[kc] = contagem.get(kc, set()) | {f[iI]}
+            paises[kc] = paises.get(kc, set()) | {f[iC]}
+    # nome ambiguo nao serve: mesmo nome reduzido em dois aeroportos, ou em
+    # dois paises
+    return {k: v for k, v in mapa.items()
+            if len(contagem[k]) == 1 and len(paises[k]) == 1}
 
 
 class Tabelas(HTMLParser):
@@ -389,6 +412,25 @@ for titulo in PAGINAS:
     time.sleep(1.5)
     print(f"{titulo}: {len(p.tabelas)} tabelas, {len(pico) - antes} siglas novas (total {len(pico)})",
           file=sys.stderr)
+
+# Uma segunda rede foi tentada aqui e RETIRADA. Fica registrado para nao ser
+# tentada de novo.
+#
+# A ideia era usar o Wikidata como teto de sanidade das listas raspadas: onde as
+# duas fontes discordassem por mais de 3x, o valor estruturado venceria. Ela
+# pegava o caso que a motivou — YXU com os 84 milhoes de Heathrow — mas derrubou
+# 45 dados BONS junto, quase todos indianos: o P3872 dos aeroportos da India e
+# mensal, e o raspado e anual, entao a razao entre os dois e sempre 12 a 14. Pune
+# caiu de 11 milhoes de passageiros por ano, que e o numero real, para 0,8.
+#
+# Uma tolerancia maior (30x) deixaria a India passar e ainda pegaria YXU, mas o
+# YXU ja e pego na raiz, em `mapa_de_nomes`: a chave "london" virou ambigua e
+# nao resolve para aeroporto nenhum. Uma rede que nao pega nada que a outra ja
+# nao pegue, e que destroi dado bom, e prejuizo liquido.
+#
+# O que sobrou no lugar dela e uma trava no `npm run escopo`, que mede o dado
+# ja gravado: aeroporto de degrau baixo liderando o proprio pais por cima de um
+# de degrau alto. Ela nao descarta nada — ela avisa.
 
 dados = {k: round(v[0]) for k, v in pico.items()}
 

@@ -279,9 +279,31 @@ console.log('\ninterline\n')
     setAllFrequencies(t, t.airline.routes[t.airline.routes.length - 1].id, 2)
   }
   const antes = conexoesNaBase(t, 'GRU').length
-  const parceira = t.competitors.find((c) => c.routes.some((r) => r.from === 'GRU' || r.to === 'GRU'))
+  /**
+   * A parceira é a que **rende conexão**, e não a primeira da lista.
+   *
+   * Antes era a primeira concorrente com GRU numa ponta, e isso passava por
+   * acidente: o mundo era escrito à mão e uma das doze fazia hub em Guarulhos,
+   * com banco de voos de sobra. Agora o mundo é gerado, nenhuma IA divide hub
+   * com o jogador, e a primeira da lista pode ser alguém com uma rota só —
+   * nesta semente é CGH–GRU, um salto de 25 km cujo horário não casa com nada.
+   *
+   * O teste passa a perguntar o que ele sempre quis perguntar: **existe acordo
+   * que abra conexão?** Assinar com quem não tem voo na hora certa não abrir
+   * nada não é defeito do interline, é o interline funcionando.
+   */
+  const candidatas = t.competitors
+    .filter((c) => c.routes.some((r) => r.from === 'GRU' || r.to === 'GRU'))
+    .sort((x, y) =>
+      y.routes.filter((r) => r.from === 'GRU' || r.to === 'GRU').length -
+      x.routes.filter((r) => r.from === 'GRU' || r.to === 'GRU').length)
+  let parceira = candidatas.find((c) => {
+    const s2 = structuredClone(t)
+    if (assinarAcordo(s2, c.id)) return false
+    return conexoesNaBase(s2, 'GRU').length > antes
+  })
   if (!parceira) {
-    console.log('  (nenhuma concorrente toca GRU nesta semente; bloco pulado)')
+    console.log(`  (nenhuma das ${candidatas.length} concorrentes de GRU rende conexão nesta semente; bloco pulado)`)
   } else {
     const err = assinarAcordo(t, parceira.id)
     conferir(!err, `acordo com ${parceira.name}`, err ?? '')

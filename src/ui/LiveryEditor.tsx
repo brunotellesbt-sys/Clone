@@ -32,7 +32,9 @@ type SectionId = 'fuselagem' | 'faixa' | 'cauda' | 'asa' | 'texto' | 'detalhes'
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'fuselagem', label: 'Fuselagem' },
   { id: 'faixa', label: 'Faixa' },
-  { id: 'cauda', label: 'Cauda' },
+  // O emblema sempre morou aqui, porque é na deriva que ele é pintado — e
+  // ninguém o procurou em "Cauda". O nome da aba é o índice que o jogador lê.
+  { id: 'cauda', label: 'Cauda e emblema' },
   { id: 'asa', label: 'Bordos da asa' },
   { id: 'texto', label: 'Texto' },
   { id: 'detalhes', label: 'Detalhes' },

@@ -1,3 +1,10 @@
+/**
+ * Quantas concorrentes o mundo tem. Mora aqui, e não em `ai.ts`, porque o
+ * estado salvo carrega a escolha — e `ai.ts` importa este arquivo: o tipo
+ * descendo para cá é o que evita o ciclo.
+ */
+export type Densidade = 'enxuta' | 'media' | 'densa' | 'mundo'
+
 export type CabinClass = 'y' | 'w' | 'c' | 'f'
 export const CABINS: CabinClass[] = ['y', 'w', 'c', 'f']
 export const CABIN_LABEL: Record<CabinClass, string> = {
@@ -322,6 +329,16 @@ export interface Competitor {
   }[]
   fleetSize: number
   revenue30: number
+  /**
+   * Dia de jogo em que a companhia foi fundada. As do mundo inicial já nascem
+   * maduras, com um valor negativo que diz há quantos anos elas existem.
+   *
+   * É o que sustenta a progressão doméstica → regional → internacional: sem
+   * saber a idade, uma companhia recém-fundada abria rota intercontinental na
+   * primeira semana. Ausente nas partidas antigas; `idadeDe` trata isso como
+   * "madura", porque é o que aquelas companhias sempre foram.
+   */
+  desde?: number
 }
 
 export interface Airline {
@@ -369,6 +386,17 @@ export interface GameState {
   fuelPrice: number
   airline: Airline
   competitors: Competitor[]
+  /**
+   * Em que ano de jogo cada país ganhou companhia nova. No máximo duas por
+   * país, e o registro precisa sobreviver à gravação — senão, recarregar a
+   * partida reabre a cota e o país ganha uma terceira.
+   *
+   * Ausente nas partidas antigas: `{}` é o valor certo para elas, porque
+   * nenhuma delas fundou nada.
+   */
+  fundadas?: Record<string, number[]>
+  /** Quantas concorrentes o jogador escolheu enfrentar na fundação. */
+  densidade?: Densidade
   ledger: DayResult[]
   notices: Notice[]
   /** Fatia de mercado por par O&D, cacheada para a UI. */

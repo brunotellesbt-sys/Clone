@@ -23,6 +23,7 @@
     "fluxo": "tsx scripts/fluxo.ts",
     "movimento": "python3 scripts/movimento.py",
     "cidades": "python3 scripts/cidades.py",
+    "crescimento": "python3 scripts/crescimento.py",
     "prebuild": "node scripts/art.mjs || echo \"arte da Commons indisponivel; usando os desenhos vetoriais\"",
     "aircraft2d:check": "tsx scripts/aircraft2d-check.ts",
     "aircraft2d:ui": "node scripts/aircraft2d-ui.mjs"

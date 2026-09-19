@@ -6,6 +6,7 @@ import {
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from '../game/demand'
 import { sumCabins } from '../game/economy'
 import { distanceBetween, odKey } from '../game/geo'
+import { CAMBIO, moedaDoPais, tarifa } from '../game/money'
 import { aeroportoServe, pistaServe } from '../game/spec'
 import {
   assignAircraft, closeRoute, dayOfYear, estimateRoute, km, money, num, openRoute, pct,
@@ -84,6 +85,8 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
   // é a posição dela no horário, e disso cuida `assignAircraft`
   const free = state.airline.fleet
   const hist = route.history.map((h) => h.profit)
+  // A passagem é vendida onde a viagem começa: a rota é lida na moeda da origem.
+  const moeda = moedaDoPais(AIRPORT_BY_IATA[route.from].cc)
 
   return (
     <div className="grid" style={{ gap: 14 }}>
@@ -92,7 +95,10 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
           <div><span className="muted">Distância</span><br />{km(route.distance)}</div>
           <div><span className="muted">Mercado hoje</span><br />{num(e.demand.total)} {e.unidade}/dia</div>
           <div><span className="muted">Sua fatia</span><br />{pct(e.share, 1)}</div>
-          <div><span className="muted">{e.cargo ? 'Frete base' : 'Tarifa base'}</span><br />${e.demand.refFare.toFixed(0)}{e.cargo ? '/t' : ''}</div>
+          <div>
+            <span className="muted">{e.cargo ? 'Frete base' : 'Tarifa base'}</span><br />
+            {tarifa(e.demand.refFare, moeda, e.cargo ? '/t' : '')}
+          </div>
         </div>
         <Spark values={hist.length > 1 ? hist : [0, 0]} w={330} h={44} color={e.profit >= 0 ? '#34d399' : '#fb7185'} />
         <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -181,7 +187,7 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
           return (
             <label className="field" key={c}>
               <span>
-                {CABIN_LABEL[c]} — ${abs.toFixed(0)} ({route.fare[c].toFixed(2)}× a referência)
+                {CABIN_LABEL[c]} — {tarifa(abs, moeda)} ({route.fare[c].toFixed(2)}× a referência)
               </span>
               <input
                 type="range" min={0.55} max={1.9} step={0.01} value={route.fare[c]}
@@ -193,6 +199,10 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
         <p className="muted" style={{ fontSize: 12, margin: 0 }}>
           Barato enche o avião e rouba mercado, mas derruba a receita por passageiro. A econômica é a mais
           sensível a preço; a executiva quase não liga.
+          {moeda !== 'USD' && (
+            <> A passagem é vendida em {CAMBIO[moeda].nome}, a moeda de {AIRPORT_BY_IATA[route.from].country};
+            o resto da companhia — caixa, custo, frota — segue em dólar.</>
+          )}
         </p>
       </Card>
 
@@ -456,7 +466,7 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
                   </td>
                   <td className="r">{km(o.dist)}</td>
                   <td className="r">{num(o.demand.total)}</td>
-                  <td className="r">${o.demand.refFare.toFixed(0)}</td>
+                  <td className="r">{tarifa(o.demand.refFare, moedaDoPais(AIRPORT_BY_IATA[hub].cc))}</td>
                   <td className="r">{o.rivals || <span className="good">livre</span>}</td>
                   <td className="r"><Porte lista={porteAte(o.a)} carga={carga} de={hub} para={o.a.iata} /></td>
                 </tr>

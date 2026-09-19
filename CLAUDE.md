@@ -48,6 +48,7 @@ regra mais importante do repositório.
 | `npm run malha` | confere a escala por perna: posição da aeronave, horário, conexões e os três tempos mínimos |
 | `npm run movimento` | relevanta o movimento de passageiros (Wikidata + listas) e grava direto no `movimento.ts` |
 | `npm run cidades` | confere a cidade de cada aeroporto contra a OurAirports; `-- --gravar` corrige o catálogo |
+| `npm run crescimento` | relevanta o crescimento de cada país no Banco Mundial e grava no `crescimento.ts` |
 | `npm run fluxo` | recalcula os fatores de equilíbrio do fluxo (Furness) e grava direto; rode **depois** do `movimento` e de qualquer mexida no núcleo da demanda |
 | `npx tsx scripts/cargo-check.ts GRU MIA a332f` | roda uma rota de carga de ponta a ponta no tick |
 | `npm run smoke` | abre o jogo num navegador headless e joga sozinho |

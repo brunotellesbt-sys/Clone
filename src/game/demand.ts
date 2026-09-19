@@ -1,4 +1,5 @@
 import { AIRPORT_BY_IATA, temIrmao, type Airport } from './data/airports'
+import { derivaDoPais } from './data/crescimento'
 import { distanceBetween, odKey } from './geo'
 import { hashStr } from './rng'
 import type { CabinClass, Cabins } from './types'
@@ -157,7 +158,18 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
   const decay = 1 / (1 + Math.pow(dist / 700, 1.35))
   const season = (seasonFactor(dayOfYear, a.lat) + seasonFactor(dayOfYear, b.lat)) / 2
   const noise = 0.82 + 0.36 * hashStr(odKey(from, to))
-  const growth = 1 + day * 0.00012 // o mercado cresce devagar ao longo dos anos
+  /**
+   * O mundo não cresce todo junto.
+   *
+   * Era `1 + day * 0.00012` — um número só para 233 países, em que Tóquio e
+   * Lagos crescem igual. Agora cada ponta traz a deriva do país dela: tendência
+   * medida no Banco Mundial mais um ciclo de ano bom e ano ruim. A média do par
+   * é geométrica porque as duas pontas pesam igual num mercado O&D — quem voa
+   * GRU–LIS é metade brasileiro e metade português.
+   */
+  const derivaA = derivaDoPais(a.cc, day)
+  const derivaB = derivaDoPais(b.cc, day)
+  const growth = Math.sqrt(derivaA * derivaB)
 
   let total =
     K *
@@ -176,8 +188,17 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
     WEEKDAY[(day + 4) % 7]
 
   if (dist < 120) total *= 0.15 // pares colados não sustentam voo
-  // a ponta menor é o gargalo: o par não pode passar do que ela move no dia
-  total = Math.max(0, satura(total, TETO_PAR * Math.min(a.paxDia, b.paxDia)))
+  /**
+   * A ponta menor é o gargalo: o par não pode passar do que ela move no dia.
+   *
+   * O teto **anda junto com o país**, e isso não é detalhe. Com `paxDia` parado,
+   * as rotas que encostam no teto — justamente as grandes, que é onde o jogador
+   * põe a frota — ficavam congeladas num mundo que cresce: Santos Dumont–
+   * Congonhas dava os mesmos 13.926 no ano 1 e no ano 30. Se o Brasil move mais
+   * gente, o aeroporto move mais gente; senão o crescimento só apareceria nas
+   * rotas pequenas, que é o avesso do que acontece.
+   */
+  total = Math.max(0, satura(total, TETO_PAR * Math.min(a.paxDia * derivaA, b.paxDia * derivaB)))
 
   // Mistura de classes: renda e distância empurram para a frente do avião.
   const premium = Math.min(0.34, 0.03 + 0.13 * Math.max(0, gdp - 0.55) + 0.075 * Math.min(dist / 4200, 1))
@@ -235,7 +256,9 @@ export function cargoDemand(from: string, to: string, day: number, dayOfYear: nu
   const curto = dist < 600 ? 0.25 + (0.75 * dist) / 600 : 1
   const pico = 1 + 0.22 * Math.exp(-(((dayOfYear - 320) % 365) ** 2) / 900)
   const noise = 0.85 + 0.3 * hashStr(`C${odKey(from, to)}`)
-  const growth = 1 + day * 0.00016 // o mercado de carga cresce mais rápido
+  // A carga segue a mesma deriva de país da gente, com um empurrão: comércio
+  // cresce mais rápido que turismo, e é ele que enche o porão.
+  const growth = Math.pow(Math.sqrt(derivaDoPais(a.cc, day) * derivaDoPais(b.cc, day)), 1.3)
 
   const tons = Math.max(
     0,
