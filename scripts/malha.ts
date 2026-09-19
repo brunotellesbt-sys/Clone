@@ -305,16 +305,18 @@ console.log('\nfrota parada\n')
   conferir(paradas[0].ocioso, 'e é marcada como ociosa')
   openRoute(t, 'GIG', 'FOR')
   const r = t.airline.routes[0]
-  // rota nova nasce voando uma vez por dia, se houver cauda parada para isso
+  /*
+   * Rota nova nasce **sem voo**. Quem monta a escala é o jogador: por uma
+   * versão ela nascia voando uma vez por dia, e o dono do jogo pediu o
+   * contrário — voo que aparece sozinho na grade de uma cauda recém-comprada é
+   * o jogo decidindo no lugar dele.
+   */
   conferir(
-    pernasDaRota(t, r).length === 14,
-    'abrir rota marca uma ida e volta em cada dia da semana',
+    pernasDaRota(t, r).length === 0,
+    'abrir rota não marca voo nenhum sozinho',
     `${pernasDaRota(t, r).length} pernas`,
   )
-  conferir(quebrasDe(t, t.airline.fleet[0].id).length === 0, 'e a escala que ela monta fecha a semana')
-
-  // esvaziada de novo, a cauda volta a dormir na base e a ser oferecida de lá
-  unassignAircraft(t, t.airline.fleet[0].id)
+  conferir(paradasDe(t, t.airline.fleet[0].id)[0].ocioso, 'e a cauda comprada segue parada na base')
   const livres = aeronavesPara(t, 'GIG', 'FOR', 2, 9 * 60).filter((c) => !c.impedimento)
   conferir(livres.length === 1 && !livres[0].ferryDe, 'esvaziada, ela aparece livre na base')
   const foraDeCasa = aeronavesPara(t, 'FOR', 'GIG', 2, 9 * 60).filter((c) => !c.impedimento)

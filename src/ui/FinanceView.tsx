@@ -48,6 +48,9 @@ export function FinanceView() {
 
       <div className="split">
         <Card title="Demonstrativo">
+          {/* sete colunas não cabem num celular: a tabela rola dentro da
+              própria caixa, e a página continua só descendo */}
+          <div className="rolagem-x">
           <table>
             <thead>
               <tr><th>Período</th><th className="r">Receita</th><th className="r">Custo</th><th className="r">Resultado</th><th className="r">Margem</th><th className="r">Pax</th><th className="r">Aproveit.</th></tr>
@@ -69,6 +72,7 @@ export function FinanceView() {
               })}
             </tbody>
           </table>
+          </div>
           <div style={{ marginTop: 14 }}>
             <h3 style={{ fontSize: 12, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '.08em' }}>
               Custo médio por voo (90 dias)

@@ -16,6 +16,7 @@
     "mapa": "node scripts/mapa.mjs",
     "grade": "node scripts/grade.mjs",
     "toque": "node scripts/toque.mjs",
+    "mobile": "node scripts/mobile.mjs",
     "escopo": "tsx scripts/escopo.ts",
     "malha": "tsx scripts/malha.ts",
     "fluxo": "tsx scripts/fluxo.ts",
