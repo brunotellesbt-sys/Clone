@@ -64,15 +64,58 @@ export function MapView({
    * defeito. Às oito da manhã a grade está cheia.
    */
   const [t, setT] = useState(8 / 24)
-  const arrasto = useRef<{ px: number; py: number; vx: number; vy: number; id: number } | null>(null)
   /**
-   * Se o ponteiro andou desde que desceu. Fica fora de `arrasto` de propósito:
-   * o `click` só chega depois do `pointerup`, quando o arrasto já foi zerado, e
+   * Todos os dedos (ou o ponteiro do mouse) encostados no mapa agora.
+   *
+   * Era um só, e por isso a pinça não existia: o segundo dedo era descartado
+   * logo na entrada do `pointermove`, e o primeiro continuava arrastando — a
+   * pinça saía como um arrasto trêmulo. Guardar todos é o que permite decidir
+   * entre arrastar (um) e aproximar (dois).
+   */
+  const dedos = useRef(new Map<number, { x: number; y: number }>())
+  /**
+   * O gesto em curso, com as medidas de onde ele começou.
+   *
+   * As bases ficam congeladas no início e a conta é sempre contra elas, nunca
+   * contra o quadro anterior: somar deltas quadro a quadro acumula erro de
+   * arredondamento e a pinça vai escorregando do ponto entre os dedos.
+   */
+  const gesto = useRef<
+    | { tipo: 'arrasto'; px: number; py: number; vx: number; vy: number; id: number }
+    | { tipo: 'pinca'; dist: number; mx: number; my: number; k: number; vx: number; vy: number }
+    | null
+  >(null)
+  /**
+   * Se o ponteiro andou desde que desceu. Fica fora do gesto de propósito:
+   * o `click` só chega depois do `pointerup`, quando o gesto já foi zerado, e
    * sem esta marca soltar o botão no fim de um arrasto contava como clique —
    * arrastar o mapa trocava a base escolhida.
    */
   const andou = useRef(false)
   const svgRef = useRef<SVGSVGElement>(null)
+  /**
+   * A vista de agora, fora do React.
+   *
+   * O estado só chega ao tratador de evento no próximo render, e gesto de dedo
+   * não espera render: entre dois `pointermove` a vista já mudou. Guardar a
+   * verdade aqui e espelhar em `setView` deixa cada quadro medir contra o valor
+   * real, e mantém a regra que este arquivo aprendeu do jeito difícil — **nada
+   * de efeito colateral dentro do atualizador do `setState`**. Foi o que
+   * derrubava a tela ao arrastar.
+   */
+  const vista = useRef({ k: 1, x: 0, y: 0 })
+  /**
+   * Dedo ou mouse? Só muda o texto da legenda — não há roda para girar num
+   * celular, e mandar girar a roda é instrução que não leva a lugar nenhum.
+   */
+  const noDedo = useMemo(
+    () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches,
+    [],
+  )
+  const aplicar = (v: { k: number; x: number; y: number }) => {
+    vista.current = v
+    setView(v)
+  }
 
   const projection = useMemo(
     () => geoNaturalEarth1().fitExtent([[6, 6], [W - 6, H - 6]], { type: 'Sphere' }),
@@ -105,7 +148,7 @@ export function MapView({
     const ap = AIRPORT_BY_IATA[focus]
     const [px, py] = project(ap.lon, ap.lat)
     const k = 2.1
-    setView(limitar(k, W / 2 - px * k, H / 2 - py * k))
+    aplicar(limitar(k, W / 2 - px * k, H / 2 - py * k))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus])
 
@@ -125,11 +168,10 @@ export function MapView({
       if (!r.width || !r.height) return
       const mx = ((e.clientX - r.left) / r.width) * W
       const my = ((e.clientY - r.top) / r.height) * H
-      setView((v) => {
-        const k = Math.min(K_MAX, Math.max(1, v.k * (e.deltaY < 0 ? 1.18 : 1 / 1.18)))
-        const s = k / v.k
-        return limitar(k, mx - (mx - v.x) * s, my - (my - v.y) * s)
-      })
+      const v = vista.current
+      const k = Math.min(K_MAX, Math.max(1, v.k * (e.deltaY < 0 ? 1.18 : 1 / 1.18)))
+      const s = k / v.k
+      aplicar(limitar(k, mx - (mx - v.x) * s, my - (my - v.y) * s))
     }
     svg.addEventListener('wheel', onWheel, { passive: false })
     return () => svg.removeEventListener('wheel', onWheel)
@@ -273,21 +315,91 @@ export function MapView({
   const dotR = (tier: number) => (1.4 + tier * 0.62) * fator
   const stroke = (w: number) => w * fator
 
+  /** Os dois primeiros dedos, na ordem em que encostaram. */
+  const doisDedos = () => [...dedos.current.values()].slice(0, 2)
+
+  /**
+   * (Re)começa o gesto a partir dos dedos que estão na tela agora.
+   *
+   * Chamado quando um dedo entra e quando um sai. Recomeçar na saída é o que
+   * impede o pulo: ao soltar um dedo no fim de uma pinça, o que sobra vira um
+   * arrasto novo, com base própria, em vez de continuar medindo contra uma
+   * distância que não existe mais.
+   */
+  function refazerGesto(vista: { k: number; x: number; y: number }) {
+    const [a, b] = doisDedos()
+    if (a && b) {
+      gesto.current = {
+        tipo: 'pinca',
+        dist: Math.hypot(b.x - a.x, b.y - a.y) || 1,
+        mx: (a.x + b.x) / 2,
+        my: (a.y + b.y) / 2,
+        k: vista.k, vx: vista.x, vy: vista.y,
+      }
+    } else if (a) {
+      gesto.current = { tipo: 'arrasto', px: a.x, py: a.y, vx: vista.x, vy: vista.y, id: [...dedos.current.keys()][0] }
+    } else {
+      gesto.current = null
+    }
+  }
+
   function onDown(e: React.PointerEvent) {
     if (e.button > 0) return
     if (!svgRef.current) return
-    andou.current = false
-    arrasto.current = { px: e.clientX, py: e.clientY, vx: view.x, vy: view.y, id: e.pointerId }
+    if (dedos.current.size === 0) andou.current = false
+    dedos.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (dedos.current.size > 1) {
+      /**
+       * O segundo dedo já é pinça, e pinça nunca é clique — então a captura vem
+       * na hora, sem esperar os 3 px que o arrasto exige. Os dois dedos são
+       * capturados: num gesto de pinça é comum um deles sair da borda do mapa, e
+       * sem captura ele deixaria de ser entregue no meio do movimento.
+       */
+      andou.current = true
+      for (const id of dedos.current.keys()) {
+        try { svgRef.current.setPointerCapture(id) } catch { /* sem captura, segue */ }
+      }
+    }
+    refazerGesto(vista.current)
   }
 
   function onMove(e: React.PointerEvent) {
-    const d = arrasto.current
     const svg = svgRef.current
-    if (!d || !svg || d.id !== e.pointerId) return
+    if (!svg || !dedos.current.has(e.pointerId)) return
+    dedos.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    const g = gesto.current
+    if (!g) return
     const r = svg.getBoundingClientRect()
     if (!r.width || !r.height) return
-    const dx = e.clientX - d.px
-    const dy = e.clientY - d.py
+    /** De pixel da tela para unidade do `viewBox`. */
+    const paraVb = (cx: number, cy: number): [number, number] =>
+      [((cx - r.left) / r.width) * W, ((cy - r.top) / r.height) * H]
+
+    if (g.tipo === 'pinca') {
+      const [a, b] = doisDedos()
+      if (!a || !b) return
+      const dist = Math.hypot(b.x - a.x, b.y - a.y) || 1
+      /**
+       * A escala é a razão entre a distância de agora e a do começo do gesto, e
+       * o ponto entre os dedos fica parado.
+       *
+       * Parado de verdade: o ponto do mapa que estava sob o meio dos dedos no
+       * início é recalculado para cair sob o meio de agora. É a mesma conta que
+       * a roda do mouse já fazia em volta do cursor — a diferença é que aqui o
+       * ponto de ancoragem também anda, e é isso que deixa a pinça aproximar e
+       * arrastar no mesmo gesto, como qualquer mapa de celular faz.
+       */
+      const k = Math.min(K_MAX, Math.max(1, g.k * (dist / g.dist)))
+      const [mx0, my0] = paraVb(g.mx, g.my)
+      const [mx1, my1] = paraVb((a.x + b.x) / 2, (a.y + b.y) / 2)
+      const px = (mx0 - g.vx) / g.k
+      const py = (my0 - g.vy) / g.k
+      aplicar(limitar(k, mx1 - px * k, my1 - py * k))
+      return
+    }
+
+    const dx = e.clientX - g.px
+    const dy = e.clientY - g.py
     /**
      * A captura só começa quando o ponteiro anda de verdade.
      *
@@ -307,24 +419,24 @@ export function MapView({
      *
      * Este era o travamento ao arrastar o mapa. `pointermove` é evento contínuo:
      * o React agenda o render para depois, e o `pointerup` — que é discreto —
-     * podia chegar antes, zerando `arrasto.current`. Aí a função de atualização
-     * rodava com a referência já nula e a tela inteira caía na barreira de erro.
-     * Com o zoom isso nunca aconteceu porque a roda não depende de referência
-     * nenhuma, que é exatamente o que o relato dizia.
+     * podia chegar antes, zerando a referência do gesto. Aí a função de
+     * atualização rodava com a referência já nula e a tela inteira caía na
+     * barreira de erro. Com o zoom isso nunca aconteceu porque a roda não
+     * depende de referência nenhuma, que é exatamente o que o relato dizia.
      */
-    const x = d.vx + dx * (W / r.width)
-    const y = d.vy + dy * (H / r.height)
-    setView((v) => limitar(v.k, x, y))
+    const x = g.vx + dx * (W / r.width)
+    const y = g.vy + dy * (H / r.height)
+    aplicar(limitar(vista.current.k, x, y))
   }
 
   function onUp(e: React.PointerEvent) {
-    const d = arrasto.current
-    if (!d) return
+    if (!dedos.current.delete(e.pointerId)) return
     const svg = svgRef.current
-    if (svg?.hasPointerCapture?.(d.id)) {
-      try { svg.releasePointerCapture(d.id) } catch { /* já solta */ }
+    if (svg?.hasPointerCapture?.(e.pointerId)) {
+      try { svg.releasePointerCapture(e.pointerId) } catch { /* já solta */ }
     }
-    if (d.id === e.pointerId) arrasto.current = null
+    // o que sobrou vira gesto novo, medido a partir da vista de agora
+    refazerGesto(vista.current)
   }
 
   /** Clique no vazio larga o voo selecionado — mas não quando foi arrasto. */
@@ -455,15 +567,21 @@ export function MapView({
         </g>
       </svg>
 
+      {/* os botões passam pelo `aplicar` como todo o resto: escrever direto no
+          estado deixaria o gesto seguinte medindo contra uma vista velha, e o
+          mapa saltaria de volta no primeiro toque depois do botão */}
       <div className="map-tools">
-        <button onClick={() => setView((v) => limitar(v.k * 1.35, v.x, v.y))} title="Aproximar">+</button>
-        <button onClick={() => setView((v) => limitar(v.k / 1.35, v.x, v.y))} title="Afastar">−</button>
-        <button onClick={() => setView({ k: 1, x: 0, y: 0 })} title="Ver o mundo todo">⤢</button>
+        <button onClick={() => aplicar(limitar(vista.current.k * 1.35, vista.current.x, vista.current.y))} title="Aproximar">+</button>
+        <button onClick={() => aplicar(limitar(vista.current.k / 1.35, vista.current.x, vista.current.y))} title="Afastar">−</button>
+        <button onClick={() => aplicar({ k: 1, x: 0, y: 0 })} title="Ver o mundo todo">⤢</button>
       </div>
 
       <div className="map-legend">
         {picking ? (
-          <span>Clique num aeroporto para escolher a base · a roda aproxima e revela os menores</span>
+          <span>
+            {noDedo ? 'Toque' : 'Clique'} num aeroporto para escolher a base ·{' '}
+            {noDedo ? 'a pinça' : 'a roda'} aproxima e revela os menores
+          </span>
         ) : (
           <>
             <span><i className="dot hub" /> base</span>
@@ -471,7 +589,7 @@ export function MapView({
             <span><i className="dash bad" /> rota no prejuízo</span>
             {routes.length > 0 && (
               <>
-                <span className="muted">clique num avião para ver o trajeto</span>
+                <span className="muted">{noDedo ? 'toque' : 'clique'} num avião para ver o trajeto</span>
                 <span className="relogio" title={`hora local em ${refFuso}; o relógio é da tela, o tick do jogo é diário`}>
                   {hhmm(t * DIA + (AIRPORT_BY_IATA[refFuso]?.fuso ?? 0))} em {refFuso}
                   {' · '}{voos.length} no ar
