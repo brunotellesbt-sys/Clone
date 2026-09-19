@@ -52,6 +52,7 @@ regra mais importante do repositório.
 | `npx tsx scripts/cargo-check.ts GRU MIA a332f` | roda uma rota de carga de ponta a ponta no tick |
 | `npm run smoke` | abre o jogo num navegador headless e joga sozinho |
 | `npm run mapa` | confere arrasto, zoom, clique no avião e escolha de base (precisa do `npm run dev` de pé) |
+| `npm run destinos` | confere a lista de abrir rota: quatro destinos por vez, o menu de porte e o que cabe num celular (precisa do `npm run dev` de pé) |
 | `npm run grade` | confere a malha na tela: grade semanal, quem está disponível e o encadeamento (precisa do `npm run dev` de pé) |
 | `npm run toque` | confere o mapa num celular: pinça, arrasto com um dedo e toque (precisa do `npm run dev` de pé) |
 | `npm run mobile` | mede o transbordo horizontal de cada tela num celular — no celular só se rola para baixo (precisa do `npm run dev` de pé) |

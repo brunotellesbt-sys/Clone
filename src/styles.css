@@ -349,6 +349,59 @@ h4.sub {
 .swatch.on { outline: 2px solid var(--amber); outline-offset: 1px; }
 .spark { display: block; width: 100%; }
 .scroll { max-height: 420px; overflow: auto; }
+
+/* Lista de destinos: quatro linhas visíveis, e o resto rola.
+   A altura da linha é fixada em vez de deduzida do espaçamento, e a caixa é o
+   cabeçalho mais quatro delas. Deduzir não funciona: quem dita a altura aqui é
+   o botão de porte, com borda e arredondamento próprios, e a conta pelo padding
+   dava 29px para uma linha que mede 33 — quatro linhas viravam três e meia. */
+.lista-destinos {
+  --linha: 33px; --cabecalho: 26px;
+  max-height: calc(var(--cabecalho) + 4 * var(--linha));
+}
+table.compacta th { height: var(--cabecalho, 26px); padding: 0 9px; }
+table.compacta td { height: var(--linha, 33px); padding: 0 9px; white-space: nowrap; }
+/* A coluna do destino é a que cede.
+   Com `nowrap` em tudo e nenhuma coluna elástica, a tabela ficava mais larga
+   que a caixa e a lista passava a rolar de lado — e o que sumia era justamente
+   a sigla, na ponta esquerda. `max-width: 0` com `width: 100%` é o que faz uma
+   célula ocupar a sobra e aparar o excesso em reticências em vez de empurrar. */
+table.compacta td:first-child, table.compacta th:first-child { width: 100%; max-width: 0; }
+table.compacta td:first-child { overflow: hidden; text-overflow: ellipsis; }
+
+/* No celular seis colunas não cabem, e a que cede é sempre a primeira: com
+   390px de tela, o destino era espremido até sobrar a letra inicial — "C",
+   "G", "B" — e o porte ficava cortado na direita.
+   Ficam as três que só existem aqui: para onde, quanto de mercado e com o quê.
+   Distância, tarifa e concorrentes saem porque as três reaparecem na projeção
+   assim que o destino é escolhido, que é um toque depois. */
+@media (max-width: 760px) {
+  table.compacta th:nth-child(2), table.compacta td:nth-child(2),
+  table.compacta th:nth-child(4), table.compacta td:nth-child(4),
+  table.compacta th:nth-child(5), table.compacta td:nth-child(5) { display: none; }
+}
+
+/* O teto de porte: ícone fechado, menu aberto. */
+.porte { position: relative; display: inline-block; }
+.porte > summary {
+  list-style: none; cursor: pointer; font-size: 11.5px; padding: 1px 6px;
+  border: 1px solid var(--line); border-radius: 999px; color: var(--ink-2);
+  white-space: nowrap;
+}
+.porte > summary::-webkit-details-marker { display: none; }
+.porte > summary:hover { border-color: var(--amber); color: var(--amber); }
+.porte[open] > summary { border-color: var(--amber); color: var(--amber); }
+.porte-menu {
+  position: fixed; z-index: 30; width: 250px; max-width: calc(100vw - 24px);
+  padding: 9px 11px; text-align: left; white-space: normal; font-size: 12px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+.porte-menu h5 {
+  margin: 0 0 6px; font-size: 10.5px; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--ink-3); font-weight: 600;
+}
+.porte-menu p { margin: 7px 0 0; font-size: 11px; line-height: 1.45; }
 .list-empty { padding: 26px; text-align: center; color: var(--ink-3); }
 .notice { display: flex; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); font-size: 12.5px; }
 .notice small { color: var(--ink-3); white-space: nowrap; }

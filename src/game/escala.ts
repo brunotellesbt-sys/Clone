@@ -32,7 +32,7 @@ import { AIRPORT_BY_IATA, noToqueDeRecolher, TOQUE_DE_RECOLHER, vooPermitido } f
 import { AIRCRAFT_BY_ID } from './data/aircraft'
 import { blockHours } from './economy'
 import { distanceBetween } from './geo'
-import { pistaServe, withEngine } from './spec'
+import { motivoDoPar, withEngine } from './spec'
 import type { Aircraft, GameState, Perna, Route } from './types'
 
 export const DIA = 24 * 60
@@ -347,7 +347,8 @@ export function aeronaveServe(s: GameState, ac: Aircraft, from: string, to: stri
   if (!a || !b) return 'Aeroporto desconhecido.'
   const dist = distanceBetween(from, to)
   if (t.range < dist) return `${t.name} não alcança a etapa (limite ${Math.round(t.range * 1.852)} km).`
-  if (!pistaServe(t, a, b)) return 'Pista curta demais em uma das pontas.'
+  const barrado = motivoDoPar(t, a, b)
+  if (barrado) return barrado
   if (ac.groundedUntil > s.day) return `${ac.reg} está em manutenção pesada.`
   return null
 }

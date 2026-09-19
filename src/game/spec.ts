@@ -66,7 +66,42 @@ const POR_MIL_PES = 0.06
 export const pistaExigida = (t: AircraftType, ap: { elev: number }) =>
   Math.round(t.runwayMin * (1 + POR_MIL_PES * Math.max(0, ap.elev) / 1000))
 
-/** A aeronave opera entre os dois aeroportos? Só a pista — alcance é outra conta. */
-export const pistaServe = (t: AircraftType, a: { elev: number; runway: number },
-                           b: { elev: number; runway: number }) =>
-  pistaExigida(t, a) <= a.runway && pistaExigida(t, b) <= b.runway
+/** O que um aeroporto precisa oferecer para receber o tipo. */
+export interface Portao {
+  elev: number
+  runway: number
+  /** Teto de operação onde a pista não é quem manda; ver `TETO_ASSENTOS`. */
+  tetoAssentos?: number
+}
+
+/**
+ * O aeroporto recebe este tipo?
+ *
+ * Duas perguntas, e a segunda quase nunca é feita: a pista dá, e o aeroporto
+ * aceita avião desse tamanho? Pampulha responde não à segunda com a pista
+ * dizendo sim — ver `TETO_ASSENTOS` em `airports.ts`.
+ */
+export const aeroportoServe = (t: AircraftType, ap: Portao) =>
+  pistaExigida(t, ap) <= ap.runway &&
+  (ap.tetoAssentos === undefined || t.maxSeats <= ap.tetoAssentos)
+
+/** A aeronave opera entre os dois aeroportos? Pista e porte — alcance é outra conta. */
+export const pistaServe = (t: AircraftType, a: Portao, b: Portao) =>
+  aeroportoServe(t, a) && aeroportoServe(t, b)
+
+/**
+ * Por que a aeronave não serve o par, em uma frase — ou `null` se serve.
+ *
+ * Dizer "pista curta demais" quando a pista sobra manda o jogador procurar
+ * defeito onde não tem: em Pampulha a pista passa o A321neo e quem barra é o
+ * porte. O motivo certo é o que ensina a regra.
+ */
+export function motivoDoPar(t: AircraftType, a: Portao, b: Portao): string | null {
+  for (const ap of [a, b]) {
+    if (pistaExigida(t, ap) > ap.runway) return 'Pista curta demais em uma das pontas.'
+    if (ap.tetoAssentos !== undefined && t.maxSeats > ap.tetoAssentos) {
+      return `Aeronave grande demais para uma das pontas (teto de ${ap.tetoAssentos} assentos).`
+    }
+  }
+  return null
+}

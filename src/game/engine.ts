@@ -14,7 +14,7 @@ import {
 import { BLANK_LIVERY } from '../livery/presets'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from './demand'
 import { cabinComfort, checkCabin, clampPitch, crewFor, defaultCabin } from './cabin'
-import { engineIdFor, pistaServe, withEngine } from './spec'
+import { engineIdFor, motivoDoPar, withEngine } from './spec'
 import {
   addCabins, allocateCargoMarket, allocateMarket, blockHours, CARGO_SELLABLE, escalarCabins,
   limitarCabins,
@@ -312,9 +312,11 @@ export function assignAircraft(s: GameState, acId: string, routeId: string): str
   if (t.range < r.distance) return `${t.name} não alcança ${km(r.distance)} (limite ${km(t.range)}).`
   const from = AIRPORT_BY_IATA[r.from]
   const to = AIRPORT_BY_IATA[r.to]
-  // `pistaServe`, não `runway`: o que decide é a pista em que o avião opera de
-  // fato, com peso reduzido, corrigida pela elevação de cada ponta.
-  if (!pistaServe(t, from, to)) return 'Pista curta demais em uma das pontas.'
+  // `motivoDoPar`, não `runway`: o que decide é a pista em que o avião opera de
+  // fato, com peso reduzido, corrigida pela elevação de cada ponta — e, onde a
+  // pista não é quem manda, o teto de porte do aeroporto.
+  const barrado = motivoDoPar(t, from, to)
+  if (barrado) return barrado
 
   let marcou = 0
   let ultimoErro: string | null = null

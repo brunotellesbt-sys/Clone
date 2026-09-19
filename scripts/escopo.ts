@@ -8,6 +8,8 @@
  */
 import { AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, vooPermitido, type Escopo } from '../src/game/data/airports'
 import { baseDemand } from '../src/game/demand'
+import { AIRCRAFT_BY_ID } from '../src/game/data/aircraft'
+import { aeroportoServe } from '../src/game/spec'
 
 /** O que cada aeroporto deve ser, e por quê. */
 const ESPERADO: [string, Escopo, string][] = [
@@ -146,6 +148,40 @@ for (const [iata, cidade] of [
   const ok = a?.city === cidade
   if (!ok) falhas++
   console.log(`${ok ? 'ok   ' : 'FALHA'} ${iata} é ${cidade}${ok ? '' : ` — está como ${a?.city}`}`)
+}
+
+// ------------------------------------------------- teto de porte do aeroporto
+//
+// Onde a pista não é quem manda, o catálogo carrega um teto à mão. Ele é fácil
+// de perder de vista: some numa regravação do catálogo e ninguém nota, porque
+// o jogo continua funcionando — só volta a oferecer A321neo em Pampulha.
+console.log('\nteto de porte\n')
+for (const [iata, maior, barrado] of [
+  ['PLU', 'b73g', 'a319'],
+] as const) {
+  const ap = AIRPORT_BY_IATA[iata]
+  const passa = ap && aeroportoServe(AIRCRAFT_BY_ID[maior], ap)
+  const barra = ap && !aeroportoServe(AIRCRAFT_BY_ID[barrado], ap)
+  if (!passa || !barra) falhas++
+  console.log(
+    `${passa && barra ? 'ok   ' : 'FALHA'} ${iata} recebe ${AIRCRAFT_BY_ID[maior].name} ` +
+      `e recusa ${AIRCRAFT_BY_ID[barrado].name}` +
+      (passa && barra ? ` (teto ${ap.tetoAssentos} lugares)` : ''),
+  )
+}
+
+// O movimento de Pampulha é o de 2004, o ano em que ela ainda era o aeroporto
+// de Belo Horizonte — em 2005 o movimento foi para Confins. Se este número cair
+// para o de hoje, a regra do pico histórico deixou de valer em algum lugar.
+{
+  const plu = AIRPORT_BY_IATA.PLU
+  const anual = plu ? plu.paxDia * 365 : 0
+  const ok = plu?.medido && anual > 2.8e6 && anual < 3.2e6
+  if (!ok) falhas++
+  console.log(
+    `${ok ? 'ok   ' : 'FALHA'} PLU no pico de 2004 (${(anual / 1e6).toFixed(2)} mi/ano, ` +
+      `${plu?.medido ? 'medido' : 'ESTIMADO'})`,
+  )
 }
 
 console.log(falhas ? `\n${falhas} falha(s)` : '\ntudo certo')
