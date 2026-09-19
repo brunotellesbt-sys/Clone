@@ -233,7 +233,11 @@ export const AIRCRAFT: AircraftType[] = [
     ['cfm565c4'],
     S(63.69, 5.64, 16.99, 60.3, 'low', 'conv', 4, 'wing', false, 'single', 'fence')),
   // TCDS EASA.A.015, seção A340-600: limite de evacuação de 440 passageiros.
-  A('a346', 'A340-600', 'Airbus', 'widebody', 440, 8, 7900, 470, 8000, 295, 10200, 1.36, 1.04, 85, 2002,
+  // 475, não 440: o -600 é 11,7 m mais comprido que o -300 e leva o certificado
+  // junto. Estava com o número do -300, e isso só apareceu quando a cabine
+  // passou a ser derivada do limite de saídas — os dois saíam com a mesma
+  // cabine, sendo que este é o avião de linha mais comprido que a Airbus fez.
+  A('a346', 'A340-600', 'Airbus', 'widebody', 475, 8, 7900, 470, 8000, 295, 10200, 1.36, 1.04, 85, 2002,
     ['trent556'],
     S(75.36, 5.64, 17.93, 63.45, 'low', 'conv', 4, 'wing', false, 'single', 'fence')),
   A('b744', '747-400', 'Boeing', 'widebody', 660, 10, 7260, 490, 9700, 285, 10500, 1.48, 1.01, 95, 1989,

@@ -48,24 +48,99 @@ export function rowLayout(t: AircraftType, cabin: CabinClass, config?: SeatConfi
   return '3-4-3'
 }
 
-/** Espaço perdido para galley, lavatório e saídas antes de qualquer poltrona. */
+/**
+ * Espaço perdido para galley, lavatório e saídas antes de qualquer poltrona.
+ *
+ * Ele entra **dos dois lados** da conta — soma no comprimento da cabine em
+ * `cabinLength` e é descontado em `cabinUsed` —, de modo que o espaço
+ * disponível para poltrona é exatamente o bloco do certificado. Mudar este
+ * número sozinho não muda quantos assentos cabem; ele existe para a barra de
+ * ocupação na tela ter o mesmo denominador que uma planta de cabine real.
+ */
 const MONUMENTS = 90
 /** Divisória, galley e lavatório a cada classe adicional. */
 const PER_CLASS = 34
 
 /**
- * Comprimento útil de cabine, em polegadas, deduzido do comprimento externo.
- * Nariz e cone de cauda comem o resto; o convés de cima entra por fora.
+ * Passo de uma cabine de alta densidade de verdade, em polegadas.
+ *
+ * Não é o mínimo teórico do jogo (28″): é o que as companhias de alta densidade
+ * praticam — Ryanair voa o 737-800 a 30″, a easyJet o A320 a 29″, a Spirit o
+ * A321 a 28″. Vinte e nove é o meio desse intervalo.
+ */
+const PASSO_DENSO = 29
+
+/**
+ * Comprimento útil de cabine, em polegadas.
+ *
+ * ## Por que não sai mais da fuselagem
+ *
+ * Saía: era uma fração do comprimento externo por família — 0,60 para regional,
+ * 0,76 para narrowbody. Duas coisas estavam erradas nisso, e a segunda é a que
+ * doía:
+ *
+ * 1. **fração de comprimento não descreve avião esticado.** Esticar uma
+ *    fuselagem acrescenta cabine, não nariz: o E195-E2 tem 41,5 m, mais que um
+ *    737-700, e era medido com a régua de jato regional pequeno;
+ * 2. **os monumentos eram pequenos demais.** `MONUMENTS` vale 90″, 2,29 m, para
+ *    galley, lavatório e portas do avião inteiro. Um 737-800 tem cabine de
+ *    29,97 m e leva 189 passageiros a 30″ — o bloco de poltronas é 24,4 m, logo
+ *    o que **não** é poltrona ocupa 5,5 m, não 2,3.
+ *
+ * O resultado composto era o defeito relatado: duas classes num E195-E2 davam
+ * 100 assentos, e a Azul voa o mesmo avião com 136.
+ *
+ * ## De onde sai agora
+ *
+ * De dado publicado, e só dele. `maxSeats` é o limite de saídas de emergência —
+ * ficha do fabricante — e `abreast` é a fileira da econômica. Os dois juntos
+ * descrevem **a configuração mais densa que o avião é certificado a levar**, e
+ * o comprimento dessa configuração é o comprimento da cabine:
+ *
+ *     cabine = monumentos + fileiras do certificado × passo de alta densidade
+ *
+ * Nenhuma fração escolhida a dedo, nenhuma família: dois números de ficha e um
+ * passo que existe no mundo. O efeito de a cabine ser derivada do certificado é
+ * o que se quer — a classe única **passa um pouco** do limite de saídas (198
+ * contra 189 no 737-800), e daí em diante quem manda é o certificado, que é a
+ * regra certa.
+ *
+ * ## Conferido contra configurações reais de duas classes
+ *
+ * Três fileiras de premium a 38″ e o resto econômica a 31″, que é o padrão de
+ * mercado — medido pelo `npm run cabines`, que guarda esta tabela como trava:
+ *
+ * | avião | jogo | real |
+ * |---|---|---|
+ * | 737-800 | 168 | 160–172 |
+ * | A320neo | 174 | 150–175 |
+ * | E195-E2 | 128 | 136 (Azul) |
+ * | A321neo | 216 | 182 (Turkish) a 215 (Lufthansa) |
+ *
+ * Fica no teto da faixa, e isso é escolha: o jogo cobra uma divisória por
+ * classe que a planta real distribui melhor, e errar para baixo foi o defeito
+ * que trouxe até aqui.
+ *
+ * ## A simplificação que isto assume
+ *
+ * Dois aviões com o mesmo limite de saídas ganham a mesma cabine, mesmo com
+ * comprimentos diferentes — o A330-300 e o A350-900 são os dois certificados
+ * para 440. É defensável: o certificado **é** a densidade máxima, então dois
+ * aviões certificados para o mesmo número realmente levam o mesmo número. O
+ * que a fuselagem mais comprida daria é conforto no mesmo número de gente, e
+ * isso o jogo já modela pelo passo.
+ *
+ * O preço dessa escolha é que um `maxSeats` errado deixou de ser detalhe de
+ * ficha e passou a ser a cabine. Foi assim que o A340-600 apareceu com os 440
+ * do -300, sendo 11,7 m mais comprido e certificado para 475 — e é por isso que
+ * `npm run cabines` agora mede o limite contra o tamanho do avião.
+ *
+ * Cargueiro não tem cabine — `maxSeats` é 0 —, e aí o valor não é usado por
+ * conta nenhuma; devolve zero em vez de fingir um número.
  */
 export function cabinLength(t: AircraftType): number {
-  const s = t.shape
-  const frac = s.prop ? 0.71 : t.family === 'regional' ? 0.6 : t.family === 'widebody' ? 0.72 : 0.76
-  let m = s.length * frac
-  // O convés de cima entra convertido: ele é mais estreito que o principal, e
-  // um metro lá em cima vale menos assento do que um metro aqui embaixo.
-  if (s.deck === 'hump') m += s.length * 0.13
-  if (s.deck === 'double') m += s.length * 0.34
-  return m * 39.3701
+  if (t.maxSeats <= 0 || t.abreast <= 0) return 0
+  return MONUMENTS + Math.ceil(t.maxSeats / t.abreast) * PASSO_DENSO
 }
 
 /** Comprimento ocupado por uma configuração, em polegadas. */
@@ -83,6 +158,93 @@ export const sumSeats = (s: Cabins) => s.y + s.w + s.c + s.f
 /** Quantas fileiras cada classe ocupa. */
 export const rowsOf = (t: AircraftType, seats: Cabins, c: CabinClass, config?: SeatConfig) =>
   Math.ceil(seats[c] / abreastOf(t, c, config))
+
+/**
+ * Quantos assentos a classe `c` ainda pode receber, dadas as outras.
+ *
+ * É a trava dura. Antes o controle ia até `maxSeats` em toda classe, e o jogo
+ * só reclamava na hora de aplicar — dava para arrastar quatro classes até o
+ * talo, ver "não cabe" e ter que desfazer tudo no tato. Dizer não depois de
+ * deixar tentar é a pior das duas respostas: o controle que não pode ir até lá
+ * simplesmente não vai.
+ *
+ * Dois limites, e vale o menor: o comprimento que sobra de cabine e o limite de
+ * saídas. O de cabine é arredondado **para baixo, em fileira inteira**, porque
+ * meia fileira não existe.
+ */
+export function limiteDaClasse(
+  t: AircraftType, seats: Cabins, pitch: Cabins, c: CabinClass, config?: SeatConfig,
+): number {
+  const ab = abreastOf(t, c, config)
+  if (ab <= 0) return 0
+  const outras = { ...seats, [c]: 0 }
+  // o que sobra depois das outras classes, já descontada a divisória que esta
+  // classe passa a exigir quando deixa de ser vazia
+  const sobra = cabinLength(t) - cabinUsed(t, outras, pitch, config) -
+    (sumSeats(outras) > 0 ? PER_CLASS : 0)
+  const porCabine = Math.max(0, Math.floor(sobra / pitch[c])) * ab
+  const porSaidas = Math.max(0, t.maxSeats - sumSeats(outras))
+  return Math.min(porCabine, porSaidas)
+}
+
+/**
+ * Até que passo a classe `c` pode ir sem estourar a cabine.
+ *
+ * O mesmo princípio dos assentos, do outro lado da conta: com as fileiras já
+ * postas, esticar o passo é o que estoura. Quem quiser mais espaço tira
+ * assento primeiro — que é exatamente a decisão que a tela existe para cobrar.
+ */
+export function passoMaximo(
+  t: AircraftType, seats: Cabins, pitch: Cabins, c: CabinClass, config?: SeatConfig,
+): number {
+  const [min, , max] = PITCH_RANGE[c]
+  const fileiras = rowsOf(t, seats, c, config)
+  if (seats[c] <= 0 || fileiras <= 0) return max
+  const outras = { ...seats, [c]: 0 }
+  const sobra = cabinLength(t) - cabinUsed(t, outras, pitch, config) -
+    (sumSeats(outras) > 0 ? PER_CLASS : 0)
+  return Math.max(min, Math.min(max, Math.floor(sobra / fileiras)))
+}
+
+/**
+ * Põe `desejado` assentos na classe `c`, tirando da econômica o que faltar.
+ *
+ * A trava dura sozinha tem um efeito ruim que só aparece usando: partindo de
+ * uma cabine de classe única, a econômica ocupa tudo e as outras três mostram
+ * "cabem 0" — para pôr uma executiva o jogador precisa primeiro adivinhar
+ * quanta econômica tirar, no tato, antes de poder mexer no que ele queria.
+ *
+ * A econômica é a classe que cede, e isso não é invenção da interface: é o que
+ * os próprios padrões fazem em `fill`, e o que uma companhia faz de verdade —
+ * a cabine da frente é especificada, e a econômica ocupa o que sobrar.
+ *
+ * O que **não** muda: nada passa do que cabe. Se nem zerando a econômica a
+ * classe couber, ela para no máximo possível.
+ */
+export function ajustarClasse(
+  t: AircraftType, seats: Cabins, pitch: Cabins, c: CabinClass, desejado: number,
+  config?: SeatConfig,
+): Cabins {
+  const ab = abreastOf(t, c, config)
+  const alvo = Math.max(0, Math.round(desejado))
+  const out = { ...seats }
+  if (c === 'y' || alvo <= limiteDaClasse(t, seats, pitch, c, config)) {
+    out[c] = Math.min(alvo, limiteDaClasse(t, seats, pitch, c, config))
+    return out
+  }
+  // Tira da econômica, de fileira em fileira, só até o alvo caber.
+  const abY = abreastOf(t, 'y', config)
+  out[c] = alvo
+  while (out.y > 0) {
+    out.y = Math.max(0, out.y - abY)
+    if (limiteDaClasse(t, out, pitch, c, config) >= alvo) break
+  }
+  out[c] = Math.max(0, Math.floor(limiteDaClasse(t, out, pitch, c, config) / ab) * ab)
+  out[c] = Math.min(alvo, out[c])
+  // devolve à econômica o que sobrou da conta, para não cortar mais que o necessário
+  out.y = Math.min(out.y + limiteDaClasse(t, out, pitch, 'y', config), limiteDaClasse(t, { ...out, y: 0 }, pitch, 'y', config))
+  return out
+}
 
 export interface CabinCheck {
   used: number
@@ -151,12 +313,31 @@ export interface Layout {
   build: (t: AircraftType) => { seats: Cabins; pitch: Cabins }
 }
 
-/** Preenche a econômica com tudo o que sobrar de cabine. */
-function fill(t: AircraftType, seats: Cabins, pitch: Cabins): { seats: Cabins; pitch: Cabins } {
-  const free = cabinLength(t) - cabinUsed(t, { ...seats, y: 0 }, pitch) - (seats.w + seats.c + seats.f > 0 ? PER_CLASS : 0)
-  const rows = Math.max(0, Math.floor(free / pitch.y))
-  const room = t.maxSeats - (seats.w + seats.c + seats.f)
-  seats.y = Math.max(0, Math.min(rows * abreastOf(t, 'y'), room))
+/**
+ * Monta um padrão: as classes da frente aparadas ao que cabe, e a econômica
+ * preenchendo o resto.
+ *
+ * A versão anterior dimensionava a frente por fração de `maxSeats` sem
+ * perguntar se cabia, e só a econômica era aparada. Passava despercebido
+ * enquanto a cabine era generosa; com ela derivada do certificado, "Quatro
+ * classes" num Dash 8 Q200 pedia 11,3 m numa cabine de 9,7 m — o padrão do
+ * próprio jogo saía inválido, e `npm run cabines` marcava com `!` um erro que
+ * ninguém ia caçar.
+ *
+ * Agora cada classe da frente passa pela mesma trava que o jogador tem na
+ * tela, da mais cara para a mais barata: quem não couber inteira entra no
+ * tamanho que couber, e some quando não couber nenhuma fileira. Um turboélice
+ * não tem "quatro classes", e o padrão passa a dizer isso em vez de mentir.
+ */
+function fill(t: AircraftType, alvos: Cabins, pitch: Cabins): { seats: Cabins; pitch: Cabins } {
+  let seats: Cabins = { y: 0, w: 0, c: 0, f: 0 }
+  for (const c of ['f', 'c', 'w'] as const) {
+    if (alvos[c] <= 0) continue
+    const ab = abreastOf(t, c)
+    const cabe = Math.floor(limiteDaClasse(t, seats, pitch, c) / ab) * ab
+    seats[c] = Math.max(0, Math.min(alvos[c], cabe))
+  }
+  seats = ajustarClasse(t, seats, pitch, 'y', t.maxSeats)
   return { seats, pitch }
 }
 
