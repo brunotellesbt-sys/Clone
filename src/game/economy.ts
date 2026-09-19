@@ -11,7 +11,39 @@ export const leaseMonthly = (t: AircraftType) => marketPrice(t) * 0.009
 export const resaleValue = (t: AircraftType, age: number, condition: number) =>
   marketPrice(t) * Math.max(0.16, Math.pow(0.925, age)) * (0.55 + 0.45 * condition)
 
-export const blockHours = (t: AircraftType, distNm: number) => distNm / t.speed + 0.45
+/**
+ * Tempo de porta a porta de uma etapa, em horas.
+ *
+ * O termo de cruzeiro é a distância pela velocidade do modelo. O outro é o que
+ * não depende de distância nenhuma: táxi nas duas pontas, subida e descida
+ * fora da velocidade de cruzeiro, espera de sequenciamento.
+ *
+ * **Os dezenove minutos são calibrados**, e contra tempos que o dono do jogo
+ * ditou para a ponte aérea do Sudeste:
+ *
+ * | trecho | nm | pedido | o jogo dá |
+ * |---|---|---|---|
+ * | GIG–GRU | 182 | 40 min | 43 |
+ * | SDU–GRU | 185 | 40 min | 43 |
+ * | GIG–CGH | 194 | 45 min | 44 |
+ * | SDU–CGH | 197 | 45 min | 45 |
+ * | GIG–VCP | 215 | 50 min | 47 |
+ * | SDU–VCP | 220 | 50 min | 48 |
+ *
+ * A calibração é **pela média**, como pedido: 199 nm dão 45 minutos redondos.
+ * Casar os seis exatamente é impossível sem quebrar o modelo — entre 182 e 220
+ * nm os tempos pedidos sobem dez minutos, uma inclinação de 228 kt marginais,
+ * enquanto a média desses mesmos pontos pede 390 kt. Uma reta pelos seis tem
+ * intercepto **negativo**, e num trecho de 50 nm ela daria cinco minutos de
+ * voo. Ficam os 45 no meio e a diferença nas pontas, de dois a três minutos.
+ *
+ * Eram 27 minutos, e é por isso que SDU–CGH saía com 53. O corte de oito
+ * minutos pesa 15% numa etapa de 200 nm e 1% numa de doze horas, que é
+ * exatamente onde ele devia pesar.
+ */
+export const TAXI_E_MANOBRA = 19 / 60
+
+export const blockHours = (t: AircraftType, distNm: number) => distNm / t.speed + TAXI_E_MANOBRA
 
 /**
  * O que a madrugada cobra a mais, por unidade de fração noturna.

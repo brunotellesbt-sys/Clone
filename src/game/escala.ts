@@ -429,6 +429,15 @@ export function removerVoo(s: GameState, pernaId: string) {
  * Tira e repõe: a validação de posição olha a escala em volta, e uma perna que
  * se valida contra si mesma sempre colide consigo.
  */
+/**
+ * Muda o dia e a hora de uma perna, **mantendo a identidade dela**.
+ *
+ * Por dentro é tirar e pôr de novo, porque é `marcarVoo` quem sabe todas as
+ * regras de escala — e repetir essa validação aqui seria duas validações para
+ * envelhecer desencontradas. O que não pode mudar é o id: a tela guarda qual
+ * perna está aberta pelo id, e trocá-lo a cada tecla do campo de hora fechava
+ * o editor no meio da edição. Quem remarca continua olhando o mesmo voo.
+ */
 export function remarcarVoo(s: GameState, pernaId: string, dow: number, saida: number): string | null {
   const antiga = escalaDe(s).find((p) => p.id === pernaId)
   if (!antiga) return 'Voo não encontrado.'
@@ -440,6 +449,9 @@ export function remarcarVoo(s: GameState, pernaId: string, dow: number, saida: n
     sincronizarMalha(s)
     return erro
   }
+  const nova = s.airline.escala[s.airline.escala.length - 1]
+  if (nova) nova.id = pernaId
+  sincronizarMalha(s)
   return null
 }
 
