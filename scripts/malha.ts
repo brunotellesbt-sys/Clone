@@ -386,6 +386,39 @@ console.log('\ntirar a cauda de uma rota\n')
   conferir(pernasDe(t, cauda).length === 2, 'os de GRU-SSA ficaram', `${pernasDe(t, cauda).length}`)
 }
 
+console.log('\no vazio diz qual perna o obriga\n')
+/**
+ * O relato: uma ponte aérea com ida 06:00 e volta 07:25 nos sete dias, e ao
+ * marcar uma segunda ida às 09:30 o jogo avisava "seguiria vazia para SDU".
+ * Quem montou a escala lê aquilo como erro — "mas ela já volta para SDU às
+ * 07:25". Volta, só que **antes** desta partida. O que obriga o vazio é a
+ * perna de depois, que é a ida de segunda, e o aviso não dizia qual era.
+ */
+{
+  const t = newGame({ name: 'Vazio', code: 'VZ', hub: 'SDU', seed: 7 })
+  t.airline.cash = 5e9
+  openRoute(t, 'SDU', 'CGH')
+  buyAircraft(t, 'a320neo', false)
+  const cauda = t.airline.fleet[0].id
+  for (let d = 0; d < 7; d++) {
+    marcarVoo(t, cauda, 'SDU', 'CGH', d, 6 * 60)
+    marcarVoo(t, cauda, 'CGH', 'SDU', d, 7 * 60 + 25)
+  }
+  const d = cabeNaEscala(t, cauda, 'SDU', 'CGH', 0, 9 * 60 + 30)
+  conferir(d.ok && d.ferryPara === 'SDU', 'a segunda ida do dia cobra voo vazio',
+    `${d.ferryPara ?? 'nenhum'}`)
+  conferir(/SDU–CGH/.test(d.ferryParaVoo ?? ''),
+    'e o aviso nomeia a perna que obriga o vazio', d.ferryParaVoo ?? '(sem nome)')
+  conferir(/Seg/.test(d.ferryParaVoo ?? ''),
+    'que é a de **depois** desta, não a volta que já estava marcada antes',
+    d.ferryParaVoo ?? '')
+  // e marcando a volta dessa segunda ida o vazio some, que é o que o aviso ensina
+  marcarVoo(t, cauda, 'SDU', 'CGH', 0, 9 * 60 + 30)
+  marcarVoo(t, cauda, 'CGH', 'SDU', 0, 11 * 60)
+  conferir(quebrasDe(t, cauda).length === 0, 'marcar a volta dela fecha a escala',
+    `${quebrasDe(t, cauda).length} quebras`)
+}
+
 console.log('\ntempo de solo por porte\n')
 /**
  * O mínimo de solo entre pousar e voltar a sair, ditado pelo dono do jogo:

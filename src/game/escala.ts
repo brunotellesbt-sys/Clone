@@ -256,6 +256,17 @@ export interface Disponibilidade {
   ferryDe?: string
   /** Para onde ela teria que seguir vazia depois. */
   ferryPara?: string
+  /**
+   * A perna vizinha que **obriga** cada vazio, escrita para a tela.
+   *
+   * Sem isto o aviso dizia "seguiria vazia para SDU" e pronto, e quem tinha uma
+   * ponte aérea montada lia aquilo como erro do jogo: "mas ela já está voltando
+   * para SDU às 07:25". Está — só que **antes** desta partida, não depois. O
+   * que obriga o vazio é a perna de depois, e nomear qual é resolve a dúvida
+   * sem o jogador ter que reconstruir a cadeia de cabeça.
+   */
+  ferryDeVoo?: string
+  ferryParaVoo?: string
 }
 
 /**
@@ -323,10 +334,16 @@ export function cabeNaEscala(
       motivo: `${ac.reg} não tem ${solo} min de solo em ${to} antes de ${seguinte.perna.from}–${seguinte.perna.to}, ${DOW_CURTO[seguinte.perna.dow]} ${hhmm(seguinte.perna.saida)}.`,
     }
   }
+  const rotulo = (p: PernaNoTempo) =>
+    `${p.perna.from}–${p.perna.to}, ${DOW_CURTO[p.perna.dow]} ${hhmm(p.perna.saida)}`
+  const vemDe = anterior.perna.to === from ? undefined : anterior.perna.to
+  const vaiPara = seguinte.perna.from === to ? undefined : seguinte.perna.from
   return {
     ok: true,
-    ferryDe: anterior.perna.to === from ? undefined : anterior.perna.to,
-    ferryPara: seguinte.perna.from === to ? undefined : seguinte.perna.from,
+    ferryDe: vemDe,
+    ferryPara: vaiPara,
+    ferryDeVoo: vemDe && rotulo(anterior),
+    ferryParaVoo: vaiPara && rotulo(seguinte),
   }
 }
 
@@ -381,9 +398,20 @@ export function curfewDaPerna(
 export function aeronavesPara(s: GameState, from: string, to: string, dow: number, saida: number) {
   return s.airline.fleet.map((ac) => {
     const duro = aeronaveServe(s, ac, from, to) ?? curfewDaPerna(s, ac.id, from, to, saida)
-    if (duro) return { ac, impedimento: duro, ferryDe: undefined, ferryPara: undefined }
+    if (duro) {
+      return {
+        ac, impedimento: duro,
+        ferryDe: undefined as string | undefined, ferryPara: undefined as string | undefined,
+        ferryDeVoo: undefined as string | undefined, ferryParaVoo: undefined as string | undefined,
+      }
+    }
     const d = cabeNaEscala(s, ac.id, from, to, dow, saida)
-    return { ac, impedimento: d.ok ? null : d.motivo ?? 'Não cabe na escala.', ferryDe: d.ferryDe, ferryPara: d.ferryPara }
+    return {
+      ac,
+      impedimento: d.ok ? null : d.motivo ?? 'Não cabe na escala.',
+      ferryDe: d.ferryDe, ferryPara: d.ferryPara,
+      ferryDeVoo: d.ferryDeVoo, ferryParaVoo: d.ferryParaVoo,
+    }
   })
 }
 

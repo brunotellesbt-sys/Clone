@@ -191,15 +191,25 @@ export function NovoVoo({ route }: { route: Route }) {
       {comVazio.length > 0 && (
         <div style={{ marginBottom: 10 }}>
           <h4 className="sub">Podem voar, mas custam um voo vazio</h4>
-          {comVazio.map(({ ac, ferryDe, ferryPara }) => (
+          {comVazio.map(({ ac, ferryDe, ferryPara, ferryDeVoo, ferryParaVoo }) => (
             <div key={ac.id} className="row" style={{ justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--line-soft)' }}>
               <span>
                 <b>{ac.reg}</b> <span className="muted">{acLabel(fichaDe(ac))}</span>
                 <br />
+                {/* O vazio vem sempre com a perna que o obriga. Ver
+                    `ferryDeVoo` em `escala.ts`: quem tem ponte aérea montada lê
+                    "seguiria vazia para SDU" e responde "mas ela já volta para
+                    SDU" — volta, só que antes desta partida. */}
                 <span className="warn" style={{ fontSize: 12 }}>
                   {ferryDe && `viria vazia de ${ferryDe}`}
-                  {ferryDe && ferryPara && ' · '}
+                  {ferryDe && ferryDeVoo && (
+                    <span className="muted">, que é onde a perna anterior dela pousa ({ferryDeVoo})</span>
+                  )}
+                  {ferryDe && ferryPara && <br />}
                   {ferryPara && `seguiria vazia para ${ferryPara}`}
+                  {ferryPara && ferryParaVoo && (
+                    <span className="muted">, de onde sai a perna seguinte dela ({ferryParaVoo})</span>
+                  )}
                 </span>
               </span>
               <button className="btn sm" onClick={() => marcar(ac.id)}>{rotulo} assim</button>
