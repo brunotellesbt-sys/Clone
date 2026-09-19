@@ -341,6 +341,17 @@ export interface Competitor {
   desde?: number
 }
 
+/** Uma cabine montada e guardada com nome. Ver `Airline.cabines`. */
+export interface CabineSalva {
+  id: string
+  nome: string
+  /** Modelo a que ela pertence: só aparece nas aeronaves deste tipo. */
+  typeId: string
+  seats: Cabins
+  pitch: Cabins
+  seatConfig?: SeatConfig
+}
+
 export interface Airline {
   name: string
   code: string
@@ -361,6 +372,19 @@ export interface Airline {
    * partidas antigas, que não tinham acordo nenhum.
    */
   acordos?: string[]
+  /**
+   * Configurações de cabine salvas com nome, para reusar em outra aeronave do
+   * mesmo modelo.
+   *
+   * Montar uma cabine é uma decisão demorada — quatro classes, quatro passos,
+   * quatro modelos de poltrona — e refazê-la no tato a cada avião comprado é
+   * trabalho jogado fora. A configuração é guardada presa ao `typeId` porque é
+   * só dentro do modelo que ela quer dizer alguma coisa: "116Y + 12W" num
+   * E195-E2 não é a mesma cabine num 777.
+   *
+   * Ausente nas partidas antigas, que não tinham nenhuma.
+   */
+  cabines?: CabineSalva[]
   /**
    * A malha: todas as pernas da semana, de todas as aeronaves.
    *

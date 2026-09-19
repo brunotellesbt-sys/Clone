@@ -428,6 +428,60 @@ export function setCabin(s: GameState, acId: string, seats: Cabins, pitch: Cabin
   return null
 }
 
+/** Quantas cabines dá para guardar. */
+export const MAX_CABINES = 24
+
+/**
+ * Guarda a cabine montada com um nome, para reusar em outra aeronave do modelo.
+ *
+ * Guarda **o que está na tela**, não o que está instalado no avião: o jogador
+ * monta, salva e só então decide se aplica naquela cauda — e se ele tivesse que
+ * aplicar antes de poder salvar, cada configuração experimental custaria uma
+ * reforma e dois dias de avião parado.
+ *
+ * Nome repetido sobrescreve o anterior em vez de criar um segundo com o mesmo
+ * rótulo. Duas entradas idênticas na lista são um defeito, não uma escolha.
+ */
+export function salvarCabine(
+  s: GameState, typeId: string, nome: string, seats: Cabins, pitch: Cabins, seatConfig?: SeatConfig,
+): string | null {
+  const t = AIRCRAFT_BY_ID[typeId]
+  if (!t) return 'Modelo inexistente.'
+  const limpo = nome.trim().slice(0, 32)
+  if (!limpo) return 'Dê um nome à configuração.'
+  const p = clampPitch(pitch)
+  const chk = checkCabin(t, seats, p, seatConfig)
+  if (!chk.ok) return chk.seatError ?? 'Essa configuração não é válida; ajuste antes de salvar.'
+  const lista = (s.airline.cabines ??= [])
+  const igual = lista.find((x) => x.typeId === typeId && x.nome.toLowerCase() === limpo.toLowerCase())
+  const nova = {
+    id: igual?.id ?? nextId('cb'),
+    nome: limpo,
+    typeId,
+    seats: { ...seats },
+    pitch: p,
+    seatConfig: normalizeSeats(t, seatConfig),
+  }
+  if (igual) lista[lista.indexOf(igual)] = nova
+  else {
+    if (lista.length >= MAX_CABINES) return `Já são ${MAX_CABINES} configurações guardadas; apague uma.`
+    lista.push(nova)
+  }
+  return null
+}
+
+export function apagarCabine(s: GameState, id: string): string | null {
+  const lista = s.airline.cabines
+  const i = lista?.findIndex((x) => x.id === id) ?? -1
+  if (!lista || i < 0) return 'Configuração não encontrada.'
+  lista.splice(i, 1)
+  return null
+}
+
+/** As cabines guardadas que servem num modelo. */
+export const cabinesDoModelo = (s: GameState, typeId: string) =>
+  (s.airline.cabines ?? []).filter((c) => c.typeId === typeId)
+
 /** Preço de abrir base, igual em qualquer aeroporto. */
 export const HUB_COST = 20e6
 

@@ -176,6 +176,61 @@ for (const nome of ['Painel', 'Rotas', 'Frota', 'Mercado', 'Finanças', 'Pintura
   await page.screenshot({ path: artifact(`mobile-tela-${nome.toLowerCase()}.png`), fullPage: true })
 }
 
+/*
+ * As subtelas também.
+ *
+ * Medir as sete abas dava verde e o jogador continuava achando tela cortada, e
+ * o motivo é simples: metade do jogo não está na primeira dobra de uma aba. O
+ * editor de pintura tem seis seções e só a primeira era medida; a cabine é um
+ * modal que nenhuma aba abre sozinha; a grade da frota e os horários da rota só
+ * aparecem com algo selecionado. Tela que não é aberta não é medida, e tela que
+ * não é medida é onde o defeito mora.
+ */
+await aba('Pintura')
+/*
+ * As seções da pintura dependem do modelo: com arte 2D o jogo mostra o editor
+ * 2D (quatro abas), e sem ela o vetorial (seis seções). Mede as que existirem —
+ * listar só um dos dois deixaria metade do editor sem medida, que foi como o
+ * emblema passou 63 modelos sem controle nenhum e ninguém notou.
+ */
+for (const secao of [
+  'Cores e peças', 'Camadas originais', 'Textos e símbolos', 'Acervo do ZIP',
+  'Fuselagem', 'Faixa', 'Cauda e emblema', 'Bordos da asa', 'Texto', 'Detalhes',
+]) {
+  const b = page.getByRole('button', { name: secao, exact: true }).first()
+  if (!(await b.count())) continue
+  await b.click()
+  await page.waitForTimeout(450)
+  await medir(`Pintura · ${secao}`)
+}
+
+await aba('Frota')
+const linhaFrota = page.locator('tbody tr.click').first()
+if (await linhaFrota.count()) {
+  await linhaFrota.click()
+  await page.waitForTimeout(600)
+  await medir('Frota · aeronave selecionada')
+  await page.screenshot({ path: artifact('mobile-tela-frota-detalhe.png'), fullPage: true })
+  const cabine = page.getByRole('button', { name: /Cabine/ }).first()
+  if (await cabine.count()) {
+    await cabine.click()
+    await page.waitForTimeout(800)
+    await medir('modal de cabine')
+    await page.screenshot({ path: artifact('mobile-modal-cabine.png'), fullPage: true })
+    await page.getByRole('button', { name: 'Fechar' }).first().click()
+    await page.waitForTimeout(400)
+  }
+}
+
+await aba('Rotas')
+const linhaRota = page.locator('tbody tr.click').first()
+if (await linhaRota.count()) {
+  await linhaRota.click()
+  await page.waitForTimeout(600)
+  await medir('Rotas · rota selecionada')
+  await page.screenshot({ path: artifact('mobile-tela-rota-detalhe.png'), fullPage: true })
+}
+
 conferir((await page.getByText('O jogo travou aqui').count()) === 0, 'o jogo segue de pé no fim')
 const ruins = erros.filter((e) => !/favicon|Download the React/i.test(e))
 conferir(ruins.length === 0, 'nenhum erro de página', ruins.slice(0, 2).join(' | '))

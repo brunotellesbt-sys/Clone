@@ -9,6 +9,8 @@ import { Card } from './components/Bits'
 type Slot = NonNullable<Paint2D['marks']> extends Partial<Record<infer K, unknown>> ? K : never
 const SLOTS: [Slot, string][] = [['primary', 'Letreiro principal'], ['secondary', 'Segundo letreiro'], ['third', 'Terceiro letreiro'], ['alliance', 'Aliança'], ['tail', 'Símbolo da cauda'], ['fuselage', 'Símbolo da fuselagem'], ['engine', 'Símbolo do motor'], ['winglet', 'Símbolo do winglet']]
 const WING_LABEL: Record<string, string> = { none: 'Sem winglet', winglet: 'Winglet', scimitar: 'Split Scimitar', wingtip_fence: 'Wingtip fence', sharklet: 'Sharklet', standard: 'Padrão', enhanced: 'Ampliado' }
+import { EMBLEMS } from '../livery/emblems'
+
 const COLOR_FIELDS = ['fuselage', 'belly', 'tail', 'stab', 'winglet', 'wingTop', 'titles', 'regColor', 'cheat', 'cheat2', 'engine', 'emblemColor'] as const
 const PRESENTATION_FIELDS = ['bellyAt', 'cheatStyle', 'cheatAt', 'cheatWidth', 'titleFont', 'titleSize', 'titleAt', 'regSize', 'showReg', 'flag', 'emblem'] as const
 export function Aircraft2DEditor({ type, engineId, livery, change, toast }: {
@@ -98,7 +100,45 @@ export function Aircraft2DEditor({ type, engineId, livery, change, toast }: {
         </label>)}</div>
       </>}
       {tab === 'marcas' && <>
-        <div className="grid g2" style={{ gap: 14, marginTop: 16 }}>
+        {/*
+          * O emblema da deriva mora aqui, e antes não morava em lugar nenhum.
+          *
+          * O catálogo de emblemas só era oferecido pelo editor vetorial, que o
+          * jogo usa em 5 dos 68 modelos — nos outros 63, que são os que se voa,
+          * não havia como escolher um. O desenhista sempre soube pintá-lo: o
+          * `RasterAircraft` já desenha `livery.emblem` na cauda da arte 2D. O
+          * que faltava era o controle.
+          */}
+        <h4 className="sub" style={{ marginTop: 16 }}>Emblema da deriva</h4>
+        <div className="grid g3" style={{ gap: 14 }}>
+          <label>Emblema
+            <select aria-label="Emblema" value={livery.emblem}
+              onChange={e => change({ ...livery, emblem: e.target.value })}>
+              {EMBLEMS.map(em => <option key={em.id} value={em.id}>{em.label}</option>)}
+            </select>
+          </label>
+          {livery.emblem !== 'none' && <>
+            <label className="row">Cor do emblema
+              <input type="color" aria-label="Cor do emblema" value={livery.emblemColor}
+                onChange={e => change({ ...livery, emblemColor: e.target.value })} />
+            </label>
+            <label>Tamanho
+              <select aria-label="Tamanho do emblema" value={livery.emblemSize}
+                onChange={e => change({ ...livery, emblemSize: e.target.value as Livery['emblemSize'] })}>
+                <option value="small">Pequeno</option>
+                <option value="medium">Médio</option>
+                <option value="large">Grande</option>
+              </select>
+            </label>
+          </>}
+        </div>
+        <p className="dim" style={{ fontSize: 12, margin: '6px 0 0' }}>
+          O emblema é pintado na deriva. Uma inscrição no <b>Símbolo da cauda</b>, abaixo, ocupa o
+          mesmo lugar e passa na frente dele.
+        </p>
+
+        <h4 className="sub" style={{ marginTop: 18 }}>Inscrições</h4>
+        <div className="grid g2" style={{ gap: 14 }}>
           <label>Local da inscrição<select aria-label="Local da inscrição" value={slot} onChange={e => setSlot(e.target.value as Slot)}>{SLOTS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
           <label>Texto<input type="text" aria-label="Texto da inscrição" value={m.text ?? ''} maxLength={80} onChange={e => setMark({ text: e.target.value })} placeholder="Nome, slogan ou identificação" /></label>
           <label>Fonte do ZIP<select aria-label="Fonte do ZIP" value={m.font ?? ''} onChange={e => setMark({ font: e.target.value || undefined })}><option value="">Padrão</option>{fonts.map(f => <option key={f.id} value={f.file}>{label2d(f.id).replace(/^fonts /, '')}</option>)}</select></label>

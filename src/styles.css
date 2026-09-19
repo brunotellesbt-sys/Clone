@@ -550,3 +550,53 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
   .map-legend { font-size: 10px; gap: 8px; padding: 5px 9px; left: 8px; bottom: 8px; }
   .grade-corpo { min-width: 420px; }
 }
+
+/* ------------------------------------------------------ montagem da cabine */
+
+/* Configuração guardada: o botão que aplica e o × que apaga, colados. */
+.salva { display: inline-flex; }
+.salva .btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.salva .btn.ghost {
+  border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px;
+  padding-left: 8px; padding-right: 8px; color: var(--ink-3);
+}
+.salva .btn.ghost:hover { color: #fb7185; }
+
+/* Cada controle e o valor dele na mesma linha. */
+.cabine .campo { display: flex; align-items: center; gap: 8px; }
+.cabine .campo input[type="range"] { flex: 1 1 90px; min-width: 0; margin: 0; }
+.cabine .campo input[type="number"] { width: 68px; flex: 0 0 auto; }
+.cabine td { vertical-align: middle; }
+.cabine td small { display: block; margin-top: 2px; font-size: 10.5px; }
+.cabine-tabela { overflow: visible; max-height: none; }
+
+.resumo-cabine {
+  display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 16px; align-items: center;
+}
+
+/*
+ * No celular a tabela de sete colunas não cabe de jeito nenhum — os controles
+ * sozinhos pedem mais largura que a tela toda. Ela deixa de ser tabela e vira
+ * um cartão por classe: o rótulo em cima, os dois controles embaixo e os
+ * números derivados numa linha só. É a mesma informação, empilhada.
+ */
+@media (max-width: 760px) {
+  .cabine, .cabine thead, .cabine tbody, .cabine tr, .cabine td { display: block; width: 100%; }
+  .cabine thead { display: none; }
+  .cabine tr {
+    border: 1px solid var(--line-soft); border-radius: var(--r-md, 10px);
+    padding: 8px 10px; margin-bottom: 8px;
+  }
+  .cabine td { border: 0; padding: 3px 0; height: auto; text-align: left; }
+  /* fileira, nº de fileiras, ocupação e tarifa viram uma linha de rodapé */
+  .cabine td:nth-child(2), .cabine td:nth-child(5),
+  .cabine td:nth-child(6), .cabine td:nth-child(7) {
+    display: inline-block; width: auto; margin-right: 14px;
+    font-size: 11.5px; color: var(--ink-3);
+  }
+  .cabine td:nth-child(2)::before { content: 'fileira '; }
+  .cabine td:nth-child(5)::before { content: 'fileiras '; }
+  .cabine td:nth-child(6)::before { content: 'ocupa '; }
+  .cabine td:nth-child(7)::before { content: 'tarifa '; }
+  .resumo-cabine { grid-template-columns: minmax(0, 1fr); }
+}

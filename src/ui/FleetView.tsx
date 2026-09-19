@@ -5,12 +5,15 @@ import { useState } from 'react'
 import { AIRCRAFT_BY_ID, acLabel, ehCargueiro } from '../game/data/aircraft'
 import { ENGINES, engineLabel } from '../game/data/engines'
 import {
-  abreastOf, cabinLength, checkCabin, clampPitch, crewFor, LAYOUTS, PITCH_RANGE,
-  pitchFare, pitchName, rowLayout, rowsOf, sumSeats,
+  abreastOf, ajustarClasse, cabinLength, checkCabin, clampPitch, crewFor, LAYOUTS,
+  limiteDaClasse, passoMaximo, PITCH_RANGE, pitchFare, pitchName, rowLayout, rowsOf, sumSeats,
 } from '../game/cabin'
 import { CLASS_FARE_MULT } from '../game/demand'
 import { resaleValue, sumCabins } from '../game/economy'
-import { assignAircraft, km, modelOf, money, num, pct, sellAircraft, setCabin, typeOf, unassignAircraft } from '../game/engine'
+import {
+  apagarCabine, assignAircraft, cabinesDoModelo, km, modelOf, money, num, pct, salvarCabine,
+  sellAircraft, setCabin, typeOf, unassignAircraft,
+} from '../game/engine'
 import { useGame } from '../store/useGame'
 import { CABIN_LABEL, CABINS, type Aircraft, type Cabins, type SeatConfig } from '../game/types'
 import { AircraftArt } from '../livery/AircraftArt'
@@ -171,19 +174,70 @@ export function FleetView() {
   )
 }
 
+/**
+ * Montar a cabine de uma aeronave.
+ *
+ * Três decisões desta tela têm razão de ser, e todas vieram de o jogador bater
+ * nelas:
+ *
+ * - **os controles não passam do que cabe.** Antes iam até `maxSeats` em toda
+ *   classe e o jogo só reclamava no botão — dava para arrastar as quatro até o
+ *   talo, ler "não cabe" e ter que desfazer tudo no tato. Dizer não depois de
+ *   deixar tentar é a pior das duas respostas;
+ * - **o passo também trava.** Esticar o passo com as fileiras já postas estoura
+ *   a cabine do mesmo jeito. Quem quer mais espaço tira assento antes, que é a
+ *   decisão que a tela existe para cobrar;
+ * - **a cabine montada se guarda com nome.** Montar quatro classes é demorado,
+ *   e repetir isso a cada avião comprado é trabalho jogado fora.
+ */
 function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
-  const { act, toast } = useGame()
+  const { state, act, toast } = useGame()
   const t = AIRCRAFT_BY_ID[ac.typeId]
   const [seats, setSeats] = useState<Cabins>({ ...ac.seats })
   const [pitch, setPitch] = useState<Cabins>(clampPitch(ac.pitch))
-
   const [seatConfig, setSeatConfig] = useState<SeatConfig>(ac.seatConfig ?? {})
+  const [nome, setNome] = useState('')
+
   const chk = checkCabin(t, seats, pitch, seatConfig)
   const total = sumSeats(seats)
   const inches = cabinLength(t)
+  const salvas = cabinesDoModelo(state, ac.typeId)
 
-  const set = (k: keyof Cabins, v: number) => setSeats((s) => ({ ...s, [k]: Math.max(0, Math.round(v)) }))
-  const setP = (k: keyof Cabins, v: number) => setPitch((p) => ({ ...p, [k]: Math.round(v) }))
+  /**
+   * Toda mudança passa por aqui, e por isso a trava não tem por onde vazar.
+   *
+   * Mexer numa classe muda o teto das outras três — subir a executiva reduz o
+   * que a econômica comporta —, então depois de cada mexida as demais são
+   * aparadas ao novo teto. Sem isso daria para encher a econômica, encher a
+   * executiva por cima e acabar estourado sem nenhum controle ter passado do
+   * próprio limite.
+   */
+  const aplicar = (next: { seats: Cabins; pitch: Cabins; config?: SeatConfig }, mexida?: keyof Cabins) => {
+    const cfg = next.config ?? seatConfig
+    const s2 = { ...next.seats }
+    const p2 = { ...next.pitch }
+    for (const c of CABINS) {
+      if (c === mexida) continue
+      s2[c] = Math.min(s2[c], limiteDaClasse(t, s2, p2, c, cfg))
+      p2[c] = Math.min(p2[c], passoMaximo(t, s2, p2, c, cfg))
+    }
+    setSeats(s2)
+    setPitch(p2)
+    if (next.config) setSeatConfig(next.config)
+  }
+
+  const setAssentos = (c: keyof Cabins, v: number) => {
+    aplicar({ seats: ajustarClasse(t, seats, pitch, c, v, seatConfig), pitch }, c)
+  }
+  const setPasso = (c: keyof Cabins, v: number) => {
+    const teto = passoMaximo(t, seats, pitch, c, seatConfig)
+    aplicar({ seats, pitch: { ...pitch, [c]: Math.max(PITCH_RANGE[c][0], Math.min(teto, Math.round(v))) } }, c)
+  }
+  const carregar = (b: { seats: Cabins; pitch: Cabins; seatConfig?: SeatConfig }) => {
+    setSeatConfig(b.seatConfig ?? {})
+    setSeats({ ...b.seats })
+    setPitch(clampPitch(b.pitch))
+  }
 
   // Quanto a configuração rende, em "assentos econômicos padrão".
   const units = CABINS.reduce((sum, c) => sum + seats[c] * CLASS_FARE_MULT[c] * pitchFare(c, pitch[c]), 0)
@@ -198,59 +252,95 @@ function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
         rende mais por assento e leva menos gente. É a conta que a companhia faz de verdade.
       </p>
 
+      <h4 className="sub">Partir de um padrão</h4>
       <div className="row tight" style={{ flexWrap: 'wrap', marginBottom: 12 }}>
         {LAYOUTS.map((l) => (
-          <button
-            key={l.id} className="btn sm" title={l.note}
-            onClick={() => {
-              const built = l.build(t)
-              setSeats(built.seats)
-              setPitch(built.pitch)
-              setSeatConfig({})
-            }}
-          >
+          <button key={l.id} className="btn sm" title={l.note}
+            onClick={() => carregar({ ...l.build(t), seatConfig: {} })}>
             {l.name}
           </button>
         ))}
       </div>
 
-      <table style={{ marginBottom: 12 }}>
-        <thead>
-          <tr>
-            <th>Classe</th><th>Fileira</th><th style={{ minWidth: 130 }}>Assentos</th>
-            <th style={{ minWidth: 130 }}>Passo</th><th className="r">Fileiras</th>
-            <th className="r">Ocupa</th><th className="r">Tarifa</th>
-          </tr>
-        </thead>
-        <tbody>
-          {CABINS.map((c) => {
-            const [min, , max] = PITCH_RANGE[c]
-            const rows = seats[c] > 0 ? rowsOf(t, seats, c, seatConfig) : 0
-            return (
-              <tr key={c}>
-                <td><b>{CABIN_LABEL[c]}</b><br /><small className="muted">{pitchName(c, pitch[c])}</small></td>
-                <td className="muted">{rowLayout(t, c, seatConfig)}</td>
-                <td>
-                  <input
-                    type="range" min={0} max={t.maxSeats} step={abreastOf(t, c, seatConfig)}
-                    value={seats[c]} onChange={(e) => set(c, +e.target.value)}
-                  />
-                  <input aria-label={`Quantidade ${c}`} type="number" min={0} max={t.maxSeats} step={1} value={seats[c]} onChange={e => set(c, +e.target.value)} style={{ width: 80 }} />
-                </td>
-                <td>
-                  <input type="range" min={min} max={max} value={pitch[c]} onChange={(e) => setP(c, +e.target.value)} />
-                  <b>{pitch[c]}″</b>
-                </td>
-                <td className="r">{rows || '—'}</td>
-                <td className="r">{rows ? `${((rows * pitch[c]) / 39.37).toFixed(1)} m` : '—'}</td>
-                <td className="r">{(CLASS_FARE_MULT[c] * pitchFare(c, pitch[c])).toFixed(2)}×</td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+      {salvas.length > 0 && (
+        <>
+          <h4 className="sub">Suas configurações para o {t.name}</h4>
+          <div className="row tight" style={{ flexWrap: 'wrap', marginBottom: 12 }}>
+            {salvas.map((cb) => (
+              <span key={cb.id} className="salva">
+                <button className="btn sm" title={`${sumSeats(cb.seats)} assentos`}
+                  onClick={() => carregar(cb)}>
+                  {cb.nome} <span className="muted">{sumSeats(cb.seats)}</span>
+                </button>
+                <button className="btn sm ghost" title="apagar" aria-label={`Apagar ${cb.nome}`}
+                  onClick={() => act((s) => apagarCabine(s, cb.id))}>×</button>
+              </span>
+            ))}
+          </div>
+        </>
+      )}
 
-      <div className="grid g2" style={{ gap: 16, alignItems: 'center' }}>
+      <div className="scroll cabine-tabela">
+        <table className="cabine">
+          <thead>
+            <tr>
+              <th>Classe</th><th className="r">Fileira</th><th>Assentos</th>
+              <th>Passo</th><th className="r">Fileiras</th>
+              <th className="r">Ocupa</th><th className="r">Tarifa</th>
+            </tr>
+          </thead>
+          <tbody>
+            {CABINS.map((c) => {
+              const [min] = PITCH_RANGE[c]
+              const rows = seats[c] > 0 ? rowsOf(t, seats, c, seatConfig) : 0
+              /**
+               * O teto mostrado é o **alcançável**, não o livre agora: nas
+               * classes da frente ele conta com a econômica cedendo espaço, que
+               * é o que o controle faz. Mostrar "cabem 0" numa executiva que o
+               * próprio controle consegue pôr seria mentira da tela.
+               */
+              const tetoAssentos = c === 'y'
+                ? limiteDaClasse(t, seats, pitch, c, seatConfig)
+                : limiteDaClasse(t, { ...seats, y: 0 }, pitch, c, seatConfig)
+              const tetoPasso = passoMaximo(t, seats, pitch, c, seatConfig)
+              return (
+                <tr key={c}>
+                  <td><b>{CABIN_LABEL[c]}</b><br /><small className="muted">{pitchName(c, pitch[c])}</small></td>
+                  <td className="r muted">{rowLayout(t, c, seatConfig)}</td>
+                  <td>
+                    <div className="campo">
+                      <input
+                        type="range" min={0} max={Math.max(tetoAssentos, seats[c])}
+                        step={abreastOf(t, c, seatConfig)}
+                        value={seats[c]} onChange={(e) => setAssentos(c, +e.target.value)}
+                      />
+                      <input aria-label={`Assentos na ${CABIN_LABEL[c]}`} type="number"
+                        min={0} max={tetoAssentos} step={1} value={seats[c]}
+                        onChange={(e) => setAssentos(c, +e.target.value)} />
+                    </div>
+                    {/* O teto fica à vista: controle que para sem dizer por que
+                        parou parece travado, e não limitado. */}
+                    <small className="muted">cabem {tetoAssentos}</small>
+                  </td>
+                  <td>
+                    <div className="campo">
+                      <input type="range" min={min} max={Math.max(tetoPasso, pitch[c])}
+                        value={pitch[c]} onChange={(e) => setPasso(c, +e.target.value)} />
+                      <b>{pitch[c]}″</b>
+                    </div>
+                    <small className="muted">até {tetoPasso}″</small>
+                  </td>
+                  <td className="r">{rows || '—'}</td>
+                  <td className="r">{rows ? `${((rows * pitch[c]) / 39.37).toFixed(1)} m` : '—'}</td>
+                  <td className="r">{(CLASS_FARE_MULT[c] * pitchFare(c, pitch[c])).toFixed(2)}×</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="resumo-cabine">
         <div>
           <div className="row" style={{ justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
             <span className={chk.overLength ? 'bad' : 'dim'}>
@@ -270,7 +360,19 @@ function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
             </b>
           </div>
         </div>
-        <div className="row" style={{ justifyContent: 'flex-end' }}>
+        <div className="grid" style={{ gap: 8 }}>
+          <div className="row tight">
+            <input type="text" placeholder="nome da configuração" maxLength={32}
+              aria-label="Nome da configuração" value={nome} onChange={(e) => setNome(e.target.value)} />
+            <button className="btn sm" disabled={!chk.ok || !nome.trim()}
+              onClick={() => {
+                const err = act((s) => salvarCabine(s, ac.typeId, nome, seats, pitch, seatConfig))
+                if (err) toast(err, 'error')
+                else { toast(`"${nome.trim()}" guardada para o ${t.name}.`, 'info'); setNome('') }
+              }}>
+              Salvar
+            </button>
+          </div>
           <button
             className="btn primary"
             disabled={!chk.ok || total === 0}
@@ -286,9 +388,10 @@ function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
       </div>
       <p className="dim">Custo da reforma: <b>{money(seatChangeCost(seats, seatConfig))}</b> · {seats.c + seats.f > 0 ? 4 : 2} dias parado.</p>
       {chk.seatError && <p className="bad">{chk.seatError}</p>}
-      {SOURCE_2D[t.id] && <SeatMapEditor type={t} seats={seats} pitch={pitch} config={seatConfig} change={(c, p) => { setSeatConfig(c); setPitch(p) }} />}
-      {chk.overLength && <p className="bad" style={{ fontSize: 12, marginBottom: 0 }}>Não cabe: tire assentos ou reduza o passo.</p>}
-      {chk.overLimit && <p className="bad" style={{ fontSize: 12, marginBottom: 0 }}>Acima do limite de saídas de emergência do modelo.</p>}
+      {SOURCE_2D[t.id] && (
+        <SeatMapEditor type={t} seats={seats} pitch={pitch} config={seatConfig}
+          change={(c, p) => aplicar({ seats, pitch: p, config: c })} />
+      )}
     </Modal>
   )
 }
