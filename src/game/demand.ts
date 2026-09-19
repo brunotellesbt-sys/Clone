@@ -42,6 +42,35 @@ export const K = 0.9
  */
 const TETO_PAR = 0.5
 /**
+ * Onde o teto começa a morder, como fração dele.
+ *
+ * Abaixo do joelho o teto não existe e a gravidade vale inteira; acima, a
+ * sobra é comprimida contra o teto, que vira assíntota em vez de parede.
+ */
+const JOELHO = 0.7
+
+/**
+ * O teto que comprime em vez de cortar.
+ *
+ * `Math.min` é uma parede: dois pares que a encostam saem **idênticos**, e foi
+ * o que aconteceu de Santos Dumont para Congonhas e para Guarulhos — os dois
+ * batiam nos 50% do movimento de Santos Dumont e o jogo dizia 13.955
+ * passageiros para ambos, embora Guarulhos mova o dobro de Congonhas. A parede
+ * cumpria o objetivo dela (nenhum par passa do que a ponta menor aguenta) e
+ * destruía a ordem entre os pares, que é o que o jogador lê na tela.
+ *
+ * Isto mantém as duas coisas: até o joelho a função é a identidade — pares
+ * longe do teto não mudam em nada —, e acima dele a diferença sobrevive
+ * comprimida, aproximando-se do teto sem nunca alcançá-lo. A derivada vale 1
+ * no joelho pelos dois lados, então não há degrau na emenda.
+ */
+export function satura(x: number, teto: number): number {
+  if (teto <= 0) return 0
+  const joelho = JOELHO * teto
+  if (x <= joelho) return x
+  return teto - (teto - joelho) * Math.exp(-(x - joelho) / (teto - joelho))
+}
+/**
  * Escala global da carga, o análogo do `K` do passageiro, e a tarifa de
  * referência por tonelada. Os dois foram calibrados juntos contra a régua do
  * passageiro, medida em GRU:
@@ -111,7 +140,7 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
 
   if (dist < 120) total *= 0.15 // pares colados não sustentam voo
   // a ponta menor é o gargalo: o par não pode passar do que ela move no dia
-  total = Math.max(0, Math.min(total, TETO_PAR * Math.min(a.paxDia, b.paxDia)))
+  total = Math.max(0, satura(total, TETO_PAR * Math.min(a.paxDia, b.paxDia)))
 
   // Mistura de classes: renda e distância empurram para a frente do avião.
   const premium = Math.min(0.34, 0.03 + 0.13 * Math.max(0, gdp - 0.55) + 0.075 * Math.min(dist / 4200, 1))

@@ -98,5 +98,55 @@ console.log(
     (perto ? '' : ' — rode `npm run fluxo` e cole a tabela em movimento.ts'),
 )
 
+// ------------------------------------------------- o teto não pode achatar
+//
+// O teto do par existe para nenhuma ligação passar do que a ponta menor move.
+// Enquanto ele era um `Math.min`, dois pares que o encostavam saíam idênticos:
+// de Santos Dumont, Congonhas e Guarulhos davam os mesmos 13.955 passageiros,
+// embora Guarulhos mova o dobro de Congonhas. A trava aqui é a **ordem**, que é
+// o que o jogador lê na tela.
+console.log('\nteto do par não achata a ordem\n')
+{
+  const par = (x: string, y: string) => baseDemand(x, y, 0, 180).total
+  const casos: [string, string, string][] = [
+    ['SDU', 'CGH', 'GRU'],
+    ['SDU', 'GRU', 'VCP'],
+    ['GIG', 'CGH', 'SDU'],
+  ]
+  for (const [de, maior, menor] of casos) {
+    const a = par(de, maior)
+    const b = par(de, menor)
+    const ok = a > b * 1.005
+    if (!ok) falhas++
+    console.log(
+      `${ok ? 'ok   ' : 'FALHA'} ${de}: ${maior} (${Math.round(a)}) acima de ${menor} (${Math.round(b)})` +
+        (ok ? '' : ' — o teto está achatando os dois'),
+    )
+  }
+}
+
+// ---------------------------------------------------- cidade de cada aeroporto
+//
+// O `city` é o que o jogador lê no mapa e na busca de base, e ele já apontou
+// para a cidade grande da região em vez do município do aeroporto. O conserto
+// inteiro está em `scripts/cidades.py`, que mede contra a OurAirports; estas
+// são as âncoras que não podem regredir em silêncio.
+console.log('\ncidade do aeroporto\n')
+for (const [iata, cidade] of [
+  ['SOD', 'Sorocaba'],
+  ['SJK', 'Sao Jose dos Campos'],
+  ['VCP', 'Campinas'],
+  ['CGH', 'Sao Paulo'],
+  ['GRU', 'Sao Paulo'],
+  ['LHR', 'Londres'],
+  ['PEK', 'Pequim'],
+  ['EWR', 'Nova York'],
+] as const) {
+  const a = AIRPORT_BY_IATA[iata]
+  const ok = a?.city === cidade
+  if (!ok) falhas++
+  console.log(`${ok ? 'ok   ' : 'FALHA'} ${iata} é ${cidade}${ok ? '' : ` — está como ${a?.city}`}`)
+}
+
 console.log(falhas ? `\n${falhas} falha(s)` : '\ntudo certo')
 process.exit(falhas ? 1 : 0)
