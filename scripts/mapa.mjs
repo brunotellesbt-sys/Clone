@@ -164,6 +164,24 @@ await aviao.click({ force: true })
 await page.waitForTimeout(400)
 conferir((await page.locator('.map-card').count()) > 0, 'clicar no avião abre o cartão do voo')
 conferir((await page.locator('.mapwrap path[stroke-dasharray]').count()) > 0, 'o que falta do trajeto sai pontilhado')
+
+/*
+ * O traçado só existe enquanto o voo está no ar.
+ *
+ * Ele é desenhado a partir do voo escolhido, e o voo escolhido é uma perna da
+ * escala: quando ela pousa, sai da lista dos que estão no ar e o traçado vai
+ * junto. A seleção é solta no pouso pelo mesmo motivo — sem isso ela ficava
+ * guardada e a linha voltava sozinha na volta seguinte do relógio, sem ninguém
+ * ter clicado em nada.
+ */
+let pousou = false
+for (let i = 0; i < 60 && !pousou; i++) {
+  pousou = (await page.locator('.map-card').count()) === 0
+  if (!pousou) await page.waitForTimeout(400)
+}
+conferir(pousou, 'ao pousar, o cartão do voo se fecha sozinho')
+conferir((await page.locator('.mapwrap path[stroke-dasharray]').count()) === 0,
+  'e o traçado some com ele: linha só enquanto o voo está no ar')
 await page.screenshot({ path: artifact('mapa-3-trajeto.png') })
 conferir(!(await travou()), 'o jogo segue de pé no fim')
 

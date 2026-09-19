@@ -252,6 +252,18 @@ export function MapView({
   const vooSel = voo ? voos.find((v) => v.id === voo) : null
 
   /**
+   * Pousou, acabou a seleção.
+   *
+   * O traçado e o cartão já sumiam no pouso, porque os dois dependem de o voo
+   * estar no ar — mas a escolha ficava guardada. Quando o relógio da tela dava
+   * a volta e aquela mesma perna decolava de novo, a linha e o cartão voltavam
+   * sozinhos, sem ninguém clicar em nada.
+   */
+  useEffect(() => {
+    if (voo && !vooSel) setVoo(null)
+  }, [voo, vooSel])
+
+  /**
    * De unidade de tela para unidade de mapa. O grupo já está escalado por
    * `view.k`, então dividir por ele devolve tamanho constante na tela; a raiz
    * por cima faz o marcador crescer um pouco ao aproximar, e o teto faz ele
