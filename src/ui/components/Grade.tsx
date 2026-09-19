@@ -138,16 +138,29 @@ export function Grade({ ac }: { ac: Aircraft }) {
         */}
       {[...quebras.reduce((m, q) => {
         const chave = `${q.antes.to}→${q.depois.from}`
-        m.set(chave, { de: q.antes.to, para: q.depois.from, vezes: (m.get(chave)?.vezes ?? 0) + 1 })
+        m.set(chave, {
+          de: q.antes.to, para: q.depois.from,
+          vezes: (m.get(chave)?.vezes ?? 0) + 1,
+          semHora: m.get(chave)?.semHora ?? q.semHora,
+        })
         return m
-      }, new Map<string, { de: string; para: string; vezes: number }>()).values()].map((q) => (
-        <p key={`${q.de}${q.para}`} className="aviso erro" style={{ margin: '0 0 8px' }}>
-          {q.vezes > 1 && <><b>{q.vezes}×</b> na semana: </>}
-          ela pousa em <b>{q.de}</b> e a perna seguinte sai de <b>{q.para}</b>. O jogo não teleporta
-          o avião: ele voa <b>vazio</b> de {q.de} para {q.para}, pagando combustível e tripulação sem
-          vender assento. Marque um voo nesse trecho e o vazio some.
-        </p>
-      ))}
+      }, new Map<string, { de: string; para: string; vezes: number; semHora?: string }>()).values()]
+        .map((q) => (
+          <p key={`${q.de}${q.para}`} className="aviso erro" style={{ margin: '0 0 8px' }}>
+            {q.vezes > 1 && <><b>{q.vezes}×</b> na semana: </>}
+            ela pousa em <b>{q.de}</b> e a perna seguinte sai de <b>{q.para}</b>. O jogo não
+            teleporta o avião: ele voa <b>vazio</b> de {q.de} para {q.para}, pagando combustível e
+            tripulação sem vender assento. Marque um voo nesse trecho e o vazio some.
+            {/* O pernoite impossível: dormir fora é escolha do jogador, mas se
+                o vazio de volta não tem hora que caiba, a escala não fecha. */}
+            {q.semHora && (
+              <>
+                {' '}<b>E esse vazio não tem hora em que caiba:</b> {q.semHora} Enquanto ficar
+                assim, a semana não fecha — a volta precisa ser marcada com passageiro.
+              </>
+            )}
+          </p>
+        ))}
 
       <div className="rolagem-x">
         <div className={`grade-corpo ${estreito ? 'apertada' : ''}`} style={{ height: altura }}>

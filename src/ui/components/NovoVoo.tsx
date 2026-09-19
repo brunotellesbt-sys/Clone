@@ -191,7 +191,7 @@ export function NovoVoo({ route }: { route: Route }) {
       {comVazio.length > 0 && (
         <div style={{ marginBottom: 10 }}>
           <h4 className="sub">Podem voar, mas custam um voo vazio</h4>
-          {comVazio.map(({ ac, ferryDe, ferryPara, ferryDeVoo, ferryParaVoo }) => (
+          {comVazio.map(({ ac, ferryDe, ferryPara, ferryDeVoo, ferryParaVoo, vazioSemHora }) => (
             <div key={ac.id} className="row" style={{ justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--line-soft)' }}>
               <span>
                 <b>{ac.reg}</b> <span className="muted">{acLabel(fichaDe(ac))}</span>
@@ -209,6 +209,19 @@ export function NovoVoo({ route }: { route: Route }) {
                   {ferryPara && `seguiria vazia para ${ferryPara}`}
                   {ferryPara && ferryParaVoo && (
                     <span className="muted">, de onde sai a perna seguinte dela ({ferryParaVoo})</span>
+                  )}
+                  {/* O vazio que não tem hora não impede marcar — ver
+                      `vazioSemHora` em `escala.ts`. Ele diz que a escala, do
+                      jeito que está, não fecha, e o que resolve é marcar a
+                      volta com passageiro. */}
+                  {vazioSemHora && (
+                    <>
+                      <br />
+                      <span className="bad">
+                        E esse vazio não tem hora: {vazioSemHora} Marque a volta com passageiro e
+                        ele some.
+                      </span>
+                    </>
                   )}
                 </span>
               </span>

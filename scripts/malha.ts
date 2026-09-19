@@ -448,14 +448,59 @@ console.log('\no voo vazio também gasta tempo\n')
   conferir(feitos === 7, 'a ida de manhã nos sete dias cabe: o vazio de volta voa de dia',
     `${feitos} de 7`)
 
+  /**
+   * **A cauda pode pernoitar em Congonhas.** Quem decide é o jogador, e ele o
+   * faz marcando a volta no dia seguinte, na hora que quiser. Recusar a ida da
+   * noite porque a volta ainda não existe era o mesmo deadlock do triângulo:
+   * para marcar a ida era preciso ter a volta, e para marcar a volta era
+   * preciso ter a ida.
+   */
   const noite = cabeNaEscala(t, cauda, 'SDU', 'CGH', 2, 21 * 60 + 35)
-  conferir(!noite.ok, 'a ida das 21:35 não cabe: o vazio de volta cairia na janela fechada',
-    noite.motivo ?? '(aceitou)')
-  conferir(/CGH/.test(noite.motivo ?? '') && /23h/.test(noite.motivo ?? ''),
-    'e o motivo nomeia o aeroporto e a janela', noite.motivo ?? '')
+  conferir(noite.ok, 'a ida das 21:35 pode ser marcada: dormir fora é escolha, não erro',
+    noite.motivo ?? '')
+  conferir(/CGH/.test(noite.vazioSemHora ?? '') && /23h/.test(noite.vazioSemHora ?? ''),
+    'mas o aviso diz que o vazio de volta não teria hora', noite.vazioSemHora ?? '(sem aviso)')
 
   const tarde = cabeNaEscala(t, cauda, 'SDU', 'CGH', 2, 19 * 60)
-  conferir(tarde.ok, 'a das 19:00 cabe: o vazio ainda sai antes das 23h')
+  conferir(tarde.ok && !tarde.vazioSemHora,
+    'a das 19:00 nem avisa: o vazio ainda sai antes das 23h')
+
+  /** E o gesto que resolve: marcar a volta com passageiro no dia seguinte. */
+  marcarVoo(t, cauda, 'SDU', 'CGH', 2, 21 * 60 + 35)
+  const comQuebra = quebrasDe(t, cauda).filter((q) => q.semHora)
+  conferir(comQuebra.length > 0, 'com a ida marcada, a grade acusa o vazio sem hora',
+    comQuebra[0]?.semHora ?? '(nenhuma)')
+  /*
+   * O que resolve é a **primeira** perna de quarta sair de Congonhas. Marcar
+   * uma volta às 09:00 e deixar a ida das 07:10 de pé não resolve nada: a
+   * cauda dormiu em Congonhas, e às 07:10 ela não está em Santos Dumont. Quem
+   * opera troca a perna, não acrescenta outra.
+   */
+  const daQuarta = pernasDe(t, cauda).find(
+    (p) => p.perna.dow === 3 && p.perna.from === 'SDU',
+  )
+  if (daQuarta) removerVoo(t, daQuarta.perna.id)
+  marcarVoo(t, cauda, 'CGH', 'SDU', 3, 7 * 60 + 10)
+  conferir(quebrasDe(t, cauda).filter((q) => q.semHora).length === 0,
+    'e trocar a primeira perna de quarta para sair de Congonhas resolve',
+    quebrasDe(t, cauda).filter((q) => q.semHora)[0]?.semHora ?? '')
+
+  /**
+   * O que continua sendo **recusado** é a falta de tempo, não a de horário:
+   * dez minutos entre pousar e a perna seguinte não dão para nenhum vazio, e
+   * nenhuma perna nova conserta isso — qualquer coisa marcada no meio aperta
+   * ainda mais.
+   */
+  const u = newGame({ name: 'Curto', code: 'CT', hub: 'GRU', seed: 12 })
+  u.airline.cash = 5e9
+  openRoute(u, 'GRU', 'REC')
+  openRoute(u, 'GRU', 'SSA')
+  buyAircraft(u, 'a320neo', false)
+  const outra = u.airline.fleet[0].id
+  marcarVoo(u, outra, 'GRU', 'REC', 1, 8 * 60)
+  const colado = cabeNaEscala(u, outra, 'GRU', 'SSA', 1, 11 * 60 + 10)
+  conferir(!colado.ok, 'sem tempo para o vazio, a recusa continua dura',
+    colado.motivo ?? '(aceitou)')
 }
 
 console.log('\no vazio diz qual perna o obriga\n')

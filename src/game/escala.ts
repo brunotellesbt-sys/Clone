@@ -218,13 +218,35 @@ export function paradasDe(s: GameState, aircraftId: string): Parada[] {
  * de domingo para segunda. Não fechar não é proibido — a tela avisa e o jogo
  * cobra um voo de posicionamento —, mas é quase sempre erro de quem montou.
  */
-export function quebrasDe(s: GameState, aircraftId: string): { antes: Perna; depois: Perna }[] {
+export function quebrasDe(
+  s: GameState, aircraftId: string,
+): { antes: Perna; depois: Perna; semHora?: string }[] {
   const pernas = pernasDe(s, aircraftId)
-  const out: { antes: Perna; depois: Perna }[] = []
+  const ac = aeronaveDa(s, aircraftId)
+  const t = ac ? fichaDe(ac) : AIRCRAFT_BY_ID.a320
+  const out: { antes: Perna; depois: Perna; semHora?: string }[] = []
   for (let i = 0; i < pernas.length; i++) {
     const a = pernas[i]
     const b = pernas[(i + 1) % pernas.length]
-    if (a.perna.to !== b.perna.from) out.push({ antes: a.perna, depois: b.perna })
+    if (a.perna.to === b.perna.from) continue
+    /**
+     * O vazio desta quebra tem hora em que caiba?
+     *
+     * É aqui que o pernoite impossível aparece, e é aqui que ele tem que
+     * aparecer: a cauda pode dormir em Congonhas — quem decide é o jogador —,
+     * mas se a perna seguinte dela sai de Santos Dumont às 6h, o vazio teria
+     * que cruzar a madrugada com os dois aeroportos fechados. A escala não
+     * fecha, e a tela diz isso até alguém marcar a volta.
+     */
+    const solo = AIRCRAFT_BY_ID[ac?.typeId ?? 'a320'].turn
+    const folga = adianteNaSemana(a.chegada, b.partida)
+    const bloco = Math.round(blockHours(t, distanceBetween(a.perna.to, b.perna.from)) * 60)
+    const v = cabeUmVazio(
+      t, a.perna.to, b.perna.from,
+      naSemana(a.chegada + a.solo),
+      naSemana(a.chegada + a.solo) + Math.max(0, folga - a.solo - bloco - solo),
+    )
+    out.push({ antes: a.perna, depois: b.perna, semHora: v.ok ? undefined : v.motivo })
   }
   return out
 }
@@ -256,6 +278,12 @@ export interface Disponibilidade {
   ferryDe?: string
   /** Para onde ela teria que seguir vazia depois. */
   ferryPara?: string
+  /**
+   * O vazio é obrigatório e **não tem hora que caiba** — aeroporto fechado dos
+   * dois lados da madrugada. Não impede marcar; a escala é que não fecha, e a
+   * grade cobra isso até a volta ser marcada.
+   */
+  vazioSemHora?: string
   /**
    * A perna vizinha que **obriga** cada vazio, escrita para a tela.
    *
@@ -323,18 +351,16 @@ export function cabeNaEscala(
   )[0]
 
   /**
-   * **O voo vazio também leva tempo.**
+   * **O voo vazio também leva tempo** — e aqui a regra é dura.
    *
-   * Ele continua sendo permitido e continua sendo cobrado — mas deixou de ser
-   * de graça no relógio. Um avião que pousa em Congonhas às 22:20 não amanhece
-   * em Santos Dumont porque sim: ele tem que fazer o trecho vazio, e esse
-   * trecho gasta solo nas duas pontas mais o tempo de voo. Sem isso a escala
-   * aceitava pernoite impossível — a cauda "voltava" de graça durante a noite,
-   * inclusive para aeroporto fechado, e a grade fechava no papel.
+   * Ele continua permitido e continua cobrado, mas deixou de ser de graça no
+   * relógio: gasta solo nas duas pontas mais o tempo de voo. Se a folga entre
+   * uma perna e a outra não comporta isso, não comporta mesmo — e não há perna
+   * nova que conserte, porque qualquer coisa marcada no meio aperta ainda
+   * mais. Por isso esta recusa é definitiva.
    *
-   * O vazio entra na conta como a perna que ele é, e por isso passa pelo mesmo
-   * toque de recolher: o Congonhas–Santos Dumont das duas da manhã não existe,
-   * nem cheio nem vazio.
+   * O **toque de recolher** do vazio é outra história, e fica logo abaixo: ele
+   * avisa, não proíbe.
    */
   const vazio = (de: string, para: string) =>
     Math.round(blockHours(t, distanceBetween(de, para)) * 60)
@@ -350,15 +376,14 @@ export function cabeNaEscala(
         : `${ac.reg} pousa em ${anterior.perna.to} ${hhmm(anterior.chegadaLocal)} e não tem os ${anterior.solo} min de solo antes desta partida.`,
     }
   }
-  if (precisaVirDe) {
-    const v = cabeUmVazio(
-      t, precisaVirDe, from,
-      naSemana(anterior.chegada + anterior.solo),
-      naSemana(anterior.chegada + anterior.solo) +
-        (folgaAntes - anterior.solo - vazio(precisaVirDe, from) - solo),
-    )
-    if (!v.ok) return { ok: false, motivo: `${ac.reg} teria que vir vazia de ${precisaVirDe}, e ${v.motivo}` }
-  }
+  const vazioAntes = precisaVirDe
+    ? cabeUmVazio(
+        t, precisaVirDe, from,
+        naSemana(anterior.chegada + anterior.solo),
+        naSemana(anterior.chegada + anterior.solo) +
+          (folgaAntes - anterior.solo - vazio(precisaVirDe, from) - solo),
+      )
+    : null
 
   const precisaIrPara = seguinte.perna.from === to ? null : seguinte.perna.from
   const folgaDepois = adianteNaSemana(chegada, seguinte.partida)
@@ -371,14 +396,13 @@ export function cabeNaEscala(
         : `${ac.reg} não tem ${solo} min de solo em ${to} antes de ${seguinte.perna.from}–${seguinte.perna.to}, ${DOW_CURTO[seguinte.perna.dow]} ${hhmm(seguinte.perna.saida)}.`,
     }
   }
-  if (precisaIrPara) {
-    const v = cabeUmVazio(
-      t, to, precisaIrPara,
-      naSemana(chegada + solo),
-      naSemana(chegada + solo) + (folgaDepois - solo - vazio(to, precisaIrPara) - solo),
-    )
-    if (!v.ok) return { ok: false, motivo: `${ac.reg} teria que seguir vazia de ${to} para ${precisaIrPara}, e ${v.motivo}` }
-  }
+  const vazioDepois = precisaIrPara
+    ? cabeUmVazio(
+        t, to, precisaIrPara,
+        naSemana(chegada + solo),
+        naSemana(chegada + solo) + (folgaDepois - solo - vazio(to, precisaIrPara) - solo),
+      )
+    : null
   const rotulo = (p: PernaNoTempo) =>
     `${p.perna.from}–${p.perna.to}, ${DOW_CURTO[p.perna.dow]} ${hhmm(p.perna.saida)}`
   const vemDe = anterior.perna.to === from ? undefined : anterior.perna.to
@@ -387,6 +411,25 @@ export function cabeNaEscala(
     ok: true,
     ferryDe: vemDe,
     ferryPara: vaiPara,
+    /**
+     * O vazio que **não tem hora** fica avisado, não proibido.
+     *
+     * Esta foi a lição de uma tentativa errada minha. Recusar o voo porque o
+     * vazio não cabia no toque de recolher parecia rigor, e era o mesmo
+     * deadlock que o comentário acima já descrevia: para marcar a ida da noite
+     * era preciso já ter a volta da manhã, e para marcar a volta era preciso a
+     * ida. A cauda **pode** pernoitar em Congonhas e voltar no dia seguinte
+     * com passageiro, na hora que o jogador quiser — quem decide isso é ele,
+     * marcando a perna.
+     *
+     * O que não existe é a escala ficar assim **pronta**: se a cauda dorme em
+     * Congonhas e a perna seguinte dela sai de Santos Dumont às 6h, o vazio
+     * teria que cruzar a madrugada com os dois aeroportos fechados. Isso é
+     * pernoite impossível, e é a **grade** que cobra — o aviso fica na tela até
+     * o jogador marcar a volta, que é o gesto que resolve.
+     */
+    vazioSemHora: (!vazioAntes?.ok && vazioAntes?.motivo) ||
+      (!vazioDepois?.ok && vazioDepois?.motivo) || undefined,
     ferryDeVoo: vemDe && rotulo(anterior),
     ferryParaVoo: vaiPara && rotulo(seguinte),
   }
@@ -487,6 +530,7 @@ export function aeronavesPara(s: GameState, from: string, to: string, dow: numbe
         ac, impedimento: duro,
         ferryDe: undefined as string | undefined, ferryPara: undefined as string | undefined,
         ferryDeVoo: undefined as string | undefined, ferryParaVoo: undefined as string | undefined,
+        vazioSemHora: undefined as string | undefined,
       }
     }
     const d = cabeNaEscala(s, ac.id, from, to, dow, saida)
@@ -495,6 +539,7 @@ export function aeronavesPara(s: GameState, from: string, to: string, dow: numbe
       impedimento: d.ok ? null : d.motivo ?? 'Não cabe na escala.',
       ferryDe: d.ferryDe, ferryPara: d.ferryPara,
       ferryDeVoo: d.ferryDeVoo, ferryParaVoo: d.ferryParaVoo,
+      vazioSemHora: d.vazioSemHora,
     }
   })
 }
