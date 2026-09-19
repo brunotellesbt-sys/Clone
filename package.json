@@ -15,6 +15,7 @@
     "smoke": "node scripts/smoke.mjs",
     "mapa": "node scripts/mapa.mjs",
     "grade": "node scripts/grade.mjs",
+    "toque": "node scripts/toque.mjs",
     "escopo": "tsx scripts/escopo.ts",
     "malha": "tsx scripts/malha.ts",
     "fluxo": "tsx scripts/fluxo.ts",
