@@ -116,7 +116,7 @@ export function Dashboard({ go }: { go: (tab: string) => void }) {
           </Card>
 
           <Card title="Avisos">
-            <div className="scroll" style={{ maxHeight: 190 }}>
+            <div className="scroll baixa">
               {state.notices.length === 0 && <span className="muted">Nada por aqui.</span>}
               {state.notices.slice(0, 14).map((n, i) => (
                 <div key={i} className="notice">

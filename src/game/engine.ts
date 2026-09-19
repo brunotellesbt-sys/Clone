@@ -149,6 +149,9 @@ export function notify(s: GameState, kind: Notice['kind'], text: string) {
 
 // ------------------------------------------------------------------- ações
 
+/** Prazo típico de contrato, em meses: é por ele que o interior se dilui. */
+export const PRAZO_DO_ARRENDAMENTO = 60
+
 export interface BuyOptions {
   /** Motorização escolhida; sem isso vem a de série do modelo. */
   engineId?: string
@@ -173,7 +176,6 @@ export function buyAircraft(s: GameState, typeId: string, lease: boolean, opts: 
   if (year < model.since) return `O ${model.name} só entra em linha em ${model.since}.`
   if (year < t.since) return `Essa motorização só passa a ser oferecida em ${t.since}.`
   const price = marketPrice(t)
-  const upfront = lease ? leaseMonthly(t) * 2 : price
   const rng = makeRng(s.seed + s.day + s.airline.fleet.length * 977)
   const hubCc = AIRPORT_BY_IATA[s.airline.hubs[0]]?.cc ?? 'BR'
   const encomenda = opts.cabine
@@ -185,11 +187,21 @@ export function buyAircraft(s: GameState, typeId: string, lease: boolean, opts: 
     if (chk.invalid || chk.seatError || chk.overLength || chk.overLimit)
       return chk.seatError ?? 'A cabine encomendada não cabe nesta aeronave.'
   }
-  // A fábrica cobra as poltronas à parte, arrendamento inclusive: o arrendador
-  // repassa o interior que você pediu, não o dele.
+  /**
+   * A fábrica cobra as poltronas à parte, e o arrendamento também — só que
+   * diluídas.
+   *
+   * Quem compra paga o interior junto com o avião. Quem arrenda não: o
+   * arrendador instala o interior que foi pedido e o cobra na mensalidade,
+   * pelo prazo do contrato. Cobrar à vista de quem arrendou inverteria o
+   * sentido do arrendamento — uma cabine de suítes num widebody custa dezenas
+   * de milhões, e quem arrenda é justamente quem não quer esse desembolso.
+   */
   const poltronas = encomenda ? custoDeFabrica(cabin.seats, encomenda.seatConfig) : 0
-  if (s.airline.cash < upfront + poltronas) return 'Caixa insuficiente.'
-  s.airline.cash -= upfront + poltronas
+  const mensal = lease ? leaseMonthly(t) + poltronas / PRAZO_DO_ARRENDAMENTO : 0
+  const upfront = lease ? mensal * 2 : price + poltronas
+  if (s.airline.cash < upfront) return 'Caixa insuficiente.'
+  s.airline.cash -= upfront
   s.airline.fleet.push({
     id: nextId('ac'),
     typeId,
@@ -206,7 +218,7 @@ export function buyAircraft(s: GameState, typeId: string, lease: boolean, opts: 
     routeId: null,
     base: s.airline.hubs[0],
     leased: lease,
-    lease: lease ? leaseMonthly(t) : 0,
+    lease: mensal,
     value: lease ? 0 : price,
     groundedUntil: 0,
   })

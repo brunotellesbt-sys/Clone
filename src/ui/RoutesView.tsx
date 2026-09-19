@@ -38,7 +38,7 @@ export function RoutesView() {
         {routes.length === 0 ? (
           <Empty>Nenhuma rota. Toda linha precisa sair de uma das suas bases ({state.airline.hubs.join(', ')}).</Empty>
         ) : (
-          <div className="scroll" style={{ maxHeight: 540 }}>
+          <div className="scroll alta">
             <table>
               <thead>
                 <tr>

@@ -32,13 +32,46 @@ await page.waitForTimeout(400)
 await page.getByRole('button', { name: /Decolar de GRU/ }).click()
 await page.waitForTimeout(1200)
 
-// compra um avião e abre a cabine dele
+// ------------------------------------------------- cabine de fábrica
+//
+// Encomendar o interior na compra é a diferença entre pagar as poltronas e
+// pagar poltronas mais reforma mais avião parado. O que se confere aqui é que
+// o preço reage à escolha, que o avião entra com a cabine pedida e que ele
+// entra voando — sem os dois a quatro dias de oficina da reconfiguração.
 await page.getByRole('button', { name: 'Mercado', exact: true }).first().click()
 await page.waitForTimeout(700)
+
+const precoDaCompra = async () => {
+  const txt = await page.locator('.card', { hasText: 'AQUISIÇÃO' }).first().innerText()
+  const m = txt.match(/Compra à vista\s+\$([\d.,]+)\s*(mi|bi|mil)?/)
+  const n = m ? parseFloat(m[1].replace(',', '.')) : 0
+  return n * (m?.[2] === 'bi' ? 1e9 : m?.[2] === 'mi' ? 1e6 : m?.[2] === 'mil' ? 1e3 : 1)
+}
+const deSerie = await precoDaCompra()
+conferir((await page.locator('.card', { hasText: 'CABINE DE FÁBRICA' }).count()) > 0,
+  'o mercado oferece cabine de fábrica')
+await page.getByRole('button', { name: 'Longo curso', exact: true }).click()
+await page.waitForTimeout(500)
+const encomendado = await precoDaCompra()
+conferir(encomendado > deSerie, 'encomendar o interior sobe o preço da compra',
+  `${deSerie} → ${encomendado}`)
+const pedido = await page.evaluate(() => {
+  const t = document.querySelector('.card .cabine')?.innerText ?? ''
+  return t
+})
 await page.getByRole('button', { name: /^Comprar/ }).first().click()
 await page.waitForTimeout(800)
+conferir(pedido.length > 0, 'a cabine encomendada aparece montada na tela de compra')
 await page.getByRole('button', { name: 'Frota', exact: true }).first().click()
 await page.waitForTimeout(700)
+// "parado" na lista é não ter voo marcado, que é o normal de um avião recém
+// -comprado; quem denuncia oficina é o selo de hangar.
+conferir(!/hangar/i.test(await page.locator('tbody tr.click').first().innerText()),
+  'o avião encomendado entra voando, sem dia de oficina')
+await page.locator('tbody tr.click').first().click()
+await page.waitForTimeout(400)
+conferir(/\dC|\dF|\dW/.test(await page.locator('tbody tr.click').first().innerText()),
+  'ele chegou com a cabine de classes que foi encomendada')
 await page.getByRole('button', { name: /Cabine/ }).first().click()
 await page.waitForTimeout(700)
 conferir((await page.locator('table.cabine').count()) > 0, 'a cabine abre')

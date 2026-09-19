@@ -349,6 +349,11 @@ h4.sub {
 .swatch.on { outline: 2px solid var(--amber); outline-offset: 1px; }
 .spark { display: block; width: 100%; }
 .scroll { max-height: 420px; overflow: auto; }
+/* Alturas de lista, em classe e não no `style` de cada tela: o celular precisa
+   sobrepor isso, e regra de folha de estilo não vence atributo inline. */
+.scroll.alta { max-height: 560px; }
+.scroll.media { max-height: 320px; }
+.scroll.baixa { max-height: 190px; }
 
 /* Lista de destinos: quatro linhas visíveis, e o resto rola.
    A altura da linha é fixada em vez de deduzida do espaçamento, e a caixa é o
@@ -549,6 +554,27 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
 
   .map-legend { font-size: 10px; gap: 8px; padding: 5px 9px; left: 8px; bottom: 8px; }
   .grade-corpo { min-width: 420px; }
+
+  /*
+   * Lista longa no celular: quatro linhas, e o resto rola dentro dela.
+   *
+   * No desktop uma lista de 15 linhas é um bloco que se lê de um golpe. Na
+   * tela do celular ela vira meia tela de rolagem antes de chegar no que vem
+   * depois — e o que vem depois costuma ser justamente o botão que age sobre
+   * a lista. A régua é a mesma de `.lista-destinos`: altura de linha fixa,
+   * porque deduzir do padding erra por poucos pixels e quatro linhas viram
+   * três e meia.
+   *
+   * `.lista-curta` é para fila de botões, que não tem cabeçalho.
+   */
+  .scroll, .scroll.alta, .scroll.media, .scroll.baixa {
+    --linha: 31px; --cabecalho: 28px;
+    max-height: calc(var(--cabecalho) + 4 * var(--linha));
+  }
+  .lista-curta { max-height: calc(4 * 34px); overflow-y: auto; }
+  /* Grade de cartão e mapa de assento não são lista de leitura: o que se pede
+     deles é não tomar a tela inteira. */
+  .a2-layer-grid, .a2-seatmap { max-height: 52vh; }
 }
 
 /* ------------------------------------------------------ montagem da cabine */

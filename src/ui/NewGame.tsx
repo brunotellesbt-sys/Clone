@@ -34,6 +34,10 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
   const [densidade, setDensidade] = useState<Densidade>(DENSIDADE_PADRAO)
   const [emblem, setEmblem] = useState<EmblemId>('none')
   const [emblemCor, setEmblemCor] = useState('#ffffff')
+  // O crachá atrás do emblema é o que dá contraste com a deriva. Sem ele aqui,
+  // um emblema branco numa deriva clara sumia na fundação e só aparecia no
+  // editor, depois — e quem escolheu a cor foi o jogador, não o preset.
+  const [emblemFundo, setEmblemFundo] = useState('#1d4ed8')
   const [emblemTam, setEmblemTam] = useState<Livery['emblemSize']>('medium')
   const [bandeira, setBandeira] = useState(true)
   const ap = AIRPORT_BY_IATA[hub]
@@ -62,9 +66,10 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
     ...LIVERY_PRESETS[preset].livery,
     emblem,
     emblemColor: emblemCor,
+    emblemAccent: emblemFundo,
     emblemSize: emblemTam,
     flag: bandeira,
-  }), [preset, emblem, emblemCor, emblemTam, bandeira])
+  }), [preset, emblem, emblemCor, emblemFundo, emblemTam, bandeira])
 
   const preview = useMemo(() => newGame({ name, code, hub, livery, seed: 1 }), [name, code, hub, livery])
 
@@ -223,6 +228,11 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
                     <span>Cor</span>
                     <input type="color" aria-label="Cor do emblema" value={emblemCor}
                       onChange={(e) => setEmblemCor(e.target.value)} />
+                  </label>
+                  <label className="field" style={{ marginBottom: 0 }}>
+                    <span>Fundo</span>
+                    <input type="color" aria-label="Cor de destaque do emblema" value={emblemFundo}
+                      onChange={(e) => setEmblemFundo(e.target.value)} />
                   </label>
                   <label className="field" style={{ marginBottom: 0 }}>
                     <span>Tamanho</span>

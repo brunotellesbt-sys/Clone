@@ -62,7 +62,7 @@ export function RankingView() {
       </Card>
 
       <Card title="Onde você encosta na concorrência">
-        <div className="scroll" style={{ maxHeight: 320 }}>
+        <div className="scroll media">
           <table>
             <thead><tr><th>Rota</th><th className="r">Sua fatia</th><th>Rivais no par</th></tr></thead>
             <tbody>
