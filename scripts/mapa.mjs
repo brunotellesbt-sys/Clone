@@ -154,6 +154,12 @@ conferir((await page.locator('.horarios tbody tr').count()) > 0, 'o voo marcado 
 await page.getByRole('button', { name: 'Painel', exact: true }).click()
 await page.waitForTimeout(900)
 
+// O relógio do mapa agora obedece à pausa, e o jogo nasce pausado: sem tirar da
+// pausa, o mapa fica congelado nas 08:00 e o marcador só apareceria se houvesse
+// um voo no ar exatamente naquele minuto.
+await page.locator('.speed button').nth(1).click()
+await page.waitForTimeout(400)
+
 // O avião no mapa é uma perna da escala, e ela só está no ar durante o bloco:
 // o relógio da tela roda o dia inteiro, então o marcador aparece e some. Contar
 // num instante é sorteio; o que vale conferir é que ele aparece no dia.
@@ -166,6 +172,10 @@ for (let i = 0; i < 60 && !apareceu; i++) {
 conferir(apareceu, 'o avião aparece no mapa em algum momento do dia')
 conferir(/\d{2}:\d{2} em \w{3}/.test(await page.locator('.map-legend').innerText()),
   'a legenda mostra a hora que os aviões estão seguindo')
+// Pausa para clicar: com o relógio correndo, entre achar o marcador e clicar
+// nele o voo já pousou e o clique cai no vazio. É o que um jogador faz também.
+await page.locator('.speed button').first().click()
+await page.waitForTimeout(300)
 await aviao.click({ force: true })
 await page.waitForTimeout(400)
 conferir((await page.locator('.map-card').count()) > 0, 'clicar no avião abre o cartão do voo')
@@ -180,6 +190,8 @@ conferir((await page.locator('.mapwrap path[stroke-dasharray]').count()) > 0, 'o
  * guardada e a linha voltava sozinha na volta seguinte do relógio, sem ninguém
  * ter clicado em nada.
  */
+await page.locator('.speed button').nth(1).click()
+await page.waitForTimeout(300)
 let pousou = false
 for (let i = 0; i < 60 && !pousou; i++) {
   pousou = (await page.locator('.map-card').count()) === 0

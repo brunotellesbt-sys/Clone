@@ -1,4 +1,4 @@
-import { baseAbreast, rowCount, SEAT_BY_ID, seatLayouts } from './seatModels'
+import { baseAbreast, confortoDaPoltrona, rowCount, SEAT_BY_ID, seatLayouts } from './seatModels'
 // Configuração de cabine. Vale a mesma aritmética que uma companhia usa de
 // verdade: a cabine tem um comprimento útil, cada classe tem um número de
 // assentos por fileira, e cada fileira come o passo de poltrona escolhido.
@@ -290,7 +290,19 @@ export function pitchFare(cabin: CabinClass, inches: number): number {
 }
 
 /** Conforto da cabine montada, ponderado pelos assentos de cada classe. */
-export function cabinComfort(t: AircraftType, seats: Cabins, pitch: Cabins): number {
+/**
+ * Peso da poltrona no conforto, ao lado do passo.
+ *
+ * Menor que o do passo de propósito: espaço para a perna é o que o passageiro
+ * sente primeiro, e nenhuma suíte compensa uma fileira apertada. Mas não é
+ * pequeno — trocar Super slim por Luxo na econômica vale tanto quanto três
+ * polegadas de passo, que é a ordem de grandeza certa.
+ */
+const PESO_POLTRONA = 0.22
+
+export function cabinComfort(
+  t: AircraftType, seats: Cabins, pitch: Cabins, config?: SeatConfig,
+): number {
   const total = sumSeats(seats)
   if (total <= 0) return 1
   let acc = 0
@@ -298,7 +310,10 @@ export function cabinComfort(t: AircraftType, seats: Cabins, pitch: Cabins): num
     if (seats[c] <= 0) continue
     const [min, std, max] = PITCH_RANGE[c]
     const f = (inches(pitch[c], min, max) - (std - min) / (max - min)) * (c === 'y' ? 0.34 : 0.2)
-    acc += seats[c] * (1 + f)
+    // A poltrona escolhida entra aqui. Ver `confortoDaPoltrona`: o catálogo já
+    // cobrava por ela, e até agora ela não mudava nada na simulação.
+    const poltrona = PESO_POLTRONA * confortoDaPoltrona(config?.[c]?.style)
+    acc += seats[c] * (1 + f + poltrona)
   }
   return (acc / total) * (0.96 + 0.04 * t.abreast / 6)
 }

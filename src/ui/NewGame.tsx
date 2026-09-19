@@ -3,6 +3,8 @@ import { AIRPORTS, AIRPORT_BY_IATA, CONTINENTE_LABEL, ESCOPO_LABEL, temNomeOfici
 import { suggestAirlineName, suggestCode } from '../game/data/names'
 import { LIVERY_PRESETS } from '../livery/presets'
 import { AIRCRAFT_BY_ID } from '../game/data/aircraft'
+import { EMBLEMS } from '../livery/emblems'
+import type { EmblemId, Livery } from '../game/types'
 import { DENSIDADES, DENSIDADE_PADRAO, paisesDe } from '../game/ai'
 import { vagasDoMundo } from '../game/mundo'
 import type { Densidade } from '../game/types'
@@ -30,6 +32,10 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
   const [hub, setHub] = useState('GRU')
   const [preset, setPreset] = useState(0)
   const [densidade, setDensidade] = useState<Densidade>(DENSIDADE_PADRAO)
+  const [emblem, setEmblem] = useState<EmblemId>('none')
+  const [emblemCor, setEmblemCor] = useState('#ffffff')
+  const [emblemTam, setEmblemTam] = useState<Livery['emblemSize']>('medium')
+  const [bandeira, setBandeira] = useState(true)
   const ap = AIRPORT_BY_IATA[hub]
   /**
    * O mundo escolhido, contado das próprias vagas em vez de deduzido dos
@@ -44,7 +50,21 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
       emCasa: Math.max(0, vagas.filter((v) => v.cc === ap.cc).length - 1),
     }
   }, [ap.cc, densidade])
-  const livery = LIVERY_PRESETS[preset].livery
+  /**
+   * A pintura da fundação é o preset **mais o que o jogador escolheu aqui**.
+   *
+   * Antes era só o preset, e o resto — emblema, cor dele, bandeira do prefixo —
+   * só existia no editor, depois de fundada a companhia. Emblema e bandeira são
+   * identidade, não acabamento: quem funda uma companhia decide isso antes de
+   * pintar o primeiro avião, não meses depois.
+   */
+  const livery: Livery = useMemo(() => ({
+    ...LIVERY_PRESETS[preset].livery,
+    emblem,
+    emblemColor: emblemCor,
+    emblemSize: emblemTam,
+    flag: bandeira,
+  }), [preset, emblem, emblemCor, emblemTam, bandeira])
 
   const preview = useMemo(() => newGame({ name, code, hub, livery, seed: 1 }), [name, code, hub, livery])
 
@@ -190,8 +210,39 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
                 </button>
               ))}
             </div>
+            <div className="grid g2" style={{ gap: 10, marginTop: 12 }}>
+              <label className="field" style={{ marginBottom: 0 }}>
+                <span>Emblema da deriva</span>
+                <select value={emblem} onChange={(e) => setEmblem(e.target.value)}>
+                  {EMBLEMS.map((em) => <option key={em.id} value={em.id}>{em.label}</option>)}
+                </select>
+              </label>
+              {emblem !== 'none' ? (
+                <div className="grid g2" style={{ gap: 8 }}>
+                  <label className="field" style={{ marginBottom: 0 }}>
+                    <span>Cor</span>
+                    <input type="color" aria-label="Cor do emblema" value={emblemCor}
+                      onChange={(e) => setEmblemCor(e.target.value)} />
+                  </label>
+                  <label className="field" style={{ marginBottom: 0 }}>
+                    <span>Tamanho</span>
+                    <select value={emblemTam}
+                      onChange={(e) => setEmblemTam(e.target.value as Livery['emblemSize'])}>
+                      <option value="small">Pequeno</option>
+                      <option value="medium">Médio</option>
+                      <option value="large">Grande</option>
+                    </select>
+                  </label>
+                </div>
+              ) : <div />}
+            </div>
+            <label className="row" style={{ marginTop: 10, gap: 8 }}>
+              <input type="checkbox" checked={bandeira} onChange={(e) => setBandeira(e.target.checked)} />
+              <span>Bandeira de {ap.country} ao lado do prefixo</span>
+            </label>
             <p className="muted" style={{ fontSize: 12, marginBottom: 0, marginTop: 8 }}>
-              Dá para redesenhar tudo depois, no editor de pintura.
+              Dá para redesenhar tudo depois, no editor de pintura — cores por peça, faixa,
+              letreiro e as camadas de cada modelo.
             </p>
           </div>
 

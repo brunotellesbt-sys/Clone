@@ -60,7 +60,19 @@ export function App() {
     const interval = Math.max(45, 900 / state.speed)
     const id = setInterval(() => {
       const s = stateRef.current
-      if (!s) return
+      /**
+       * Guarda dupla: o efeito limpa o intervalo, e a batida confere de novo.
+       *
+       * Medido, o relógio já parava no clique — zero dias de atraso em
+       * qualquer velocidade. A guarda fica como rede: entre mudar `paused` e
+       * o React limpar o efeito existe uma janela, e a 40× ela vale uma batida
+       * a cada 45 ms. Custa uma comparação por batida.
+       *
+       * O que **não** parava era o mapa, que tem laço de animação próprio —
+       * ver `MapView`. Era de lá que vinha a impressão de que a pausa não
+       * funcionava.
+       */
+      if (!s || s.paused || s.speed === 0) return
       advanceDay(s)
       if (s.day % 30 === 0) saveGame(s)
       force((v) => v + 1)
