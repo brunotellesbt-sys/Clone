@@ -123,6 +123,40 @@ await page.waitForTimeout(600)
 const depois = await page.locator('.grade-voo').count()
 conferir(depois < blocos, 'clicar no bloco tira o voo da escala', `${blocos} → ${depois}`)
 
+// ---------------------------------------------------- vários dias de uma vez
+//
+// A escolha do dia era uma lista suspensa, e marcar a mesma perna a semana
+// inteira custava sete voltas por ela, pela lista de aeronaves e pelo botão —
+// no celular, sete telas de menu. Agora são sete botões e um atalho, e o botão
+// de marcar diz quantos dias vão junto.
+//
+// O que se mede é o efeito, não a aparência: com a semana inteira escolhida,
+// **um** clique tem que acrescentar voo em mais de um dia. Fica no fim do
+// roteiro de propósito — ele enche a grade, e desfazer isso no meio do
+// caminho seria trabalho de arrumação em vez de medida.
+{
+  // O roteiro veio parar na tela da frota; a marcação mora na da rota. A aba
+  // de rotas carrega o contador no rótulo ("Rotas 1"), então nada de exato.
+  await page.locator('.nav button').filter({ hasText: 'Rotas' }).first().click()
+  await page.waitForTimeout(700)
+  await page.locator('tbody tr.click').first().click()
+  await page.waitForTimeout(700)
+  const dias = page.locator('.dias-semana button')
+  conferir((await dias.count()) === 10, 'os sete dias e os três atalhos estão na tela',
+    `${await dias.count()} botões`)
+  const antes = await page.locator('.horarios tbody tr').count()
+  await page.getByRole('button', { name: 'Todos', exact: true }).click()
+  await page.waitForTimeout(400)
+  const rotulo = await page.getByRole('button', { name: /^Marcar/ }).first().innerText()
+  conferir(/7 dias/.test(rotulo), 'o botão de marcar diz quantos dias vão junto', rotulo)
+  await page.getByRole('button', { name: /^Marcar/ }).first().click()
+  await page.waitForTimeout(1000)
+  const depois = await page.locator('.horarios tbody tr').count()
+  conferir(depois - antes > 1, 'um clique com a semana escolhida marca mais de um dia',
+    `${antes} → ${depois} voos na semana`)
+  await page.screenshot({ path: artifact('grade-4-semana.png'), fullPage: true })
+}
+
 // ------------------------------------------------------------- integridade
 conferir((await page.getByText('O jogo travou aqui').count()) === 0, 'o jogo segue de pé no fim')
 conferir(erros.length === 0, 'nenhum erro de página', erros.slice(0, 2).join(' | '))
