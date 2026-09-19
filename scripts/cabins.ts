@@ -1,10 +1,10 @@
 /** Confere as configurações de cabine de todos os modelos: `npm run cabines`. */
-import { AIRCRAFT } from '../src/game/data/aircraft'
+import { AIRCRAFT, ehCargueiro } from '../src/game/data/aircraft'
 import {
-  abreastOf, ajustarClasse, cabinLength, checkCabin, LAYOUTS, LAYOUT_BY_ID, limiteDaClasse,
-  PITCH_RANGE, sumSeats,
+  abreastOf, ajustarClasse, cabinLength, checkCabin, LAYOUTS, LAYOUT_BY_ID, layoutsDe,
+  limiteDaClasse, PITCH_RANGE, sumSeats,
 } from '../src/game/cabin'
-import { CABINS, type Cabins } from '../src/game/types'
+import { CABIN_LABEL, CABINS, type CabinClass, type Cabins } from '../src/game/types'
 
 let falhas = 0
 
@@ -171,6 +171,69 @@ console.log('\ncapacidade publicada, duas classes\n')
   }
   console.log(`      erro médio ${((soma / PUBLICADO.length) * 100).toFixed(1)}%, ` +
     `pior ${(pior * 100).toFixed(0)}%`)
+}
+
+console.log('\nclasses por família\n')
+/**
+ * Primeira classe é de fuselagem larga, executiva para de regional para cima,
+ * e turboélice voa em classe única.
+ *
+ * A regra vale em três lugares que é fácil deixar desencontrados — o padrão do
+ * catálogo, a trava de capacidade e a validação de `setCabin` —, então ela é
+ * medida nos três de uma vez: o padrão mais caro que cada aeronave aceita não
+ * pode montar classe que a família não tem, e a trava tem que devolver zero
+ * para a classe barrada mesmo com a cabine vazia.
+ */
+{
+  const PROIBIDO: Record<string, CabinClass[]> = {
+    turboprop: ['w', 'c', 'f'],
+    regional: ['f'],
+    narrowbody: ['f'],
+    widebody: [],
+  }
+  let erradas = 0
+  for (const t of AIRCRAFT) {
+    if (ehCargueiro(t)) continue
+    const proibidas = PROIBIDO[t.family] ?? []
+    for (const l of LAYOUTS) {
+      const { seats, pitch } = l.build(t)
+      for (const c of proibidas) {
+        if (seats[c] > 0) {
+          console.log(`FALHA ${t.name}: padrão "${l.name}" montou ${seats[c]} em ${CABIN_LABEL[c]}`)
+          erradas++
+        }
+        const teto = limiteDaClasse(t, { y: 0, w: 0, c: 0, f: 0 }, pitch, c)
+        if (teto > 0) {
+          console.log(`FALHA ${t.name}: a trava deixa ${teto} assentos em ${CABIN_LABEL[c]}`)
+          erradas++
+        }
+      }
+    }
+    // e o padrão oferecido tem que ser o que a aeronave comporta
+    const oferecidos = layoutsDe(t)
+    for (const l of oferecidos) {
+      for (const c of proibidas) {
+        if (l.exige.includes(c)) {
+          console.log(`FALHA ${t.name}: "${l.name}" é oferecido e exige ${CABIN_LABEL[c]}`)
+          erradas++
+        }
+      }
+    }
+    if (oferecidos.length === 0) {
+      console.log(`FALHA ${t.name}: nenhum padrão de cabine oferecido`)
+      erradas++
+    }
+  }
+  falhas += erradas
+  const turbo = AIRCRAFT.filter((t) => t.family === 'turboprop')
+  const larga = AIRCRAFT.filter((t) => t.family === 'widebody')
+  console.log(
+    `${erradas === 0 ? 'ok   ' : 'FALHA'} ${AIRCRAFT.length} modelos: ` +
+      `${turbo.length} turboélices só com econômica, ` +
+      `${larga.length} de fuselagem larga são os únicos com primeira`,
+  )
+  console.log(`      um turboélice oferece ${layoutsDe(turbo[0]).length} padrão(ões), ` +
+    `um de fuselagem larga oferece ${layoutsDe(larga[0]).length}`)
 }
 
 console.log(falhas ? `\n${falhas} falha(s)` : '\ntudo certo')

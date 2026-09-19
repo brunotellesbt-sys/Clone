@@ -96,7 +96,12 @@ const leia = () =>
 // estourar nem o comprimento nem o limite de saídas.
 const barras = page.locator('table.cabine tbody tr td:nth-child(3) input[type="range"]')
 const n = await barras.count()
-conferir(n === 4, 'as quatro classes têm controle', `${n}`)
+// O avião comprado é um corredor único, e corredor único vai até a executiva:
+// três controles, não quatro. Primeira classe é de fuselagem larga.
+conferir(n === 3, 'o corredor único tem controle de econômica, premium e executiva', `${n}`)
+const rotulos = await page.locator('table.cabine tbody tr td:first-child').allInnerTexts()
+conferir(!rotulos.join(' ').includes('Primeira'),
+  'e não oferece primeira classe', rotulos.map((r) => r.split('\n')[0]).join(', '))
 for (let i = 0; i < n; i++) {
   const b = barras.nth(i)
   await b.evaluate((el) => {

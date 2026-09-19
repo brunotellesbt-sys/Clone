@@ -3,7 +3,7 @@ import { AIRCRAFT_ALL, acLabel, ehCargueiro, FAMILY_OF, type AircraftType } from
 import { AIRPORT_BY_IATA } from '../game/data/airports'
 import { engineLabel, type Engine } from '../game/data/engines'
 import {
-  cabinComfort, cabinLength, defaultCabin, LAYOUTS, rowLayout, sumSeats,
+  cabinComfort, cabinLength, defaultCabin, layoutsDe, rowLayout, sumSeats, textoDasClasses,
 } from '../game/cabin'
 import { custoDeFabrica, SEAT_MODELS } from '../game/seatModels'
 import { SOURCE_2D } from '../livery/aircraft2d'
@@ -243,7 +243,7 @@ function Encomenda({ model, price, lease, available, since, onAcquire }: {
               onClick={() => { cab.carregar({ ...serie, seatConfig: {} }); setMexeu(false) }}>
               De série
             </button>
-            {LAYOUTS.map((l) => (
+            {layoutsDe(model).map((l) => (
               <button key={l.id} className="btn sm" title={l.note}
                 onClick={() => carregar({ ...l.build(model), seatConfig: {} })}>
                 {l.name}
@@ -272,6 +272,7 @@ function Encomenda({ model, price, lease, available, since, onAcquire }: {
             {mexeu
               ? `Interior encomendado: ${money(extra)}, cobrado junto com a aeronave. O avião entra voando — quem remonta depois paga a reforma e fica com a cauda parada.`
               : 'De série, o avião chega com a cabine padrão do modelo, sem custo de interior. Mexa em qualquer coisa acima para encomendar a sua.'}
+            {' '}{textoDasClasses(model)}
           </p>
         </Card>
       )}
