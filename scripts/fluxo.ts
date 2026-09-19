@@ -41,7 +41,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { AIRPORTS, vooPermitido, type Airport } from '../src/game/data/airports'
 import { distanceBetween } from '../src/game/geo'
-import { K } from '../src/game/demand'
+import { afinidadeDeAeroporto, K } from '../src/game/demand'
 
 /** Quantas vezes o potencial de um aeroporto pode passar do que ele move. */
 const ABERTURA = 3
@@ -62,7 +62,17 @@ function nucleo(a: Airport, b: Airport): number {
   const sameRegion = Math.abs(a.lon - b.lon) < 45 && Math.abs(a.lat - b.lat) < 35 ? 1.12 : 1
   const hubBonus = 1 + 0.05 * (a.tier + b.tier - 4)
   const decay = 1 / (1 + Math.pow(dist / 700, 1.35))
-  let v = K * Math.pow(mass, 0.9) * gdp * Math.pow(tour, 0.55) * decay * sameCountry * sameRegion * hubBonus
+  /**
+   * A afinidade entra aqui, e não é opcional.
+   *
+   * Ela **não** é multiplicador de média um: vale 1,7 entre aeroportos do mesmo
+   * escopo e 0,58 entre escopos diferentes, nas cidades que têm mais de um
+   * aeroporto. Deixá-la de fora faria o Furness equilibrar contra uma função
+   * que o jogo não usa — o mesmo tipo de desencontro que já aconteceu com o `K`
+   * e custou um PR inteiro com os fatores errados.
+   */
+  const afinidade = afinidadeDeAeroporto(a, b)
+  let v = K * Math.pow(mass, 0.9) * gdp * Math.pow(tour, 0.55) * decay * sameCountry * afinidade * sameRegion * hubBonus
   if (dist < 120) v *= 0.15
   return v
 }

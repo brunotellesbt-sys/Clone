@@ -1,4 +1,4 @@
-import { AIRPORT_BY_IATA } from './data/airports'
+import { AIRPORT_BY_IATA, temIrmao, type Airport } from './data/airports'
 import { distanceBetween, odKey } from './geo'
 import { hashStr } from './rng'
 import type { CabinClass, Cabins } from './types'
@@ -42,6 +42,35 @@ export const K = 0.9
  */
 const TETO_PAR = 0.5
 /**
+ * Onde o teto começa a morder, como fração dele.
+ *
+ * Abaixo do joelho o teto não existe e a gravidade vale inteira; acima, a
+ * sobra é comprimida contra o teto, que vira assíntota em vez de parede.
+ */
+const JOELHO = 0.7
+
+/**
+ * O teto que comprime em vez de cortar.
+ *
+ * `Math.min` é uma parede: dois pares que a encostam saem **idênticos**, e foi
+ * o que aconteceu de Santos Dumont para Congonhas e para Guarulhos — os dois
+ * batiam nos 50% do movimento de Santos Dumont e o jogo dizia 13.955
+ * passageiros para ambos, embora Guarulhos mova o dobro de Congonhas. A parede
+ * cumpria o objetivo dela (nenhum par passa do que a ponta menor aguenta) e
+ * destruía a ordem entre os pares, que é o que o jogador lê na tela.
+ *
+ * Isto mantém as duas coisas: até o joelho a função é a identidade — pares
+ * longe do teto não mudam em nada —, e acima dele a diferença sobrevive
+ * comprimida, aproximando-se do teto sem nunca alcançá-lo. A derivada vale 1
+ * no joelho pelos dois lados, então não há degrau na emenda.
+ */
+export function satura(x: number, teto: number): number {
+  if (teto <= 0) return 0
+  const joelho = JOELHO * teto
+  if (x <= joelho) return x
+  return teto - (teto - joelho) * Math.exp(-(x - joelho) / (teto - joelho))
+}
+/**
  * Escala global da carga, o análogo do `K` do passageiro, e a tarifa de
  * referência por tonelada. Os dois foram calibrados juntos contra a régua do
  * passageiro, medida em GRU:
@@ -63,6 +92,41 @@ const TETO_PAR = 0.5
 const KC = 46
 /** A carga não cai no fim de semana como o passageiro: ela se acumula nele. */
 const WEEKDAY_CARGO = [0.82, 1.1, 1.08, 1.06, 1.05, 1.09, 0.8]
+
+/**
+ * Quanto um par de aeroportos "combina", quando as duas cidades têm mais de um.
+ *
+ * O modelo gravitacional trata cada aeroporto como um ponto solto e não sabe
+ * que, num par de cidades servidas por vários, o passageiro **escolhe** — e não
+ * escolhe ao acaso. Sem isto, de Congonhas o Rio se repartia meio a meio entre
+ * Santos Dumont e Galeão, quando a ponte aérea real é de centro a centro:
+ * Congonhas–Santos Dumont é o mercado, e Congonhas–Galeão é resto.
+ *
+ * O sinal que separa os dois já estava no catálogo: o **escopo**. Congonhas e
+ * Santos Dumont são domésticos — sem alfândega, pista curta, no meio da cidade
+ * —, e Guarulhos e Galeão são internacionais, longe e com conexão. Aeroportos
+ * do mesmo tipo se atraem porque servem a mesma viagem; de tipos diferentes,
+ * o passageiro só usa quando não tem outro jeito. A mesma regra acerta National
+ * com LaGuardia em Washington–Nova York, e Heathrow com Kennedy.
+ *
+ * **Só vale quando as duas pontas dividem cidade com outro aeroporto.** Num par
+ * onde só existe uma opção de cada lado não há escolha a modelar, e mexer ali
+ * mudaria a demanda do mundo inteiro em vez de repartir a de uma cidade.
+ */
+export function afinidadeDeAeroporto(a: Airport, b: Airport): number {
+  if (!temIrmao(a.iata) || !temIrmao(b.iata)) return 1
+  return a.escopo === b.escopo ? AFINIDADE_IGUAL : AFINIDADE_CRUZADA
+}
+
+/**
+ * Os dois lados da afinidade. A razão entre eles é o que importa: 2,9 vezes
+ * leva a repartição de Congonhas para o Rio de 49/51 para 75/25, que é a ordem
+ * de grandeza da ponte aérea de verdade. Os valores ficam em volta de 1 para o
+ * efeito ser **repartir**, não inflar nem cortar a demanda das cidades que têm
+ * mais de um aeroporto.
+ */
+const AFINIDADE_IGUAL = 1.7
+const AFINIDADE_CRUZADA = 0.58
 
 /** Demanda estrutural de um par O&D, antes de preço e concorrência. */
 export function baseDemand(from: string, to: string, day: number, dayOfYear: number): MarketDemand {
@@ -87,6 +151,7 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
   const gdp = (a.gdp + b.gdp) / 2
   const tour = (a.tour + b.tour) / 2
   const sameCountry = a.cc === b.cc ? 1.55 : a.country === b.country ? 1.3 : 1
+  const afinidade = afinidadeDeAeroporto(a, b)
   const sameRegion = Math.abs(a.lon - b.lon) < 45 && Math.abs(a.lat - b.lat) < 35 ? 1.12 : 1
   const hubBonus = 1 + 0.05 * (a.tier + b.tier - 4)
   const decay = 1 / (1 + Math.pow(dist / 700, 1.35))
@@ -102,6 +167,7 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
     Math.pow(tour, 0.55) *
     decay *
     sameCountry *
+    afinidade *
     sameRegion *
     hubBonus *
     season *
@@ -111,7 +177,7 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
 
   if (dist < 120) total *= 0.15 // pares colados não sustentam voo
   // a ponta menor é o gargalo: o par não pode passar do que ela move no dia
-  total = Math.max(0, Math.min(total, TETO_PAR * Math.min(a.paxDia, b.paxDia)))
+  total = Math.max(0, satura(total, TETO_PAR * Math.min(a.paxDia, b.paxDia)))
 
   // Mistura de classes: renda e distância empurram para a frente do avião.
   const premium = Math.min(0.34, 0.03 + 0.13 * Math.max(0, gdp - 0.55) + 0.075 * Math.min(dist / 4200, 1))
