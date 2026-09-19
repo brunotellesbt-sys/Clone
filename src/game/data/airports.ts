@@ -3632,6 +3632,65 @@ export const AIRPORTS: Airport[] = RAW.split('\n').map((line) => {
   } as Airport
 })
 
+/**
+ * Raio em que dois aeroportos servem a mesma cidade.
+ *
+ * Setenta e cinco quilômetros cobrem Guarulhos com Congonhas, Galeão com
+ * Santos Dumont, Heathrow com Gatwick, Stansted, Luton e City, Narita com
+ * Haneda, e Charles de Gaulle com Orly e Beauvais. Viracopos fica de fora, a
+ * 95 km de Guarulhos: é vendido como aeroporto de São Paulo, mas está em
+ * Campinas, e esticar o raio até lá começa a juntar cidades que ninguém trata
+ * como uma só.
+ */
+const RAIO_IRMAOS = 75
+
+/**
+ * Distância em quilômetros, escrita aqui em vez de importada de `geo.ts`.
+ *
+ * `geo.ts` importa este arquivo para resolver sigla em aeroporto; importar de
+ * volta fecharia um ciclo, e ciclo de módulo neste ponto deixa `AIRPORTS` pela
+ * metade na hora em que a lista de irmãos é montada. São cinco linhas de
+ * trigonometria — mais barato que o ciclo.
+ */
+const kmEntre = (a: Airport, b: Airport) => {
+  const rad = (d: number) => (d * Math.PI) / 180
+  const dLat = rad(b.lat - a.lat)
+  const dLon = rad(b.lon - a.lon)
+  const h = Math.sin(dLat / 2) ** 2
+    + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2
+  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)))
+}
+
+/**
+ * Quem divide cidade com quem.
+ *
+ * Só serve para um propósito, e é o que o índice de afinidade em `demand.ts`
+ * usa: num par de cidades onde as duas pontas têm mais de um aeroporto, o
+ * passageiro **escolhe**, e não escolhe ao acaso — o voo de centro a centro é
+ * outro mercado que o de hub a hub.
+ */
+export const IRMAOS: Record<string, string[]> = (() => {
+  const out: Record<string, string[]> = {}
+  // varredura por faixa de latitude: comparar 3.085 com 3.085 são 9,5 milhões
+  // de pares, e ordenar corta isso para uma vizinhança por aeroporto
+  const ordenados = [...AIRPORTS].sort((x, y) => x.lat - y.lat)
+  const grau = RAIO_IRMAOS / 111
+  for (let i = 0; i < ordenados.length; i++) {
+    const a = ordenados[i]
+    for (let j = i + 1; j < ordenados.length && ordenados[j].lat - a.lat < grau; j++) {
+      const b = ordenados[j]
+      if (Math.abs(a.lon - b.lon) > grau / Math.max(0.05, Math.cos((a.lat * Math.PI) / 180))) continue
+      if (kmEntre(a, b) > RAIO_IRMAOS) continue
+      ;(out[a.iata] ??= []).push(b.iata)
+      ;(out[b.iata] ??= []).push(a.iata)
+    }
+  }
+  return out
+})()
+
+/** O aeroporto divide a cidade com outro? */
+export const temIrmao = (iata: string) => (IRMAOS[iata]?.length ?? 0) > 0
+
 export const AIRPORT_BY_IATA: Record<string, Airport> = Object.fromEntries(
   AIRPORTS.map((a) => [a.iata, a]),
 )
