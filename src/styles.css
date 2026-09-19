@@ -464,21 +464,40 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
   position: absolute; right: 6px; font-size: 10px; color: var(--ink-3);
   font-variant-numeric: tabular-nums; transform: translateY(-0.5em);
 }
-.grade-dia { flex: 1; min-width: 56px; display: flex; flex-direction: column; }
+/* Coluna mais larga: com 56px, "CGH" já encostava nas duas bordas e a hora
+   não cabia de jeito nenhum. A grade rola de lado dentro da própria caixa. */
+.grade-dia { flex: 1; min-width: 74px; display: flex; flex-direction: column; }
 .grade-dia-nome {
   font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em;
   color: var(--ink-3); text-align: center; padding-bottom: 4px;
 }
 .grade-pista { position: relative; flex: 1; background: var(--panel); border-radius: var(--r-sm); overflow: hidden; }
 .grade-linha { position: absolute; left: 0; right: 0; height: 1px; background: var(--line-soft); }
+/* Uma linha, em pé quando cabe e deitada quando não cabe.
+   O bloco de um voo curto tem menos de 30px de altura: ali só cabe uma linha,
+   e é a hora com o destino. `nowrap` e `text-overflow` são o que impede a
+   palavra de ser cortada no meio — antes ela era, e ninguém lia nada. */
 .grade-voo {
   position: absolute; left: 2px; right: 2px; overflow: hidden;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 4px;
   background: var(--panel-3); border: 1px solid var(--sky); border-left: 3px solid var(--sky);
-  border-radius: var(--r-sm); color: var(--ink); font-size: 11px; line-height: 1.15;
-  cursor: pointer; padding: 2px;
+  border-radius: var(--r-sm); color: var(--ink); font-size: 11px; line-height: 1.1;
+  cursor: pointer; padding: 1px 3px; white-space: nowrap;
 }
-.grade-voo:hover { background: var(--panel-2); border-color: var(--amber); border-left-color: var(--amber); }
+.grade-voo > * { overflow: hidden; text-overflow: ellipsis; }
+.grade-hora { color: var(--ink-3); font-variant-numeric: tabular-nums; font-size: 10px; }
+.grade-voo:hover, .grade-voo.on { background: var(--panel-2); border-color: var(--amber); border-left-color: var(--amber); }
+
+/* A perna aberta: hora editável e o botão de tirar, embaixo da grade em vez
+   de flutuando por cima dela — no celular um balão sobre a grade tapa
+   justamente os vizinhos que se quer comparar na hora de remarcar. */
+.grade-editor {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px;
+  padding: 10px; border: 1px solid var(--amber); border-radius: var(--r-sm);
+  background: var(--panel); font-size: 13px;
+}
+.grade-editor label { display: flex; align-items: center; gap: 6px; color: var(--ink-3); font-size: 12px; }
+.grade-editor .btn { margin-left: auto; }
 .grade-seta { color: var(--ink-3); font-size: 9px; }
 
 /* O relógio do mapa: a hora que os aviões desenhados estão seguindo. */
@@ -557,7 +576,9 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
   .so-largo { display: none; }
 
   .map-legend { font-size: 10px; gap: 8px; padding: 5px 9px; left: 8px; bottom: 8px; }
-  .grade-corpo { min-width: 420px; }
+  /* Sete colunas de 74px mais a régua de hora. Ela rola de lado dentro da
+     caixa; o que não pode é a coluna encolher até a sigla não caber. */
+  .grade-corpo { min-width: 570px; }
 
   /*
    * Lista longa no celular: quatro linhas, e o resto rola dentro dela.

@@ -11,6 +11,9 @@
  * avião só sai de onde ele está. Metade das conferências abaixo existe para isso.
  */
 import { AIRPORT_BY_IATA as AP, noToqueDeRecolher } from '../src/game/data/airports'
+import { AIRCRAFT, AIRCRAFT_BY_ID } from '../src/game/data/aircraft'
+import { blockHours } from '../src/game/economy'
+import { distanceBetween } from '../src/game/geo'
 import {
   assinarAcordo, assignAircraft, buyAircraft, newGame, openRoute, romperAcordo,
   setAllFrequencies, setFrequency, unassignAircraft,
@@ -381,6 +384,59 @@ console.log('\ntirar a cauda de uma rota\n')
   unassignAircraft(t, cauda, rRec.id)
   conferir(pernasDaRota(t, rRec).length === 0, 'os voos de GRU-REC saíram')
   conferir(pernasDe(t, cauda).length === 2, 'os de GRU-SSA ficaram', `${pernasDe(t, cauda).length}`)
+}
+
+console.log('\ntempo de solo por porte\n')
+/**
+ * O mínimo de solo entre pousar e voltar a sair, ditado pelo dono do jogo:
+ * 30 min turboélice, 40 min jato regional e corredor único até o A320neo e o
+ * 737 MAX 8, 50 min do A321 e do 737-900/MAX 9 para cima, 60 min fuselagem
+ * larga. É piso: quem já pedia mais continua pedindo — o A380 com 110.
+ */
+{
+  const piso: [string, number][] = [
+    ['atr72', 30], ['q400', 30], ['e195', 40], ['crj900', 40],
+    ['a320neo', 40], ['b38m', 40], ['b737', 40],
+    ['a321neo', 50], ['b39m', 50], ['a321', 50], ['b752', 50],
+    ['b789', 60], ['a333', 60], ['a388', 60],
+  ]
+  for (const [id, min] of piso) {
+    const t = AIRCRAFT_BY_ID[id]
+    if (!t) continue
+    conferir(t.turn >= min, `${t.name} tem pelo menos ${min} min de solo`, `${t.turn} min`)
+  }
+  const fora = AIRCRAFT.filter((t) => {
+    const min = t.family === 'turboprop' ? 30 : t.family === 'widebody' ? 60
+      : t.family === 'regional' ? 40 : t.maxSeats > 194 ? 50 : 40
+    return t.family !== 'freighter' && t.turn < min
+  })
+  conferir(fora.length === 0, 'nenhum modelo fica abaixo do piso da família dele',
+    fora.map((t) => `${t.name} ${t.turn}`).join(', '))
+}
+
+console.log('\ntempo de etapa na ponte aérea do Sudeste\n')
+/**
+ * Os tempos pedidos, e a calibração pela média deles. Ver `blockHours`: casar
+ * os seis exatamente exigiria uma reta de intercepto negativo, então o que se
+ * mede é o centro — 199 nm dando 45 minutos — e uma folga de três minutos nas
+ * pontas.
+ */
+{
+  const pedidos: [string, string, number][] = [
+    ['GIG', 'GRU', 40], ['SDU', 'GRU', 40], ['GIG', 'CGH', 45],
+    ['SDU', 'CGH', 45], ['GIG', 'VCP', 50], ['SDU', 'VCP', 50],
+  ]
+  const t = AIRCRAFT_BY_ID.a320neo
+  let soma = 0
+  for (const [a, b, alvo] of pedidos) {
+    const nm = distanceBetween(a, b)
+    const min = blockHours(t, nm) * 60
+    soma += min - alvo
+    conferir(Math.abs(min - alvo) <= 3.5, `${a}-${b} sai em ${alvo} min, mais ou menos três`,
+      `${nm.toFixed(0)} nm → ${min.toFixed(0)} min`)
+  }
+  conferir(Math.abs(soma / pedidos.length) < 0.6, 'e a média dos seis bate com a pedida',
+    `${(soma / pedidos.length).toFixed(2)} min de viés`)
 }
 
 console.log(`\n${falhas === 0 ? 'tudo certo' : `${falhas} falha(s)`}`)

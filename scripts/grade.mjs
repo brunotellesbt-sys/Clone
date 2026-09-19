@@ -117,11 +117,36 @@ const primeiro = await page.locator('.grade-voo').first().innerText()
 conferir(/GIG|FOR/.test(primeiro), 'o bloco nomeia as duas pontas do trecho', primeiro.replace(/\n/g, ' '))
 await page.screenshot({ path: artifact('grade-3-semana.png'), fullPage: true })
 
-// tirar um voo pela grade
+// ----------------------------------------- mexer no voo pela própria grade
+//
+// Clicar no bloco **apagava** o voo, direto, sem pergunta e sem desfazer — no
+// celular um toque torto custava uma perna da escala. E a grade é onde se lê o
+// horário: era o único lugar do jogo que mostrava a hora e não deixava mudá-la.
+// Agora o clique abre a perna, com a hora num campo e o apagar num botão com
+// nome.
 await page.locator('.grade-voo').first().click()
+await page.waitForTimeout(500)
+const editor = page.locator('.grade-editor')
+conferir((await editor.count()) > 0, 'clicar no bloco abre a perna em vez de apagá-la')
+conferir((await page.locator('.grade-voo').count()) === blocos,
+  'e o voo continua na escala até alguém mandar tirar')
+
+// A hora muda ali mesmo — dentro do que a escala aceita. A ida é às 08:00 e a
+// volta às 14:00: 09:30 cabe, 15:20 não caberia, e recusar 15:20 é a trava da
+// malha funcionando, não defeito do editor.
+const campo = editor.locator('input[type=time]')
+const antes = await campo.inputValue()
+await campo.fill('09:30')
+await page.waitForTimeout(800)
+const naGrade = await page.locator('.grade-voo').first().innerText()
+conferir(/09:30/.test(naGrade), 'mudar a hora no editor remarca o voo',
+  `${antes} → ${naGrade.replace(/\n/g, ' ')}`)
+
+// e o botão com nome tira
+await editor.getByRole('button', { name: /Tirar/ }).click()
 await page.waitForTimeout(600)
 const depois = await page.locator('.grade-voo').count()
-conferir(depois < blocos, 'clicar no bloco tira o voo da escala', `${blocos} → ${depois}`)
+conferir(depois < blocos, 'o botão de tirar tira o voo da escala', `${blocos} → ${depois}`)
 
 // ---------------------------------------------------- vários dias de uma vez
 //

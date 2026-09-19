@@ -157,6 +157,34 @@ const FATOR_CAMPO_CURTO = 0.6
 const pistaMinima = (id: string, runway: number) =>
   CAMPO_CURTO.has(id) ? Math.round(runway * FATOR_CAMPO_CURTO) : runway
 
+/**
+ * Tempo mínimo de solo em voo doméstico, em minutos.
+ *
+ * É **piso**, não substituição: o catálogo continua com o tempo de escala de
+ * cada modelo, e este mínimo só sobe o que estiver abaixo dele. Um A380 segue
+ * com 110 minutos, que é o que ele pede de verdade; o que muda é o ATR, que
+ * tinha 20 e nenhum aeroporto vira um ATR em vinte minutos.
+ *
+ * Os degraus são o porte da aeronave, que é o que dita desembarque, limpeza,
+ * abastecimento e carga:
+ *
+ * - **30 min** turboélice;
+ * - **40 min** jato regional, e o corredor único até o A320neo e o 737 MAX 8;
+ * - **50 min** do A321 e do 737-900/MAX 9 para cima;
+ * - **60 min** fuselagem larga.
+ *
+ * O corte do corredor único é o limite de saídas: A320neo tem 194 e 737 MAX 8
+ * tem 189, os dois que o degrau de 40 nomeia; A321neo tem 244 e 737 MAX 9 tem
+ * 220, os dois que abrem o degrau de 50. Qualquer 194 é o último de baixo.
+ */
+const SOLO_MINIMO = (family: Family, maxSeats: number): number => {
+  if (family === 'turboprop') return 30
+  if (family === 'regional') return 40
+  if (family === 'widebody') return 60
+  if (family === 'freighter') return 40
+  return maxSeats > 194 ? 50 : 40
+}
+
 const A = (
   id: string, name: string, maker: string, family: Family, maxSeats: number, abreast: number,
   range: number, speed: number, burn: number, price: number, runway: number, maint: number,
@@ -166,7 +194,7 @@ const A = (
   runwayMin: pistaMinima(id, runway),
   // Regra real: um comissário para cada 50 assentos.
   crew: Math.max(1, Math.ceil(maxSeats / 50)),
-  maint, comfort, turn, since, engines,
+  maint, comfort, turn: Math.max(turn, SOLO_MINIMO(family, maxSeats)), since, engines,
   fan: ENGINES[engines[0]]?.fan ?? 1.6,
   shape,
 })
