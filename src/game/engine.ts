@@ -17,6 +17,7 @@ import { cabinComfort, checkCabin, clampPitch, crewFor, defaultCabin } from './c
 import { engineIdFor, motivoDoPar, withEngine } from './spec'
 import {
   addCabins, allocateCargoMarket, allocateMarket, blockHours, CARGO_SELLABLE, escalarCabins,
+  classPriceExponent,
   limitarCabins,
   DISTRIBUTION_RATE, emptyCabins, flightCost, leaseMonthly, marketPrice,
   maxDailyFrequency, resaleValue, SELLABLE, sumCabins, ticketRevenue,
@@ -1080,11 +1081,19 @@ export function routeEconomics(s: GameState, r: Route) {
     const dc = cargoDemand(r.from, r.to, s.day, dayOfYear(s))
     const tons = last.reduce((x, d) => x + (d.tons ?? 0), 0)
     const oferta = last.reduce((x, d) => x + (d.tonsOffered ?? 0), 0)
+    const dias = Math.max(1, last.length)
+    const atendidoDia = tons / dias
     return {
       ...base,
       demand: { pax: emptyCabins(), total: dc.tons, refFare: dc.refRate, distance: dc.distance },
       pax: tons,
       loadFactor: oferta ? tons / oferta : 0,
+      atendidoDiaCabine: emptyCabins(),
+      restanteDiaCabine: emptyCabins(),
+      sugestaoFare: { ...r.fare },
+      demandaDia: dc.tons,
+      atendidoDia,
+      restanteDia: Math.max(0, dc.tons - atendidoDia),
       cargo: true,
       unidade: 't',
     }
@@ -1093,14 +1102,53 @@ export function routeEconomics(s: GameState, r: Route) {
   const demand = baseDemand(r.from, r.to, s.day, dayOfYear(s))
   const pax = last.reduce((x, d) => x + sumCabins(d.pax), 0)
   const seats = last.reduce((x, d) => x + d.seats, 0)
+  const dias = Math.max(1, last.length)
+  const atendidoDiaCabine: Cabins = {
+    y: last.reduce((x, d) => x + d.pax.y, 0) / dias,
+    w: last.reduce((x, d) => x + d.pax.w, 0) / dias,
+    c: last.reduce((x, d) => x + d.pax.c, 0) / dias,
+    f: last.reduce((x, d) => x + d.pax.f, 0) / dias,
+  }
+  const restanteDiaCabine: Cabins = {
+    y: Math.max(0, demand.pax.y - atendidoDiaCabine.y),
+    w: Math.max(0, demand.pax.w - atendidoDiaCabine.w),
+    c: Math.max(0, demand.pax.c - atendidoDiaCabine.c),
+    f: Math.max(0, demand.pax.f - atendidoDiaCabine.f),
+  }
   return {
     ...base,
     demand,
     pax,
     loadFactor: seats ? pax / seats : 0,
+    atendidoDiaCabine,
+    restanteDiaCabine,
+    sugestaoFare: sugerirTarifasParaCobertura(r, demand.pax, atendidoDiaCabine),
+    demandaDia: demand.total,
+    atendidoDia: sumCabins(atendidoDiaCabine),
+    restanteDia: sumCabins(restanteDiaCabine),
     cargo: false,
     unidade: 'pax',
   }
+}
+
+const FARE_MIN = 0.55
+const FARE_MAX = 1.9
+
+export function sugerirTarifasParaCobertura(route: Route, demanda: Cabins, atendido: Cabins): Cabins {
+  const out = { ...route.fare }
+  for (const cabin of CABINS) {
+    const alvo = demanda[cabin]
+    if (alvo <= 0) continue
+    const atual = atendido[cabin]
+    if (atual <= 0.1) {
+      out[cabin] = FARE_MIN
+      continue
+    }
+    const ratio = Math.max(0.35, Math.min(3, alvo / atual))
+    const alvoMult = Math.pow(ratio, 1 / classPriceExponent(cabin))
+    out[cabin] = Math.max(FARE_MIN, Math.min(FARE_MAX, route.fare[cabin] * alvoMult))
+  }
+  return out
 }
 
 export function fareInDollars(r: Route, cabin: keyof Cabins, refFare: number) {

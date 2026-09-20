@@ -32,6 +32,8 @@ export interface MarketDemand {
  * `K` foi recalibrado para o mercado GRU-JFK continuar do tamanho que estava.
  */
 export const K = 0.9
+const KM_POR_NM = 1.852
+const LIMIAR_DOMESTICO_F_NM = 2000 / KM_POR_NM
 /**
  * Teto de um par sobre o movimento da ponta menor.
  *
@@ -273,7 +275,11 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
 
   // Mistura de classes: renda e distância empurram para a frente do avião.
   const premium = Math.min(0.34, 0.03 + 0.13 * Math.max(0, gdp - 0.55) + 0.075 * Math.min(distNm / 4200, 1))
-  const fShare = distNm > 2600 && gdp > 0.95 ? premium * 0.11 : 0
+  const domestico = a.cc === b.cc
+  const primeiraElegivel =
+    gdp > 0.95 &&
+    (domestico ? distNm > LIMIAR_DOMESTICO_F_NM : distNm > 2600)
+  const fShare = primeiraElegivel ? premium * 0.11 : 0
   const cShare = premium * (distNm > 1500 ? 0.6 : 0.5)
   const wShare = premium - cShare - fShare
   const pax: Cabins = {

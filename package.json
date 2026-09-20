@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "sim": "tsx scripts/balance.ts",
     "regional": "tsx scripts/regional.ts",
+    "rotas": "tsx scripts/rotas.ts",
     "art": "node scripts/art.mjs",
     "nose": "tsx scripts/nose.tsx",
     "cabines": "tsx scripts/cabins.ts",

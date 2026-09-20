@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AIRCRAFT_BY_ID, acLabel, ehCargueiro, type AircraftType } from '../game/data/aircraft'
 import {
   AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, vooPermitido, type Airport,
@@ -6,32 +6,71 @@ import {
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from '../game/demand'
 import { distanceBetween, odKey } from '../game/geo'
 import { CAMBIO, moedaDoPais, tarifa } from '../game/money'
+import { compararPorOrdenacao, ORDENACOES_ROTAS, type OrdenacaoRotas } from '../game/routeOrdering'
 import { aeroportoServe, pistaServe } from '../game/spec'
 import {
   closeRoute, dayOfYear, estimateRoute, km, money, num, openRoute, pct,
   routeEconomics, routeSlotCost, setFare, slotsFree,
 } from '../game/engine'
-import { CABIN_LABEL, CABINS, type Route } from '../game/types'
+import { CABIN_LABEL, CABINS, CABIN_SHORT, type Route } from '../game/types'
 import { useGame } from '../store/useGame'
 import { Bar, Card, Empty, Modal, Spark } from './components/Bits'
 import { Horarios } from './components/Horarios'
 
 export function RoutesView() {
   const { state } = useGame()
+  const [hubFiltro, setHubFiltro] = useState<string>('todos')
+  const [ordem, setOrdem] = useState<OrdenacaoRotas>('dist-asc')
   const [selId, setSelId] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
-  const routes = state.airline.routes
+  useEffect(() => {
+    if (hubFiltro !== 'todos' && !state.airline.hubs.includes(hubFiltro)) setHubFiltro('todos')
+  }, [hubFiltro, state.airline.hubs])
+  const routes = useMemo(() => {
+    const doy = dayOfYear(state)
+    return state.airline.routes
+      .filter((r) => hubFiltro === 'todos' || r.from === hubFiltro || r.to === hubFiltro)
+      .map((r) => ({
+        route: r,
+        demand: r.cargo ? cargoDemand(r.from, r.to, state.day, doy).tons : baseDemand(r.from, r.to, state.day, doy).total,
+      }))
+      .sort((x, y) => compararPorOrdenacao(
+        ordem,
+        { distance: x.route.distance, demand: x.demand },
+        { distance: y.route.distance, demand: y.demand },
+      ))
+      .map((x) => x.route)
+  }, [state, state.airline.routes, state.day, state.startYear, hubFiltro, ordem])
   const sel = routes.find((r) => r.id === selId) ?? routes[0] ?? null
 
   return (
-    <div className="grid" style={{ gap: 14 }}>
-    <div className="split">
-      <Card
-        title={`Rotas (${routes.length})`}
-        right={<button className="btn primary sm" onClick={() => setOpening(true)}>Abrir rota</button>}
-      >
-        {routes.length === 0 ? (
-          <Empty>Nenhuma rota. Toda linha precisa sair de uma das suas bases ({state.airline.hubs.join(', ')}).</Empty>
+   <div className="grid" style={{ gap: 14 }}>
+   <div className="split">
+     <Card
+       title={`Rotas (${routes.length})`}
+       right={(
+         <div className="row tight">
+           <label className="field" style={{ marginBottom: 0 }}>
+             <span>Hub</span>
+             <select value={hubFiltro} onChange={(e) => setHubFiltro(e.target.value)}>
+               <option value="todos">Todos</option>
+               {state.airline.hubs.map((h) => (
+                 <option key={h} value={h}>{h}</option>
+               ))}
+             </select>
+           </label>
+           <label className="field" style={{ marginBottom: 0 }}>
+             <span>Ordenar</span>
+             <select value={ordem} onChange={(e) => setOrdem(e.target.value as OrdenacaoRotas)}>
+               {ORDENACOES_ROTAS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+             </select>
+           </label>
+           <button className="btn primary sm" onClick={() => setOpening(true)}>Abrir rota</button>
+         </div>
+       )}
+     >
+       {routes.length === 0 ? (
+         <Empty>Nenhuma rota. Toda linha precisa sair de uma das suas bases ({state.airline.hubs.join(', ')}).</Empty>
         ) : (
           <div className="scroll alta">
             <table>
@@ -84,7 +123,9 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
       <Card title={`${route.from} → ${route.to} · ${AIRPORT_BY_IATA[route.to].city}`}>
         <div className="grid g2" style={{ gap: 8, fontSize: 13, marginBottom: 10 }}>
           <div><span className="muted">Distância</span><br />{km(route.distance)}</div>
-          <div><span className="muted">Mercado hoje</span><br />{num(e.demand.total)} {e.unidade}/dia</div>
+          <div><span className="muted">Demanda total</span><br />{num(e.demandaDia)} {e.unidade}/dia</div>
+          <div><span className="muted">Atendido por você</span><br />{num(e.atendidoDia)} {e.unidade}/dia</div>
+          <div><span className="muted">Restante da demanda</span><br />{num(e.restanteDia)} {e.unidade}/dia</div>
           <div><span className="muted">Sua fatia</span><br />{pct(e.share, 1)}</div>
           <div>
             <span className="muted">{e.cargo ? 'Frete base' : 'Tarifa base'}</span><br />
@@ -97,6 +138,33 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
           <span className={e.profit >= 0 ? 'good' : 'bad'}>{money(e.profit)} em {e.days} dias</span>
         </div>
       </Card>
+
+      {!e.cargo && (
+        <Card title="Cobertura de demanda por classe">
+          <table>
+            <thead>
+              <tr>
+                <th>Classe</th><th className="r">Demanda total/dia</th>
+                <th className="r">Atendido/dia</th><th className="r">Restante/dia</th>
+              </tr>
+            </thead>
+            <tbody>
+              {CABINS.filter((c) =>
+                c !== 'f' || e.demand.pax.f > 0 || e.atendidoDiaCabine.f > 0 || e.restanteDiaCabine.f > 0).map((c) => (
+                  <tr key={c}>
+                    <td><b>{CABIN_SHORT[c]}</b> — {CABIN_LABEL[c]}</td>
+                    <td className="r">{num(e.demand.pax[c])}</td>
+                    <td className="r">{num(e.atendidoDiaCabine[c])}</td>
+                    <td className="r">{num(e.restanteDiaCabine[c])}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+          <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
+            Demanda total é o mercado do dia; atendido é sua média recente; restante é o que ainda falta para cobrir 100%.
+          </p>
+        </Card>
+      )}
 
       {/*
         * Duas telas saíram daqui: "Quem voa esta rota" e "Frequência".
@@ -115,12 +183,20 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
         */}
 
       <Card title="Tarifas">
-        {CABINS.map((c) => {
+        {CABINS.filter((c) =>
+          e.cargo ? c === 'y' : (c !== 'f' || e.demand.pax.f > 0 || e.atendidoDiaCabine.f > 0 || e.restanteDiaCabine.f > 0))
+          .map((c) => {
           const abs = e.demand.refFare * CLASS_FARE_MULT[c] * route.fare[c]
+          const sugerida = e.demand.refFare * CLASS_FARE_MULT[c] * e.sugestaoFare[c]
           return (
             <label className="field" key={c}>
               <span>
                 {CABIN_LABEL[c]} — {tarifa(abs, moeda)} ({route.fare[c].toFixed(2)}× a referência)
+                {!e.cargo && (
+                  <span className="muted">
+                    {' '}· sugestão 100%: {tarifa(sugerida, moeda)} ({e.sugestaoFare[c].toFixed(2)}×)
+                  </span>
+                )}
               </span>
               <input
                 type="range" min={0.55} max={1.9} step={0.01} value={route.fare[c]}
@@ -129,6 +205,19 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
             </label>
           )
         })}
+        {!e.cargo && (
+          <button
+            className="btn sm"
+            onClick={() => act((s) => {
+              for (const c of CABINS) {
+                if (c === 'f' && e.demand.pax.f <= 0 && e.atendidoDiaCabine.f <= 0 && e.restanteDiaCabine.f <= 0) continue
+                setFare(s, route.id, c, e.sugestaoFare[c])
+              }
+            })}
+          >
+            Aplicar sugestão (~100% demanda)
+          </button>
+        )}
         <p className="muted" style={{ fontSize: 12, margin: 0 }}>
           Barato enche o avião e rouba mercado, mas derruba a receita por passageiro. A econômica é a mais
           sensível a preço; a executiva quase não liga.
@@ -250,6 +339,7 @@ const ETAPA_MINIMA = 45
 function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: (id: string) => void }) {
   const { state, act, toast } = useGame()
   const [hub, setHub] = useState(state.airline.hubs[0])
+  const [ordem, setOrdem] = useState<OrdenacaoRotas>('dist-asc')
   const [q, setQ] = useState('')
   const [dest, setDest] = useState<string | null>(null)
   // Passageiro ou carga é escolha da abertura: a rota nasce sem aeronave, então
@@ -285,9 +375,17 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
         return { a, dist, demand: d, rivals: rivais.get(odKey(hub, a.iata)) ?? 0, barrado: vooPermitido(base, a) }
       })
       .filter((o) => o.dist > ETAPA_MINIMA)
-      .sort((x, y) => Number(!!x.barrado) - Number(!!y.barrado) || y.demand.total - x.demand.total)
+      .sort((x, y) => {
+        const barrado = Number(!!x.barrado) - Number(!!y.barrado)
+        if (barrado) return barrado
+        return compararPorOrdenacao(
+          ordem,
+          { distance: x.dist, demand: x.demand.total },
+          { distance: y.dist, demand: y.demand.total },
+        )
+      })
       .slice(0, 90)
-  }, [hub, q, state, doy, carga])
+  }, [hub, q, state, doy, carga, ordem])
 
   /**
    * O que **as duas pontas** aceitam, do maior para o menor.
@@ -387,6 +485,12 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
         <label className="field" style={{ flex: '0 0 190px', marginBottom: 0 }}>
           <span>Filtrar a lista</span>
           <input type="text" value={q} placeholder="cidade, país ou código" onChange={(e) => setQ(e.target.value)} />
+        </label>
+        <label className="field" style={{ flex: '0 0 150px', marginBottom: 0 }}>
+          <span>Ordenar</span>
+          <select value={ordem} onChange={(e) => setOrdem(e.target.value as OrdenacaoRotas)}>
+            {ORDENACOES_ROTAS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+          </select>
         </label>
         <label className="field" style={{ flex: 1, marginBottom: 0 }}>
           <span>Destino</span>
