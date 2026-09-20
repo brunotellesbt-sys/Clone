@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { advanceDay, gameDate, money, netWorth, pct, period } from './game/engine'
 import { MS_POR_DIA_NA_TELA } from './ui/relogio'
-import { clearSave, exportSave, hasSave, importSave, loadGame, saveGame } from './game/save'
+import {
+  AVAILABLE_SLOTS,
+  clearSave,
+  exportSave,
+  getActiveSlot,
+  getSlotInfo,
+  importSave,
+  loadGame,
+  saveGame,
+} from './game/save'
+import type { SlotSummary } from './game/save'
 import type { GameState } from './game/types'
 import { GameContext, useGame } from './store/useGame'
 import { Dashboard } from './ui/Dashboard'
@@ -51,6 +61,9 @@ export function App() {
     const s = stateRef.current
     if (!s) return null
     const err = fn(s) ?? null
+    if (!err) {
+      saveGame(s, getActiveSlot())
+    }
     force((v) => v + 1)
     return err
   }, [])
@@ -58,28 +71,12 @@ export function App() {
   // laço do jogo
   useEffect(() => {
     if (!state || state.paused || state.speed === 0) return
-    /**
-     * Um dia de jogo por `MS_POR_DIA_NA_TELA / velocidade`. O piso de 16 ms é
-     * um quadro de tela: abaixo disso o navegador não entrega mais batidas.
-     */
     const interval = Math.max(16, MS_POR_DIA_NA_TELA / state.speed)
     const id = setInterval(() => {
       const s = stateRef.current
-      /**
-       * Guarda dupla: o efeito limpa o intervalo, e a batida confere de novo.
-       *
-       * Medido, o relógio já parava no clique — zero dias de atraso em
-       * qualquer velocidade. A guarda fica como rede: entre mudar `paused` e
-       * o React limpar o efeito existe uma janela, e a 40× ela vale uma batida
-       * a cada 45 ms. Custa uma comparação por batida.
-       *
-       * O que **não** parava era o mapa, que tem laço de animação próprio —
-       * ver `MapView`. Era de lá que vinha a impressão de que a pausa não
-       * funcionava.
-       */
       if (!s || s.paused || s.speed === 0) return
       advanceDay(s)
-      if (s.day % 30 === 0) saveGame(s)
+      if (s.day % 30 === 0) saveGame(s, getActiveSlot())
       force((v) => v + 1)
     }, interval)
     return () => clearInterval(id)
@@ -101,7 +98,7 @@ export function App() {
       state: state as GameState,
       act,
       replace: (s: GameState) => setState(s),
-      reset: () => { clearSave(); setState(null) },
+      reset: () => { clearSave(getActiveSlot()); setState(null) },
       toast,
     }),
     [state, act, toast],
@@ -123,7 +120,6 @@ export function App() {
 
   return (
     <GameContext.Provider value={ctx}>
-      {/* o chrome pega a cor da deriva: a tela fica sendo da companhia do jogador */}
       <div className="app" style={{ '--marca': state.airline.livery.tail } as React.CSSProperties}>
         <header className="topbar">
           <div className="brand">
@@ -133,6 +129,7 @@ export function App() {
               <div style={{ fontSize: 11, color: 'var(--ink-3)', fontWeight: 500 }}>
                 {date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}
                 {' · dia '}{state.day}
+                {' · Slot '}{getActiveSlot()}
               </div>
             </div>
           </div>
@@ -188,52 +185,389 @@ export function App() {
   )
 }
 
-function GameMenu({ onClose }: { onClose: () => void }) {
-  const { state, replace, reset, toast } = useGame()
-  const [code, setCode] = useState('')
-  if (!state) return null
+function ConfirmModal({
+  title,
+  message,
+  confirmText = 'Confirmar',
+  cancelText = 'Cancelar',
+  kind = 'primary',
+  onConfirm,
+  onCancel,
+}: {
+  title: string
+  message: string
+  confirmText?: string
+  cancelText?: string
+  kind?: 'primary' | 'danger'
+  onConfirm: () => void
+  onCancel: () => void
+}) {
   return (
-    <Modal title="Jogo" onClose={onClose}>
-      <div className="row" style={{ marginBottom: 14 }}>
-        <button className="btn primary" onClick={() => { saveGame(state); toast('Partida salva no navegador.') }}>Salvar</button>
-        <button className="btn" onClick={() => { const s = loadGame(); if (s) { replace(s); onClose() } else toast('Nenhum save encontrado.', 'error') }}>Carregar</button>
-        <button className="btn danger" onClick={() => { if (confirm('Apagar a partida e começar de novo?')) { reset(); onClose() } }}>Nova partida</button>
-      </div>
-      <label className="field">
-        <span>Exportar (copie e guarde este texto)</span>
-        <textarea readOnly rows={3} value={exportSave(state)} style={{ width: '100%', background: '#0b1424', border: '1px solid var(--line)', borderRadius: 8, padding: 8, color: 'var(--ink-2)', fontSize: 11 }} />
-      </label>
-      <label className="field">
-        <span>Importar</span>
-        <input type="text" value={code} placeholder="cole aqui o texto exportado" onChange={(e) => setCode(e.target.value)} />
-      </label>
-      <button className="btn" onClick={() => { const s = importSave(code); if (s) { replace(s); onClose() } else toast('Texto inválido.', 'error') }}>
-        Importar partida
-      </button>
-      <hr style={{ border: 0, borderTop: '1px solid var(--line)', margin: '18px 0' }} />
-      <p className="muted" style={{ fontSize: 12, margin: 0 }}>
-        Atalhos: <b>espaço</b> pausa, <b>1–4</b> mudam a velocidade. O jogo salva sozinho a cada 30 dias.
+    <Modal title={title} onClose={onCancel}>
+      <p className="dim" style={{ fontSize: 13.5, margin: '12px 0 20px', lineHeight: 1.5 }}>
+        {message}
       </p>
+      <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
+        <button className="btn" onClick={onCancel}>
+          {cancelText}
+        </button>
+        <button className={`btn ${kind}`} onClick={onConfirm}>
+          {confirmText}
+        </button>
+      </div>
     </Modal>
   )
 }
 
-function StartScreen({ onStart, toast }: { onStart: (s: GameState) => void; toast: (m: string, k?: 'info' | 'error') => void }) {
-  const [creating, setCreating] = useState(!hasSave())
-  if (creating) return <NewGame onStart={onStart} onCancel={hasSave() ? () => setCreating(false) : undefined} />
+function GameMenu({ onClose }: { onClose: () => void }) {
+  const { state, replace, reset, toast } = useGame()
+  const [code, setCode] = useState('')
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    type: 'save' | 'load' | 'delete' | 'new'
+    slot?: number
+    title: string
+    message: string
+    kind?: 'primary' | 'danger'
+  } | null>(null)
+
+  const activeSlot = getActiveSlot()
+  const [slotsInfo, setSlotsInfo] = useState<(SlotSummary | null)[]>(() =>
+    AVAILABLE_SLOTS.map((s) => getSlotInfo(s)),
+  )
+
+  const refreshSlots = useCallback(() => {
+    setSlotsInfo(AVAILABLE_SLOTS.map((s) => getSlotInfo(s)))
+  }, [])
+
+  if (!state) return null
+
+  const handleConfirmAction = () => {
+    if (!pendingConfirm) return
+    const { type, slot } = pendingConfirm
+
+    if (type === 'save' && slot) {
+      saveGame(state, slot)
+      toast(`Partida salva no Slot ${slot}.`)
+      refreshSlots()
+    } else if (type === 'load' && slot) {
+      const loaded = loadGame(slot)
+      if (loaded) {
+        replace(loaded)
+        toast(`Slot ${slot} carregado com sucesso.`)
+        onClose()
+      } else {
+        toast('Erro ao carregar o save.', 'error')
+      }
+    } else if (type === 'delete' && slot) {
+      clearSave(slot)
+      toast(`Save do Slot ${slot} excluído.`)
+      refreshSlots()
+    } else if (type === 'new') {
+      reset()
+      onClose()
+    }
+
+    setPendingConfirm(null)
+  }
+
   return (
-    <div className="wrap" style={{ paddingTop: 76, textAlign: 'center' }}>
+    <Modal title="Gerenciador de Saves" onClose={onClose}>
+      <div className="grid" style={{ gap: 12, marginBottom: 18 }}>
+        {AVAILABLE_SLOTS.map((slotNum) => {
+          const info = slotsInfo[slotNum - 1]
+          const isActive = slotNum === activeSlot
+
+          return (
+            <div
+              key={slotNum}
+              className="card tight"
+              style={{
+                borderColor: isActive ? 'var(--amber)' : 'var(--line)',
+                background: isActive ? 'rgba(255, 181, 71, 0.05)' : undefined,
+              }}
+            >
+              <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
+                <div className="row tight">
+                  <b>Slot {slotNum}</b>
+                  {isActive && <span className="chip sm">Slot Atual</span>}
+                </div>
+                {info && (
+                  <span className="muted" style={{ fontSize: 11 }}>
+                    Dia {info.day} · Base {info.hub}
+                  </span>
+                )}
+              </div>
+
+              {info ? (
+                <div style={{ fontSize: 12, marginBottom: 10, color: 'var(--ink-2)' }}>
+                  <b>{info.name}</b> ({info.code}) — Caixa: {money(info.cash)}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, marginBottom: 10, color: 'var(--ink-3)', fontStyle: 'italic' }}>
+                  Slot Vazio
+                </div>
+              )}
+
+              <div className="row tight">
+                <button
+                  className="btn sm primary"
+                  onClick={() =>
+                    setPendingConfirm({
+                      type: 'save',
+                      slot: slotNum,
+                      title: `Salvar no Slot ${slotNum}`,
+                      message: info
+                        ? `A partida atual irá sobrescrever o save do Slot ${slotNum} (${info.name}). Deseja continuar?`
+                        : `Deseja salvar a partida atual no Slot ${slotNum}?`,
+                    })
+                  }
+                >
+                  Salvar
+                </button>
+
+                {info && (
+                  <>
+                    <button
+                      className="btn sm"
+                      onClick={() =>
+                        setPendingConfirm({
+                          type: 'load',
+                          slot: slotNum,
+                          title: `Carregar Slot ${slotNum}`,
+                          message: `Deseja carregar a partida do Slot ${slotNum} (${info.name})? Todo o progresso não salvo na partida atual será perdido.`,
+                        })
+                      }
+                    >
+                      Carregar
+                    </button>
+                    <button
+                      className="btn sm danger"
+                      onClick={() =>
+                        setPendingConfirm({
+                          type: 'delete',
+                          slot: slotNum,
+                          title: `Excluir Save do Slot ${slotNum}`,
+                          message: `Tem certeza que deseja excluir permanentemente o save do Slot ${slotNum} (${info.name})? Esta ação não pode ser desfeita.`,
+                          kind: 'danger',
+                        })
+                      }
+                    >
+                      Excluir
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="row" style={{ marginBottom: 16 }}>
+        <button
+          className="btn danger"
+          onClick={() =>
+            setPendingConfirm({
+              type: 'new',
+              title: 'Iniciar Nova Partida',
+              message: 'Deseja sair da partida atual para criar um novo jogo? Verifique se você salvou o seu progresso.',
+              kind: 'danger',
+            })
+          }
+        >
+          Nova partida
+        </button>
+      </div>
+
+      <label className="field">
+        <span>Exportar partida atual</span>
+        <textarea
+          readOnly
+          rows={2}
+          value={exportSave(state)}
+          style={{
+            width: '100%',
+            background: '#0b1424',
+            border: '1px solid var(--line)',
+            borderRadius: 8,
+            padding: 8,
+            color: 'var(--ink-2)',
+            fontSize: 11,
+          }}
+        />
+      </label>
+
+      <label className="field">
+        <span>Importar partida</span>
+        <input
+          type="text"
+          value={code}
+          placeholder="Cole aqui o texto exportado"
+          onChange={(e) => setCode(e.target.value)}
+        />
+      </label>
+
+      <button
+        className="btn"
+        onClick={() => {
+          const s = importSave(code)
+          if (s) {
+            replace(s)
+            saveGame(s, activeSlot)
+            toast('Partida importada com sucesso.')
+            onClose()
+          } else toast('Texto inválido.', 'error')
+        }}
+      >
+        Importar partida
+      </button>
+
+      <hr style={{ border: 0, borderTop: '1px solid var(--line)', margin: '18px 0' }} />
+      <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+        Atalhos: <b>espaço</b> pausa, <b>1–4</b> mudam a velocidade. Cada slot salva automaticamente a cada ação e a cada 30 dias.
+      </p>
+
+      {pendingConfirm && (
+        <ConfirmModal
+          title={pendingConfirm.title}
+          message={pendingConfirm.message}
+          kind={pendingConfirm.kind}
+          onConfirm={handleConfirmAction}
+          onCancel={() => setPendingConfirm(null)}
+        />
+      )}
+    </Modal>
+  )
+}
+
+function StartScreen({
+  onStart,
+  toast,
+}: {
+  onStart: (s: GameState) => void
+  toast: (m: string, k?: 'info' | 'error') => void
+}) {
+  const [creatingSlot, setCreatingSlot] = useState<number | null>(null)
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    slot: number
+    title: string
+    message: string
+  } | null>(null)
+
+  const [slotsInfo, setSlotsInfo] = useState<(SlotSummary | null)[]>(() =>
+    AVAILABLE_SLOTS.map((s) => getSlotInfo(s)),
+  )
+
+  const refreshSlots = useCallback(() => {
+    setSlotsInfo(AVAILABLE_SLOTS.map((s) => getSlotInfo(s)))
+  }, [])
+
+  if (creatingSlot !== null) {
+    return (
+      <NewGame
+        initialSlot={creatingSlot}
+        onStart={(s) => onStart(s)}
+        onCancel={() => setCreatingSlot(null)}
+      />
+    )
+  }
+
+  const handleConfirmDelete = () => {
+    if (!pendingConfirm) return
+    clearSave(pendingConfirm.slot)
+    toast(`Save do Slot ${pendingConfirm.slot} excluído.`)
+    refreshSlots()
+    setPendingConfirm(null)
+  }
+
+  return (
+    <div className="wrap start" style={{ paddingTop: 40, textAlign: 'center' }}>
       <span className="eyebrow">Simulador de companhia aérea</span>
       <h1 className="titulo" style={{ fontSize: 44 }}>Skyline Tycoon</h1>
       <p className="dim" style={{ maxWidth: 520, margin: '12px auto 28px' }}>
         Monte a malha, escolha os aviões, brigue por passageiro no preço e na frequência — e pinte tudo do seu jeito.
       </p>
-      <div className="row" style={{ justifyContent: 'center' }}>
-        <button className="btn primary grande" onClick={() => { const s = loadGame(); if (s) onStart(s); else toast('Save corrompido.', 'error') }}>
-          Continuar partida
-        </button>
-        <button className="btn grande" onClick={() => setCreating(true)}>Nova companhia</button>
+
+      <div style={{ maxWidth: 620, margin: '0 auto', textAlign: 'left' }}>
+        <h3 style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--ink-3)', marginBottom: 12 }}>
+          Escolha um Save ou crie um novo jogo:
+        </h3>
+
+        <div className="grid" style={{ gap: 12 }}>
+          {AVAILABLE_SLOTS.map((slotNum) => {
+            const info = slotsInfo[slotNum - 1]
+
+            return (
+              <div key={slotNum} className="card tight">
+                <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
+                  <b>Slot {slotNum}</b>
+                  {info && (
+                    <span className="muted" style={{ fontSize: 11 }}>
+                      Dia {info.day} · Base {info.hub}
+                    </span>
+                  )}
+                </div>
+
+                {info ? (
+                  <div style={{ fontSize: 13, marginBottom: 12, color: 'var(--ink-2)' }}>
+                    <b>{info.name}</b> ({info.code}) — Caixa: {money(info.cash)}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 13, marginBottom: 12, color: 'var(--ink-3)', fontStyle: 'italic' }}>
+                    Slot Vazio
+                  </div>
+                )}
+
+                <div className="row tight">
+                  {info ? (
+                    <>
+                      <button
+                        className="btn primary sm"
+                        onClick={() => {
+                          const s = loadGame(slotNum)
+                          if (s) onStart(s)
+                          else toast('Save corrompido.', 'error')
+                        }}
+                      >
+                        Continuar
+                      </button>
+                      <button
+                        className="btn sm danger"
+                        onClick={() =>
+                          setPendingConfirm({
+                            slot: slotNum,
+                            title: `Excluir Save do Slot ${slotNum}`,
+                            message: `Tem certeza que deseja excluir o save do Slot ${slotNum} (${info.name})? Esta ação não pode ser desfeita.`,
+                          })
+                        }
+                      >
+                        Excluir
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="btn primary sm"
+                      onClick={() => setCreatingSlot(slotNum)}
+                    >
+                      Criar novo jogo
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
+
+      {pendingConfirm && (
+        <ConfirmModal
+          title={pendingConfirm.title}
+          message={pendingConfirm.message}
+          kind="danger"
+          confirmText="Excluir"
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setPendingConfirm(null)}
+        />
+      )}
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { engineIdFor } from './spec'
 import type { Aircraft, GameState } from './types'
 
 export const SAVE_VERSION = 2
+export const AVAILABLE_SLOTS = [1, 2, 3] as const
 
 /** Modelos que trocaram de id quando o catálogo ganhou as variantes reais. */
 const RENAMED: Record<string, string> = { a220: 'a220300' }
@@ -20,11 +21,6 @@ function migrate(s: GameState): GameState | null {
   if (!s || (s.version !== 1 && s.version !== SAVE_VERSION)) return null
   if (!s.airline || !s.airline.hubs?.some((h) => AIRPORT_BY_IATA[h])) return null
 
-  // Save de versão anterior pode não ter listas que o jogo de hoje percorre sem
-  // checar, ou pode citar aeroporto que saiu do catálogo. Faltando uma lista, a
-  // tela quebra no primeiro `.map()` e o jogador vê tela preta — foi o que
-  // motivou a barreira de erro em `Boundary.tsx`. Aqui o save chega inteiro ou
-  // não chega.
   s.airline.hubs = s.airline.hubs.filter((h) => AIRPORT_BY_IATA[h])
   s.airline.fleet = s.airline.fleet ?? []
   s.airline.routes = (s.airline.routes ?? []).filter(
@@ -46,16 +42,10 @@ function migrate(s: GameState): GameState | null {
     ac.pitch = clampPitch(ac.pitch)
     ac.seatConfig = normalizeSeats(t, ac.seatConfig)
     if (!ac.seats || typeof ac.seats.y !== 'number') ac.seats = defaultCabin(t).seats
-    // Save antigo não guardava o país da matrícula: cai no da base de hoje.
     ac.cc = ac.cc || AIRPORT_BY_IATA[s.airline.hubs[0]]?.cc || 'BR'
     return [ac]
   })
-  /**
-   * A malha: save anterior à escala por perna guardava rotação por rota. A
-   * conversão reproduz a mesma grade em pernas, e depois disso a escala é a
-   * fonte — `sincronizarMalha` recalcula `freq` e `aircraftIds` a partir dela,
-   * inclusive num save que já tinha escala mas cuja frota mudou.
-   */
+
   migrarEscala(s)
   s.airline.escala = (s.airline.escala ?? []).filter(
     (p) => AIRPORT_BY_IATA[p.from] && AIRPORT_BY_IATA[p.to] &&
@@ -67,32 +57,117 @@ function migrate(s: GameState): GameState | null {
   return s
 }
 
-const KEY = 'skyline-tycoon:save'
-const SLOT_KEY = (n: number) => `${KEY}:${n}`
+const LEGACY_KEY = 'skyline-tycoon:save'
+const ACTIVE_SLOT_KEY = 'skyline-tycoon:active-slot'
+const SLOT_KEY = (n: number) => `skyline-tycoon:save:${n}`
 
-export function saveGame(state: GameState, slot = 0) {
+/**
+ * Migra o save antigo (chave única `skyline-tycoon:save` ou `skyline-tycoon:save:0`)
+ * para o Slot 1 (`skyline-tycoon:save:1`), se o Slot 1 ainda não existir.
+ */
+export function migrateOldSaveIfNeeded() {
+  try {
+    const slot1Data = localStorage.getItem(SLOT_KEY(1))
+    const legacyData = localStorage.getItem(LEGACY_KEY)
+    const slot0Data = localStorage.getItem('skyline-tycoon:save:0')
+
+    if (!slot1Data) {
+      if (legacyData) {
+        localStorage.setItem(SLOT_KEY(1), legacyData)
+      } else if (slot0Data) {
+        localStorage.setItem(SLOT_KEY(1), slot0Data)
+      }
+    }
+
+    if (legacyData) {
+      localStorage.removeItem(LEGACY_KEY)
+    }
+    if (slot0Data) {
+      localStorage.removeItem('skyline-tycoon:save:0')
+    }
+  } catch {
+    /* ignora se o localStorage estiver desabilitado */
+  }
+}
+
+export function getActiveSlot(): number {
+  try {
+    const raw = localStorage.getItem(ACTIVE_SLOT_KEY)
+    const parsed = raw ? parseInt(raw, 10) : 1
+    if (parsed >= 1 && parsed <= 3) return parsed
+  } catch {
+    /* ignora */
+  }
+  return 1
+}
+
+export function setActiveSlot(slot: number) {
+  try {
+    if (slot >= 1 && slot <= 3) {
+      localStorage.setItem(ACTIVE_SLOT_KEY, String(slot))
+    }
+  } catch {
+    /* ignora */
+  }
+}
+
+export interface SlotSummary {
+  slot: number
+  name: string
+  code: string
+  hub: string
+  day: number
+  cash: number
+}
+
+export function getSlotInfo(slot: number): SlotSummary | null {
+  migrateOldSaveIfNeeded()
+  try {
+    const raw = localStorage.getItem(SLOT_KEY(slot))
+    if (!raw) return null
+    const parsed = migrate(JSON.parse(raw) as GameState)
+    if (!parsed || !parsed.airline) return null
+    return {
+      slot,
+      name: parsed.airline.name,
+      code: parsed.airline.code,
+      hub: parsed.airline.hubs[0] ?? '---',
+      day: parsed.day,
+      cash: parsed.airline.cash,
+    }
+  } catch {
+    return null
+  }
+}
+
+export function saveGame(state: GameState, slot = getActiveSlot()) {
+  migrateOldSaveIfNeeded()
   try {
     localStorage.setItem(SLOT_KEY(slot), JSON.stringify(state))
+    setActiveSlot(slot)
     return true
   } catch {
     return false
   }
 }
 
-export function loadGame(slot = 0): GameState | null {
+export function loadGame(slot = getActiveSlot()): GameState | null {
+  migrateOldSaveIfNeeded()
   try {
     const raw = localStorage.getItem(SLOT_KEY(slot))
     if (!raw) return null
     const parsed = migrate(JSON.parse(raw) as GameState)
     if (!parsed) return null
     parsed.paused = true
+    setActiveSlot(slot)
     return parsed
   } catch {
     return null
   }
 }
 
-export function hasSave(slot = 0) {
+export function hasSave(slot = getActiveSlot()) {
+  migrateOldSaveIfNeeded()
   try {
     return !!localStorage.getItem(SLOT_KEY(slot))
   } catch {
@@ -100,7 +175,7 @@ export function hasSave(slot = 0) {
   }
 }
 
-export function clearSave(slot = 0) {
+export function clearSave(slot = getActiveSlot()) {
   try {
     localStorage.removeItem(SLOT_KEY(slot))
   } catch {
