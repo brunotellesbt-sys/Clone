@@ -26,8 +26,8 @@ import {
   MCT_INTERNACIONAL, mct, voosColados,
 } from '../src/game/malha'
 import {
-  aeronavesPara, cabeNaEscala, curfewDaPerna, DOW_CURTO, marcarVoo, noTempo, paradasDe,
-  pernasDaRota, pernasDe, posicionamentos, quebrasDe, remarcarVoo, removerVoo,
+  aeronavesPara, cabeNaEscala, curfewDaPerna, DIA, DOW_CURTO, marcarVoo, noTempo, paradasDe,
+  partidaUtc, pernasDaRota, pernasDe, posicionamentos, quebrasDe, remarcarVoo, removerVoo,
 } from '../src/game/escala'
 
 let falhas = 0
@@ -368,6 +368,20 @@ console.log('\nfuso na chegada\n')
   conferir(delta > 0, 'Lisboa está à frente de São Paulo', `${delta / 60} h`)
   conferir(p.dowChegada === 2, 'o voo das 22:00 de segunda chega na terça', `${DOW_CURTO[p.dowChegada]} ${hhmm(p.chegadaLocal)}`)
   console.log(`  GRU 22:00 → LIS ${hhmm(p.chegadaLocal)} (${(p.bloco / 60).toFixed(1)} h de voo, fuso +${delta / 60} h)`)
+}
+
+console.log('\nconversão local ↔ UTC\n')
+{
+  conferir(AP.DFW.fuso === -360, 'Dallas usa UTC-6 padrão', `${AP.DFW.fuso / 60} h`)
+  conferir(AP.SYD.fuso === 600, 'Sydney usa UTC+10 padrão, sem horário de verão embutido', `${AP.SYD.fuso / 60} h`)
+  conferir(AP.SCL.fuso === -240, 'Santiago usa UTC-4 padrão, sem horário de verão embutido', `${AP.SCL.fuso / 60} h`)
+  conferir(AP.URC.fuso === 480, 'Ürümqi segue UTC+8 da aviação chinesa', `${AP.URC.fuso / 60} h`)
+
+  const dfw = partidaUtc({ id: 'tz-dfw', aircraftId: 'x', from: 'DFW', to: 'JFK', dow: 1, saida: 8 * 60 })
+  conferir(dfw === DIA + 14 * 60, '08:00 em Dallas vira 14:00 UTC', hhmm(dfw))
+
+  const syd = partidaUtc({ id: 'tz-syd', aircraftId: 'x', from: 'SYD', to: 'AKL', dow: 1, saida: 8 * 60 })
+  conferir(syd === DIA - 2 * 60, '08:00 em Sydney vira 22:00 UTC do dia anterior', `${DOW_CURTO[Math.floor(syd / DIA)]} ${hhmm(syd)}`)
 }
 
 // ------------------------------------------------------------- retirar cauda
