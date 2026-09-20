@@ -25,7 +25,15 @@ import { MapView } from './MapView'
  */
 const ATALHOS = ['GRU', 'GIG', 'SDU', 'CGH', 'BSB', 'LIS', 'MIA', 'JFK', 'LHR', 'DXB', 'NRT', 'SYD']
 
-export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void; onCancel?: () => void }) {
+export function NewGame({
+  targetSlot = 1,
+  onStart,
+  onCancel,
+}: {
+  targetSlot?: number
+  onStart: (s: GameState, slot: number) => void
+  onCancel?: () => void
+}) {
   const rng = useMemo(() => makeRng(Date.now() % 100000), [])
   const [name, setName] = useState(() => suggestAirlineName(rng))
   const [code, setCode] = useState(() => suggestCode(rng))
@@ -77,7 +85,7 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
     <div className="wrap start">
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 18 }}>
         <div>
-          <span className="eyebrow">Nova companhia</span>
+          <span className="eyebrow">Nova companhia · Slot {targetSlot}</span>
           <h1 className="titulo">Escolha de onde tudo começa</h1>
           <p className="dim" style={{ margin: '6px 0 0', maxWidth: 560 }}>
             {money(START_CASH)} em caixa, um certificado de operador e nenhum avião.
@@ -261,7 +269,7 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
             disabled={!name.trim() || code.length < 2}
             onClick={() => onStart(newGame({
               name: name.trim(), code, hub, livery: structuredClone(livery), densidade,
-            }))}
+            }), targetSlot)}
           >
             Decolar de {hub}
           </button>

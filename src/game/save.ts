@@ -9,6 +9,14 @@ import type { Aircraft, GameState } from './types'
 
 export const SAVE_VERSION = 2
 
+export const SLOTS = [1, 2, 3] as const
+export type SlotId = (typeof SLOTS)[number]
+
+const LEGACY_KEY = 'skyline-tycoon:save'
+const LEGACY_SLOT_0_KEY = 'skyline-tycoon:save:0'
+const SLOT_KEY = (n: number) => `skyline-tycoon:save:${n}`
+const ACTIVE_SLOT_KEY = 'skyline-tycoon:active-slot'
+
 /** Modelos que trocaram de id quando o catálogo ganhou as variantes reais. */
 const RENAMED: Record<string, string> = { a220: 'a220300' }
 
@@ -67,44 +75,130 @@ function migrate(s: GameState): GameState | null {
   return s
 }
 
-const KEY = 'skyline-tycoon:save'
-const SLOT_KEY = (n: number) => `${KEY}:${n}`
-
-export function saveGame(state: GameState, slot = 0) {
+/**
+ * Migra o save legados (`skyline-tycoon:save` ou `skyline-tycoon:save:0`) para o Slot 1 (`skyline-tycoon:save:1`).
+ */
+export function migrateSaveSlots() {
   try {
-    localStorage.setItem(SLOT_KEY(slot), JSON.stringify(state))
+    if (typeof localStorage === 'undefined') return
+    const slot1Exists = !!localStorage.getItem(SLOT_KEY(1))
+    if (!slot1Exists) {
+      const legacySave = localStorage.getItem(LEGACY_KEY) || localStorage.getItem(LEGACY_SLOT_0_KEY)
+      if (legacySave) {
+        localStorage.setItem(SLOT_KEY(1), legacySave)
+        localStorage.removeItem(LEGACY_KEY)
+        localStorage.removeItem(LEGACY_SLOT_0_KEY)
+      }
+    } else {
+      localStorage.removeItem(LEGACY_KEY)
+      localStorage.removeItem(LEGACY_SLOT_0_KEY)
+    }
+  } catch {
+    /* ignora */
+  }
+}
+
+export function getActiveSlot(): SlotId {
+  try {
+    if (typeof localStorage === 'undefined') return 1
+    const raw = localStorage.getItem(ACTIVE_SLOT_KEY)
+    const num = raw ? parseInt(raw, 10) : 1
+    if (num === 1 || num === 2 || num === 3) return num as SlotId
+  } catch {
+    /* ignora */
+  }
+  return 1
+}
+
+export function setActiveSlot(slot: number): void {
+  try {
+    if (typeof localStorage === 'undefined') return
+    if (slot === 1 || slot === 2 || slot === 3) {
+      localStorage.setItem(ACTIVE_SLOT_KEY, String(slot))
+    }
+  } catch {
+    /* ignora */
+  }
+}
+
+export function saveGame(state: GameState, slot = 1): boolean {
+  try {
+    migrateSaveSlots()
+    const targetSlot = (slot >= 1 && slot <= 3) ? slot : 1
+    localStorage.setItem(SLOT_KEY(targetSlot), JSON.stringify(state))
+    setActiveSlot(targetSlot)
     return true
   } catch {
     return false
   }
 }
 
-export function loadGame(slot = 0): GameState | null {
+export function loadGame(slot = 1): GameState | null {
   try {
-    const raw = localStorage.getItem(SLOT_KEY(slot))
+    migrateSaveSlots()
+    const targetSlot = (slot >= 1 && slot <= 3) ? slot : 1
+    const raw = localStorage.getItem(SLOT_KEY(targetSlot))
     if (!raw) return null
     const parsed = migrate(JSON.parse(raw) as GameState)
     if (!parsed) return null
     parsed.paused = true
+    setActiveSlot(targetSlot)
     return parsed
   } catch {
     return null
   }
 }
 
-export function hasSave(slot = 0) {
+export function hasSave(slot = 1): boolean {
   try {
-    return !!localStorage.getItem(SLOT_KEY(slot))
+    migrateSaveSlots()
+    const targetSlot = (slot >= 1 && slot <= 3) ? slot : 1
+    return !!localStorage.getItem(SLOT_KEY(targetSlot))
   } catch {
     return false
   }
 }
 
-export function clearSave(slot = 0) {
+export function clearSave(slot = 1): void {
   try {
-    localStorage.removeItem(SLOT_KEY(slot))
+    migrateSaveSlots()
+    const targetSlot = (slot >= 1 && slot <= 3) ? slot : 1
+    localStorage.removeItem(SLOT_KEY(targetSlot))
   } catch {
     /* ignora */
+  }
+}
+
+export interface SlotSummary {
+  slot: number
+  airlineName: string
+  code: string
+  hub: string
+  day: number
+  startYear: number
+  cash: number
+  fleetCount: number
+  routesCount: number
+}
+
+export function getSlotSummary(slot = 1): SlotSummary | null {
+  try {
+    migrateSaveSlots()
+    const game = loadGame(slot)
+    if (!game) return null
+    return {
+      slot,
+      airlineName: game.airline.name,
+      code: game.airline.code,
+      hub: game.airline.hubs[0] ?? '---',
+      day: game.day,
+      startYear: game.startYear,
+      cash: game.airline.cash,
+      fleetCount: game.airline.fleet.length,
+      routesCount: game.airline.routes.length,
+    }
+  } catch {
+    return null
   }
 }
 
