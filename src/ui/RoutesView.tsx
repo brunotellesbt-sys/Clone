@@ -40,7 +40,7 @@ export function RoutesView() {
         { distance: y.route.distance, demand: y.demand },
       ))
       .map((x) => x.route)
-  }, [state, state.airline.routes.length, state.day, state.startYear, hubFiltro, ordem])
+  }, [state, state.airline.routes, state.airline.routes.length, state.day, state.startYear, hubFiltro, ordem])
   const sel = routes.find((r) => r.id === selId) ?? routes[0] ?? null
 
   return (
@@ -387,7 +387,7 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
         )
       })
       .slice(0, 90)
-  }, [hub, q, state, state.airline.routes.length, doy, carga, ordem])
+  }, [hub, q, state, state.airline.routes, state.airline.routes.length, doy, carga, ordem])
 
   /**
    * O que **as duas pontas** aceitam, do maior para o menor.
