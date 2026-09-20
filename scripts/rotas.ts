@@ -25,12 +25,34 @@ conferir(longaDom.pax.f > 0, 'doméstica longa elegível pode gerar primeira cla
   const s = newGame({ name: 'Teste', code: 'TS', hub: 'GRU', seed: 11 })
   openRoute(s, 'GRU', 'REC')
   const r = s.airline.routes[0]
+  r.fare = { y: 1.4, w: 1.3, c: 1.2, f: 1.1 }
   const demanda: Cabins = { y: 100, w: 10, c: 5, f: 0 }
-  const atendido: Cabins = { y: 50, w: 20, c: 5, f: 0 }
+  const atendido: Cabins = { y: 50, w: 20, c: 5, f: 0.5 }
   const sug = sugerirTarifasParaCobertura(r, demanda, atendido)
-  conferir(sug.y < r.fare.y, 'sugestão reduz Y quando falta demanda')
-  conferir(sug.w > r.fare.w, 'sugestão sobe W quando passou da demanda')
-  conferir(Math.abs(sug.c - r.fare.c) < 0.001, 'sugestão mantém C quando já está em 100%')
+  conferir(sug.y < 1, 'sugestão reduz Y quando falta demanda')
+  conferir(sug.w > 1, 'sugestão sobe W quando passou da demanda')
+  conferir(Math.abs(sug.c - 1) < 0.001, 'sugestão mantém C em 1× quando já está em 100%')
+
+  // piso econômico: classe com atendimento quase zero nunca vai para tarifa gratuita.
+  const quaseZero = sugerirTarifasParaCobertura(r, demanda, { y: 0.01, w: 0, c: 0.05, f: 0 })
+  conferir(quaseZero.y >= 0.55 && quaseZero.y > 0, 'sugestão nunca cai abaixo do piso em Y')
+  conferir(quaseZero.w >= 0.55 && quaseZero.w > 0, 'sugestão nunca cai abaixo do piso em W')
+
+  // idempotência: reaplicar a mesma sugestão sem novo histórico não muda o valor.
+  const rotaAposSugestao = { ...r, fare: { ...sug } }
+  const sugDeNovo = sugerirTarifasParaCobertura(rotaAposSugestao, demanda, atendido)
+  conferir(Math.abs(sugDeNovo.y - sug.y) < 1e-9, 'aplicar sugestão duas vezes mantém Y')
+  conferir(Math.abs(sugDeNovo.w - sug.w) < 1e-9, 'aplicar sugestão duas vezes mantém W')
+
+  // atendimento muito baixo não deve cair indefinidamente: fica no piso.
+  const muitoBaixo = sugerirTarifasParaCobertura(r, demanda, { y: 0, w: 0.2, c: 0.11, f: 0 })
+  const muitoBaixoDeNovo = sugerirTarifasParaCobertura({ ...r, fare: { ...muitoBaixo } }, demanda, { y: 0, w: 0.2, c: 0.11, f: 0 })
+  conferir(muitoBaixo.y >= 0.55 && muitoBaixo.w >= 0.55 && muitoBaixo.c >= 0.55, 'atendido muito baixo respeita piso')
+  conferir(Math.abs(muitoBaixo.w - muitoBaixoDeNovo.w) < 1e-9, 'atendido muito baixo não reduz indefinidamente')
+
+  // demanda zero/classe inelegível: não inventa sugestão nova.
+  const semDemanda = sugerirTarifasParaCobertura(r, { y: 0, w: 0, c: 0, f: 0 }, { y: 10, w: 2, c: 1, f: 0.2 })
+  conferir(Math.abs(semDemanda.f - r.fare.f) < 1e-9, 'classe inelegível sem demanda não gera sugestão indevida')
 }
 
 // ------------------------- atendido/restante por dias corridos em histórico esparso

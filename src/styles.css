@@ -374,6 +374,15 @@ table.compacta td { height: var(--linha, 33px); padding: 0 9px; white-space: now
 table.compacta td:first-child, table.compacta th:first-child { width: 100%; max-width: 0; }
 table.compacta td:first-child { overflow: hidden; text-overflow: ellipsis; }
 
+/* Na cobertura por classe, só a primeira coluna pode quebrar: os números
+   seguem em uma linha para comparar rápido e o rótulo não força a largura da
+   página no celular. */
+table.cobertura-classe th:first-child,
+table.cobertura-classe td:first-child {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 /* No celular seis colunas não cabem, e a que cede é sempre a primeira: com
    390px de tela, o destino era espremido até sobrar a letra inicial — "C",
    "G", "B" — e o porte ficava cortado na direita.
@@ -576,6 +585,8 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
      linhas e inchava a tabela. Ela rola de lado dentro da própria caixa, então
      a célula pode ser larga — o que não pode é ser alta */
   th, td { padding: 6px 7px; white-space: nowrap; }
+  table.cobertura-classe th:first-child,
+  table.cobertura-classe td:first-child { min-width: 132px; white-space: normal; }
 
   /* Detalhe que só cabe na tela grande. Ver o rótulo de porte em RoutesView:
      no celular a largura dele sai da coluna do destino. */

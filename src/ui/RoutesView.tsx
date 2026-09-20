@@ -141,25 +141,27 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
 
       {!e.cargo && (
         <Card title="Cobertura de demanda por classe">
-          <table>
-            <thead>
-              <tr>
-                <th>Classe</th><th className="r">Demanda total/dia</th>
-                <th className="r">Atendido/dia</th><th className="r">Restante/dia</th>
-              </tr>
-            </thead>
-            <tbody>
-              {CABINS.filter((c) =>
-                c !== 'f' || e.demand.pax.f > 0 || e.atendidoDiaCabine.f > 0 || e.restanteDiaCabine.f > 0).map((c) => (
-                  <tr key={c}>
-                    <td><b>{CABIN_SHORT[c]}</b> — {CABIN_LABEL[c]}</td>
-                    <td className="r">{num(e.demand.pax[c])}</td>
-                    <td className="r">{num(e.atendidoDiaCabine[c])}</td>
-                    <td className="r">{num(e.restanteDiaCabine[c])}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
+          <div className="rolagem-x">
+            <table className="cobertura-classe">
+              <thead>
+                <tr>
+                  <th>Classe</th><th className="r">Demanda total/dia</th>
+                  <th className="r">Atendido/dia</th><th className="r">Restante/dia</th>
+                </tr>
+              </thead>
+              <tbody>
+                {CABINS.filter((c) =>
+                  c !== 'f' || e.demand.pax.f > 0 || e.atendidoDiaCabine.f > 0 || e.restanteDiaCabine.f > 0).map((c) => (
+                    <tr key={c}>
+                      <td><b>{CABIN_SHORT[c]}</b> — {CABIN_LABEL[c]}</td>
+                      <td className="r">{num(e.demand.pax[c])}</td>
+                      <td className="r">{num(e.atendidoDiaCabine[c])}</td>
+                      <td className="r">{num(e.restanteDiaCabine[c])}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
           <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
             Demanda total é o mercado do dia; atendido é sua média recente; restante é o que ainda falta para cobrir 100%.
           </p>
