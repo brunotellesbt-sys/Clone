@@ -154,6 +154,29 @@ for (const [iata, cidade] of [
   console.log(`${ok ? 'ok   ' : 'FALHA'} ${iata} é ${cidade}${ok ? '' : ` — está como ${a?.city}`}`)
 }
 
+console.log('\nfuso do aeroporto\n')
+for (const [iata, esperado, porque] of [
+  ['DFW', -360, 'Dallas fica no horário central, não no das Montanhas'],
+  ['SEA', -480, 'Seattle segue a costa do Pacífico padrão'],
+  ['SYD', 600, 'Sydney fica em UTC+10 quando o jogo ignora horário de verão'],
+  ['SCL', -240, 'Santiago fica em UTC-4 quando o jogo ignora horário de verão'],
+  ['URC', 480, 'Ürümqi usa UTC+8 na malha aérea chinesa'],
+  ['PHX', -420, 'Phoenix não troca para horário de verão'],
+  ['AZA', -420, 'Mesa/Phoenix acompanha o mesmo Arizona sem DST'],
+  ['MEL', 600, 'Melbourne na Austrália não pode herdar o UTC-5 da homônima da Flórida'],
+  ['MLB', -300, 'Melbourne, Flórida, continua em UTC-5'],
+  ['YQY', -240, 'Sydney, Nova Escócia, continua em UTC-4'],
+] as const) {
+  const a = AIRPORT_BY_IATA[iata]
+  const ok = a?.fuso === esperado
+  if (!ok) falhas++
+  console.log(
+    `${ok ? 'ok   ' : 'FALHA'} ${iata} ${a ? `UTC${a.fuso >= 0 ? '+' : ''}${a.fuso / 60}` : 'ausente'}` +
+      `${ok ? '' : ` — esperado UTC${esperado >= 0 ? '+' : ''}${esperado / 60}`}` +
+      `  ${porque}`,
+  )
+}
+
 // ------------------------------------------------- teto de porte do aeroporto
 //
 // Onde a pista não é quem manda, o catálogo carrega um teto à mão. Ele é fácil
