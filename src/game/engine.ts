@@ -1146,7 +1146,7 @@ export function sugerirTarifasParaCobertura(route: Route, demanda: Cabins, atend
     }
     const ratio = Math.max(0.35, Math.min(3, alvo / atual))
     const alvoMult = Math.pow(ratio, 1 / classPriceExponent(cabin))
-    out[cabin] = Math.max(FARE_MIN, Math.min(FARE_MAX, alvoMult))
+    out[cabin] = Math.max(FARE_MIN, Math.min(FARE_MAX, route.fare[cabin] * alvoMult))
   }
   return out
 }
