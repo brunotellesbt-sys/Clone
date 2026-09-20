@@ -1148,8 +1148,11 @@ export function sugerirTarifasParaCobertura(route: Route, demanda: Cabins, atend
       continue
     }
     const ratio = Math.max(0.35, Math.min(3, alvo / atual))
+    // O modelo de alocação usa expoente por classe sobre o multiplicador da
+    // tarifa. A sugestão precisa mirar um multiplicador absoluto (idempotente),
+    // e não reaplicar um fator sobre o valor atual a cada clique.
     const alvoMult = Math.pow(ratio, 1 / classPriceExponent(cabin))
-    out[cabin] = Math.max(FARE_MIN, Math.min(FARE_MAX, route.fare[cabin] * alvoMult))
+    out[cabin] = Math.max(FARE_MIN, Math.min(FARE_MAX, alvoMult))
   }
   return out
 }
