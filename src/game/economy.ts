@@ -252,6 +252,9 @@ export interface Allocation {
   share: number
 }
 
+export const classPriceExponent = (cabin: CabinClass) =>
+  cabin === 'y' ? -2.1 : cabin === 'w' ? -1.6 : -1.0
+
 /**
  * Reparte a demanda entre as companhias que voam o par, por classe.
  * Modelo logit: frequência puxa, preço afasta, qualidade desempata.
@@ -272,7 +275,7 @@ export function allocateMarket(demand: MarketDemand, carriers: Carrier[]): Alloc
     const totalPax = demand.pax[cabin] * marketMult
     if (totalPax <= 0) continue
     // Classes premium ligam menos para preço e mais para frequência e produto.
-    const priceExp = cabin === 'y' ? -2.1 : cabin === 'w' ? -1.6 : -1.0
+    const priceExp = classPriceExponent(cabin)
     const freqExp = cabin === 'y' ? 0.62 : 0.78
     const attract = carriers.map((c, i) =>
       out[i] && c.seats[cabin] > 0
