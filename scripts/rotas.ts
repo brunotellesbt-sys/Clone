@@ -33,13 +33,14 @@ conferir(longaDom.pax.f > 0, 'doméstica longa elegível pode gerar primeira cla
   conferir(Math.abs(sug.c - r.fare.c) < 0.001, 'sugestão mantém C quando já está em 100%')
 }
 
-// ------------------------------------------ atendido/restante por classe na rota
+// ------------------------- atendido/restante por dias corridos em histórico esparso
 {
   const s = newGame({ name: 'Hist', code: 'HS', hub: 'GRU', seed: 9 })
   openRoute(s, 'GRU', 'REC')
+  s.day = 30
   const r = s.airline.routes[0]
-  const dia = (pax: Cabins): DayResult => ({
-    day: 0,
+  const dia = (day: number, pax: Cabins): DayResult => ({
+    day,
     pax,
     flights: 2,
     seats: 300,
@@ -49,13 +50,43 @@ conferir(longaDom.pax.f > 0, 'doméstica longa elegível pode gerar primeira cla
     loadFactor: 0,
   })
   r.history = [
-    dia({ y: 100, w: 20, c: 10, f: 2 }),
-    dia({ y: 120, w: 22, c: 8, f: 1 }),
+    dia(30, { y: 100, w: 20, c: 10, f: 2 }),
+    dia(10, { y: 999, w: 999, c: 999, f: 999 }), // fora da janela
   ]
   const e = routeEconomics(s, r)
-  conferir(Math.abs(e.atendidoDiaCabine.y - 110) < 0.01, 'atendido/dia por classe usa média do histórico')
-  conferir(Math.abs(e.atendidoDiaCabine.f - 1.5) < 0.01, 'atendido/dia inclui primeira quando elegível')
+  conferir(Math.abs(e.atendidoDiaCabine.y - (100 / 14)) < 0.01, 'atendido/dia por classe usa 14 dias corridos')
+  conferir(Math.abs(e.atendidoDiaCabine.f - (2 / 14)) < 0.01, 'atendido/dia inclui dias sem voo como zero')
+  conferir(Math.abs(e.atendidoDia - (132 / 14)) < 0.01, 'atendido total/dia usa média por dias corridos')
   conferir(e.restanteDiaCabine.y >= 0 && e.restanteDiaCabine.f >= 0, 'restante/dia por classe nunca fica negativo')
+  conferir(Math.abs(e.restanteDiaCabine.y - Math.max(0, e.demand.pax.y - (100 / 14))) < 0.01, 'restante/dia por classe usa a mesma média diária')
+  conferir(e.sugestaoFare.y < r.fare.y, 'sugestão de tarifa usa cobertura diária corrigida')
+}
+
+// ------------------------------------------ carga: histórico esparso por dias corridos
+{
+  const s = newGame({ name: 'Cargo', code: 'CG', hub: 'GRU', seed: 9 })
+  openRoute(s, 'GRU', 'MIA', true)
+  s.day = 30
+  const r = s.airline.routes[0]
+  const diaCarga = (day: number, tons: number): DayResult => ({
+    day,
+    pax: { y: 0, w: 0, c: 0, f: 0 },
+    flights: 1,
+    seats: 0,
+    revenue: 0,
+    cost: 0,
+    profit: 0,
+    loadFactor: 0,
+    tons,
+    tonsOffered: 120,
+  })
+  r.history = [
+    diaCarga(30, 100),
+    diaCarga(8, 999), // fora da janela
+  ]
+  const e = routeEconomics(s, r)
+  conferir(Math.abs(e.atendidoDia - (100 / 14)) < 0.01, 'carga: atendido/dia usa 14 dias corridos')
+  conferir(Math.abs(e.restanteDia - Math.max(0, e.demandaDia - (100 / 14))) < 0.01, 'carga: restante/dia usa média diária corrigida')
 }
 
 // -------------------------------------------------------------- ordenação
@@ -73,4 +104,3 @@ conferir(longaDom.pax.f > 0, 'doméstica longa elegível pode gerar primeira cla
 
 console.log(falhas ? `\n${falhas} falha(s)` : '\ntudo certo')
 process.exit(falhas ? 1 : 0)
-

@@ -1066,13 +1066,16 @@ export function period(s: GameState, days: number) {
 }
 
 export function routeEconomics(s: GameState, r: Route) {
-  const last = r.history.slice(-14)
+  const janelaDias = 14
+  const inicioJanela = Math.max(r.openedDay, s.day - janelaDias + 1)
+  const diasCorridos = Math.max(1, s.day - inicioJanela + 1)
+  const last = r.history.filter((d) => d.day >= inicioJanela && d.day <= s.day)
   const revenue = last.reduce((x, d) => x + d.revenue, 0)
   const cost = last.reduce((x, d) => x + d.cost, 0)
   const base = {
     share: s.lastShare[odKey(r.from, r.to)] ?? 0,
     revenue, cost, profit: revenue - cost,
-    days: last.length,
+    days: diasCorridos,
   }
 
   // Em rota de carga a unidade é a tonelada, e o mercado é outro. A tela lê
@@ -1081,7 +1084,7 @@ export function routeEconomics(s: GameState, r: Route) {
     const dc = cargoDemand(r.from, r.to, s.day, dayOfYear(s))
     const tons = last.reduce((x, d) => x + (d.tons ?? 0), 0)
     const oferta = last.reduce((x, d) => x + (d.tonsOffered ?? 0), 0)
-    const dias = Math.max(1, last.length)
+    const dias = diasCorridos
     const atendidoDia = tons / dias
     return {
       ...base,
@@ -1102,7 +1105,7 @@ export function routeEconomics(s: GameState, r: Route) {
   const demand = baseDemand(r.from, r.to, s.day, dayOfYear(s))
   const pax = last.reduce((x, d) => x + sumCabins(d.pax), 0)
   const seats = last.reduce((x, d) => x + d.seats, 0)
-  const dias = Math.max(1, last.length)
+  const dias = diasCorridos
   const atendidoDiaCabine: Cabins = {
     y: last.reduce((x, d) => x + d.pax.y, 0) / dias,
     w: last.reduce((x, d) => x + d.pax.w, 0) / dias,
