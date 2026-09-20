@@ -1069,7 +1069,7 @@ export function routeEconomics(s: GameState, r: Route) {
   const janelaDias = 14
   const inicioJanela = Math.max(r.openedDay, s.day - janelaDias + 1)
   const diasCorridos = Math.max(1, s.day - inicioJanela + 1)
-  const last = r.history.filter((d) => d.day >= inicioJanela)
+  const last = r.history.filter((d) => d.day >= inicioJanela && d.day <= s.day)
   const revenue = last.reduce((x, d) => x + d.revenue, 0)
   const cost = last.reduce((x, d) => x + d.cost, 0)
   const base = {
