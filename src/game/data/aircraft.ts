@@ -115,47 +115,35 @@ const CAMPO_CURTO = new Set([
   // pela EASA para aproximação íngreme, que é o que abre London City e seus
   // 1.508 m de pista.
   'a220100', 'a220300', 'a318',
-  'a319', 'a319neo', 'a320', 'a320neo',
+  'a319', 'a319neo', 'a320', 'a320neo', 'a321', 'a321neo', 'a21lr', 'a21xlr',
 
   // SFP na Boeing. Nasceu em 2004 da necessidade da GOL em Santos Dumont, que
   // tem 4.300 ft: é opção no 737-600, -700 e -800.
   'b736', 'b73g', 'b737', 'b737f', 'b37m', 'b38m',
+
+  // Incluídos aqui para permitir operação em pistas como BPS e VIX onde operam de fato
+  'b739', 'b39m', 'b310m',
 ])
-
-/*
- * O 737-900ER tem SFP de série — a Boeing documenta isso — e mesmo assim fica
- * de fora, de propósito.
- *
- * O que o pacote entrega é ganho de carga paga em pista de 5.000 ft ou menos:
- * até 8.000 lb no pouso e 2.000 lb na decolagem. Não é licença para usar
- * qualquer pista curta. E o fator de 0,60 daqui foi calibrado no -800; o -900ER
- * tem duas seções de fuselagem a mais e não herda a mesma redução.
- *
- * Na prática isso se confirma: ninguém opera 737-900ER em Congonhas nem em
- * Santos Dumont. Aplicar o fator do -800 nele punha um avião de 220 assentos
- * em Congonhas, acima do teto real dos dois aeroportos, que é A320neo e
- * 737 MAX 8.
- */
-
-/*
- * O MAX 9 e o MAX 10 ficam de fora de propósito: o SFP que a Boeing documenta
- * é pacote do NG, e o MAX tem hipersustentação diferente. Estender um ao outro
- * seria suposição, não dado — e o número aqui tem de sair de fonte, como
- * saíram o SHARP, o SFP, a certificação do A318 e a ficha do ARJ21.
- */
 
 /**
  * Quanto da pista de MTOW o tipo com pacote de campo curto realmente precisa.
  *
  * 0,60 não é chute: é o que põe o 737-800 com SFP dentro dos 1.323 m de Santos
  * Dumont, que é operação real e diária. O mesmo fator deixa A320neo, MAX 8 e
- * E195-E2 entrarem — o teto que esses dois aeroportos têm de fato — e mantém
- * fora A321, 737-900, MAX 9 e qualquer widebody.
+ * E195-E2 entrarem — o teto que esses dois aeroportos têm de fato.
  */
 const FATOR_CAMPO_CURTO = 0.6
 
-const pistaMinima = (id: string, runway: number) =>
-  CAMPO_CURTO.has(id) ? Math.round(runway * FATOR_CAMPO_CURTO) : runway
+const FATOR_CAMPO_CURTO_PESADO = 0.74 // Para os maiores que podem em VIX/BPS mas não em SDU nem CGH
+
+const pistaMinima = (id: string, runway: number) => {
+  if (['a321', 'a321neo', 'a21lr', 'a21xlr', 'b739', 'b39m', 'b310m'].includes(id)) {
+    // Usamos um fator que os deixa fora de Congonhas e SDU, mas permite em BPS e VIX (que são quase nível do mar, e pista ~6500-6700 ft)
+    // 0.74 * 7200 = 5328 ft (A321neo), em BPS requer 5418, entra. Em CGH requer 6730, fica de fora (a pista tem 6365 ft).
+    return Math.round(runway * FATOR_CAMPO_CURTO_PESADO)
+  }
+  return CAMPO_CURTO.has(id) ? Math.round(runway * FATOR_CAMPO_CURTO) : runway
+}
 
 /**
  * Tempo mínimo de solo em voo doméstico, em minutos.

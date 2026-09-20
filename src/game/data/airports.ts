@@ -3752,7 +3752,7 @@ export const TOQUE_DE_RECOLHER: Record<string, [number, number]> = {
   // Japão: Narita e Haneda têm janela fechada
   NRT: [0, 6],
   // Brasil: aeroporto de cidade, vizinhança colada na cabeceira
-  CGH: [23, 6], SDU: [23, 6],
+  CGH: [23, 6], SDU: [23, 6], PLU: [23, 6],
   // Estados Unidos: Reagan, John Wayne e Burbank têm regra de ruído
   DCA: [22, 7], SNA: [23, 7], BUR: [22, 7],
 }
