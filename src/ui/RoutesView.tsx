@@ -23,21 +23,22 @@ export function RoutesView() {
   const [ordem, setOrdem] = useState<OrdenacaoRotas>('dist-asc')
   const [selId, setSelId] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
+  const assinaturaRotas = state.airline.routes.map((r) => `${r.id}:${r.from}:${r.to}:${r.distance}:${r.cargo ? 1 : 0}`).join('|')
   const routes = useMemo(() => {
-   const doy = dayOfYear(state)
-   const base = state.airline.routes
-     .filter((r) => hubFiltro === 'todos' || r.from === hubFiltro || r.to === hubFiltro)
-     .map((r) => ({
-       route: r,
-       demand: r.cargo ? cargoDemand(r.from, r.to, state.day, doy).tons : baseDemand(r.from, r.to, state.day, doy).total,
-     }))
-   base.sort((x, y) => compararPorOrdenacao(
-     ordem,
-     { distance: x.route.distance, demand: x.demand },
-     { distance: y.route.distance, demand: y.demand },
-   ))
-   return base.map((x) => x.route)
-  }, [state, hubFiltro, ordem])
+    const doy = dayOfYear(state)
+    const base = state.airline.routes
+      .filter((r) => hubFiltro === 'todos' || r.from === hubFiltro || r.to === hubFiltro)
+      .map((r) => ({
+        route: r,
+        demand: r.cargo ? cargoDemand(r.from, r.to, state.day, doy).tons : baseDemand(r.from, r.to, state.day, doy).total,
+      }))
+    base.sort((x, y) => compararPorOrdenacao(
+      ordem,
+      { distance: x.route.distance, demand: x.demand },
+      { distance: y.route.distance, demand: y.demand },
+    ))
+    return base.map((x) => x.route)
+  }, [state.day, state.startYear, assinaturaRotas, hubFiltro, ordem])
   const sel = routes.find((r) => r.id === selId) ?? routes[0] ?? null
 
   return (
