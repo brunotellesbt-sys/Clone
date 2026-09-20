@@ -129,6 +129,40 @@ await page.waitForTimeout(650)
 conferir((await page.locator('.lista-destinos tbody tr', { hasText: 'SDU' }).count()) === 0,
   'o aeroporto da própria cidade continua fora da lista')
 
+// ------------------------------------ abrir rota sem fechar o modal (em série)
+await page.getByPlaceholder(/cidade, país ou código/).fill('')
+await page.waitForTimeout(700)
+const abrirDoTopo = async () => {
+  const linha = page.locator('.lista-destinos tbody tr:not(.off)').first()
+  const iata = (await linha.locator('td b').innerText()).trim()
+  await linha.click()
+  await page.waitForTimeout(200)
+  await page.getByRole('button', { name: /Abrir por/ }).click()
+  await page.waitForTimeout(600)
+  return iata
+}
+const opcaoDestino = (iata) => page.evaluate((alvo) => {
+  const select = [...document.querySelectorAll('label.field select')]
+    .find((el) => [...el.options].some((o) => o.value === ''))
+  return !!select && [...select.options].some((o) => o.value === alvo)
+}, iata)
+const primeira = await abrirDoTopo()
+conferir((await page.getByText('Abrir nova rota').count()) > 0,
+  'abrir uma rota com sucesso mantém o popup aberto')
+conferir((await page.locator('.lista-destinos tbody tr.on').count()) === 0,
+  'depois de abrir rota a seleção do destino é limpa')
+await page.waitForFunction((alvo) => {
+  const select = [...document.querySelectorAll('label.field select')]
+    .find((el) => [...el.options].some((o) => o.value === ''))
+  return !!select && ![...select.options].some((o) => o.value === alvo)
+}, primeira)
+conferir(!(await opcaoDestino(primeira)), 'destino recém-aberto sai da lista de opções')
+
+const segunda = await abrirDoTopo()
+conferir(primeira !== segunda, 'segunda abertura escolhe outro destino disponível')
+conferir((await page.getByText('Abrir nova rota').count()) > 0,
+  'depois da segunda abertura o popup continua aberto')
+
 // ------------------------------------------------------------- no celular
 //
 // A medida do `npm run mobile` é a da página, e ela passa mesmo quando a tabela

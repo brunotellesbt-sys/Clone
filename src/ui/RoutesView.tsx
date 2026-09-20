@@ -40,7 +40,7 @@ export function RoutesView() {
         { distance: y.route.distance, demand: y.demand },
       ))
       .map((x) => x.route)
-  }, [state, state.airline.routes, state.day, state.startYear, hubFiltro, ordem])
+  }, [state, state.airline.routes.length, state.day, state.startYear, hubFiltro, ordem])
   const sel = routes.find((r) => r.id === selId) ?? routes[0] ?? null
 
   return (
@@ -102,7 +102,7 @@ export function RoutesView() {
       </Card>
 
       {sel ? <RouteDetail route={sel} onClosed={() => setSelId(null)} /> : <Card title="Detalhe"><Empty>Selecione uma rota.</Empty></Card>}
-      {opening && <OpenRouteModal onClose={() => setOpening(false)} onOpened={(id) => { setSelId(id); setOpening(false) }} />}
+      {opening && <OpenRouteModal onClose={() => setOpening(false)} onOpened={(id) => { setSelId(id) }} />}
     </div>
     {/* horários e conexões ocupam a largura toda: a malha não cabe na coluna
         estreita, e é a tela mais densa da rota */}
@@ -387,7 +387,7 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
         )
       })
       .slice(0, 90)
-  }, [hub, q, state, doy, carga, ordem])
+  }, [hub, q, state, state.airline.routes.length, doy, carga, ordem])
 
   /**
    * O que **as duas pontas** aceitam, do maior para o menor.
@@ -592,10 +592,17 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
                 className="btn primary"
                 style={{ width: '100%', marginTop: 12 }}
                 onClick={() => {
-                  const err = act((s) => openRoute(s, hub, chosen.a.iata, carga))
+                  let novoId: string | null = null
+                  const err = act((s) => {
+                    const antes = s.airline.routes.length
+                    const aberto = openRoute(s, hub, chosen.a.iata, carga)
+                    if (aberto) return aberto
+                    novoId = s.airline.routes[antes]?.id ?? null
+                    return null
+                  })
                   if (err) return toast(err, 'error')
-                  const r = state.airline.routes[state.airline.routes.length - 1]
-                  onOpened(r.id)
+                  setDest(null)
+                  if (novoId) onOpened(novoId)
                 }}
               >
                 Abrir por {money(routeSlotCost(hub, chosen.a.iata))}
