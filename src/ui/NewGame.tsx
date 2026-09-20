@@ -289,7 +289,7 @@ export function NewGame({
             disabled={!name.trim() || code.length < 2}
             onClick={onDecolarClick}
           >
-            Decolar de {hub} (Slot {slot})
+            Decolar de {hub}
           </button>
         </div>
       </div>

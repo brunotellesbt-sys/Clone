@@ -7,6 +7,7 @@ import {
   exportSave,
   getActiveSlot,
   getSlotInfo,
+  hasSave,
   importSave,
   loadGame,
   saveGame,
@@ -446,7 +447,9 @@ function StartScreen({
   onStart: (s: GameState) => void
   toast: (m: string, k?: 'info' | 'error') => void
 }) {
-  const [creatingSlot, setCreatingSlot] = useState<number | null>(null)
+  const [creatingSlot, setCreatingSlot] = useState<number | null>(() =>
+    !hasSave(1) && !hasSave(2) && !hasSave(3) ? 1 : null,
+  )
   const [pendingConfirm, setPendingConfirm] = useState<{
     slot: number
     title: string
@@ -462,11 +465,12 @@ function StartScreen({
   }, [])
 
   if (creatingSlot !== null) {
+    const hasAnySave = hasSave(1) || hasSave(2) || hasSave(3)
     return (
       <NewGame
         initialSlot={creatingSlot}
         onStart={(s) => onStart(s)}
-        onCancel={() => setCreatingSlot(null)}
+        onCancel={hasAnySave ? () => setCreatingSlot(null) : undefined}
       />
     )
   }

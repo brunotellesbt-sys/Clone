@@ -51,6 +51,9 @@ await page.screenshot({ path: artifact('shot-4-abrir-rota.png') })
 await page.getByRole('button', { name: /^Abrir por/ }).click()
 await page.waitForTimeout(500)
 
+const fecharModal = page.getByRole('button', { name: 'Fechar' })
+if (await fecharModal.count()) { await fecharModal.click(); await page.waitForTimeout(300) }
+
 // marcar a semana inteira: dedicar cauda e frequência saíram da tela da rota,
 // e quem marca voo agora é o cartão "Marcar voo", com dia, hora e cauda
 const todos = page.getByRole('button', { name: 'Todos', exact: true })
@@ -80,7 +83,7 @@ await page.waitForTimeout(400)
 await page.screenshot({ path: artifact('shot-9-ranking.png') })
 
 const summary = await page.evaluate(() => {
-  const raw = localStorage.getItem('skyline-tycoon:save:0')
+  const raw = localStorage.getItem('skyline-tycoon:save:1') ?? localStorage.getItem('skyline-tycoon:save:0')
   if (!raw) return 'sem save'
   const s = JSON.parse(raw)
   return `dia ${s.day}, caixa ${Math.round(s.airline.cash / 1e6)}M, frota ${s.airline.fleet.length}, rotas ${s.airline.routes.length}`
