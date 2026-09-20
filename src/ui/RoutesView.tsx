@@ -102,7 +102,7 @@ export function RoutesView() {
       </Card>
 
       {sel ? <RouteDetail route={sel} onClosed={() => setSelId(null)} /> : <Card title="Detalhe"><Empty>Selecione uma rota.</Empty></Card>}
-      {opening && <OpenRouteModal onClose={() => setOpening(false)} onOpened={(id) => { setSelId(id) }} />}
+      {opening && <OpenRouteModal onClose={() => setOpening(false)} onOpened={(id) => { setSelId(id); setOpening(false) }} />}
     </div>
     {/* horários e conexões ocupam a largura toda: a malha não cabe na coluna
         estreita, e é a tela mais densa da rota */}
@@ -417,7 +417,7 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
       )
     : []
   /**
-   * Cada aeronave é medida na **melhor frequência dela**, não numa arbitrada.
+   * Cada aeronave é measured na **melhor frequência dela**, não numa arbitrada.
    *
    * A versão anterior dava a cada modelo a frequência que enchia o avião três
    * vezes — e isso premia avião pequeno por construção: frequência entra na

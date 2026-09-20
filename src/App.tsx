@@ -220,10 +220,55 @@ export function App() {
   )
 }
 
+function ConfirmModal({
+  title,
+  message,
+  confirmLabel = 'Confirmar',
+  danger = false,
+  onConfirm,
+  onClose,
+}: {
+  title: string
+  message: string
+  confirmLabel?: string
+  danger?: boolean
+  onConfirm: () => void
+  onClose: () => void
+}) {
+  return (
+    <Modal title={title} onClose={onClose}>
+      <p style={{ margin: '8px 0 20px', color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.5 }}>
+        {message}
+      </p>
+      <div className="row" style={{ justifyContent: 'flex-end', gap: 10 }}>
+        <button className="btn" onClick={onClose}>
+          Cancelar
+        </button>
+        <button
+          className={`btn ${danger ? 'danger' : 'primary'}`}
+          onClick={() => {
+            onConfirm()
+            onClose()
+          }}
+        >
+          {confirmLabel}
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
 function GameMenu({ onClose, onMainScreen }: { onClose: () => void; onMainScreen: () => void }) {
   const { state, activeSlot, replace, toast, switchSlot } = useGame()
   const [code, setCode] = useState('')
   const [targetImportSlot, setTargetImportSlot] = useState(activeSlot)
+  const [confirmConfig, setConfirmConfig] = useState<{
+    title: string
+    message: string
+    confirmLabel?: string
+    danger?: boolean
+    onConfirm: () => void
+  } | null>(null)
 
   if (!state) return null
 
@@ -239,8 +284,15 @@ function GameMenu({ onClose, onMainScreen }: { onClose: () => void; onMainScreen
           <button
             className="btn primary"
             onClick={() => {
-              saveGame(state, activeSlot)
-              toast(`Partida salva no Slot ${activeSlot}.`)
+              setConfirmConfig({
+                title: 'Salvar Jogo',
+                message: `Deseja salvar o progresso atual da companhia ${state.airline.name} no Slot ${activeSlot}?`,
+                confirmLabel: 'Salvar',
+                onConfirm: () => {
+                  saveGame(state, activeSlot)
+                  toast(`Partida salva no Slot ${activeSlot}.`)
+                },
+              })
             }}
           >
             Salvar agora
@@ -283,8 +335,15 @@ function GameMenu({ onClose, onMainScreen }: { onClose: () => void; onMainScreen
                   <button
                     className="btn sm"
                     onClick={() => {
-                      switchSlot(slot)
-                      onClose()
+                      setConfirmConfig({
+                        title: 'Carregar Save',
+                        message: `Deseja carregar a partida do Slot ${slot} (${summary.airlineName})? O progresso não salvo da partida atual será mantido no auto-save do Slot ${activeSlot}.`,
+                        confirmLabel: 'Carregar',
+                        onConfirm: () => {
+                          switchSlot(slot)
+                          onClose()
+                        },
+                      })
                     }}
                   >
                     Carregar
@@ -347,9 +406,16 @@ function GameMenu({ onClose, onMainScreen }: { onClose: () => void; onMainScreen
           onClick={() => {
             const s = importSave(code)
             if (s) {
-              replace(s, targetImportSlot)
-              toast(`Partida importada com sucesso para o Slot ${targetImportSlot}!`)
-              onClose()
+              setConfirmConfig({
+                title: 'Importar Save',
+                message: `Deseja importar esta partida para o Slot ${targetImportSlot}? Se o slot tiver dados, eles serão substituídos.`,
+                confirmLabel: 'Importar',
+                onConfirm: () => {
+                  replace(s, targetImportSlot)
+                  toast(`Partida importada com sucesso para o Slot ${targetImportSlot}!`)
+                  onClose()
+                },
+              })
             } else {
               toast('Texto de importação inválido.', 'error')
             }
@@ -362,6 +428,17 @@ function GameMenu({ onClose, onMainScreen }: { onClose: () => void; onMainScreen
       <p className="muted" style={{ fontSize: 12, marginTop: 16, marginBottom: 0 }}>
         Atalhos: <b>espaço</b> pausa, <b>1–4</b> mudam a velocidade. O jogo salva sozinho a cada ação feita.
       </p>
+
+      {confirmConfig && (
+        <ConfirmModal
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          confirmLabel={confirmConfig.confirmLabel}
+          danger={confirmConfig.danger}
+          onConfirm={confirmConfig.onConfirm}
+          onClose={() => setConfirmConfig(null)}
+        />
+      )}
     </Modal>
   )
 }
@@ -373,10 +450,23 @@ function StartScreen({
   onStart: (s: GameState, slot: number) => void
   toast: (m: string, k?: 'info' | 'error') => void
 }) {
-  const [creatingSlot, setCreatingSlot] = useState<number | null>(null)
   const [summaries, setSummaries] = useState<(SlotSummary | null)[]>(() =>
     SLOTS.map((s) => getSlotSummary(s)),
   )
+
+  const hasAnySave = summaries.some(Boolean)
+
+  const [creatingSlot, setCreatingSlot] = useState<number | null>(() =>
+    hasAnySave ? null : 1,
+  )
+
+  const [confirmConfig, setConfirmConfig] = useState<{
+    title: string
+    message: string
+    confirmLabel?: string
+    danger?: boolean
+    onConfirm: () => void
+  } | null>(null)
 
   const reloadSummaries = useCallback(() => {
     setSummaries(SLOTS.map((s) => getSlotSummary(s)))
@@ -387,7 +477,7 @@ function StartScreen({
       <NewGame
         targetSlot={creatingSlot}
         onStart={(s, slot) => onStart(s, slot)}
-        onCancel={() => setCreatingSlot(null)}
+        onCancel={hasAnySave ? () => setCreatingSlot(null) : undefined}
       />
     )
   }
@@ -457,14 +547,17 @@ function StartScreen({
                         else toast('Save corrompido.', 'error')
                       }}
                     >
-                      Continuar
+                      Continuar partida
                     </button>
                     <button
                       className="btn"
                       onClick={() => {
-                        if (confirm(`Sobrescrever o save do Slot ${slot} com uma nova companhia?`)) {
-                          setCreatingSlot(slot)
-                        }
+                        setConfirmConfig({
+                          title: 'Novo Jogo',
+                          message: `Deseja sobrescrever o save do Slot ${slot} (${summary.airlineName}) com uma nova companhia?`,
+                          confirmLabel: 'Criar Nova',
+                          onConfirm: () => setCreatingSlot(slot),
+                        })
                       }}
                     >
                       Novo Jogo
@@ -472,11 +565,17 @@ function StartScreen({
                     <button
                       className="btn danger"
                       onClick={() => {
-                        if (confirm(`Tem certeza que deseja apagar o save do Slot ${slot}?`)) {
-                          clearSave(slot)
-                          reloadSummaries()
-                          toast(`Slot ${slot} apagado.`)
-                        }
+                        setConfirmConfig({
+                          title: 'Excluir Save',
+                          message: `Tem certeza que deseja apagar permanentemente o save do Slot ${slot} (${summary.airlineName})? Essa ação não pode ser desfeita.`,
+                          confirmLabel: 'Apagar Save',
+                          danger: true,
+                          onConfirm: () => {
+                            clearSave(slot)
+                            reloadSummaries()
+                            toast(`Slot ${slot} apagado.`)
+                          },
+                        })
                       }}
                     >
                       Apagar
@@ -492,6 +591,17 @@ function StartScreen({
           )
         })}
       </div>
+
+      {confirmConfig && (
+        <ConfirmModal
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          confirmLabel={confirmConfig.confirmLabel}
+          danger={confirmConfig.danger}
+          onConfirm={confirmConfig.onConfirm}
+          onClose={() => setConfirmConfig(null)}
+        />
+      )}
     </div>
   )
 }
