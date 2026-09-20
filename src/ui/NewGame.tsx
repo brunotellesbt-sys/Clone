@@ -11,21 +11,26 @@ import type { Densidade } from '../game/types'
 import { newGame, money, num, START_CASH, metros } from '../game/engine'
 import { makeRng } from '../game/rng'
 import type { GameState } from '../game/types'
+import { AVAILABLE_SLOTS, getSlotInfo, hasSave, saveGame, setActiveSlot } from '../game/save'
 import { AircraftArt } from '../livery/AircraftArt'
 import { BuscaAeroporto } from './components/BuscaAeroporto'
 import { MapView } from './MapView'
+import { Modal } from './components/Bits'
 
 /**
  * Atalhos para quem não quer procurar: os maiores de cada continente.
- *
- * Não são os únicos possíveis — **qualquer** um dos 3.085 aeroportos serve de
- * base, e é por isso que a escolha é no mapa e não numa lista suspensa. Antes
- * a lista só aceitava degrau 3 para cima, o que deixava Santos Dumont, Congonhas
- * e todo aeroporto regional de fora sem nenhuma razão de jogo.
  */
 const ATALHOS = ['GRU', 'GIG', 'SDU', 'CGH', 'BSB', 'LIS', 'MIA', 'JFK', 'LHR', 'DXB', 'NRT', 'SYD']
 
-export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void; onCancel?: () => void }) {
+export function NewGame({
+  onStart,
+  onCancel,
+  initialSlot = 1,
+}: {
+  onStart: (s: GameState) => void
+  onCancel?: () => void
+  initialSlot?: number
+}) {
   const rng = useMemo(() => makeRng(Date.now() % 100000), [])
   const [name, setName] = useState(() => suggestAirlineName(rng))
   const [code, setCode] = useState(() => suggestCode(rng))
@@ -34,34 +39,22 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
   const [densidade, setDensidade] = useState<Densidade>(DENSIDADE_PADRAO)
   const [emblem, setEmblem] = useState<EmblemId>('none')
   const [emblemCor, setEmblemCor] = useState('#ffffff')
-  // O crachá atrás do emblema é o que dá contraste com a deriva. Sem ele aqui,
-  // um emblema branco numa deriva clara sumia na fundação e só aparecia no
-  // editor, depois — e quem escolheu a cor foi o jogador, não o preset.
   const [emblemFundo, setEmblemFundo] = useState('#1d4ed8')
   const [emblemTam, setEmblemTam] = useState<Livery['emblemSize']>('medium')
   const [bandeira, setBandeira] = useState(true)
+  const [slot, setSlot] = useState<number>(initialSlot)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+
   const ap = AIRPORT_BY_IATA[hub]
-  /**
-   * O mundo escolhido, contado das próprias vagas em vez de deduzido dos
-   * cortes: duas fontes de verdade para a mesma regra viram uma regra e um
-   * defeito no dia em que a primeira mudar.
-   */
+
   const mundo = useMemo(() => {
     const vagas = vagasDoMundo(paisesDe(densidade), ap.cc)
     return {
       total: Math.max(0, vagas.length - 1),
-      // uma das vagas do país é a do jogador
       emCasa: Math.max(0, vagas.filter((v) => v.cc === ap.cc).length - 1),
     }
   }, [ap.cc, densidade])
-  /**
-   * A pintura da fundação é o preset **mais o que o jogador escolheu aqui**.
-   *
-   * Antes era só o preset, e o resto — emblema, cor dele, bandeira do prefixo —
-   * só existia no editor, depois de fundada a companhia. Emblema e bandeira são
-   * identidade, não acabamento: quem funda uma companhia decide isso antes de
-   * pintar o primeiro avião, não meses depois.
-   */
+
   const livery: Livery = useMemo(() => ({
     ...LIVERY_PRESETS[preset].livery,
     emblem,
@@ -72,6 +65,29 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
   }), [preset, emblem, emblemCor, emblemFundo, emblemTam, bandeira])
 
   const preview = useMemo(() => newGame({ name, code, hub, livery, seed: 1 }), [name, code, hub, livery])
+
+  const handleStartGame = () => {
+    const game = newGame({
+      name: name.trim(),
+      code,
+      hub,
+      livery: structuredClone(livery),
+      densidade,
+    })
+    saveGame(game, slot)
+    setActiveSlot(slot)
+    onStart(game)
+  }
+
+  const onDecolarClick = () => {
+    if (hasSave(slot)) {
+      setShowConfirmModal(true)
+    } else {
+      handleStartGame()
+    }
+  }
+
+  const existingSlotInfo = getSlotInfo(slot)
 
   return (
     <div className="wrap start">
@@ -123,6 +139,24 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
         </div>
 
         <div className="grid" style={{ gap: 14 }}>
+          <div className="card">
+            <h3>Slot do Save</h3>
+            <div className="row tight">
+              {AVAILABLE_SLOTS.map((s) => {
+                const sInfo = getSlotInfo(s)
+                return (
+                  <button
+                    key={s}
+                    className={`btn sm ${s === slot ? 'primary' : ''}`}
+                    onClick={() => setSlot(s)}
+                  >
+                    Slot {s} {sInfo ? `(${sInfo.code})` : '(Vazio)'}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           <div className="card base-card">
             <h3>{ap.city}</h3>
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -137,7 +171,7 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
                 <b>{num(ap.paxDia)}</b>
                 <span title={ap.medido
                   ? 'movimento publicado do ano de pico'
-                  : 'sem número publicado: estimado pela bacia, pelo degrau e pela pista, com erro típico de 2,5×'}>
+                  : 'sem número publicado: estimado pela bacia, pelo degrau e pelo pista, com erro típico de 2,5×'}>
                   pax/dia {ap.medido ? '(pico)' : '(estimado)'}
                 </span>
               </div>
@@ -184,12 +218,6 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
             </div>
             <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
               {mundo.total} concorrentes no mundo — {DENSIDADES.find((d) => d.id === densidade)?.texto}.{' '}
-              {/* O jogador precisa saber o que ele mesmo vai enfrentar em casa,
-                  que é diferente do total: o número grande é o mundo, o pequeno
-                  é a briga dele. */}
-              {/* Sem preposição antes do país: "Em Brasil" e "Em Estados Unidos"
-                  estão errados, e acertar o artigo de 233 países exigiria uma
-                  tabela de gênero e número para ganhar meia palavra. */}
               {ap.country}: {mundo.emCasa === 0
                 ? 'nenhum concorrente local'
                 : `você disputa com ${mundo.emCasa} ${mundo.emCasa === 1 ? 'companhia' : 'companhias'} de casa`}.
@@ -259,14 +287,35 @@ export function NewGame({ onStart, onCancel }: { onStart: (s: GameState) => void
           <button
             className="btn primary grande cta"
             disabled={!name.trim() || code.length < 2}
-            onClick={() => onStart(newGame({
-              name: name.trim(), code, hub, livery: structuredClone(livery), densidade,
-            }))}
+            onClick={onDecolarClick}
           >
             Decolar de {hub}
           </button>
         </div>
       </div>
+
+      {showConfirmModal && (
+        <Modal title={`Sobrescrever Slot ${slot}`} onClose={() => setShowConfirmModal(false)}>
+          <p className="dim" style={{ fontSize: 13.5, margin: '12px 0 20px', lineHeight: 1.5 }}>
+            O Slot {slot} já contém um save salvo{existingSlotInfo ? ` (${existingSlotInfo.name})` : ''}.
+            Deseja sobrescrevê-lo com esta nova partida?
+          </p>
+          <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
+            <button className="btn" onClick={() => setShowConfirmModal(false)}>
+              Cancelar
+            </button>
+            <button
+              className="btn primary"
+              onClick={() => {
+                setShowConfirmModal(false)
+                handleStartGame()
+              }}
+            >
+              Sobrescrever e iniciar
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
