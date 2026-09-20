@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AIRCRAFT_BY_ID, acLabel, ehCargueiro, type AircraftType } from '../game/data/aircraft'
 import {
   AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, vooPermitido, type Airport,
@@ -23,7 +23,11 @@ export function RoutesView() {
   const [ordem, setOrdem] = useState<OrdenacaoRotas>('dist-asc')
   const [selId, setSelId] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
+  const hubsAssinatura = state.airline.hubs.join('|')
   const assinaturaRotas = state.airline.routes.map((r) => `${r.id}:${r.from}:${r.to}:${r.distance}:${r.cargo ? 1 : 0}`).join('|')
+  useEffect(() => {
+    if (hubFiltro !== 'todos' && !state.airline.hubs.includes(hubFiltro)) setHubFiltro('todos')
+  }, [hubFiltro, hubsAssinatura, state.airline.hubs])
   const routes = useMemo(() => {
     const doy = dayOfYear(state)
     const base = state.airline.routes
@@ -38,7 +42,7 @@ export function RoutesView() {
       { distance: y.route.distance, demand: y.demand },
     ))
     return base.map((x) => x.route)
-  }, [state.day, state.startYear, assinaturaRotas, hubFiltro, ordem])
+  }, [state.day, state.startYear, assinaturaRotas, hubFiltro, ordem, hubsAssinatura])
   const sel = routes.find((r) => r.id === selId) ?? routes[0] ?? null
 
   return (
