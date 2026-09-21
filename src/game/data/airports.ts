@@ -128,7 +128,22 @@ export interface Airport {
  * Lista de um. Só entra aqui aeroporto em que dê para dizer qual avião voou e
  * qual não voou; palpite sobre "aeroporto pequeno" continua sendo a pista.
  */
-export const TETO_ASSENTOS: Record<string, number> = { PLU: 149 }
+export const TETO_ASSENTOS: Record<string, number> = {
+  // PAV, JDF, ITP E OPP MAXIMO ATR 76
+  PAV: 78, JDF: 78, ITP: 78, OPP: 78,
+
+  // TBT, TJL, OAL E VAL MAXIMO E195-E2
+  TBT: 146, TJL: 146, OAL: 146, VAL: 146,
+
+  // PET, PIN E BVH MAXIMO A319, A319 NEO E BOEING 737-700, 737 MAX 7
+  PET: 172, PIN: 172, BVH: 172,
+
+  // PLU, SDU, CGH, LEC, JOI, JPR, MVF, JTC, PMG, ATM, ARU, AUX, BYO, CLV, XAP, FEN, IMP, MAB, MOC, CKS, PPB, STM, TFF, TUR, MVF, NVT E UNA MAXIMO A320, A320 NEO, BOEING 737 - 800, 737 MAX 8
+  PLU: 194, SDU: 194, CGH: 194, LEC: 194, JOI: 194, JPR: 194, MVF: 194, JTC: 194, PMG: 194, ATM: 194, ARU: 194, AUX: 194, BYO: 194, CLV: 194, XAP: 194, FEN: 194, IMP: 194, MAB: 194, MOC: 194, CKS: 194, PPB: 194, STM: 194, TFF: 194, TUR: 194, NVT: 194, UNA: 194,
+
+  // CGB, VIX, THE, RBR, RAO, BPS, MGF, MCP, GYN, CWB, SLZ E JJD PERMITEM A321, A321 NEO E 737-9, 737 MAX 9
+  CGB: 244, VIX: 244, THE: 244, RBR: 244, RAO: 244, BPS: 244, MGF: 244, MCP: 244, GYN: 244, CWB: 244, SLZ: 244, JJD: 244
+}
 
 const RAW = `
 HND|Toquio|Japao|JP|35.55|139.79|37.40|1.40|1.50|11024|5|35
