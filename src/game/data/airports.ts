@@ -128,7 +128,11 @@ export interface Airport {
  * Lista de um. Só entra aqui aeroporto em que dê para dizer qual avião voou e
  * qual não voou; palpite sobre "aeroporto pequeno" continua sendo a pista.
  */
-export const TETO_ASSENTOS: Record<string, number> = { PLU: 149 }
+export const TETO_ASSENTOS: Record<string, number> = {
+  PLU: 172, // Pampulha: no máximo E195-E2, A319neo, 737-700/MAX-7
+  PHB: 194, // Parnaíba: no máximo A320neo, 737-800/MAX-8
+  NVT: 194, // Navegantes: no máximo A320neo, 737-800/MAX-8
+}
 
 const RAW = `
 HND|Toquio|Japao|JP|35.55|139.79|37.40|1.40|1.50|11024|5|35
