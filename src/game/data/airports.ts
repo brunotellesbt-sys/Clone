@@ -235,7 +235,7 @@ CUN|Cancun|Mexico|MX|21.04|-86.87|0.90|0.65|2.20|11483|4|22
 TLC|Toluca|Mexico|MX|19.34|-99.57|31.88|0.72|1.40|13780|3|8466
 TFU|Chengdu|China|CN|30.31|104.44|22.95|0.80|1.00|13123|3|1440
 DAC|Daca|Bangladesh|BD|23.84|90.40|22.50|0.35|0.50|11500|3|30
-CGH|Sao Paulo|Brasil|BR|-23.63|-46.65|22.40|0.85|0.80|6365|3|2631
+CGH|Sao Paulo|Brasil|BR|-23.63|-46.65|22.40|0.85|0.80|7050|3|2631
 HLP|Jacarta|Indonesia|ID|-6.27|106.89|21.99|0.60|1.00|9843|3|84
 SPX|Cairo|Egito|EG|30.11|30.90|20.88|0.50|1.70|11975|3|510
 HLA|Joanesburgo|Africa do Sul|ZA|-25.94|27.93|20.58|0.65|1.10|9996|3|4517
@@ -291,7 +291,7 @@ CGQ|Changchun|China|CN|44.00|125.68|6.10|0.80|1.00|10500|3|706
 SKT|Sialkot|Paquistao|PK|32.54|74.36|6.07|0.40|0.60|11811|3|837
 BWI|Baltimore|EUA|US|39.18|-76.67|6.03|1.45|1.30|10503|3|146
 CNF|Belo Horizonte|Brasil|BR|-19.64|-43.97|6.00|0.75|0.80|11811|3|2721
-PLU|Belo Horizonte|Brasil|BR|-19.85|-43.95|6.00|0.75|0.80|8333|2|2589
+PLU|Belo Horizonte|Brasil|BR|-19.85|-43.95|6.00|0.75|0.80|7050|2|2589
 PEW|Peshawar|Paquistao|PK|33.99|71.51|5.95|0.40|0.60|9000|3|1158
 BFY|Bengbu|China|CN|33.17|117.06|5.85|0.80|1.00|8530|3|75
 SJC|Sao Francisco|EUA|US|37.36|-121.93|5.82|1.60|1.60|11000|3|62
@@ -344,7 +344,7 @@ SLW|Saltillo|Mexico|MX|25.54|-100.93|4.04|0.69|1.30|9506|3|4778
 ATQ|Amritsar|India|IN|31.71|74.80|3.92|0.52|0.90|12000|3|756
 WNZ|Wenzhou|China|CN|27.91|120.85|3.92|0.80|1.00|10499|3|13
 SSA|Salvador|Brasil|BR|-12.91|-38.32|3.90|0.62|1.70|9859|3|64
-CWB|Curitiba|Brasil|BR|-25.53|-49.18|3.70|0.82|0.80|7277|3|2988
+CWB|Curitiba|Brasil|BR|-25.53|-49.18|3.70|0.82|0.80|8450|3|2988
 MSP|Minneapolis|EUA|US|44.88|-93.22|3.70|1.25|0.80|11006|3|841
 VGA|Vijayawada|India|IN|16.53|80.80|3.57|0.52|0.90|11023|3|82
 IXC|Chandigarh|India|IN|30.67|76.79|3.56|0.52|0.90|12467|3|1012
@@ -437,7 +437,7 @@ LTN|Londres|Reino Unido|GB|51.87|-0.37|21.20|1.30|1.60|7093|2|526
 CCE|Cairo|Egito|EG|30.06|31.84|20.91|0.50|1.70|11980|2|761
 KHI|Carachi|Paquistao|PK|24.91|67.16|17.20|0.40|0.50|11155|2|100
 AEP|Buenos Aires|Argentina|AR|-34.56|-58.42|15.40|0.75|1.10|7710|2|18
-SDU|Rio de Janeiro|Brasil|BR|-22.91|-43.16|13.50|0.85|1.40|4341|2|11
+SDU|Rio de Janeiro|Brasil|BR|-22.91|-43.16|13.50|0.85|1.40|7050|2|11
 LHE|Lahore|Paquistao|PK|31.52|74.40|13.00|0.35|0.80|11024|2|712
 XSP|Singapura|Singapura|SG|1.42|103.87|12.67|1.50|1.70|6023|2|36
 NKM|Nagoia|Japao|JP|35.26|136.92|11.00|1.20|0.90|8990|2|52
@@ -508,7 +508,7 @@ ISB|Islamabade|Paquistao|PK|33.55|72.83|3.50|0.45|0.60|12001|2|1761
 CBO|Datu Odin Sinsuat|Filipinas|PH|7.16|124.21|3.42|0.47|1.05|6234|2|189
 ALG|Argel|Argelia|DZ|36.69|3.21|3.40|0.60|0.70|11483|2|82
 MLG|Malang|Indonesia|ID|-7.93|112.71|3.38|0.50|0.70|8202|2|1726
-VAL|Valenca|Brasil|BR|-13.30|-38.99|3.35|0.68|0.85|5906|2|21
+VAL|Valenca|Brasil|BR|-13.30|-38.99|3.35|0.68|0.85|5250|2|21
 OIM|Izu Oshima|Japao|JP|34.78|139.36|3.29|1.23|1.50|5905|2|130
 CUF|Levaldigi|Italia|IT|44.55|7.62|3.26|1.00|1.40|6903|2|1267
 KWJ|Gwangju|Coreia do Sul|KR|35.12|126.81|3.25|1.12|1.30|9300|2|39
@@ -541,7 +541,7 @@ KAD|Kaduna|Nigeria|NG|10.70|7.32|2.85|0.47|0.55|9843|2|2073
 OUA|Ouagadougou|Burquina Faso|BF|12.35|-1.51|2.84|0.26|0.60|9843|2|1037
 CWL|Cardiff|Reino Unido|GB|51.40|-3.34|2.82|1.05|1.10|7723|2|220
 KTI|Phnom Penh|Camboja|KH|11.36|104.92|2.82|0.35|1.40|13123|2|20
-NVT|Navegantes|Brasil|BR|-26.88|-48.65|2.81|0.68|0.85|5906|2|18
+NVT|Navegantes|Brasil|BR|-26.88|-48.65|2.81|0.68|0.85|7050|2|18
 STL|St. Louis|Estados Unidos|US|38.75|-90.37|2.80|1.02|0.70|11020|2|618
 TUN|Tunis|Tunisia|TN|36.85|10.23|2.80|0.55|1.30|10499|2|22
 UIO|Quito|Equador|EC|-0.13|-78.35|2.80|0.62|1.20|13445|2|7841
@@ -549,7 +549,7 @@ PAE|Everett|EUA|US|47.91|-122.28|2.79|1.45|1.20|9010|2|606
 MHT|Manchester|EUA|US|42.93|-71.44|2.73|1.45|1.20|9250|2|266
 NMA|Namangan|Uzbequistao|UZ|40.98|71.56|2.73|0.50|0.80|10698|2|1555
 KCM|Kahramanmaras|Turquia|TR|37.54|36.95|2.71|0.65|1.30|7546|2|1723
-GYN|Goiania|Brasil|BR|-16.63|-49.22|2.70|0.72|0.60|7500|2|2450
+GYN|Goiania|Brasil|BR|-16.63|-49.22|2.70|0.72|0.60|8450|2|2450
 KHH|Kaohsiung|Taiwan|TW|22.58|120.35|2.70|1.00|1.00|10335|2|31
 MHD|Mashhad|Ira|IR|36.23|59.64|2.70|0.45|0.80|12877|2|3263
 UPG|Macassar|Indonesia|ID|-5.08|119.55|2.70|0.48|0.90|10171|2|47
@@ -630,7 +630,7 @@ STI|Santiago|Republica Dominicana|DO|19.40|-70.60|2.04|0.49|1.80|8595|2|565
 YIA|Yogyakarta|Indonesia|ID|-7.91|110.06|2.04|0.50|0.90|10663|2|24
 NCL|Newcastle upon Tyne, Tyne|Reino Unido|GB|55.04|-1.69|2.01|1.05|1.10|7644|2|266
 CRK|Clark|Filipinas|PH|15.19|120.56|2.00|0.45|0.90|10499|2|484
-VIX|Vitoria|Brasil|BR|-20.26|-40.28|2.00|0.78|0.80|6752|2|34
+VIX|Vitoria|Brasil|BR|-20.26|-40.28|2.00|0.78|0.80|8450|2|34
 CGY|Laguindingan|Filipinas|PH|8.61|124.46|1.99|0.47|1.05|6890|2|190
 DHX|Kediri|Indonesia|ID|-7.75|111.95|1.98|0.50|0.90|10827|2|380
 BLD|Las Vegas|EUA|US|35.95|-114.86|1.97|1.10|2.20|5103|2|2201
@@ -729,10 +729,10 @@ BGF|Bangui|Republica Centro-Africana|CF|4.40|18.52|1.47|0.20|0.50|8530|2|1208
 GAU|Guwahati|India|IN|26.11|91.59|1.46|0.52|0.90|9000|2|162
 JDH|Jodhpur|India|IN|26.25|73.05|1.46|0.52|0.90|9005|2|717
 NDC|Nanded|India|IN|19.18|77.32|1.46|0.52|0.90|7546|2|1250
-RAO|Ribeirao Preto|Brasil|BR|-21.13|-47.77|1.46|0.68|0.85|6890|2|1805
+RAO|Ribeirao Preto|Brasil|BR|-21.13|-47.77|1.46|0.68|0.85|8450|2|1805
 TIR|Tirupati|India|IN|13.63|79.54|1.46|0.52|0.90|12500|2|350
 AVR|Amravati|India|IN|20.81|77.72|1.44|0.52|0.90|6070|2|1125
-JOI|Joinville|Brasil|BR|-26.22|-48.80|1.44|0.68|0.85|5381|2|15
+JOI|Joinville|Brasil|BR|-26.22|-48.80|1.44|0.68|0.85|7050|2|15
 KZN|Kazan|Russia|RU|55.61|49.28|1.44|0.71|1.05|12303|2|411
 TKG|Bandar Lampung|Indonesia|ID|-5.25|105.18|1.44|0.50|0.90|9088|2|282
 CBB|Cochabamba|Bolivia|BO|-17.42|-66.18|1.43|0.46|1.05|12460|2|8360
@@ -788,7 +788,7 @@ PDG|Padang|Indonesia|ID|-0.79|100.28|1.29|0.50|0.90|9843|2|18
 CFB|Cabo Frio|Brasil|BR|-22.92|-42.07|1.28|0.68|0.85|8366|2|22
 CIT|Shymkent|Cazaquistao|KZ|42.37|69.48|1.28|0.67|0.75|9186|2|1385
 FMM|Memmingen|Alemanha|DE|47.99|10.24|1.28|1.15|1.00|8629|2|2077
-MGF|Maringa|Brasil|BR|-23.48|-52.02|1.28|0.68|0.85|7783|2|1801
+MGF|Maringa|Brasil|BR|-23.48|-52.02|1.28|0.68|0.85|8450|2|1801
 NUE|Nuremberg|Alemanha|DE|49.50|11.08|1.28|1.15|1.00|8858|2|1046
 ROS|Rosario|Argentina|AR|-32.90|-60.78|1.28|0.60|1.50|9842|2|85
 AAP|Samarinda|Indonesia|ID|-0.37|117.25|1.27|0.50|0.90|7382|2|82
@@ -867,7 +867,7 @@ GSV|Saratov|Russia|RU|51.71|46.17|1.11|0.71|1.05|9843|2|103
 SNU|Santa Clara|Cuba|CU|22.49|-79.94|1.11|0.40|1.70|9898|2|338
 WEH|Weihai|China|CN|37.19|122.23|1.11|0.80|1.00|8530|2|145
 BGY|Bergamo|Italia|IT|45.67|9.71|1.10|1.00|0.90|9429|2|782
-CGB|Cuiaba|Brasil|BR|-15.65|-56.12|1.10|0.70|0.70|7546|2|617
+CGB|Cuiaba|Brasil|BR|-15.65|-56.12|1.10|0.70|0.70|8450|2|617
 CPV|Campina Grande|Brasil|BR|-7.27|-35.90|1.10|0.68|0.85|5135|2|1646
 CTA|Catania|Italia|IT|37.47|15.07|1.10|0.75|1.40|7989|2|39
 CTG|Cartagena|Colombia|CO|10.44|-75.51|1.10|0.55|1.90|8530|2|4
@@ -877,7 +877,7 @@ EVN|Erevan|Armenia|AM|40.15|44.40|1.10|0.50|1.10|12631|2|2838
 GDN|Gdansk|Polonia|PL|54.38|18.47|1.10|0.80|1.20|9186|2|489
 HHN|Frankfurt am Main|Alemanha|DE|49.95|7.26|1.10|1.15|1.00|12467|2|1649
 SKG|Tessalonica|Grecia|GR|40.52|22.97|1.10|0.78|1.40|11286|2|22
-THE|Teresina|Brasil|BR|-5.06|-42.82|1.10|0.58|0.60|7218|2|219
+THE|Teresina|Brasil|BR|-5.06|-42.82|1.10|0.58|0.60|8450|2|219
 ZAG|Zagreb|Croacia|HR|45.74|16.07|1.10|0.78|1.00|10669|2|353
 PEE|Perm|Russia|RU|57.91|56.02|1.09|0.71|1.05|10520|2|404
 PZO|Guyana City|Venezuela|VE|8.29|-62.76|1.09|0.45|0.70|6726|2|472
@@ -905,6 +905,7 @@ CSY|Cheboksary|Russia|RU|56.09|47.35|1.04|0.71|1.05|8241|2|558
 HSN|Zhoushan|China|CN|29.93|122.36|1.04|0.80|1.00|8202|2|6
 ISU|Sulaymaniyah|Iraque|IQ|35.56|45.32|1.04|0.38|0.50|11481|2|2494
 IZA|Juiz de Fora|Brasil|BR|-21.51|-43.17|1.04|0.68|0.85|8284|2|1348
+PIN|Parintins|Brasil|BR|-2.67|-56.78|1.04|0.68|0.85|6950|2|1348
 PHH|Pokhara|Nepal|NP|28.18|84.01|1.04|0.35|1.90|8202|2|2595
 AAE|Annaba|Argelia|DZ|36.83|7.81|1.03|0.60|0.70|9843|2|16
 BRQ|Brno|Chequia|CZ|49.15|16.69|1.03|0.95|1.70|8694|2|778
@@ -937,7 +938,7 @@ HRL|Harlingen|EUA|US|26.23|-97.65|0.99|1.10|1.10|9400|2|36
 JJG|Jaguaruna|Brasil|BR|-28.68|-49.06|0.99|0.68|0.85|8199|2|120
 PMV|Isla Margarita|Venezuela|VE|10.91|-63.97|0.99|0.45|0.70|10433|2|74
 BZG|Bydgoszcz|Polonia|PL|53.10|17.98|0.98|0.81|1.10|8202|2|235
-JTC|Bauru|Brasil|BR|-22.16|-49.07|0.98|0.68|0.85|6594|2|1962
+JTC|Bauru|Brasil|BR|-22.16|-49.07|0.98|0.68|0.85|7050|2|1962
 SDF|Louisville|EUA|US|38.17|-85.74|0.98|1.10|1.10|11887|2|501
 WUZ|Tangbu|China|CN|23.40|111.09|0.98|0.80|1.00|8202|2|357
 BJA|Bejaia|Argelia|DZ|36.71|5.07|0.97|0.60|0.70|7874|2|20
@@ -1104,7 +1105,7 @@ BMV|Buon Ma Thuot|Vietna|VN|12.67|108.12|0.69|0.58|1.40|9843|2|1729
 KVO|Kraljevo|Servia|RS|43.82|20.59|0.69|0.65|1.00|7431|2|686
 LUZ|Lublin|Polonia|PL|51.24|22.71|0.69|0.81|1.10|8268|2|633
 MDQ|Mar del Plata|Argentina|AR|-37.93|-57.57|0.69|0.60|1.50|7218|2|72
-PET|Pelotas|Brasil|BR|-31.72|-52.33|0.69|0.68|0.85|6496|2|59
+PET|Pelotas|Brasil|BR|-31.72|-52.33|0.69|0.68|0.85|6950|2|59
 PNK|Pontianak|Indonesia|ID|-0.15|109.40|0.69|0.50|0.90|7380|2|10
 RSW|Fort Myers|EUA|US|26.53|-81.75|0.69|1.10|1.10|12000|2|30
 STS|Santa Rosa|EUA|US|38.51|-122.81|0.69|1.10|1.10|6000|2|128
@@ -1172,7 +1173,7 @@ PEZ|Penza|Russia|RU|53.11|45.02|0.62|0.71|1.05|9155|2|614
 PQC|Phu Quoc Island|Vietna|VN|10.17|103.99|0.62|0.58|1.40|9843|2|37
 REG|Reggio Calabria|Italia|IT|38.07|15.65|0.62|1.00|1.40|6549|2|96
 RIY|Mukalla|Iemen|YE|14.66|49.38|0.62|0.20|0.50|9843|2|54
-XAP|Chapeco|Brasil|BR|-27.13|-52.66|0.62|0.68|0.85|6758|2|2154
+XAP|Chapeco|Brasil|BR|-27.13|-52.66|0.62|0.68|0.85|7050|2|2154
 GRR|Grand Rapids|EUA|US|42.88|-85.52|0.61|1.10|1.10|10001|2|794
 HAS|Hail|Arabia Saudita|SA|27.44|41.69|0.61|0.97|1.10|12204|2|3331
 IAS|Iasi|Romenia|RO|47.18|27.62|0.61|0.73|0.90|7874|2|411
@@ -1235,7 +1236,7 @@ UGC|Urgench|Uzbequistao|UZ|41.58|60.64|0.54|0.50|0.80|11065|2|320
 EAM|Najran|Arabia Saudita|SA|17.61|44.42|0.53|0.97|1.10|10007|2|3982
 GJL|Tahir|Argelia|DZ|36.79|5.87|0.53|0.60|0.70|7874|2|36
 GNJ|Ganja|Azerbaijao|AZ|40.74|46.32|0.53|0.70|1.00|10827|2|1083
-MOC|Montes Claros|Brasil|BR|-16.71|-43.82|0.53|0.68|0.85|6890|2|2191
+MOC|Montes Claros|Brasil|BR|-16.71|-43.82|0.53|0.68|0.85|7050|2|2191
 RIC|Richmond|EUA|US|37.51|-77.32|0.53|1.10|1.10|9003|2|167
 SBZ|Sibiu|Romenia|RO|45.79|24.09|0.53|0.73|0.90|8629|2|1496
 TJK|Tokat|Turquia|TR|40.32|36.39|0.53|0.65|1.30|8858|2|1859
@@ -1288,7 +1289,7 @@ TOL|Toledo|EUA|US|41.59|-83.81|0.47|1.10|1.10|10600|2|683
 GIZ|Jizan|Arabia Saudita|SA|16.90|42.59|0.46|0.97|1.10|10006|2|20
 MLB|Melbourne|EUA|US|28.10|-80.64|0.46|1.10|1.10|10181|2|33
 PNS|Pensacola|EUA|US|30.47|-87.19|0.46|1.10|1.10|7004|2|121
-RBR|Rio Branco|Brasil|BR|-9.87|-67.89|0.46|0.68|0.85|7080|2|633
+RBR|Rio Branco|Brasil|BR|-9.87|-67.89|0.46|0.68|0.85|8450|2|633
 VST|Stockholm / Vasteras|Suecia|SE|59.59|16.63|0.46|1.23|1.00|8468|2|21
 ZYL|Sylhet|Bangladesh|BD|24.96|91.86|0.46|0.35|0.50|9478|2|50
 BHK|Bukhara|Uzbequistao|UZ|39.78|64.48|0.45|0.50|0.80|9843|2|751
@@ -1327,7 +1328,7 @@ PCL|Pucallpa|Peru|PE|-8.38|-74.57|0.39|0.52|1.50|9186|2|513
 TKU|Turku|Finlandia|FI|60.51|22.26|0.39|1.30|1.10|8202|2|161
 TUF|Tours, Indre-et-Loire|Franca|FR|47.43|0.73|0.39|1.12|1.35|7887|2|357
 BND|Bandar Abbas|Ira|IR|27.22|56.38|0.38|0.45|0.80|12008|2|22
-BPS|Porto Seguro|Brasil|BR|-16.44|-39.08|0.38|0.68|0.85|6562|2|169
+BPS|Porto Seguro|Brasil|BR|-16.44|-39.08|0.38|0.68|0.85|8450|2|169
 CRP|Corpus Christi|EUA|US|27.77|-97.50|0.38|1.10|1.10|7510|2|44
 HSV|Huntsville|EUA|US|34.64|-86.77|0.38|1.10|1.10|12600|2|629
 HTS|Huntington|EUA|US|38.37|-82.56|0.38|1.10|1.10|7017|2|828
@@ -1694,7 +1695,7 @@ VIT|Bilbao|Espanha|ES|42.88|-2.72|1.62|0.92|1.10|11483|1|1682
 DSO|Sondong-ni|Coreia do Norte|KP|39.75|127.47|1.60|0.25|0.50|8210|1|12
 HRE|Harare|Zimbabue|ZW|-17.93|31.09|1.60|0.30|0.90|15502|1|4887
 PGH|Pantnagar|India|IN|29.03|79.47|1.60|0.52|0.90|4500|1|769
-SLZ|Sao Luis|Brasil|BR|-2.59|-44.24|1.60|0.52|0.90|7828|1|178
+SLZ|Sao Luis|Brasil|BR|-2.59|-44.24|1.60|0.52|0.90|8450|1|178
 FLR|Firenze|Italia|IT|43.81|11.20|1.52|1.00|1.40|5118|1|142
 BLB|Cidade do Panama|Panama|PA|8.91|-79.60|1.50|0.80|1.20|8500|1|52
 OGD|Salt Lake City|Estados Unidos|US|41.20|-112.01|1.44|1.08|1.00|8107|1|4473
@@ -1739,7 +1740,7 @@ AXT|Akita|Japao|JP|39.62|140.22|0.93|1.23|1.50|8200|1|313
 OGZ|Beslan|Russia|RU|43.21|44.61|0.92|0.71|1.05|9843|1|1673
 CFG|Cienfuegos|Cuba|CU|22.15|-80.41|0.90|0.40|1.70|7874|1|102
 VTE|Vientiane|Laos|LA|17.99|102.57|0.90|0.32|1.10|9843|1|564
-JDF|Juiz de Fora|Brasil|BR|-21.79|-43.39|0.89|0.68|0.85|5036|1|2989
+JDF|Juiz de Fora|Brasil|BR|-21.79|-43.39|0.89|0.68|0.85|4450|1|2989
 LUK|Cincinnati|Estados Unidos|US|39.10|-84.42|0.88|1.00|0.70|6101|1|483
 BHD|Belfast|Reino Unido|GB|54.62|-5.87|0.87|1.05|1.10|6001|1|15
 EAS|Hondarribia|Espanha|ES|43.36|-1.79|0.83|0.92|1.10|5755|1|16
@@ -1821,22 +1822,22 @@ BWX|Rogojampi, Banyuwangi|Indonesia|ID|-8.31|114.34|0.50|0.50|0.90|4593|1|112
 CLJ|Cluj|Romenia|RO|46.79|23.69|0.50|0.72|0.90|6693|1|1039
 ETR|Santa Rosa|Equador|EC|-3.44|-80.00|0.50|0.57|1.05|8625|1|20
 LJU|Liubliana|Eslovenia|SI|46.22|14.46|0.50|0.95|1.10|10827|1|1273
-MCP|Macapa|Brasil|BR|0.05|-51.07|0.50|0.55|0.60|6890|1|56
+MCP|Macapa|Brasil|BR|0.05|-51.07|0.50|0.55|0.60|8450|1|56
 MVQ|Mogilev|Belarus|BY|53.95|30.10|0.50|0.55|0.70|8422|1|637
 MVY|Martha's Vineyard|EUA|US|41.39|-70.61|0.50|1.10|1.10|5504|1|67
 ONQ|Zonguldak|Turquia|TR|41.51|32.09|0.50|0.65|1.30|6991|1|44
-UNA|Una|Brasil|BR|-15.35|-39.00|0.50|0.68|0.85|6234|1|23
+UNA|Una|Brasil|BR|-15.35|-39.00|0.50|0.68|0.85|7050|1|23
 BUX|Bunia|Congo (Kinshasa)|CD|1.57|30.22|0.49|0.22|0.50|8202|1|4045
 DGT|Dumaguete City|Filipinas|PH|9.33|123.30|0.49|0.47|1.05|6220|1|15
 NAL|Nalchik|Russia|RU|43.51|43.64|0.49|0.71|1.05|7218|1|1461
-PPB|Presidente Prudente|Brasil|BR|-22.18|-51.42|0.49|0.68|0.85|6923|1|1477
+PPB|Presidente Prudente|Brasil|BR|-22.18|-51.42|0.49|0.68|0.85|7050|1|1477
 TKF|Truckee|EUA|US|39.32|-120.14|0.49|1.10|1.10|7001|1|5900
 JRH|Jorhat|India|IN|26.73|94.18|0.48|0.52|0.90|9000|1|311
 KZR|Altintas|Turquia|TR|39.11|30.13|0.48|0.65|1.30|9843|1|3327
 MII|Marilia|Brasil|BR|-22.20|-49.93|0.48|0.68|0.85|4921|1|2134
 MYY|Miri|Malasia|MY|4.32|113.99|0.48|0.72|1.50|9006|1|59
 TAP|Tapachula|Mexico|MX|14.79|-92.37|0.48|0.69|1.30|6562|1|97
-ARU|Aracatuba|Brasil|BR|-21.14|-50.42|0.47|0.68|0.85|6955|1|1358
+ARU|Aracatuba|Brasil|BR|-21.14|-50.42|0.47|0.68|0.85|7050|1|1358
 GXG|Negage|Angola|AO|-7.75|15.29|0.47|0.38|0.60|7874|1|4105
 KOE|Kupang|Indonesia|ID|-10.17|123.67|0.47|0.50|0.90|8202|1|335
 NLD|Nuevo Laredo|Mexico|MX|27.44|-99.57|0.47|0.69|1.30|6562|1|484
@@ -1845,7 +1846,7 @@ VDH|Dong Hoi|Vietna|VN|17.52|106.59|0.47|0.58|1.40|7874|1|59
 MRX|Mahshahr|Ira|IR|30.56|49.15|0.46|0.45|0.80|8874|1|8
 NVA|Neiva|Colombia|CO|2.95|-75.29|0.46|0.55|1.10|5880|1|1464
 PDT|Pendleton|EUA|US|45.70|-118.84|0.46|1.10|1.10|6301|1|1497
-STM|Santarem|Brasil|BR|-2.42|-54.79|0.46|0.68|0.85|7874|1|198
+STM|Santarem|Brasil|BR|-2.42|-54.79|0.46|0.68|0.85|7050|1|198
 ARW|Arad|Romenia|RO|46.18|21.26|0.45|0.73|0.90|6562|1|352
 BMI|Bloomington/Normal|EUA|US|40.48|-88.92|0.45|1.10|1.10|8000|1|871
 BRO|Brownsville|EUA|US|25.91|-97.43|0.45|1.10|1.10|7399|1|22
@@ -1861,12 +1862,12 @@ DIU|Diu|India|IN|20.71|70.92|0.44|0.52|0.90|5980|1|31
 DMU|Dimapur|India|IN|25.88|93.77|0.44|0.52|0.90|7513|1|487
 DUE|Chitato|Angola|AO|-7.40|20.82|0.44|0.38|0.60|6468|1|2451
 KSL|Kassala|Sudao|SD|15.39|36.33|0.44|0.24|0.50|8202|1|1671
-MVF|Mossoro|Brasil|BR|-5.20|-37.36|0.44|0.68|0.85|6562|1|76
+MVF|Mossoro|Brasil|BR|-5.20|-37.36|0.44|0.68|0.85|7050|1|76
 PAZ|Poza Rica|Mexico|MX|20.60|-97.46|0.44|0.69|1.30|5906|1|497
 SDK|Sandakan|Malasia|MY|5.90|118.06|0.44|0.72|1.50|8202|1|46
 SZY|Szymany|Polonia|PL|53.48|20.94|0.44|0.81|1.10|8202|1|463
 FJR|Fujairah|Emirados|AE|25.11|56.33|0.43|1.35|2.20|10007|1|152
-IMP|Imperatriz|Brasil|BR|-5.53|-47.46|0.43|0.68|0.85|5899|1|430
+IMP|Imperatriz|Brasil|BR|-5.53|-47.46|0.43|0.68|0.85|7050|1|430
 SGD|Sonderborg|Dinamarca|DK|54.96|9.79|0.43|1.40|1.30|5895|1|24
 SLD|Sliac|Eslovaquia|SK|48.64|19.13|0.43|0.88|0.90|7874|1|1043
 TPQ|Tepic|Mexico|MX|21.42|-104.84|0.43|0.69|1.30|10171|1|3020
@@ -1887,7 +1888,7 @@ ANF|Antofagasta|Chile|CL|-23.45|-70.45|0.40|0.70|0.70|9186|1|455
 BVB|Boa Vista|Brasil|BR|2.85|-60.69|0.40|0.58|0.70|8858|1|276
 DHM|Kangra|India|IN|32.16|76.26|0.40|0.52|0.90|4620|1|2525
 GDB|Gondia|India|IN|21.53|80.29|0.40|0.52|0.90|7500|1|987
-JJD|Cruz|Brasil|BR|-2.91|-40.36|0.40|0.68|0.85|7218|1|89
+JJD|Cruz|Brasil|BR|-2.91|-40.36|0.40|0.68|0.85|8450|1|89
 PSS|Posadas|Argentina|AR|-27.39|-55.97|0.40|0.60|1.50|7388|1|430
 PXU|Pleiku|Vietna|VN|14.00|108.02|0.40|0.58|1.40|7874|1|2434
 TPS|Trapani|Italia|IT|37.91|12.49|0.40|0.72|1.40|8852|1|25
@@ -1900,7 +1901,7 @@ CSW|Los Cabos|Mexico|MX|22.95|-109.94|0.39|0.70|2.10|6998|1|459
 IXI|Lilabari|India|IN|27.30|94.10|0.39|0.52|0.90|7500|1|330
 KMW|Kostroma|Russia|RU|57.80|41.02|0.39|0.71|1.05|5577|1|446
 KSQ|Karshi|Uzbequistao|UZ|38.80|65.77|0.39|0.50|0.80|9299|1|1230
-MAB|Maraba|Brasil|BR|-5.37|-49.14|0.39|0.68|0.85|6562|1|357
+MAB|Maraba|Brasil|BR|-5.37|-49.14|0.39|0.68|0.85|7050|1|357
 MSR|Mus|Turquia|TR|38.75|41.66|0.39|0.65|1.30|11649|1|4157
 NCY|Annecy|Franca|FR|45.93|6.10|0.39|1.05|1.00|5348|1|1521
 OSW|Orsk|Russia|RU|51.07|58.60|0.39|0.71|1.05|9514|1|909
@@ -1923,10 +1924,10 @@ AXU|Axum|Etiopia|ET|14.15|38.77|0.36|0.35|0.80|7874|1|6959
 BHI|Bahia Blanca|Argentina|AR|-38.73|-62.17|0.36|0.60|1.50|7907|1|246
 BJB|Bojnord|Ira|IR|37.49|57.31|0.36|0.45|0.80|10582|1|3499
 BSX|Pathein|Mianmar|MM|16.82|94.78|0.36|0.30|0.70|4400|1|20
-CKS|Parauapebas|Brasil|BR|-6.12|-50.00|0.36|0.68|0.85|6562|1|2064
+CKS|Parauapebas|Brasil|BR|-6.12|-50.00|0.36|0.68|0.85|7050|1|2064
 EUG|Eugene|EUA|US|44.12|-123.21|0.36|1.10|1.10|8009|1|374
 MAZ|Mayaguez|Porto Rico|PR|18.26|-67.15|0.36|0.85|1.90|4998|1|28
-PAV|Paulo Afonso|Brasil|BR|-9.40|-38.25|0.36|0.68|0.85|5906|1|883
+PAV|Paulo Afonso|Brasil|BR|-9.40|-38.25|0.36|0.68|0.85|4450|1|883
 AJL|Aizawl|India|IN|23.84|92.62|0.35|0.52|0.90|8202|1|1398
 ELU|Guemar|Argelia|DZ|33.51|6.78|0.35|0.60|0.70|9843|1|203
 FAY|Fayetteville|EUA|US|34.99|-78.88|0.35|1.10|1.10|7709|1|189
@@ -1966,7 +1967,7 @@ LBU|Labuan|Malasia|MY|5.30|115.25|0.32|0.72|1.50|9006|1|101
 LRD|Laredo|EUA|US|27.54|-99.46|0.32|1.10|1.10|8743|1|508
 MLI|Moline|EUA|US|41.45|-90.51|0.32|1.10|1.10|10002|1|590
 NRK|Norrkoping|Suecia|SE|58.59|16.25|0.32|1.23|1.00|7228|1|32
-OPP|Salinopolis|Brasil|BR|-0.70|-47.34|0.32|0.68|0.85|6102|1|105
+OPP|Salinopolis|Brasil|BR|-0.70|-47.34|0.32|0.68|0.85|4450|1|105
 PKY|Palangkaraya|Indonesia|ID|-2.23|113.94|0.32|0.50|0.90|8202|1|82
 SBP|San Luis Obispo|EUA|US|35.24|-120.64|0.32|1.10|1.10|6101|1|212
 TCQ|Tacna|Peru|PE|-18.05|-70.28|0.32|0.52|1.50|8202|1|1538
@@ -2034,7 +2035,7 @@ ROO|Rondonopolis|Brasil|BR|-16.58|-54.72|0.28|0.68|0.85|6070|1|1467
 SDE|Santiago del Estero|Argentina|AR|-27.77|-64.31|0.28|0.60|1.50|7946|1|656
 SHV|Shreveport|EUA|US|32.44|-93.83|0.28|1.10|1.10|8348|1|258
 TMJ|Termez|Uzbequistao|UZ|37.29|67.31|0.28|0.50|0.80|9843|1|1027
-TUR|Tucurui|Brasil|BR|-3.79|-49.72|0.28|0.68|0.85|6562|1|830
+TUR|Tucurui|Brasil|BR|-3.79|-49.72|0.28|0.68|0.85|7050|1|830
 VJB|Xai-Xai|Mocambique|MZ|-24.89|33.75|0.28|0.30|0.80|5906|1|291
 VXC|Lichinga|Mocambique|MZ|-13.27|35.27|0.28|0.30|0.80|8300|1|4505
 APO|Carepa|Colombia|CO|7.81|-76.72|0.27|0.55|1.10|7153|1|46
@@ -2051,7 +2052,7 @@ MKM|Mukah|Malasia|MY|2.88|112.04|0.27|0.72|1.50|4921|1|20
 MYW|Mtwara|Tanzania|TZ|-10.34|40.18|0.27|0.32|1.45|7410|1|371
 ROT|Rotorua|Nova Zelandia|NZ|-38.11|176.32|0.27|1.12|1.65|5321|1|935
 SDW|Chipi|India|IN|16.00|73.53|0.27|0.52|2.00|8202|1|203
-TJL|Tres Lagoas|Brasil|BR|-20.75|-51.68|0.27|0.68|0.85|6562|1|1063
+TJL|Tres Lagoas|Brasil|BR|-20.75|-51.68|0.27|0.68|0.85|5250|1|1063
 UBP|Ubon Ratchathani|Tailandia|TH|15.25|104.87|0.27|0.60|2.00|9848|1|406
 AJI|Agri|Turquia|TR|39.66|43.03|0.26|0.65|1.30|9843|1|5462
 BGG|Bingol|Turquia|TR|38.86|40.59|0.26|0.65|1.30|7546|1|3506
@@ -2109,7 +2110,7 @@ ZAL|Valdivia|Chile|CL|-39.65|-73.09|0.24|0.70|1.30|6870|1|59
 ACE|San Bartolome|Espanha|ES|28.95|-13.61|0.23|0.85|1.90|7874|1|46
 BRA|Barreiras|Brasil|BR|-12.08|-45.01|0.23|0.68|0.85|5249|1|2451
 BRX|Barahona|Republica Dominicana|DO|18.25|-71.12|0.23|0.49|1.80|9843|1|10
-CLV|Caldas Novas|Brasil|BR|-17.73|-48.61|0.23|0.68|0.85|6890|1|2307
+CLV|Caldas Novas|Brasil|BR|-17.73|-48.61|0.23|0.68|0.85|7050|1|2307
 EBJ|Esbjerg|Dinamarca|DK|55.53|8.55|0.23|1.40|1.30|8527|1|97
 EWN|New Bern|EUA|US|35.07|-77.04|0.23|1.10|1.10|6452|1|18
 HDF|Zirchow|Alemanha|DE|53.88|14.15|0.23|1.15|1.00|7562|1|94
@@ -2117,7 +2118,7 @@ JIC|Jinchang|China|CN|38.54|102.35|0.23|0.80|1.00|9843|1|4740
 KND|Kindu|Congo (Kinshasa)|CD|-2.92|25.92|0.23|0.22|0.50|7218|1|1630
 LBJ|Labuan Bajo, Manggarai|Indonesia|ID|-8.48|119.89|0.23|0.50|0.90|7381|1|66
 LOO|Laghouat|Argelia|DZ|33.76|2.93|0.23|0.60|0.70|12486|1|2510
-OAL|Cacoal|Brasil|BR|-11.50|-61.45|0.23|0.68|0.85|6890|1|778
+OAL|Cacoal|Brasil|BR|-11.50|-61.45|0.23|0.68|0.85|5250|1|778
 OWB|Owensboro|EUA|US|37.74|-87.17|0.23|1.10|1.10|8000|1|407
 PGF|Perpignan/Rivesaltes|Franca|FR|42.74|2.87|0.23|1.12|1.35|8202|1|144
 POL|Pemba|Mocambique|MZ|-12.99|40.52|0.23|0.30|0.80|5905|1|331
@@ -2190,7 +2191,7 @@ CME|Ciudad del Carmen|Mexico|MX|18.65|-91.80|0.19|0.69|1.30|7218|1|10
 CTC|Catamarca|Argentina|AR|-28.59|-65.75|0.19|0.60|1.50|9186|1|1522
 FAR|Fargo|EUA|US|46.92|-96.82|0.19|1.10|1.10|9001|1|902
 GNS|Gunungsitoli|Indonesia|ID|1.17|97.71|0.19|0.50|0.90|4445|1|20
-JPR|Ji-Parana|Brasil|BR|-10.87|-61.85|0.19|0.68|0.85|5906|1|598
+JPR|Ji-Parana|Brasil|BR|-10.87|-61.85|0.19|0.68|0.85|7050|1|598
 KVK|Apatity|Russia|RU|67.46|33.59|0.19|0.71|1.05|8202|1|515
 KYS|Kayes|Mali|ML|14.48|-11.40|0.19|0.24|0.60|8858|1|164
 LEN|La Virgen del Camino|Espanha|ES|42.59|-5.65|0.19|0.85|1.90|9843|1|3006
@@ -2200,8 +2201,8 @@ SRT|Soroti|Uganda|UG|1.73|33.62|0.19|0.30|1.10|6100|1|3697
 SSY|Mbanza Congo|Angola|AO|-6.27|14.25|0.19|0.38|0.60|5905|1|1860
 VRC|Virac|Filipinas|PH|13.58|124.21|0.19|0.47|1.05|5118|1|121
 ABT|Al-Baha|Arabia Saudita|SA|20.30|41.64|0.18|0.97|1.10|10991|1|5486
-ATM|Altamira|Brasil|BR|-3.25|-52.25|0.18|0.68|0.85|6572|1|368
-AUX|Araguaina|Brasil|BR|-7.23|-48.24|0.18|0.68|0.85|5919|1|771
+ATM|Altamira|Brasil|BR|-3.25|-52.25|0.18|0.68|0.85|7050|1|368
+AUX|Araguaina|Brasil|BR|-7.23|-48.24|0.18|0.68|0.85|7050|1|771
 AZO|Kalamazoo|EUA|US|42.23|-85.55|0.18|1.10|1.10|6502|1|874
 BBM|Battambang|Camboja|KH|13.10|103.22|0.18|0.35|1.40|5250|1|59
 ERH|Errachidia|Marrocos|MA|31.95|-4.40|0.18|0.54|1.65|10499|1|3428
@@ -2229,7 +2230,7 @@ KFS|Kastamonu|Turquia|TR|41.31|33.80|0.17|0.65|1.30|7382|1|3520
 KOS|Preah Sihanouk|Camboja|KH|10.57|103.63|0.17|0.35|1.40|8202|1|33
 KUH|Kushiro|Japao|JP|43.04|144.19|0.17|1.23|1.50|8202|1|327
 LDU|Lahad Datu|Malasia|MY|5.03|118.32|0.17|0.72|1.50|4498|1|45
-LEC|Lencois|Brasil|BR|-12.48|-41.28|0.17|0.68|0.85|6831|1|1676
+LEC|Lencois|Brasil|BR|-12.48|-41.28|0.17|0.68|0.85|7050|1|1676
 LFT|Lafayette|EUA|US|30.21|-91.99|0.17|1.10|1.10|8000|1|42
 LUQ|San Luis|Argentina|AR|-33.27|-66.36|0.17|0.60|1.50|9678|1|2328
 MGZ|Mkeik|Mianmar|MM|12.44|98.62|0.17|0.30|0.70|8795|1|75
@@ -2305,7 +2306,7 @@ ASO|Asosa|Etiopia|ET|10.02|34.59|0.13|0.35|0.80|8218|1|5100
 BDB|Bundaberg|Australia|AU|-24.91|152.32|0.13|1.20|1.40|6562|1|107
 BKN|Balkanabat|Turcomenistao|TM|39.68|54.21|0.13|0.45|0.60|10499|1|-26
 BVE|Brive|Franca|FR|45.04|1.49|0.13|1.12|1.35|6890|1|1016
-BVH|Vilhena|Brasil|BR|-12.69|-60.10|0.13|0.68|0.85|8530|1|2018
+BVH|Vilhena|Brasil|BR|-12.69|-60.10|0.13|0.68|0.85|6950|1|2018
 CZS|Cruzeiro Do Sul|Brasil|BR|-7.60|-72.77|0.13|0.68|0.85|7874|1|637
 DUD|Dunedin|Nova Zelandia|NZ|-45.93|170.20|0.13|1.12|1.65|6234|1|4
 EGC|Bergerac|Franca|FR|44.83|0.52|0.13|1.12|1.35|7234|1|171
@@ -2317,7 +2318,7 @@ MKW|Manokwari|Indonesia|ID|-0.89|134.05|0.13|0.50|0.90|6562|1|23
 MPH|Caticlan|Filipinas|PH|11.92|121.95|0.13|0.47|1.05|5905|1|7
 RHD|Termas de Rio Hondo|Argentina|AR|-27.50|-64.94|0.13|0.60|1.50|8232|1|935
 SGU|St George|EUA|US|37.04|-113.51|0.13|1.10|1.10|9300|1|2941
-TBT|Tabatinga|Brasil|BR|-4.26|-69.94|0.13|0.68|0.85|7054|1|263
+TBT|Tabatinga|Brasil|BR|-4.26|-69.94|0.13|0.68|0.85|5250|1|263
 TRR|Trincomalee|Sri Lanka|LK|8.54|81.18|0.13|0.45|1.70|7850|1|6
 TST|Trang|Tailandia|TH|7.51|99.62|0.13|0.60|2.00|6890|1|67
 UCT|Ukhta|Russia|RU|63.57|53.80|0.13|0.71|1.05|8691|1|482
@@ -2376,12 +2377,12 @@ NOJ|Noyabrsk|Russia|RU|63.18|75.27|0.11|0.71|1.05|8202|1|446
 OYE|Oyem|Gabao|GA|1.54|11.58|0.11|0.45|0.70|5906|1|2158
 PHW|Phalaborwa|Africa do Sul|ZA|-23.94|31.16|0.11|0.65|1.20|4491|1|1432
 PKN|Pangkalanbun|Indonesia|ID|-2.71|111.67|0.11|0.50|0.90|5415|1|75
-PMG|Ponta Pora|Brasil|BR|-22.55|-55.70|0.11|0.68|0.85|6562|1|2156
+PMG|Ponta Pora|Brasil|BR|-22.55|-55.70|0.11|0.68|0.85|7050|1|2156
 RMZ|Tobolsk|Russia|RU|58.06|68.35|0.11|0.71|1.05|7875|1|167
 SNO|Sakon Nakhon|Tailandia|TH|17.20|104.12|0.11|0.60|2.00|8530|1|529
 SUG|Surigao City|Filipinas|PH|9.76|125.48|0.11|0.47|1.05|5603|1|20
 TAY|Tartu|Estonia|EE|58.31|26.69|0.11|0.90|1.20|5905|1|220
-TFF|Tefe|Brasil|BR|-3.38|-64.72|0.11|0.68|0.85|7218|1|186
+TFF|Tefe|Brasil|BR|-3.38|-64.72|0.11|0.68|0.85|7050|1|186
 TUI|Turaif|Arabia Saudita|SA|31.69|38.73|0.11|0.97|1.10|9843|1|2803
 VXO|Vaxjo|Suecia|SE|56.93|14.73|0.11|1.23|1.00|6900|1|610
 YFC|Fredericton|Canada|CA|45.87|-66.53|0.11|1.10|0.95|8005|1|68
@@ -2581,7 +2582,7 @@ BDH|Bandar Lengeh|Ira|IR|26.53|54.82|0.05|0.45|0.80|8203|1|67
 BGC|Braganca|Portugal|PT|41.86|-6.71|0.05|0.84|1.90|5600|1|2241
 BGR|Bangor|EUA|US|44.81|-68.83|0.05|1.10|1.10|11440|1|192
 BWT|Burnie|Australia|AU|-41.00|145.73|0.05|1.20|1.40|5413|1|62
-BYO|Bonito|Brasil|BR|-21.25|-56.45|0.05|0.68|0.85|6562|1|1180
+BYO|Bonito|Brasil|BR|-21.25|-56.45|0.05|0.68|0.85|7050|1|1180
 CDC|Cedar City|EUA|US|37.70|-113.10|0.05|1.10|1.10|8653|1|5622
 CFN|Donegal|Irlanda|IE|55.04|-8.34|0.05|1.15|1.15|4908|1|30
 CIW|Canouan|Sao Vicente e Granadinas|VC|12.70|-61.34|0.05|0.62|1.80|5900|1|11
@@ -2762,7 +2763,7 @@ EYK|Beloyarskiy|Russia|RU|63.69|66.70|0.04|0.71|1.05|7028|1|82
 EYW|Key West|EUA|US|24.56|-81.76|0.04|1.10|1.10|5076|1|3
 FAV|Fakarava|Polinesia Francesa|PF|-16.05|-145.66|0.04|0.85|2.10|4596|1|13
 FCA|Kalispell|EUA|US|48.31|-114.26|0.04|1.10|1.10|9007|1|2977
-FEN|Fernando de Noronha|Brasil|BR|-3.85|-32.42|0.04|0.68|0.85|6053|1|193
+FEN|Fernando de Noronha|Brasil|BR|-3.85|-32.42|0.04|0.68|0.85|7050|1|193
 FLW|Santa Cruz das Flores|Portugal|PT|39.46|-31.13|0.04|0.84|1.90|4593|1|112
 FOD|Fort Dodge|EUA|US|42.55|-94.19|0.04|1.10|1.10|6547|1|1156
 FSP|Saint-Pierre|Sao Pedro e Miquelao|PM|46.76|-56.17|0.04|0.95|1.20|5906|1|27
@@ -3752,7 +3753,7 @@ export const TOQUE_DE_RECOLHER: Record<string, [number, number]> = {
   // Japão: Narita e Haneda têm janela fechada
   NRT: [0, 6],
   // Brasil: aeroporto de cidade, vizinhança colada na cabeceira
-  CGH: [23, 6], SDU: [23, 6],
+  CGH: [23, 6], SDU: [23, 6], PLU: [23, 6],
   // Estados Unidos: Reagan, John Wayne e Burbank têm regra de ruído
   DCA: [22, 7], SNA: [23, 7], BUR: [22, 7],
 }
