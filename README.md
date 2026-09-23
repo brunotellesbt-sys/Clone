@@ -11,7 +11,7 @@ Feito para publicar no GitHub Pages: `npm run build` gera uma pasta estática.
 
 63 modelos do catálogo recebem as camadas do ZIP fornecido pelo usuário, com pintura por camada, motores, winglets, textos, símbolos e fontes. A cabine inclui 28 modelos de poltrona e um mapa cuja distribuição participa da validação de espaço.
 
-As 13 bases que faltavam agora podem ser compradas, arrendadas e usadas em rotas: Q200, Q300, CRJ200, ERJ135LR, ERJ140LR, ERJ145LR, Superjet 100-95B, A318, 717-200, 737-600, A340-300, A340-600 e 747-400. Use a busca do Mercado para encontrá-las. As 57 bases do ZIP têm correspondência; os 17 modelos sem arte equivalente conservam seu sistema anterior. [Fichas, fontes e convenções dos novos tipos](docs/FONTES-AERONAVES-CLASSICAS.md).
+As 13 bases que faltavam agora podem ser compradas, arrendadas e usadas em rotas: Q200, Q300, CRJ200, ERJ135LR, ERJ140LR, ERJ145LR, Superjet 100-95B, A318, 717-200, 737-600, A340-300, A340-600 e 747-400. Use a busca do Mercado para encontrá-las. As 57 bases do ZIP têm correspondência; os 17 modelos sem arte equivalente foram regenerados como sprites próprios, com novas silhuetas para pintura. A galeria de poltronas também funciona nos cinco passageiros desse grupo. [Fichas, fontes e convenções dos novos tipos](docs/FONTES-AERONAVES-CLASSICAS.md).
 
 Veja [como usar a oficina](docs/OFICINA-2D.md) e [a lista de correspondências, sobras e limitações](docs/INTEGRACAO-AERONAVES-2D.md). As partidas anteriores continuam compatíveis.
 

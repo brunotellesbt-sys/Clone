@@ -139,6 +139,28 @@ writeFileSync(join(qa, 'partida-catalogo.json'), JSON.stringify(catalogue))
 
 const unused = models.filter(m => !Object.values(SOURCE_2D).includes(m.id))
 const noSource = AIRCRAFT_ALL.filter(m => !SOURCE_2D[m.id])
+const regenerated = new Set([
+  'an148', 'an158', 'il96', 'sj100', 'tu204',
+  'atr72f', 'b737f', 'a321f', 'b752f', 'tu204f', 'b763f', 'a332f',
+  'il96f', 'b748f', 'an124', 'an225', 'belugaxl',
+])
+assert.deepEqual(new Set(noSource.map(t => t.id)), regenerated, 'os perfis sem base no ZIP precisam estar catalogados')
+const pngSize = (file: string) => {
+  const png = readFileSync(file)
+  assert.equal(png.subarray(1, 4).toString(), 'PNG', `${file}: imagem inválida`)
+  return [png.readUInt32BE(16), png.readUInt32BE(20)]
+}
+for (const t of noSource) {
+  const folder = t.payload === undefined ? 'aircraft' : 'freighters'
+  const sprite = `public/sprites/${folder}/${t.id}.png`
+  assert.deepEqual(pngSize(sprite), [1536, 1024], `${t.id}: sprite regenerado ausente ou com tamanho errado`)
+  assert.deepEqual(pngSize(`public/sprites/planemasks/${t.id}.png`), [1536, 1024], `${t.id}: silhueta ausente`)
+  if (folder === 'aircraft') {
+    for (const part of ['fuselagemasks', 'wingmasks', 'enginemasks', 'gearmasks', 'tailmasks', 'windowmasks']) {
+      assert.deepEqual(pngSize(`public/sprites/${part}/${t.id}.png`), [1536, 1024], `${t.id}: setor ${part} ausente`)
+    }
+  }
+}
 const report = [
   '# Correspondência de aeronaves 2D', '',
   `Fonte única: ${inventory.archive}. SHA-256: \`${inventory.sha256}\`.`, '',
@@ -150,7 +172,7 @@ const report = [
   'As 13 bases antes sem correspondência agora estão cadastradas para compra, arrendamento, rotas, cabine e pintura. Fichas e fontes em [FONTES-AERONAVES-CLASSICAS.md](FONTES-AERONAVES-CLASSICAS.md).', '',
   'O Sukhoi Superjet 100 (ssj100) do ZIP usa SaM146. O SJ-100 (sj100) existente usa PD-8 e conserva arte e ficha próprias.', '',
   '## Modelos novos sem arte equivalente no ZIP', '', ...noSource.map(m => `- ${m.maker} ${m.name} (${m.id})`), '',
-  'Os 12 cargueiros e cinco modelos de passageiros dessa lista conservam a arte anterior. Os passageiros sem base no ZIP mantêm o editor de cabine anterior, sem a galeria de poltronas importadas. Conversões de carga não recebem janelas de passageiros.', '',
+  'Esses 12 cargueiros e cinco modelos de passageiros não têm base equivalente no ZIP: usam perfis próprios regenerados com GPT Image, silhuetas novas e, nos passageiros, setores de pintura realinhados. A galeria de 28 poltronas agora atende todos os aviões de passageiros. Conversões de carga não recebem janelas de passageiros nem cabine.', '',
   '## Variantes compartilhadas e limitações', '',
   '- A319/A320/A321neo usam as opções neo das respectivas bases. A321LR/XLR compartilham a base A321neo: portas e detalhes exclusivos de LR/XLR não estão individualizados no ZIP.',
   '- A350-900ULR compartilha a base A350-900. ATR 42/72 usam as bases de família; o ZIP não distingue todas as subvariantes.',
@@ -160,4 +182,4 @@ const report = [
 ]
 mkdirSync('docs', { recursive: true })
 writeFileSync('docs/INTEGRACAO-AERONAVES-2D.md', report.join('\n'))
-console.log(`OK: ${seen.size} hashes; ${variants} combinações; ${SEAT_MODELS.length} poltronas; 13 tipos comprados e arrendados, ${flights} voos, reforma e save; ${unused.length} bases sem correspondência.`)
+console.log(`OK: ${seen.size} hashes; ${variants} combinações; ${SEAT_MODELS.length} poltronas; ${regenerated.size} sprites regenerados; 13 tipos comprados e arrendados, ${flights} voos, reforma e save; ${unused.length} bases sem correspondência.`)
