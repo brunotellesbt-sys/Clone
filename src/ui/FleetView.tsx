@@ -1,11 +1,12 @@
 import { SeatMapEditor } from './SeatMapEditor'
 import { CabineTabela } from './components/CabineTabela'
 import { useCabine } from './useCabine'
-import { SOURCE_2D } from '../livery/aircraft2d'
 import { seatChangeCost } from '../game/seatModels'
 import { useState } from 'react'
 import { AIRCRAFT_BY_ID, acLabel, ehCargueiro } from '../game/data/aircraft'
+import { AIRPORT_BY_IATA } from '../game/data/airports'
 import { ENGINES, engineLabel } from '../game/data/engines'
+import { motivoDoPar } from '../game/spec'
 import {
   cabinLength, checkCabin, crewFor, layoutsDe, pitchFare, pitchName, sumSeats, textoDasClasses,
 } from '../game/cabin'
@@ -119,8 +120,14 @@ export function FleetView() {
                 <div><span className="muted">Estado</span><br />{pct(sel.condition)}</div>
                 <div><span className="muted">Idade</span><br />{sel.age.toFixed(1)} anos</div>
                 <div><span className="muted">Alcance</span><br />{km(typeOf(sel).range)}</div>
-                <div><span className="muted">Comissários</span><br />{crewFor(sel.seats)}</div>
-                <div><span className="muted">Passo econômica</span><br />{sel.pitch.y}″ · {pitchName('y', sel.pitch.y)}</div>
+                {ehCargueiro(typeOf(sel)) ? (
+                  <div><span className="muted">Carga útil</span><br />{typeOf(sel).payload} t</div>
+                ) : (
+                  <>
+                    <div><span className="muted">Comissários</span><br />{crewFor(sel.seats)}</div>
+                    <div><span className="muted">Passo econômica</span><br />{sel.pitch.y}″ · {pitchName('y', sel.pitch.y)}</div>
+                  </>
+                )}
                 <div>
                   <span className="muted">Valor</span><br />
                   {sel.leased ? `${money(sel.lease)}/mês` : money(resaleValue(typeOf(sel), sel.age, sel.condition))}
@@ -141,7 +148,11 @@ export function FleetView() {
                   }}
                 >
                   <option value="">— escolher rota —</option>
-                  {state.airline.routes.map((r) => (
+                  {state.airline.routes.filter((r) => {
+                    const t = typeOf(sel)
+                    return !!r.cargo === ehCargueiro(t) && r.distance <= t.range &&
+                      !motivoDoPar(t, AIRPORT_BY_IATA[r.from], AIRPORT_BY_IATA[r.to])
+                  }).map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.from} → {r.to} ({km(r.distance)})
                     </option>
@@ -295,10 +306,8 @@ function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
       </div>
       <p className="dim">Custo da reforma: <b>{money(seatChangeCost(seats, seatConfig))}</b> · {seats.c + seats.f > 0 ? 4 : 2} dias parado.</p>
       {chk.seatError && <p className="bad">{chk.seatError}</p>}
-      {SOURCE_2D[t.id] && (
-        <SeatMapEditor type={t} seats={seats} pitch={pitch} config={seatConfig}
-          change={(c, p) => aplicar({ seats, pitch: p, config: c })} />
-      )}
+      <SeatMapEditor type={t} seats={seats} pitch={pitch} config={seatConfig}
+        change={(c, p) => aplicar({ seats, pitch: p, config: c })} />
     </Modal>
   )
 }
