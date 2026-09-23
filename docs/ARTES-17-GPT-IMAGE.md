@@ -41,5 +41,10 @@ extraídas da arte nova e novas alturas de fuselagem em `fusebands.json`.
 Esses perfis usam a oficina de pintura por sprite. Os 63 modelos com base no
 ZIP continuam usando a oficina de camadas originais.
 
+A [galeria de pintura simulada](images/pintura-simulada-17.png) mostra os 17
+perfis pelo renderizador real do jogo, usando o preset Bandeirante e o letreiro
+fictício AERO BRASIL. Para recriá-la, execute o servidor Vite e depois
+`node scripts/painted-17-preview.mjs`. A galeria não altera partidas salvas.
+
 As imagens são arte de jogo e precisam de revisão humana antes de serem usadas
 como desenho técnico ou referência de configuração real de aeronave.
