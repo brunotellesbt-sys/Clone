@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { AircraftType } from '../game/data/aircraft'
 import type { Livery, Paint2D, PaintMark2D } from '../game/types'
-import { asset2d, label2d, selectedLayers, use2d, useModel2d, wingOptions, type LibraryItem } from '../livery/aircraft2d'
+import { asset2d, label2d, paintConfig2d, selectedLayers, use2d, useModel2d, wingOptions, type LibraryItem } from '../livery/aircraft2d'
 import { normalizePaint2d } from '../livery/paint2dConfig'
 import { downloadFile } from '../livery/export'
 import { Card } from './components/Bits'
@@ -24,7 +24,7 @@ export function Aircraft2DEditor({ type, engineId, livery, change, toast }: {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('')
   const [page, setPage] = useState(0)
-  const cfg = livery.aircraft2d?.[type.id] ?? {}
+  const cfg = paintConfig2d(livery, type.id)
   const set = (patch: Partial<Paint2D>) => change({ ...livery, aircraft2d: { ...livery.aircraft2d, [type.id]: { ...cfg, ...patch } } })
   const m = cfg.marks?.[slot] ?? { text: '', color: ['tail', 'engine', 'winglet'].includes(slot) ? livery.emblemColor : livery.titles, x: .5, y: ['tail', 'engine', 'winglet'].includes(slot) ? .5 : .15, scale: .15, rotation: 0 }
   const setMark = (patch: Partial<PaintMark2D>) => set({ marks: { ...cfg.marks, [slot]: { ...m, ...patch } } })

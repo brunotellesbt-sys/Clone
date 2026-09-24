@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { AircraftType } from '../game/data/aircraft'
-import type { Paint2D } from '../game/types'
+import type { Livery, Paint2D } from '../game/types'
 
-/** Correspondência explícita: cargueiros e famílias ausentes conservam a arte atual. */
+/** Correspondência das 63 bases importadas diretamente do ZIP. */
 export const SOURCE_2D: Record<string, string> = {
   q200: 'bombardierq200', q300: 'bombardierq300', crj200: 'bombardiercrj200',
   erj135: 'embraere135', erj140: 'embraere140', erj145: 'embraere145', ssj100: 'sukhoisuperjet100',
@@ -22,6 +22,22 @@ export const SOURCE_2D: Record<string, string> = {
   a359: 'airbusa350900', a35ulr: 'airbusa350900', a35k: 'airbusa3501000',
   b77e: 'boeing777200', b77w: 'boeing777300', b779: 'boeing7779', b748: 'boeing7478i', a388: 'airbusa380800',
   arj21: 'comacarj21', c919: 'comacc919',
+}
+
+/** Perfis sem peça correspondente no APK, refeitos no mesmo sistema de camadas. */
+export const GENERATED_2D: Record<string, string> = Object.fromEntries(
+  ['an148', 'an158', 'il96', 'sj100', 'tu204', 'atr72f', 'b737f', 'a321f',
+    'b752f', 'tu204f', 'b763f', 'a332f', 'il96f', 'b748f', 'an124', 'an225',
+    'belugaxl'].map(id => [id, `generated_${id}`]),
+)
+export const PAINTABLE_2D = { ...SOURCE_2D, ...GENERATED_2D }
+
+/** Começa com dois padrões reais do acervo, mantendo ajustes salvos intactos. */
+export function paintConfig2d(livery: Livery, typeId: string): Paint2D {
+  const saved = livery.aircraft2d?.[typeId]
+  if (!GENERATED_2D[typeId]) return saved ?? {}
+  const base: Paint2D = { layers: { '1_br_tail': livery.tailAccent, '6_br_stripe': livery.cheat } }
+  return { ...base, ...saved, layers: saved?.layers ?? base.layers }
 }
 
 export type Box = [number, number, number, number]
@@ -52,7 +68,7 @@ export function use2d<T>(file?: string) {
   }, [file])
   return result.file === file ? result : {}
 }
-export const useModel2d = (typeId: string) => use2d<Model2D>(SOURCE_2D[typeId] ? `models/${SOURCE_2D[typeId]}.json` : undefined)
+export const useModel2d = (typeId: string) => use2d<Model2D>(PAINTABLE_2D[typeId] ? `models/${PAINTABLE_2D[typeId]}.json` : undefined)
 
 export function engineFamily(id: string) {
   if (/^(cfm|leap)/.test(id)) return 'cfm'

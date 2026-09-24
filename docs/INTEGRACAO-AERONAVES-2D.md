@@ -100,7 +100,7 @@ O Sukhoi Superjet 100 (ssj100) do ZIP usa SaM146. O SJ-100 (sj100) existente usa
 - Antonov An-225 Mriya (an225)
 - Airbus BelugaXL (belugaxl)
 
-Esses 12 cargueiros e cinco modelos de passageiros não têm base equivalente no ZIP: usam perfis próprios regenerados com GPT Image, silhuetas novas e, nos passageiros, setores de pintura realinhados. A galeria de 28 poltronas agora atende todos os aviões de passageiros. Conversões de carga não recebem janelas de passageiros nem cabine.
+Esses 12 cargueiros e cinco modelos de passageiros não têm base equivalente no ZIP: usam perfis regenerados com GPT Image, sem trem de pouso, e 15 camadas de pintura por modelo com padrões derivados do acervo original. A alocação de 28 poltronas por fileiras atende todos os aviões de passageiros. Cargueiros não recebem cabine de passageiros.
 
 ## Variantes compartilhadas e limitações
 

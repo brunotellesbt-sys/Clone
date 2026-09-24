@@ -1,5 +1,4 @@
 import { SeatMapEditor } from './SeatMapEditor'
-import { CabineTabela } from './components/CabineTabela'
 import { useCabine } from './useCabine'
 import { seatChangeCost } from '../game/seatModels'
 import { useState } from 'react'
@@ -255,9 +254,6 @@ function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
         </>
       )}
 
-      <CabineTabela t={t} seats={seats} pitch={pitch} seatConfig={seatConfig}
-        setAssentos={setAssentos} setPasso={setPasso} />
-
       <div className="resumo-cabine">
         <div>
           <div className="row" style={{ justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
@@ -307,7 +303,8 @@ function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
       <p className="dim">Custo da reforma: <b>{money(seatChangeCost(seats, seatConfig))}</b> · {seats.c + seats.f > 0 ? 4 : 2} dias parado.</p>
       {chk.seatError && <p className="bad">{chk.seatError}</p>}
       <SeatMapEditor type={t} seats={seats} pitch={pitch} config={seatConfig}
-        change={(c, p) => aplicar({ seats, pitch: p, config: c })} />
+        change={(c, p) => aplicar({ seats, pitch: p, config: c })}
+        setAssentos={setAssentos} setPasso={setPasso} />
     </Modal>
   )
 }

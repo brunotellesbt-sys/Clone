@@ -1,7 +1,7 @@
 import { Fragment, useId } from 'react'
 import type { AircraftType } from '../game/data/aircraft'
 import type { Livery, PaintMark2D } from '../game/types'
-import { asset2d, isAsset2d, selectedLayers, useModel2d, type Layer2D, type Box } from './aircraft2d'
+import { asset2d, isAsset2d, paintConfig2d, selectedLayers, useModel2d, type Layer2D, type Box } from './aircraft2d'
 import { LiveryPlane } from './LiveryPlane'
 import { Bandeira } from './Flag'
 import { emblemHref } from './emblems'
@@ -12,7 +12,7 @@ export function RasterAircraft(props: Props) {
   const { data: model, error } = useModel2d(type.id)
   const uid = useId().replace(/:/g, '')
   if (!model) return <span data-aircraft2d-error={error}><LiveryPlane {...props} /></span>
-  const cfg = l.aircraft2d?.[type.id] ?? {}
+  const cfg = paintConfig2d(l, type.id)
   const { layers } = selectedLayers(model, type, props.engineId ?? type.engines[0], cfg)
   const [w, h] = model.size
   const body = model.layers.find(x => x.name === 'fuselage')!
@@ -35,13 +35,13 @@ export function RasterAircraft(props: Props) {
     if (n === 'tail') return l.tail
     if (n === 'tail_base') return l.tail
     if (/detail|effect|shadow|core|exhaust|prop/.test(n)) return undefined
-    if (/^engine_/.test(n)) return cfg.engine ?? l.engine ?? l.fuselage
+    if (n === 'engine' || /^engine_/.test(n)) return cfg.engine ?? l.engine ?? l.fuselage
     if (/^(winglet|sharklet|scimitar|wingtip_fence)(_|$)/.test(n)) return l.winglet
     // Estes nomes no ZIP incluem acabamentos de fuselagem/asa/nacela juntos.
     // Só as máscaras de cor originais recebem tinta; acabamentos mantêm os pixels.
     return undefined
   }
-  const sectorLayer = (sector: string) => sector === 'tail' ? tail : sector === 'engine' ? layers.find(x => /^engine_(cfm|ge|pw|rr|iae|ea|pj|ae)$/.test(x.name)) :
+  const sectorLayer = (sector: string) => sector === 'tail' ? tail : sector === 'engine' ? layers.find(x => x.name === 'engine' || /^engine_(cfm|ge|pw|rr|iae|ea|pj|ae)$/.test(x.name)) :
     sector === 'winglet' ? layers.find(x => /^(winglet|sharklet|scimitar|wingtip_fence)$/.test(x.name)) : body
   const marks = Object.entries(cfg.marks ?? {})
   function mark(slot: string, m: PaintMark2D) {

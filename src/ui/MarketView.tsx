@@ -6,7 +6,6 @@ import {
   cabinComfort, cabinLength, defaultCabin, layoutsDe, rowLayout, sumSeats, textoDasClasses,
 } from '../game/cabin'
 import { custoDeFabrica, SEAT_MODELS } from '../game/seatModels'
-import { SOURCE_2D } from '../livery/aircraft2d'
 import { SeatMapEditor } from './SeatMapEditor'
 import { useCabine } from './useCabine'
 import { leaseMonthly, marketPrice } from '../game/economy'
@@ -17,7 +16,6 @@ import { enginesOf, withEngine } from '../game/spec'
 import { useGame } from '../store/useGame'
 import { AircraftArt } from '../livery/AircraftArt'
 import { Card } from './components/Bits'
-import { CabineTabela } from './components/CabineTabela'
 import { CABINS, type Cabins, type SeatConfig } from '../game/types'
 
 const FAMILY_LABEL: Record<string, string> = {
@@ -254,16 +252,12 @@ function Encomenda({ model, price, lease, available, since, onAcquire }: {
             ))}
           </div>
 
-          <CabineTabela t={model} seats={cab.seats} pitch={cab.pitch} seatConfig={cab.seatConfig}
+          <SeatMapEditor
+            type={model} seats={cab.seats} pitch={cab.pitch} config={cab.seatConfig}
+            change={(c, p) => { cab.aplicar({ seats: cab.seats, pitch: p, config: c }); setMexeu(true) }}
             setAssentos={(c, v) => { cab.setAssentos(c, v); setMexeu(true) }}
-            setPasso={(c, v) => { cab.setPasso(c, v); setMexeu(true) }} />
-
-          {SOURCE_2D[model.id] && (
-            <SeatMapEditor
-              type={model} seats={cab.seats} pitch={cab.pitch} config={cab.seatConfig}
-              change={(c, p) => { cab.aplicar({ seats: cab.seats, pitch: p, config: c }); setMexeu(true) }}
-            />
-          )}
+            setPasso={(c, v) => { cab.setPasso(c, v); setMexeu(true) }}
+          />
 
           <p className="muted" style={{ fontSize: 12, marginBottom: 0, marginTop: 10 }}>
             Conforto desta cabine: <b>{(conforto * 100).toFixed(0)}</b> — passo e modelo de

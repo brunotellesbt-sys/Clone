@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { createHash } from 'node:crypto'
+import { inflateSync } from 'node:zlib'
 import { join } from 'node:path'
 import { AIRCRAFT_ALL, AIRCRAFT_BY_ID, FAMILY_OF } from '../src/game/data/aircraft'
 import { ENGINES } from '../src/game/data/engines'
-import { SOURCE_2D, selectedLayers, wingOptions, type Model2D } from '../src/livery/aircraft2d'
+import { GENERATED_2D, PAINTABLE_2D, SOURCE_2D, paintConfig2d, selectedLayers, wingOptions, type Model2D } from '../src/livery/aircraft2d'
 import { SEAT_MODELS, seatLayouts } from '../src/game/seatModels'
 import { checkCabin, cabinUsed, defaultCabin, LAYOUTS } from '../src/game/cabin'
 import { advanceDay, assignAircraft, buyAircraft, newGame, openRoute, setCabin } from '../src/game/engine'
@@ -13,6 +14,7 @@ import { BLANK_LIVERY } from '../src/livery/presets'
 import type { GameState, SeatConfig } from '../src/game/types'
 
 const inventory = JSON.parse(readFileSync('public/aircraft2d/inventory.json', 'utf8'))
+const library = JSON.parse(readFileSync('public/aircraft2d/library.json', 'utf8')) as { id: string }[]
 const seen = new Set<string>()
 for (const entry of inventory.entries) {
   if (seen.has(entry.file)) continue
@@ -99,6 +101,11 @@ assert(!checkCabin(AIRCRAFT_BY_ID.a320, seats, pitch, { c: { style: 'biz_suite',
 for (const model of SEAT_MODELS) {
   assert(inventory.entries.some((e: {source: string}) => e.source.endsWith(`assets_seat_images_jpg_${model.id}.jpg`)))
   assert(seatLayouts(t, model.cabin, model.id).length > 0)
+  for (const layout of seatLayouts(t, model.cabin, model.id)) {
+    const row = `assets_seat_icons_png_resized_light_images_${model.icon}_${layout.replaceAll('-', '')}.webp`
+    const single = `assets_seat_icons_png_single_seat_resized_light_images_${model.icon}.webp`
+    assert(library.some(item => item.id === row || item.id === single), `${model.id}/${layout}: desenho de assento ausente no ZIP`)
+  }
 }
 const s = newGame({ name: 'Teste 2D', code: 'TD', hub: 'GRU', seed: 42 })
 s.airline.cash = 1e9
@@ -145,6 +152,7 @@ const regenerated = new Set([
   'il96f', 'b748f', 'an124', 'an225', 'belugaxl',
 ])
 assert.deepEqual(new Set(noSource.map(t => t.id)), regenerated, 'os perfis sem base no ZIP precisam estar catalogados')
+assert.deepEqual(new Set(Object.keys(GENERATED_2D)), regenerated, 'todos os perfis próprios precisam abrir na oficina 2D')
 const pngSize = (file: string) => {
   const png = readFileSync(file)
   assert.equal(png.subarray(1, 4).toString(), 'PNG', `${file}: imagem inválida`)
@@ -155,6 +163,27 @@ for (const t of noSource) {
   const sprite = `public/sprites/${folder}/${t.id}.png`
   assert.deepEqual(pngSize(sprite), [1536, 1024], `${t.id}: sprite regenerado ausente ou com tamanho errado`)
   assert.deepEqual(pngSize(`public/sprites/planemasks/${t.id}.png`), [1536, 1024], `${t.id}: silhueta ausente`)
+  assert.equal(PAINTABLE_2D[t.id], `generated_${t.id}`)
+  const generated: Model2D = JSON.parse(readFileSync(`public/aircraft2d/models/generated_${t.id}.json`, 'utf8'))
+  assert.deepEqual(generated.size, [1536, 1024])
+  assert.equal(generated.layers.filter(l => l.name === 'fuselage').length, 1)
+  assert.equal(generated.layers.filter(l => l.name === 'tail').length, 1)
+  assert.equal(generated.layers.filter(l => l.name === 'engine').length, 1)
+  assert.equal(generated.layers.filter(l => l.name === 'finish').length, 1)
+  for (const l of generated.layers) {
+    assert.deepEqual(l.size, generated.size)
+    assert.deepEqual(pngSize(`public/aircraft2d/${l.file}`), generated.size)
+  }
+  const painted = selectedLayers(generated, t, t.engines[0], paintConfig2d(BLANK_LIVERY, t.id)).layers
+  assert.equal(painted.filter(l => l.pattern).length, 2, `${t.id}: padrões de pintura inicial ausentes`)
+  const gear = readFileSync(`public/sprites/gearmasks/${t.id}.png`)
+  const chunks: Buffer[] = []
+  for (let offset = 8; offset + 12 <= gear.length;) {
+    const length = gear.readUInt32BE(offset)
+    if (gear.toString('ascii', offset + 4, offset + 8) === 'IDAT') chunks.push(gear.subarray(offset + 8, offset + 8 + length))
+    offset += length + 12
+  }
+  assert(chunks.length && inflateSync(Buffer.concat(chunks)).every(byte => byte === 0), `${t.id}: trem de pouso não foi removido`)
   if (folder === 'aircraft') {
     for (const part of ['fuselagemasks', 'wingmasks', 'enginemasks', 'gearmasks', 'tailmasks', 'windowmasks']) {
       assert.deepEqual(pngSize(`public/sprites/${part}/${t.id}.png`), [1536, 1024], `${t.id}: setor ${part} ausente`)
@@ -172,7 +201,7 @@ const report = [
   'As 13 bases antes sem correspondência agora estão cadastradas para compra, arrendamento, rotas, cabine e pintura. Fichas e fontes em [FONTES-AERONAVES-CLASSICAS.md](FONTES-AERONAVES-CLASSICAS.md).', '',
   'O Sukhoi Superjet 100 (ssj100) do ZIP usa SaM146. O SJ-100 (sj100) existente usa PD-8 e conserva arte e ficha próprias.', '',
   '## Modelos novos sem arte equivalente no ZIP', '', ...noSource.map(m => `- ${m.maker} ${m.name} (${m.id})`), '',
-  'Esses 12 cargueiros e cinco modelos de passageiros não têm base equivalente no ZIP: usam perfis próprios regenerados com GPT Image, silhuetas novas e, nos passageiros, setores de pintura realinhados. A galeria de 28 poltronas agora atende todos os aviões de passageiros. Conversões de carga não recebem janelas de passageiros nem cabine.', '',
+  'Esses 12 cargueiros e cinco modelos de passageiros não têm base equivalente no ZIP: usam perfis regenerados com GPT Image, sem trem de pouso, e 15 camadas de pintura por modelo com padrões derivados do acervo original. A alocação de 28 poltronas por fileiras atende todos os aviões de passageiros. Cargueiros não recebem cabine de passageiros.', '',
   '## Variantes compartilhadas e limitações', '',
   '- A319/A320/A321neo usam as opções neo das respectivas bases. A321LR/XLR compartilham a base A321neo: portas e detalhes exclusivos de LR/XLR não estão individualizados no ZIP.',
   '- A350-900ULR compartilha a base A350-900. ATR 42/72 usam as bases de família; o ZIP não distingue todas as subvariantes.',

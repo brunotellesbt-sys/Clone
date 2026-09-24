@@ -9,6 +9,7 @@
 // A régua é a largura de rolagem contra a largura visível. Tabela larga dentro
 // da própria caixa de rolagem não conta: ali o dedo rola a tabela, não a
 // interface, que é o comportamento que se quer.
+import assert from 'node:assert/strict'
 import { browserPath, artifact, comRelogio } from './browser.mjs'
 import { chromium, devices } from 'playwright'
 
@@ -203,6 +204,7 @@ await medir('modal com destino escolhido')
 await page.screenshot({ path: artifact('mobile-3-modal-destino.png'), fullPage: true })
 await page.getByRole('button', { name: /^Abrir por/ }).click()
 await page.waitForTimeout(900)
+assert.equal(await page.getByText('Abrir nova rota', { exact: true }).count(), 0, 'modal deve fechar depois de abrir a rota')
 
 // ------------------------------------------------------------ cada tela
 for (const nome of ['Painel', 'Rotas', 'Frota', 'Mercado', 'Finanças', 'Pintura', 'Ranking']) {

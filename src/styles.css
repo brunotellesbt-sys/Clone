@@ -443,17 +443,29 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
 .a2-layer small { overflow-wrap: anywhere; }
 .a2-layer input[type=color] { width: 100%; height: 28px; }
 .a2-cabin { margin-top: 24px; }
+.a2-cabin-planner { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .a2-seat-card { padding: 12px; border: 1px solid var(--line); border-radius: 10px; display: grid; gap: 8px; }
+.a2-seat-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.a2-seat-card-head span { color: var(--ink-2); font-size: 12px; }
 .a2-seat-photo { width: 100%; height: 110px; object-fit: contain; background: #0c1526; }
+.a2-seat-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.a2-seat-controls label { display: grid; gap: 4px; min-width: 0; font-size: 12px; color: var(--ink-2); }
+.a2-seat-controls select, .a2-seat-controls input { width: 100%; min-width: 0; }
+.a2-row-count { display: grid; grid-template-columns: 42px minmax(55px, 1fr) 42px; gap: 5px; }
+.a2-row-count button { min-height: 42px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel-2); color: var(--ink); font-size: 22px; cursor: pointer; }
+.a2-row-count button:disabled { opacity: .4; cursor: default; }
+.a2-row-count input { text-align: center; }
 .a2-seatmap { max-height: 540px; overflow: auto; border: 2px solid #405978; border-radius: 60px; padding: 36px 8px; margin: 20px auto; max-width: 470px; text-align: center; background: #0c1526; }
 .a2-seat-zone { padding: 12px 0; }
 .a2-seat-zone > b { display: block; margin-bottom: 14px; }
 .a2-seat-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .a2-seat-row > small { width: 18px; font-size: 9px; }
+.a2-seat-layout { width: min(80%, 285px); height: 30px; object-fit: fill; image-rendering: auto; }
 .a2-seat-block { display: flex; gap: 1px; }
 .a2-seat { display: inline-flex; width: 22px; height: 24px; align-items: center; justify-content: center; }
 .a2-seat img { width: 100%; height: 100%; object-fit: contain; }
-@media (max-width: 600px) { .a2-seat { width: 16px; height: 21px; } .a2-seat-row { gap: 7px; } .a2-layer-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 700px) { .a2-cabin-planner { grid-template-columns: minmax(0,1fr); } }
+@media (max-width: 600px) { .a2-seat { width: 16px; height: 21px; } .a2-seat-row { gap: 7px; } .a2-seat-controls { grid-template-columns: minmax(0,1fr); } .a2-layer-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 
 /* ------------------------------------------------- grade semanal da aeronave
  *
@@ -661,41 +673,10 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
 }
 .salva .btn.ghost:hover { color: #fb7185; }
 
-/* Cada controle e o valor dele na mesma linha. */
-.cabine .campo { display: flex; align-items: center; gap: 8px; }
-.cabine .campo input[type="range"] { flex: 1 1 90px; min-width: 0; margin: 0; }
-.cabine .campo input[type="number"] { width: 68px; flex: 0 0 auto; }
-.cabine td { vertical-align: middle; }
-.cabine td small { display: block; margin-top: 2px; font-size: 10.5px; }
-.cabine-tabela { overflow: visible; max-height: none; }
-
 .resumo-cabine {
   display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 16px; align-items: center;
 }
 
-/*
- * No celular a tabela de sete colunas não cabe de jeito nenhum — os controles
- * sozinhos pedem mais largura que a tela toda. Ela deixa de ser tabela e vira
- * um cartão por classe: o rótulo em cima, os dois controles embaixo e os
- * números derivados numa linha só. É a mesma informação, empilhada.
- */
 @media (max-width: 760px) {
-  .cabine, .cabine thead, .cabine tbody, .cabine tr, .cabine td { display: block; width: 100%; }
-  .cabine thead { display: none; }
-  .cabine tr {
-    border: 1px solid var(--line-soft); border-radius: var(--r-md, 10px);
-    padding: 8px 10px; margin-bottom: 8px;
-  }
-  .cabine td { border: 0; padding: 3px 0; height: auto; text-align: left; }
-  /* fileira, nº de fileiras, ocupação e tarifa viram uma linha de rodapé */
-  .cabine td:nth-child(2), .cabine td:nth-child(5),
-  .cabine td:nth-child(6), .cabine td:nth-child(7) {
-    display: inline-block; width: auto; margin-right: 14px;
-    font-size: 11.5px; color: var(--ink-3);
-  }
-  .cabine td:nth-child(2)::before { content: 'fileira '; }
-  .cabine td:nth-child(5)::before { content: 'fileiras '; }
-  .cabine td:nth-child(6)::before { content: 'ocupa '; }
-  .cabine td:nth-child(7)::before { content: 'tarifa '; }
   .resumo-cabine { grid-template-columns: minmax(0, 1fr); }
 }

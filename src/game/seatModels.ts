@@ -20,7 +20,7 @@ export const SEAT_MODELS: SeatModel[] = [
   { id: 'biz_reverse_herringbone', name: 'Espinha invertida', cabin: 'c', icon: 'reverse_herringbone', minPitch: 72, extraCost: 10000, maxRow: 4 },
   { id: 'biz_premium_herringbone', name: 'Espinha premium', cabin: 'c', icon: 'reverse_herringbone', minPitch: 76, extraCost: 13000, maxRow: 4 },
   { id: 'biz_staggered', name: 'Alternada', cabin: 'c', icon: 'staggered', minPitch: 60, extraCost: 6000, maxRow: 4 },
-  { id: 'biz_staggered_suite', name: 'Suíte alternada', cabin: 'c', icon: 'suite', minPitch: 66, extraCost: 10000 },
+  { id: 'biz_staggered_suite', name: 'Suíte alternada', cabin: 'c', icon: 'staggered_suite', minPitch: 66, extraCost: 10000 },
   { id: 'biz_suite', name: 'Suíte executiva', cabin: 'c', icon: 'suite', minPitch: 72, extraCost: 12000 },
   { id: 'biz_comfort_suite', name: 'Suíte conforto', cabin: 'c', icon: 'suite', minPitch: 74, extraCost: 14000 },
   { id: 'biz_studio_suite', name: 'Suíte estúdio', cabin: 'c', icon: 'studio_suite', minPitch: 76, extraCost: 16000, maxRow: 4 },
@@ -32,7 +32,7 @@ export const SEAT_MODELS: SeatModel[] = [
   { id: 'first_diagonal_suite', name: 'Suíte diagonal', cabin: 'f', icon: 'reverse_herringbone', minPitch: 82, extraCost: 20000 },
   { id: 'first_solo_suite', name: 'Suíte individual', cabin: 'f', icon: 'wide_suite', minPitch: 90, extraCost: 30000, maxRow: 2 },
   { id: 'first_apartment', name: 'Apartamento', cabin: 'f', icon: 'apartment', minPitch: 94, extraCost: 40000, maxRow: 4 },
-  { id: 'first_room_suite', name: 'Suíte quarto', cabin: 'f', icon: 'apartment', minPitch: 100, extraCost: 50000, maxRow: 2 },
+  { id: 'first_room_suite', name: 'Suíte quarto', cabin: 'f', icon: 'room_suite', minPitch: 100, extraCost: 50000, maxRow: 2 },
 ]
 export const SEAT_BY_ID = Object.fromEntries(SEAT_MODELS.map(m => [m.id, m]))
 
@@ -67,13 +67,35 @@ export const confortoDaPoltrona = (style?: string): number => {
 }
 export const rowCount = (layout: string) => layout.split('-').reduce((n, part) => n + Number(part), 0)
 const ROWS = ['1-1', '1-2', '2-1', '1-1-1', '2-2', '1-2-1', '2-3', '3-2', '2-1-2', '3-3', '2-2-2', '2-3-2', '2-4-2', '3-3-3', '3-4-3']
+/** Layouts realmente desenhados para cada família de poltrona no APK. */
+const ICON_LAYOUTS: Record<string, string[]> = {
+  apartment: ['1-1-1', '1-2-1'],
+  eco: ['1-2', '2-2', '2-3', '2-3-2', '2-4-2', '3-3', '3-3-3', '3-4-3'],
+  full_flat: ['1-1', '1-2', '2-1-2', '2-2', '2-2-2', '2-3-2'],
+  open_suite: ['1-1', '1-1-1', '1-2-1'],
+  private_suite: ['1-1-1', '1-2-1'],
+  regional_biz: ['1-1', '1-2', '2-2', '2-2-2', '2-3-2', '2-4-2'],
+  regional_first: ['2-2', '2-2-2', '2-3-2'],
+  reverse_herringbone: ['1-1', '1-1-1', '1-2-1'],
+  room_suite: ['1-1'],
+  staggered: ['1-1', '1-1-1', '1-2-1'],
+  staggered_suite: ['2-2-2', '2-3-2'],
+  studio_suite: ['1-1-1', '1-2-1'],
+  suite: ['2-1-2', '2-2-2'],
+  wide_suite: ['1-1-1', '1-2-1'],
+}
 export function baseAbreast(t: AircraftType, c: CabinClass) {
   const n = t.abreast
   return c === 'y' ? n : c === 'w' ? (n >= 9 ? n - 1 : n) : c === 'c' ? (n <= 4 ? 3 : n <= 6 ? 4 : 6) : (n <= 4 ? 2 : 4)
 }
 export function seatLayouts(t: AircraftType, c: CabinClass, style?: string) {
-  const max = Math.min(baseAbreast(t, c), SEAT_BY_ID[style ?? '']?.maxRow ?? 10)
-  return ROWS.filter(r => rowCount(r) <= max && (t.abreast >= 7 || r.split('-').length <= 2))
+  const model = SEAT_BY_ID[style ?? '']
+  const max = Math.min(baseAbreast(t, c), model?.maxRow ?? 10)
+  const fits = (r: string) => rowCount(r) <= max && (t.abreast >= 7 || r.split('-').length <= 2)
+  const originalArt = model ? ICON_LAYOUTS[model.icon]?.filter(fits) : undefined
+  // Some narrow cabins have no full-row graphic (for example 1-1 economy).
+  // They still use the APK's individual chair icon in the map.
+  return originalArt?.length ? originalArt : ROWS.filter(fits)
 }
 export function normalizeSeats(t: AircraftType, config: SeatConfig | undefined): SeatConfig | undefined {
   if (!config || typeof config !== 'object') return undefined
