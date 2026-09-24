@@ -5,14 +5,15 @@ o gerador de imagens integrado ao Codex em setembro de 2026. O gerador escolhe
 automaticamente o modelo GPT Image disponível e não expõe o identificador da
 versão no resultado; por isso este registro não atribui um número de modelo.
 
-Todos os prompts pediram **um único avião**, perfil lateral ortográfico com
-nariz para a esquerda, avião inteiro centralizado, pintura branca sem companhia,
-fundo branco sólido, trem estendido, detalhes discretos e ausência de texto,
-logotipo e sombra. Os prompts de cargueiro também exigiram porta de carga e
-ausência de fileira de janelas de passageiros. Cada modelo teve uma geração
-separada. O fundo do Tu-204-100C e do 767-300BDSF foi corrigido em uma edição
-posterior que preservou o avião; o An-225 teve uma segunda geração para deixar
-três naceles visíveis na asa próxima e a cauda dupla.
+Todos os prompts pediram **um único avião**, perfil lateral com nariz para a
+esquerda, pintura branca sem companhia, trem totalmente recolhido, sem texto
+ou logotipo. Os cargueiros não recebem fileira de janelas de passageiros.
+Cada modelo teve uma geração separada e foi comparado com os perfis que já
+estavam resolvidos no jogo. O SJ-100 foi encurtado para proporções de jato
+regional; o ATR 72-600F passou a ter apenas a hélice da asa próxima em destaque;
+o An-124 mostra duas naceles na asa próxima, das quatro totais; e o 747-8F
+recebeu o convés superior curto característico. O An-225 mantém três naceles
+na asa próxima, das seis totais, e cauda dupla.
 
 | Modelo | Distinções pedidas no prompt | Sprite final |
 |---|---|---|
@@ -20,26 +21,40 @@ três naceles visíveis na asa próxima e a cauda dupla.
 | An-158 | fuselagem regional alongada, asa alta, cauda T | `public/sprites/aircraft/an158.png` |
 | Il-96-300 | widebody de quatro motores e asa baixa | `public/sprites/aircraft/il96.png` |
 | SJ-100 | jato regional com dois PD-8 sob a asa | `public/sprites/aircraft/sj100.png` |
-| Tu-204-100 | narrowbody longo, winglets e trem principal de seis rodas | `public/sprites/aircraft/tu204.png` |
+| Tu-204-100 | narrowbody longo, winglets e trem recolhido | `public/sprites/aircraft/tu204.png` |
 | ATR 72-600F | asa alta, hélices de seis pás, cauda T | `public/sprites/freighters/atr72f.png` |
 | 737-800BCF | fuselagem estreita convertida e porta dianteira de carga | `public/sprites/freighters/b737f.png` |
 | A321P2F | fuselagem alongada, sharklets e porta de carga | `public/sprites/freighters/a321f.png` |
 | 757-200PCF | fuselagem longa, dois turbofans e porta dianteira | `public/sprites/freighters/b752f.png` |
-| Tu-204-100C | winglets, trem de seis rodas e porão de carga | `public/sprites/freighters/tu204f.png` |
+| Tu-204-100C | winglets, trem recolhido e porta de carga | `public/sprites/freighters/tu204f.png` |
 | 767-300BDSF | widebody bimotor convertido | `public/sprites/freighters/b763f.png` |
 | A330-200F | cargueiro de fábrica, dois motores e piso de carga | `public/sprites/freighters/a332f.png` |
 | Il-96-400T | cargueiro alongado de quatro motores | `public/sprites/freighters/il96f.png` |
 | 747-8F | quatro motores e convés superior curto | `public/sprites/freighters/b748f.png` |
-| An-124-100 | asa alta, quatro motores e trem pesado | `public/sprites/freighters/an124.png` |
+| An-124-100 | asa alta, quatro motores no total e trem recolhido | `public/sprites/freighters/an124.png` |
 | An-225 | seis motores no total, três visíveis em perfil, cauda dupla | `public/sprites/freighters/an225.png` |
 | BelugaXL | fuselagem superior volumosa e cabine abaixo dela | `public/sprites/freighters/belugaxl.png` |
 
-As 17 silhuetas de pintura foram recalculadas a partir das imagens finais em
-`public/sprites/planemasks/`. Os cinco passageiros receberam setores de
-pintura realinhados por `scripts/realign-regenerated-masks.py`, janelas
-extraídas da arte nova e novas alturas de fuselagem em `fusebands.json`.
-Esses perfis usam a oficina de pintura por sprite. Os 63 modelos com base no
-ZIP continuam usando a oficina de camadas originais.
+As 17 silhuetas e máscaras de fuselagem, cauda, motores e trem foram
+recalculadas das imagens finais por `scripts/build-generated-2d.py`. A máscara
+de trem é vazia em todos os 17 modelos. Cada perfil ganhou 15 camadas de
+pintura, incluindo padrões de cauda e fuselagem derivados das camadas do A320
+fornecidas no ZIP, além do acabamento que preserva janelas, portas e sombras.
+Os 63 modelos com base no ZIP continuam usando suas camadas originais.
+
+O `apk_contents.zip` fornecido depois contém fotos dos 28 modelos de poltrona
+e ícones de fileiras. Esses recursos já estavam preservados no acervo do
+projeto; o código da alocação do aplicativo antigo está compilado no bundle
+Hermes, não em arquivos-fonte. A interface de alocação foi reimplementada no
+jogo com as artes de fileira correspondentes, limite de saídas e cálculo de
+espaço da cabine.
+
+Na revisão das silhuetas, foram consultadas as fichas do
+[SJ-100](https://eng.yakovlev.ru/products/sj-100/),
+[ATR 72-600F](https://www.atr-aircraft.com/regional-mobility/regional-aircraft/atr-72-600f-freighter/),
+[747-8](https://www.boeing.com/commercial/747-8),
+[An-124](https://www.antonov.com/en/file/V5hQc2hGrJGRs) e
+[An-225](https://www.antonov.com/en/file/V5hQc2hGrJGRs?inline=1).
 
 A [galeria de pintura simulada](images/pintura-simulada-17.png) mostra os 17
 perfis pelo renderizador real do jogo, usando o preset Bandeirante e o letreiro

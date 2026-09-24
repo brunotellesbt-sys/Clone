@@ -6,7 +6,7 @@ import { emblemHref } from './emblems'
 import { Bandeira } from './Flag'
 import { LiveryPlane } from './LiveryPlane'
 import { RasterAircraft } from './RasterAircraft'
-import { SOURCE_2D } from './aircraft2d'
+import { PAINTABLE_2D } from './aircraft2d'
 import {
   bodyMaskHref, cockpitMaskHref, entreTodas, faixaDoPerfil, fuseBands, leadingEdgeMaskHref, measure,
   measured, pieceBox, tubeProfile,
@@ -39,7 +39,7 @@ interface Props {
  * cai no desenho vetorial do próprio jogo.
  */
 export function AircraftArt(props: Props) {
-  return SOURCE_2D[props.type.id] ? <RasterAircraft {...props} /> : <OriginalAircraftArt {...props} />
+  return PAINTABLE_2D[props.type.id] ? <RasterAircraft {...props} /> : <OriginalAircraftArt {...props} />
 }
 
 function OriginalAircraftArt(props: Props) {

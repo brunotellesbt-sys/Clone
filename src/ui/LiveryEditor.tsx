@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Aircraft2DEditor } from './Aircraft2DEditor'
-import { SOURCE_2D } from '../livery/aircraft2d'
+import { PAINTABLE_2D } from '../livery/aircraft2d'
 import { aircraftPng, downloadFile } from '../livery/export'
 import { ENGINES } from '../game/data/engines'
 import { AIRCRAFT_ALL, acLabel, AIRCRAFT_BY_ID } from '../game/data/aircraft'
@@ -138,7 +138,7 @@ export function LiveryEditor() {
             flagCC={hub?.cc}
           />
         </div>
-        {!SOURCE_2D[preview] && creditLine(preview, previewEngineId) && (
+        {!PAINTABLE_2D[preview] && creditLine(preview, previewEngineId) && (
           <p className="muted" style={{ fontSize: 11, margin: '6px 2px 0' }}>
             {creditLine(preview, previewEngineId)}{' '}
             <a
@@ -151,7 +151,7 @@ export function LiveryEditor() {
         )}
       </Card>
 
-      {SOURCE_2D[preview] ? <Aircraft2DEditor key={preview} type={type} engineId={previewEngineId} livery={livery} change={apply} toast={toast} /> : <div className="split">
+      {PAINTABLE_2D[preview] ? <Aircraft2DEditor key={preview} type={type} engineId={previewEngineId} livery={livery} change={apply} toast={toast} /> : <div className="split">
         <Card>
           <div className="nav" style={{ margin: '-14px -14px 10px', padding: '6px 8px 0', borderRadius: '12px 12px 0 0' }}>
             {SECTIONS.map((s) => (

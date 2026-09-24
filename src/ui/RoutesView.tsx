@@ -602,6 +602,7 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
                   })
                   if (err) return toast(err, 'error')
                   setDest(null)
+                  onClose()
                   if (novoId) onOpened(novoId)
                 }}
               >

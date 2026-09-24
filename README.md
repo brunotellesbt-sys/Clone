@@ -9,9 +9,9 @@ Feito para publicar no GitHub Pages: `npm run build` gera uma pasta estática.
 
 ## Integração Sistema Aeronaves 2D
 
-63 modelos do catálogo recebem as camadas do ZIP fornecido pelo usuário, com pintura por camada, motores, winglets, textos, símbolos e fontes. A cabine inclui 28 modelos de poltrona e um mapa cuja distribuição participa da validação de espaço.
+63 modelos do catálogo recebem as camadas do ZIP fornecido pelo usuário, com pintura por camada, motores, winglets, textos, símbolos e fontes. Outros 17 perfis foram refeitos sem trem de pouso e usam a mesma oficina de camadas, com padrões do acervo. A cabine reúne 28 modelos de poltrona, controles por fileira e um mapa com os ícones originais; a distribuição participa da validação de espaço.
 
-As 13 bases que faltavam agora podem ser compradas, arrendadas e usadas em rotas: Q200, Q300, CRJ200, ERJ135LR, ERJ140LR, ERJ145LR, Superjet 100-95B, A318, 717-200, 737-600, A340-300, A340-600 e 747-400. Use a busca do Mercado para encontrá-las. As 57 bases do ZIP têm correspondência; os 17 modelos sem arte equivalente foram regenerados como sprites próprios, com novas silhuetas para pintura. A galeria de poltronas também funciona nos cinco passageiros desse grupo. [Fichas, fontes e convenções dos novos tipos](docs/FONTES-AERONAVES-CLASSICAS.md).
+As 13 bases que faltavam agora podem ser compradas, arrendadas e usadas em rotas: Q200, Q300, CRJ200, ERJ135LR, ERJ140LR, ERJ145LR, Superjet 100-95B, A318, 717-200, 737-600, A340-300, A340-600 e 747-400. Use a busca do Mercado para encontrá-las. As 57 bases do ZIP têm correspondência; os 17 modelos sem arte equivalente foram regenerados e receberam camadas de pintura. A alocação de assentos também funciona nos cinco passageiros desse grupo. [Fichas, fontes e convenções dos novos tipos](docs/FONTES-AERONAVES-CLASSICAS.md).
 
 [Veja a pintura simulada dos 17 modelos](docs/images/pintura-simulada-17.png), renderizada pelo jogo com o preset Bandeirante. Essa prévia é apenas uma demonstração: a pintura da sua companhia continua configurável na aba Pintura.
 

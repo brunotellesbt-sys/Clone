@@ -15,7 +15,7 @@ function App() {
     {ids.map(id => <div key={id} data-type={id} className="plane-frame"><b>{id} · {AIRCRAFT_BY_ID[id].name}</b>
       <AircraftArt type={AIRCRAFT_BY_ID[id]} engineId={params.get('engine') ?? undefined} livery={{ ...BLANK_LIVERY, engine: '#22aaff', cheatStyle: 'none' }} titles="SKYLINE" registration="PT-ABC" flagCC="BR" />
     </div>)}
-    {params.has('seats') && <SeatMapEditor type={AIRCRAFT_BY_ID.a359} seats={{ y: 160, w: 24, c: 16, f: 4 }} pitch={{ y: 31, w: 38, c: 76, f: 94 }} config={{ c: { style: 'biz_reverse_herringbone', layout: '1-2-1' }, f: { style: 'first_apartment', layout: '1-2-1' } }} change={() => {}} />}
+    {params.has('seats') && <SeatMapEditor type={AIRCRAFT_BY_ID.a359} seats={{ y: 160, w: 24, c: 16, f: 4 }} pitch={{ y: 31, w: 38, c: 76, f: 94 }} config={{ c: { style: 'biz_reverse_herringbone', layout: '1-2-1' }, f: { style: 'first_apartment', layout: '1-2-1' } }} change={() => {}} setAssentos={() => {}} setPasso={() => {}} />}
   </div>
 }
 // Somente a página de QA expõe o exportador para conferir pixels do PNG no teste.
