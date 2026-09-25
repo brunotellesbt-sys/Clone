@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import type { AircraftType } from '../game/data/aircraft'
 import {
-  ajustarClasse, clampPitch, limiteDaClasse, passoMaximo, PITCH_RANGE,
+  ajustarClasse, normalizarCabine, passoMaximo, PITCH_RANGE,
 } from '../game/cabin'
-import { CABINS, type Cabins, type SeatConfig } from '../game/types'
+import { type Cabins, type SeatConfig } from '../game/types'
+import { SEAT_BY_ID } from '../game/seatModels'
 
 export interface CabineMontada {
   seats: Cabins
@@ -20,9 +21,10 @@ export interface CabineMontada {
  * e a segunda ia envelhecer sozinha.
  */
 export function useCabine(t: AircraftType, inicial: CabineMontada) {
-  const [seats, setSeats] = useState<Cabins>({ ...inicial.seats })
-  const [pitch, setPitch] = useState<Cabins>(clampPitch(inicial.pitch))
-  const [seatConfig, setSeatConfig] = useState<SeatConfig>(inicial.seatConfig)
+  const [base] = useState(() => normalizarCabine(t, inicial.seats, inicial.pitch, inicial.seatConfig))
+  const [seats, setSeats] = useState<Cabins>(base.seats)
+  const [pitch, setPitch] = useState<Cabins>(base.pitch)
+  const [seatConfig, setSeatConfig] = useState<SeatConfig>(base.seatConfig)
 
   /**
    * Toda mudança passa por aqui, e por isso a trava não tem por onde vazar.
@@ -33,18 +35,11 @@ export function useCabine(t: AircraftType, inicial: CabineMontada) {
    * executiva por cima e acabar estourado sem nenhum controle ter passado do
    * próprio limite.
    */
-  const aplicar = (next: { seats: Cabins; pitch: Cabins; config?: SeatConfig }, mexida?: keyof Cabins) => {
-    const cfg = next.config ?? seatConfig
-    const s2 = { ...next.seats }
-    const p2 = { ...next.pitch }
-    for (const c of CABINS) {
-      if (c === mexida) continue
-      s2[c] = Math.min(s2[c], limiteDaClasse(t, s2, p2, c, cfg))
-      p2[c] = Math.min(p2[c], passoMaximo(t, s2, p2, c, cfg))
-    }
-    setSeats(s2)
-    setPitch(p2)
-    if (next.config) setSeatConfig(next.config)
+  const aplicar = (next: { seats: Cabins; pitch: Cabins; config?: SeatConfig }) => {
+    const normalized = normalizarCabine(t, next.seats, next.pitch, next.config ?? seatConfig)
+    setSeats(normalized.seats)
+    setPitch(normalized.pitch)
+    setSeatConfig(normalized.seatConfig)
   }
 
   return {
@@ -53,16 +48,15 @@ export function useCabine(t: AircraftType, inicial: CabineMontada) {
     seatConfig,
     aplicar,
     setAssentos: (c: keyof Cabins, v: number) =>
-      aplicar({ seats: ajustarClasse(t, seats, pitch, c, v, seatConfig), pitch }, c),
+      aplicar({ seats: ajustarClasse(t, seats, pitch, c, v, seatConfig), pitch }),
     setPasso: (c: keyof Cabins, v: number) => {
       const teto = passoMaximo(t, seats, pitch, c, seatConfig)
-      aplicar({ seats, pitch: { ...pitch, [c]: Math.max(PITCH_RANGE[c][0], Math.min(teto, Math.round(v))) } }, c)
+      const min = SEAT_BY_ID[seatConfig[c]?.style ?? '']?.minPitch ?? PITCH_RANGE[c][0]
+      aplicar({ seats, pitch: { ...pitch, [c]: Math.max(min, Math.min(teto, Math.round(v))) } })
     },
     /** Carrega um padrão ou uma cabine guardada por inteiro. */
     carregar: (b: { seats: Cabins; pitch: Cabins; seatConfig?: SeatConfig }) => {
-      setSeatConfig(b.seatConfig ?? {})
-      setSeats({ ...b.seats })
-      setPitch(clampPitch(b.pitch))
+      aplicar({ seats: b.seats, pitch: b.pitch, config: b.seatConfig ?? {} })
     },
   }
 }

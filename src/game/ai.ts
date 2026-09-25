@@ -311,7 +311,9 @@ function limitarPelaFrota(comp: Competitor) {
 }
 
 /** Decisão semanal: mexe em tarifa, oferta, abre e fecha rota. */
-export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, playerPressure: Record<string, number>) {
+export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, playerPressure: Record<string, number>, playerRoutes = 0) {
+  const ritmoJogador = 1 + Math.min(0.55, playerRoutes / 45)
+  const limiteDeRotas = Math.min(70, 34 + Math.floor(playerRoutes * 0.45))
   for (const comp of comps) {
     for (const r of comp.routes) {
       const pressure = playerPressure[r.key] ?? 0
@@ -342,11 +344,8 @@ export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, play
       }
       r.quality = Math.min(1.3, r.quality * between(rng, 0.997, 1.006))
     }
-    // o que ela prometeu acima tem que caber na frota dela
-    limitarPelaFrota(comp)
-
     // Crescimento e poda.
-    if (chance(rng, 0.17 * comp.aggression) && comp.routes.length < 34) {
+    if (chance(rng, 0.17 * comp.aggression * ritmoJogador) && comp.routes.length < limiteDeRotas) {
       // a rota nova tem que caber no que a companhia já alcança: é assim que
       // ela sobe de doméstica a regional e a internacional, um degrau por vez
       const dests = candidateDestinations(comp.hub, day, 60, alcanceDe(comp, day))
@@ -387,6 +386,8 @@ export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, play
       }
     }
 
+    // Inclui as rotas e frequências que acabaram de crescer nesta rodada.
+    limitarPelaFrota(comp)
     comp.reputation = Math.min(0.95, Math.max(0.3, comp.reputation + between(rng, -0.006, 0.007)))
   }
 }
@@ -397,7 +398,7 @@ export const competitorHubName = (c: Competitor) => AIRPORT_BY_IATA[c.hub]?.city
 
 /**
  * Anos de jogo antes de a primeira companhia nova poder aparecer, e o
- * intervalo mínimo entre a primeira e a segunda de um mesmo país.
+ * intervalo mínimo entre as duas novas companhias no mundo.
  *
  * Quinze anos dos dois lados, e o número é o que o dono do jogo pediu. A razão
  * dele é boa e vale registrar: companhia aérea nascendo é notícia rara, e
@@ -408,8 +409,8 @@ export const competitorHubName = (c: Competitor) => AIRPORT_BY_IATA[c.hub]?.city
 const ANOS_ATE_A_PRIMEIRA = 15
 const ANOS_ENTRE_FUNDACOES = 15
 
-/** No máximo duas por país, para sempre. */
-const FUNDACOES_POR_PAIS = 2
+/** No máximo duas novas companhias no mundo, para sempre. */
+const FUNDACOES_NO_MUNDO = 2
 
 /**
  * Quanto do mercado do país precisa estar sobrando para valer a pena fundar.
@@ -423,9 +424,8 @@ const SOBRA_MINIMA = 0.35
 /**
  * Chance de **alguém no mundo** fundar uma companhia, por semana.
  *
- * Um por cento e meio dá uma fundação a cada ano e pouco de jogo — raro o
- * bastante para ser notícia, frequente o bastante para um jogo de trinta anos
- * ver umas vinte e poucas.
+ * Um por cento e meio dá uma oportunidade rara de fundação depois que a
+ * janela de quinze anos e a sobra de mercado deixam o país elegível.
  *
  * A primeira versão multiplicava esta chance pelo **número de países
  * habilitados**, e o resultado media o oposto do pedido: com cento e cinquenta
@@ -462,10 +462,8 @@ function ocupacaoDoPais(cc: string, comps: Competitor[], hubsDoJogador: string[]
 /**
  * Uma companhia nova, talvez.
  *
- * Roda uma vez por semana e quase sempre não faz nada: são 0,15% de chance por
- * país habilitado, e a maioria dos países nunca fica habilitada. Num mundo
- * equilibrado isso dá algo como uma fundação a cada oito ou dez anos de jogo —
- * raro o bastante para virar notícia quando acontece, que é o ponto.
+ * Roda uma vez por semana e quase sempre não faz nada. A chance é mundial,
+ * depois de aplicados os intervalos de quinze anos e o limite total de duas.
  *
  * Quem nasce não nasce grande: três a seis rotas, caixa pequeno, e nas ligações
  * que o país **não** tem. É por aí que companhia de verdade entra num mercado
@@ -480,12 +478,12 @@ export function fundarCompanhia(
 ): Competitor | null {
   const anos = day / 365
   if (anos < ANOS_ATE_A_PRIMEIRA) return null
+  const anteriores = Object.values(fundadas).flat().sort((a, b) => a - b)
+  if (anteriores.length >= FUNDACOES_NO_MUNDO) return null
+  if (anteriores.length && anos - anteriores[anteriores.length - 1] < ANOS_ENTRE_FUNDACOES) return null
 
   const candidatos = MERCADOS.filter((m) => {
     if (m.cota === 0) return false
-    const antes = fundadas[m.cc] ?? []
-    if (antes.length >= FUNDACOES_POR_PAIS) return false
-    if (antes.length && anos - antes[antes.length - 1] < ANOS_ENTRE_FUNDACOES) return false
     return 1 - ocupacaoDoPais(m.cc, comps, hubsDoJogador) >= SOBRA_MINIMA
   })
   if (!candidatos.length) return null

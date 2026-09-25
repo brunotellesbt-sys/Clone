@@ -30,7 +30,10 @@
     "crescimento": "python3 scripts/crescimento.py",
     "prebuild": "node scripts/art.mjs || echo \"arte da Commons indisponivel; usando os desenhos vetoriais\"",
     "aircraft2d:check": "tsx scripts/aircraft2d-check.ts",
-    "aircraft2d:ui": "node scripts/aircraft2d-ui.mjs"
+    "aircraft2d:ui": "node scripts/aircraft2d-ui.mjs",
+    "cabin:selected": "node scripts/cabin-selected-ui.mjs",
+    "ai:foundation": "tsx scripts/ai-foundation.ts",
+    "flights:check": "tsx scripts/flight-metrics.ts"
   },
   "dependencies": {
     "d3-geo": "^3.1.1",

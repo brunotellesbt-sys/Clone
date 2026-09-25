@@ -3,9 +3,9 @@ import { AIRCRAFT_ALL, acLabel, ehCargueiro, FAMILY_OF, type AircraftType } from
 import { AIRPORT_BY_IATA } from '../game/data/airports'
 import { engineLabel, type Engine } from '../game/data/engines'
 import {
-  cabinComfort, cabinLength, defaultCabin, layoutsDe, rowLayout, sumSeats, textoDasClasses,
+  cabinComfort, cabinLength, defaultCabin, normalizarCabine, rowLayout, sumSeats, textoDasClasses,
 } from '../game/cabin'
-import { custoDeFabrica, SEAT_MODELS } from '../game/seatModels'
+import { custoDeFabrica, normalizeSeats } from '../game/seatModels'
 import { SeatMapEditor } from './SeatMapEditor'
 import { useCabine } from './useCabine'
 import { leaseMonthly, marketPrice } from '../game/economy'
@@ -16,7 +16,7 @@ import { enginesOf, withEngine } from '../game/spec'
 import { useGame } from '../store/useGame'
 import { AircraftArt } from '../livery/AircraftArt'
 import { Card } from './components/Bits'
-import { CABINS, type Cabins, type SeatConfig } from '../game/types'
+import { type Cabins, type SeatConfig } from '../game/types'
 
 const FAMILY_LABEL: Record<string, string> = {
   turboprop: 'Turboélice', regional: 'Regional', narrowbody: 'Corredor único', widebody: 'Fuselagem larga',
@@ -183,8 +183,11 @@ function Encomenda({ model, price, lease, available, since, onAcquire }: {
   onAcquire: (lease: boolean, cabine?: { seats: Cabins; pitch: Cabins; seatConfig?: SeatConfig }) => void
 }) {
   const { state } = useGame()
-  const serie = useMemo(() => defaultCabin(model, 1), [model])
-  const cab = useCabine(model, { ...serie, seatConfig: {} })
+  const serie = useMemo(() => {
+    const base = defaultCabin(model, 1)
+    return normalizarCabine(model, base.seats, base.pitch)
+  }, [model])
+  const cab = useCabine(model, serie)
   const [mexeu, setMexeu] = useState(false)
   const salvas = cabinesDoModelo(state, model.id)
   const carga = ehCargueiro(model)
@@ -193,29 +196,14 @@ function Encomenda({ model, price, lease, available, since, onAcquire }: {
   // Só cobra interior de quem encomendou: a cabine de série já vem no preço.
   const extra = mexeu && !carga ? custoDeFabrica(cab.seats, cab.seatConfig) : 0
   const mostrada = mexeu ? encomenda : serie
-  const conforto = cabinComfort(model, mostrada.seats, mostrada.pitch, mexeu ? cab.seatConfig : undefined)
+  const conforto = cabinComfort(model, mostrada.seats, mostrada.pitch, mexeu ? cab.seatConfig : serie.seatConfig)
   // O arrendador não cobra o interior à vista: ele dilui no contrato. Ver
   // `buyAircraft`, que é quem manda — aqui só se repete a conta para a tela.
   const mensal = lease + extra / PRAZO_DO_ARRENDAMENTO
   const comprar = (arrendar: boolean) => onAcquire(arrendar, mexeu && !carga ? encomenda : undefined)
 
-  /**
-   * Carrega um padrão já com a poltrona mais simples de cada classe escolhida.
-   *
-   * Os padrões do catálogo não nomeiam poltrona — eles dizem quantos assentos
-   * e em que passo. Carregar um deles e deixar a poltrona em "configuração
-   * atual do jogo" fazia a foto sumir e escondia justamente a escolha que esta
-   * tela existe para oferecer. A mais barata da classe custa zero, então o
-   * padrão continua saindo pelo mesmo preço — o que muda é ele ficar à vista.
-   */
   const carregar = (b: { seats: Cabins; pitch: Cabins; seatConfig?: SeatConfig }) => {
-    const cfg: SeatConfig = { ...b.seatConfig }
-    for (const c of CABINS) {
-      if (cfg[c]) continue
-      const base = SEAT_MODELS.find((m) => m.cabin === c && m.minPitch <= b.pitch[c])
-      if (base) cfg[c] = { style: base.id, layout: rowLayout(model, c) }
-    }
-    cab.carregar({ ...b, seatConfig: cfg })
+    cab.carregar({ ...b, seatConfig: normalizeSeats(model, b.seatConfig, b.pitch) })
     setMexeu(true)
   }
 
@@ -237,16 +225,6 @@ function Encomenda({ model, price, lease, available, since, onAcquire }: {
             troca em seguida.
           */}
           <div className="lista-curta row tight" style={{ flexWrap: 'wrap' }}>
-            <button className={`btn sm ${mexeu ? '' : 'primary'}`}
-              onClick={() => { cab.carregar({ ...serie, seatConfig: {} }); setMexeu(false) }}>
-              De série
-            </button>
-            {layoutsDe(model).map((l) => (
-              <button key={l.id} className="btn sm" title={l.note}
-                onClick={() => carregar({ ...l.build(model), seatConfig: {} })}>
-                {l.name}
-              </button>
-            ))}
             {salvas.map((c) => (
               <button key={c.id} className="btn sm" onClick={() => carregar(c)}>{c.nome}</button>
             ))}
@@ -265,7 +243,7 @@ function Encomenda({ model, price, lease, available, since, onAcquire }: {
             {' '}
             {mexeu
               ? `Interior encomendado: ${money(extra)}, cobrado junto com a aeronave. O avião entra voando — quem remonta depois paga a reforma e fica com a cauda parada.`
-              : 'De série, o avião chega com a cabine padrão do modelo, sem custo de interior. Mexa em qualquer coisa acima para encomendar a sua.'}
+              : 'A cabine mostrada acompanha a aeronave; altere as poltronas para encomendar outra configuração.'}
             {' '}{textoDasClasses(model)}
           </p>
         </Card>

@@ -16,6 +16,7 @@ import type { SlotSummary } from './game/save'
 import type { GameState } from './game/types'
 import { GameContext, useGame } from './store/useGame'
 import { Dashboard } from './ui/Dashboard'
+import { CompetitorsView } from './ui/CompetitorsView'
 import { FinanceView } from './ui/FinanceView'
 import { FleetView } from './ui/FleetView'
 import { LiveryEditor } from './ui/LiveryEditor'
@@ -33,6 +34,7 @@ const TABS = [
   { id: 'financas', label: 'Finanças' },
   { id: 'pintura', label: 'Pintura' },
   { id: 'ranking', label: 'Ranking' },
+  { id: 'companhias', label: 'Companhias' },
 ]
 
 const SPEEDS = [
@@ -176,6 +178,7 @@ export function App() {
             {tab === 'financas' && <FinanceView />}
             {tab === 'pintura' && <LiveryEditor />}
             {tab === 'ranking' && <RankingView />}
+            {tab === 'companhias' && <CompetitorsView />}
           </div>
         </main>
 

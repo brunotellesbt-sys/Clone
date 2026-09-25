@@ -1,9 +1,8 @@
-import { normalizeSeats } from './seatModels'
 import { migrateLivery } from '../livery/presets'
-import { migrarEscala, sincronizarMalha } from './escala'
-import { AIRCRAFT_BY_ID } from './data/aircraft'
+import { completarNumeros, migrarEscala, sincronizarMalha } from './escala'
+import { AIRCRAFT_BY_ID, ehCargueiro } from './data/aircraft'
 import { AIRPORT_BY_IATA } from './data/airports'
-import { clampPitch, defaultCabin } from './cabin'
+import { clampPitch, defaultCabin, normalizarCabine } from './cabin'
 import { engineIdFor } from './spec'
 import type { Aircraft, GameState } from './types'
 
@@ -27,6 +26,7 @@ function migrate(s: GameState): GameState | null {
     (r) => AIRPORT_BY_IATA[r.from] && AIRPORT_BY_IATA[r.to],
   )
   s.airline.loans = s.airline.loans ?? []
+  s.airline.codeshareNumbers ??= {}
   s.competitors = s.competitors ?? []
   s.ledger = s.ledger ?? []
   s.notices = s.notices ?? []
@@ -40,8 +40,9 @@ function migrate(s: GameState): GameState | null {
     if (!t) return []
     ac.engineId = engineIdFor(t, ac.engineId)
     ac.pitch = clampPitch(ac.pitch)
-    ac.seatConfig = normalizeSeats(t, ac.seatConfig)
     if (!ac.seats || typeof ac.seats.y !== 'number') ac.seats = defaultCabin(t).seats
+    if (ehCargueiro(t)) ac.seatConfig = undefined
+    else Object.assign(ac, normalizarCabine(t, ac.seats, ac.pitch, ac.seatConfig))
     ac.cc = ac.cc || AIRPORT_BY_IATA[s.airline.hubs[0]]?.cc || 'BR'
     return [ac]
   })
@@ -51,6 +52,7 @@ function migrate(s: GameState): GameState | null {
     (p) => AIRPORT_BY_IATA[p.from] && AIRPORT_BY_IATA[p.to] &&
       s.airline.fleet.some((a) => a.id === p.aircraftId),
   )
+  completarNumeros(s)
   sincronizarMalha(s)
 
   s.version = SAVE_VERSION

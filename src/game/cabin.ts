@@ -1,4 +1,4 @@
-import { baseAbreast, confortoDaPoltrona, rowCount, SEAT_BY_ID, seatLayouts } from './seatModels'
+import { baseAbreast, confortoDaPoltrona, normalizeSeats, normalizeSeatPitch, rowCount, SEAT_BY_ID, seatLayouts } from './seatModels'
 // Configuração de cabine. Vale a mesma aritmética que uma companhia usa de
 // verdade: a cabine tem um comprimento útil, cada classe tem um número de
 // assentos por fileira, e cada fileira come o passo de poltrona escolhido.
@@ -12,18 +12,8 @@ import { CABIN_LABEL, CABINS, type CabinClass, type Cabins, type SeatConfig } fr
 export const PITCH_RANGE: Record<CabinClass, [number, number, number]> = {
   y: [28, 31, 35],
   w: [34, 38, 42],
-  c: [38, 60, 82],
-  f: [60, 83, 100],
-}
-
-/** Como o passo se chama na prática, em cada classe. */
-export function pitchName(cabin: CabinClass, inches: number): string {
-  const [min, , max] = PITCH_RANGE[cabin]
-  const f = (inches - min) / (max - min)
-  if (cabin === 'y') return f < 0.25 ? 'ultradensa' : f < 0.6 ? 'padrão' : 'espaço extra'
-  if (cabin === 'w') return f < 0.4 ? 'econômica plus' : 'premium de verdade'
-  if (cabin === 'c') return f < 0.3 ? 'poltrona reclinável' : f < 0.72 ? 'angular-lie-flat' : 'cama plana'
-  return f < 0.45 ? 'primeira doméstica' : 'suíte'
+  c: [36, 60, 91],
+  f: [48, 83, 100],
 }
 
 /** Assentos por fileira em cada classe, a partir da econômica do modelo. */
@@ -238,7 +228,9 @@ export function limiteDaClasse(
 export function passoMaximo(
   t: AircraftType, seats: Cabins, pitch: Cabins, c: CabinClass, config?: SeatConfig,
 ): number {
-  const [min, , max] = PITCH_RANGE[c]
+  const model = SEAT_BY_ID[config?.[c]?.style ?? '']
+  const min = model?.minPitch ?? PITCH_RANGE[c][0]
+  const max = model?.maxPitch ?? PITCH_RANGE[c][2]
   const fileiras = rowsOf(t, seats, c, config)
   if (seats[c] <= 0 || fileiras <= 0) return max
   const outras = { ...seats, [c]: 0 }
@@ -325,7 +317,9 @@ export function checkCabin(t: AircraftType, seats: Cabins, pitch: Cabins, config
     if (!setting || seats[c] === 0) continue
     const model = SEAT_BY_ID[setting.style]
     if (!model || model.cabin !== c || !seatLayouts(t, c, setting.style).includes(setting.layout)) seatError = 'Distribuição incompatível com a poltrona ou largura da cabine.'
-    else if (pitch[c] < model.minPitch) seatError = `${model.name} exige passo de pelo menos ${model.minPitch}″.`
+    else if (pitch[c] < model.minPitch || pitch[c] > model.maxPitch) seatError = model.fixedPitch
+      ? `${model.name} usa passo fixo de ${model.minPitch}″.`
+      : `${model.name} permite passo de ${model.minPitch}″ a ${model.maxPitch}″.`
   }
   return { used, available, seats: total, limit: t.maxSeats, overLength, overLimit, invalid, seatError, ok: !overLength && !overLimit && !invalid && !seatError }
 }
@@ -343,17 +337,11 @@ export function pitchFare(cabin: CabinClass, inches: number): number {
   return Math.max(0.55, 1 + (f - fStd) * swing)
 }
 
-/** Conforto da cabine montada, ponderado pelos assentos de cada classe. */
 /**
- * Peso da poltrona no conforto, ao lado do passo.
- *
- * Menor que o do passo de propósito: espaço para a perna é o que o passageiro
- * sente primeiro, e nenhuma suíte compensa uma fileira apertada. Mas não é
- * pequeno — trocar Super slim por Luxo na econômica vale tanto quanto três
- * polegadas de passo, que é a ordem de grandeza certa.
+ * Apelo original do APK convertido em fator comercial (0,8–1,2),
+ * ponderado pelos assentos. Cabines antigas sem modelo explícito mantêm
+ * o cálculo pelo passo até a migração do save.
  */
-const PESO_POLTRONA = 0.22
-
 export function cabinComfort(
   t: AircraftType, seats: Cabins, pitch: Cabins, config?: SeatConfig,
 ): number {
@@ -364,14 +352,24 @@ export function cabinComfort(
     if (seats[c] <= 0) continue
     const [min, std, max] = PITCH_RANGE[c]
     const f = (inches(pitch[c], min, max) - (std - min) / (max - min)) * (c === 'y' ? 0.34 : 0.2)
-    // A poltrona escolhida entra aqui. Ver `confortoDaPoltrona`: o catálogo já
-    // cobrava por ela, e até agora ela não mudava nada na simulação.
-    const poltrona = PESO_POLTRONA * confortoDaPoltrona(config?.[c]?.style)
-    acc += seats[c] * (1 + f + poltrona)
+    const modelo = config?.[c]
+    const conforto = modelo ? 0.8 + 0.4 * confortoDaPoltrona(modelo.style, pitch[c], t, modelo.layout) : 1 + f
+    acc += seats[c] * conforto
   }
   return (acc / total) * (0.96 + 0.04 * t.abreast / 6)
 }
 const inches = (v: number, min: number, max: number) => (v - min) / (max - min)
+
+/** Migração e fábrica: aplica as poltronas do APK e ajusta a cabine ao espaço real. */
+export function normalizarCabine(t: AircraftType, seats: Cabins, pitch: Cabins, config?: SeatConfig) {
+  const seatConfig = normalizeSeats(t, config, pitch)
+  const p = normalizeSeatPitch(clampPitch(pitch), seatConfig)
+  const ajustados: Cabins = { y: 0, w: 0, c: 0, f: 0 }
+  for (const c of ['f', 'c', 'w', 'y'] as const) {
+    ajustados[c] = Math.min(Math.max(0, Math.round(seats[c])), limiteDaClasse(t, ajustados, p, c, seatConfig))
+  }
+  return { seats: ajustados, pitch: p, seatConfig }
+}
 
 // ------------------------------------------------------------------ layouts
 
@@ -474,7 +472,7 @@ export const LAYOUTS: Layout[] = [
     id: 'longhaul',
     exige: ['w', 'c'],
     name: 'Longo curso',
-    note: 'Cama plana na executiva, premium de verdade e econômica no passo normal. Cabe menos gente e rende muito mais por assento.',
+    note: 'Distribuição de longo curso com mais espaço nas classes dianteiras.',
     build: (t) =>
       fill(t, P(0, seatsFor(t, 'w', wide(t) ? 0.09 : 0.08), seatsFor(t, 'c', wide(t) ? 0.13 : 0.1), 0), P(31, 38, 76, 83)),
   },

@@ -1,7 +1,8 @@
 import type { AircraftType } from '../game/data/aircraft'
-import { abreastOf, comportaClasse, limiteDaClasse, passoMaximo, PITCH_RANGE, rowLayout } from '../game/cabin'
+import { abreastOf, cabinComfort, comportaClasse, limiteDaClasse, passoMaximo, PITCH_RANGE, rowLayout, sumSeats } from '../game/cabin'
 import { CABIN_LABEL, type CabinClass, type Cabins, type SeatConfig } from '../game/types'
-import { rowCount, SEAT_BY_ID, SEAT_MODELS, seatLayouts } from '../game/seatModels'
+import { apeloDaPoltrona, confortoDaPoltrona, rowCount, SEAT_BY_ID, seatModelsFor, seatLayouts } from '../game/seatModels'
+import { money } from '../game/engine'
 import { asset2d, use2d, type LibraryItem } from '../livery/aircraft2d'
 
 const ORDER: CabinClass[] = ['f', 'c', 'w', 'y']
@@ -19,6 +20,8 @@ export function SeatMapEditor({ type, seats, pitch, config, change, setAssentos,
   const { data: library = [] } = use2d<LibraryItem[]>('library.json')
   const byName = new Map(library.map(a => [a.id, a]))
   const order = ORDER.filter(c => comportaClasse(type, c))
+  const comfort = cabinComfort(type, seats, pitch, config)
+  const reputationBonus = (value: number) => Math.min(0.12, Math.max(-0.06, (value - 1) * 0.55))
   return <section className="a2-cabin">
     <h3>Alocação de assentos</h3>
     <p className="dim">Monte a cabine por fileiras, da frente para o fundo. Escolha a poltrona, a distribuição e o espaço entre fileiras. O limite de saídas e o comprimento útil do avião são aplicados a cada mudança.</p>
@@ -36,21 +39,27 @@ export function SeatMapEditor({ type, seats, pitch, config, change, setAssentos,
         ? limiteDaClasse(type, seats, pitch, c, config)
         : limiteDaClasse(type, { ...seats, y: 0 }, pitch, c, config)
       const maxPitch = passoMaximo(type, seats, pitch, c, config)
+      const gain = 0.4 * confortoDaPoltrona(model?.id, pitch[c], type, layout) *
+        seats[c] / Math.max(1, sumSeats(seats)) * (0.96 + 0.04 * type.abreast / 6)
+      const reputationGain = 100 * (reputationBonus(comfort) - reputationBonus(comfort - gain))
       return <div className="a2-seat-card" key={c}>
         <div className="a2-seat-card-head"><b>{CABIN_LABEL[c]}</b><span>{seats[c]} assentos · {rows} fileiras</span></div>
+        <div className="a2-seat-benefit" title="Índice de apelo do APK, que pode superar 100%. Ganho máximo de reputação comparado ao menor apelo da classe; o efeito na companhia depende do restante da frota.">
+          <strong>👍 {Math.round(apeloDaPoltrona(model?.id, pitch[c], type, layout))}% apelo</strong>
+          <span>até +{reputationGain.toFixed(1)} p.p. no alvo de reputação</span>
+        </div>
         {photo && <img className="a2-seat-photo" src={asset2d(photo.file)} alt={`Poltrona ${model.name}`} />}
         <div className="a2-seat-controls">
           <label>Modelo de poltrona<select aria-label={`Poltrona ${c}`} value={selected?.style ?? ''} onChange={e => {
             const style = e.target.value
             const next = { ...config }
-            if (!style) { delete next[c]; change(next, pitch); return }
             const allowed = seatLayouts(type, c, style)
             next[c] = { style, layout: allowed.includes(layout) ? layout : allowed.at(-1)! }
-            change(next, { ...pitch, [c]: Math.max(pitch[c], SEAT_BY_ID[style].minPitch) })
-          }}><option value="">Poltrona padrão</option>{SEAT_MODELS.filter(m => m.cabin === c).map(m =>
-            <option key={m.id} value={m.id}>{m.name} · mín. {m.minPitch}″</option>)}</select></label>
+            change(next, { ...pitch, [c]: Math.max(SEAT_BY_ID[style].minPitch, Math.min(pitch[c], SEAT_BY_ID[style].maxPitch)) })
+          }}>{seatModelsFor(type, c).map(m =>
+            <option key={m.id} value={m.id}>{m.name} · {m.fixedPitch ? `${m.minPitch}″` : `${m.minPitch}–${m.maxPitch}″`}</option>)}</select></label>
           <label>Assentos por fileira<select aria-label={`Distribuição ${c}`} value={layout} onChange={e => {
-            const style = selected?.style ?? SEAT_MODELS.find(m => m.cabin === c)!.id
+            const style = selected?.style ?? seatModelsFor(type, c)[0].id
             change({ ...config, [c]: { style, layout: e.target.value } },
               { ...pitch, [c]: Math.max(pitch[c], SEAT_BY_ID[style].minPitch) })
           }}>{choices.map(r => <option key={r} value={r}>{r} · {rowCount(r)} assentos</option>)}</select></label>
@@ -63,12 +72,13 @@ export function SeatMapEditor({ type, seats, pitch, config, change, setAssentos,
               disabled={(rows + 1) * abreast > available}
               onClick={() => setAssentos(c, (rows + 1) * abreast)}>+</button>
           </div></label>
-          <label>Espaço entre fileiras · {pitch[c]}″
+          <label>Espaço entre fileiras · {pitch[c]}″{model?.fixedPitch ? ' · fixo' : ''}
             <input aria-label={`Passo de ${CABIN_LABEL[c]}`} type="range" min={Math.max(PITCH_RANGE[c][0], model?.minPitch ?? 0)}
-              max={Math.max(pitch[c], maxPitch)} value={pitch[c]} onChange={e => setPasso(c, Number(e.target.value))} />
+              max={Math.max(pitch[c], maxPitch)} disabled={model?.fixedPitch} value={pitch[c]} onChange={e => setPasso(c, Number(e.target.value))} />
           </label>
         </div>
-        <small className="dim">{available} assentos possíveis · {((rows * pitch[c]) / 39.37).toFixed(1)} m ocupados pelas fileiras</small>
+        <small className="dim">{available} assentos possíveis · {((rows * pitch[c]) / 39.37).toFixed(1)} m ocupados pelas fileiras<br />
+          {model && `${money(model.extraCost)} por poltrona`}{model?.width && ` · largura ${model.width}″`}{model?.bedLength && ` · cama ${model.bedLength}″`}</small>
       </div>
     })}</div>
     <div className="a2-seatmap" aria-label="Mapa da cabine">
@@ -86,7 +96,7 @@ export function SeatMapEditor({ type, seats, pitch, config, change, setAssentos,
         const singleName = iconName === 'staggered_suite' ? 'suite' : iconName === 'room_suite' ? 'apartment' : iconName
         const seatArt = byName.get(`assets_seat_icons_png_single_seat_resized_light_images_${singleName}.webp`)
         return <div className="a2-seat-zone" key={c}>
-          <b>{CABIN_LABEL[c]} · {rows} fileiras · {pitch[c]}″</b>
+          <b>{CABIN_LABEL[c]} · {model?.name ?? 'Poltrona'} · {rows} fileiras · {pitch[c]}″</b>
           {Array.from({ length: rows }, (_, r) => {
             const full = (r + 1) * count <= seats[c]
             return <div className="a2-seat-row" key={r} style={{ paddingBottom: Math.max(2, pitch[c] / 7 - 3) }}>

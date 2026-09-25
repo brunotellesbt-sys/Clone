@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { sumCabins } from '../game/economy'
 import {
-  assinarAcordo, creditLimit, custoDoAcordo, debtTotal, fleetValue, money,
-  netWorth, num, pct, period, repayLoan, REPUTACAO_ACORDO, romperAcordo, setMarketing, takeLoan,
+  assinarAcordo, assinarCodeshare, creditLimit, custoDoAcordo, debtTotal, fleetValue, money,
+  netWorth, num, pct, period, repayLoan, REPUTACAO_ACORDO, romperAcordo, romperCodeshare, setMarketing, takeLoan,
 } from '../game/engine'
 import { useGame } from '../store/useGame'
 import { Card, Kpi, Spark } from './components/Bits'
@@ -22,7 +22,8 @@ export function FinanceView() {
       const voos = comp.routes.filter(
         (r) => state.airline.hubs.includes(r.from) || state.airline.hubs.includes(r.to),
       ).length
-      return { comp, voos, tem: state.airline.acordos?.includes(comp.id) ?? false, custo: custoDoAcordo(state, comp) }
+      return { comp, voos, tem: state.airline.acordos?.includes(comp.id) ?? false,
+        codeshare: state.airline.codeshares?.includes(comp.id) ?? false, custo: custoDoAcordo(state, comp) }
     })
     .filter((p) => p.voos > 0)
     .sort((a, b) => Number(b.tem) - Number(a.tem) || b.voos - a.voos)
@@ -108,25 +109,31 @@ export function FinanceView() {
             </p>
           </Card>
 
-          <Card title="Interline">
+          <Card title="Interline e codeshare">
             <p className="muted" style={{ fontSize: 12, margin: '0 0 10px' }}>
-              O voo da parceira que chega na sua base alimenta a sua partida, e vice-versa. Vale
-              menos que conexão própria — bilhete separado, bagagem trocando de companhia —, mas
-              alcança destino que você não voa.
+              Interline integra trechos de outras companhias ao itinerário. Codeshare acrescenta
+              seu código aos voos da parceira e aumenta a procura por essas conexões.
             </p>
             {parceiras.length === 0 && (
               <p className="muted" style={{ fontSize: 12, margin: 0 }}>
                 Nenhuma concorrente voa para as suas bases.
               </p>
             )}
-            {parceiras.map(({ comp, tem, custo, voos }) => (
+            {parceiras.map(({ comp, tem, codeshare, custo, voos }) => (
               <div key={comp.id} className="row" style={{ justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--line-soft)' }}>
                 <span>
                   <b style={{ color: comp.color }}>{comp.name}</b>{' '}
                   <span className="muted">{voos} voos nas suas bases</span>
                 </span>
                 {tem ? (
-                  <button className="btn sm danger" onClick={() => act((s) => romperAcordo(s, comp.id))}>Romper</button>
+                  <span className="row tight">
+                    {codeshare ? <button className="btn sm" onClick={() => act(s => romperCodeshare(s, comp.id))}>Codeshare ativo · encerrar</button> :
+                      <button className="btn sm" title="Bilhete integrado e conexão protegida; requer 65% de reputação" onClick={() => {
+                        const err = act(s => assinarCodeshare(s, comp.id))
+                        if (err) toast(err, 'error')
+                      }}>Codeshare {money(custo * 1.5)}</button>}
+                    <button className="btn sm danger" onClick={() => act((s) => romperAcordo(s, comp.id))}>Romper</button>
+                  </span>
                 ) : (
                   <button className="btn sm" onClick={() => {
                     const err = act((s) => assinarAcordo(s, comp.id))

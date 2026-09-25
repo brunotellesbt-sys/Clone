@@ -18,15 +18,15 @@ import { blockHours } from '../src/game/economy'
 import { ALTURA_MAXIMA, escalaDaGrade, menorIntervaloDoDia } from '../src/ui/gradeEscala'
 import { distanceBetween } from '../src/game/geo'
 import {
-  assinarAcordo, assignAircraft, buyAircraft, MINUTOS_REAIS_POR_HORA, MS_POR_DIA, newGame,
+  assinarAcordo, assinarCodeshare, assignAircraft, buyAircraft, MINUTOS_REAIS_POR_HORA, MS_POR_DIA, newGame,
   openRoute, romperAcordo, setAllFrequencies, setFrequency, unassignAircraft,
 } from '../src/game/engine'
 import {
   atratividadeHorario, conexoesNaBase, hhmm, MCT_ALFANDEGA, MCT_DOMESTICA,
-  MCT_INTERNACIONAL, mct, voosColados,
+  MCT_INTERNACIONAL, mct, esperaMaxima, voosColados,
 } from '../src/game/malha'
 import {
-  aeronavesPara, cabeNaEscala, curfewDaPerna, DIA, DOW_CURTO, marcarVoo, noTempo, paradasDe,
+  alterarNumeroVoo, aeronavesPara, cabeNaEscala, curfewDaPerna, DIA, DOW_CURTO, marcarVoo, noTempo, paradasDe,
   partidaUtc, pernasDaRota, pernasDe, posicionamentos, quebrasDe, remarcarVoo, removerVoo,
 } from '../src/game/escala'
 
@@ -42,6 +42,9 @@ conferir(mct(false, false) === MCT_DOMESTICA, 'doméstica com doméstica: 40 min
 conferir(mct(true, true) === MCT_INTERNACIONAL, 'internacional com internacional em trânsito: 60 min')
 conferir(mct(true, false) === MCT_ALFANDEGA, 'internacional que chega e doméstica que sai: 3 h')
 conferir(mct(false, true) === MCT_ALFANDEGA, 'doméstica que chega e internacional que sai: 3 h')
+conferir(esperaMaxima(false, false) === 180, 'doméstica termina em 3 h')
+conferir(esperaMaxima(true, true) === 240, 'trânsito internacional termina em 4 h')
+conferir(esperaMaxima(true, false) === 360, 'imigração termina em 6 h')
 
 // ------------------------------------------------------------- uma malha
 const s = newGame({ name: 'Teste', code: 'TT', hub: 'GRU', seed: 7 })
@@ -55,6 +58,16 @@ for (const destino of ['REC', 'SSA', 'LIS']) {
   buyAircraft(s, destino === 'LIS' ? 'b789' : 'a320neo', false)
   assignAircraft(s, s.airline.fleet[s.airline.fleet.length - 1].id, r.id)
   setAllFrequencies(s, r.id, 2)
+}
+
+const numeradas = s.airline.escala ?? []
+conferir(numeradas.every(p => !!p.numero && p.numero >= 1 && p.numero <= 9999), 'toda perna recebe número comercial')
+const primeira = numeradas[0]
+if (primeira) {
+  const mesma = numeradas.filter(p => p.from === primeira.from && p.to === primeira.to && p.saida === primeira.saida)
+  conferir(mesma.every(p => p.numero === primeira.numero), 'mesmo serviço mantém número ao longo da semana')
+  const outra = numeradas.find(p => p.numero !== primeira.numero)
+  if (outra) conferir(!!alterarNumeroVoo(s, outra.id, primeira.numero!), 'outro serviço não pode duplicar número')
 }
 
 console.log('\npernas da semana\n')
@@ -317,8 +330,18 @@ console.log('\ninterline\n')
     conferir(depois > antes, 'o acordo abre conexões novas', `${antes} → ${depois}`)
     const comParceira = conexoesNaBase(t, 'GRU').filter((c) => c.parceira)
     conferir(comParceira.every((c) => c.espera >= c.minimo), 'conexão interline respeita o mínimo')
+    const proprio = t.airline.escala![0]
+    conferir(!alterarNumeroVoo(t, proprio.id, 7001), 'voo próprio pode usar número alto livre')
+    conferir(!assinarCodeshare(t, parceira.id), 'codeshare pode ser assinado com parceira interline')
+    const numerosParceira = Object.values(t.airline.codeshareNumbers ?? {})
+    conferir(!numerosParceira.includes(7001), 'codeshare não duplica número de voo próprio')
+    conferir(!!alterarNumeroVoo(t, proprio.id, numerosParceira[0]), 'voo próprio não usa número reservado ao codeshare')
+    conferir(conexoesNaBase(t, 'GRU').some(c => c.codeshare), 'codeshare marca as conexões integradas')
+    conferir(parceira.routes.some(r => !!t.airline.codeshareNumbers?.[`${parceira.id}:${r.key}`]),
+      'rota parceira recebe número comercial da companhia')
     romperAcordo(t, parceira.id)
     conferir(conexoesNaBase(t, 'GRU').length === antes, 'romper devolve a malha ao que era')
+    conferir(!t.airline.codeshares?.includes(parceira.id), 'romper interline encerra codeshare')
   }
 }
 

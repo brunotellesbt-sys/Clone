@@ -1,0 +1,1762 @@
+{
+  "source": {
+    "apk": "The Airline Simulator 1.29.3",
+    "bundleSha256": "a89de1f8917e5dada6ee2821052c9849c394ccb667cc3c1c566187575ab0b417",
+    "hermesVersion": 98,
+    "function": 671
+  },
+  "products": {
+    "eco": {
+      "super_slim": {
+        "pitch": "controllable",
+        "width": "",
+        "price": 2000
+      },
+      "slim": {
+        "pitch": "controllable",
+        "width": "",
+        "price": 2500
+      },
+      "standard": {
+        "pitch": "controllable",
+        "width": "",
+        "price": 3000
+      },
+      "comfort": {
+        "pitch": "controllable",
+        "width": "",
+        "price": 4000
+      },
+      "luxury": {
+        "pitch": "controllable",
+        "width": "",
+        "price": 5000
+      }
+    },
+    "premEco": {
+      "basic": {
+        "pitch": "controllable",
+        "width": 18,
+        "price": 7000
+      },
+      "standard": {
+        "pitch": "controllable",
+        "width": 19,
+        "price": 7500
+      },
+      "comfort": {
+        "pitch": "controllable",
+        "width": 19,
+        "price": 8000
+      },
+      "luxury": {
+        "pitch": "controllable",
+        "width": 19.5,
+        "price": 8500
+      }
+    },
+    "biz": {
+      "european": {
+        "pitch": "controllable",
+        "width": 18,
+        "price": 6000
+      },
+      "regional": {
+        "pitch": "controllable",
+        "width": 20,
+        "price": 8000
+      },
+      "full_flat": {
+        "pitch": 70,
+        "width": 21,
+        "bed_length": 74,
+        "price": 20000
+      },
+      "staggered": {
+        "pitch": 50,
+        "width": 22,
+        "bed_length": 72,
+        "price": 25000
+      },
+      "reverse_herringbone": {
+        "pitch": 50,
+        "width": 22,
+        "bed_length": 72,
+        "price": 30000
+      },
+      "comfort_suite": {
+        "pitch": 80,
+        "width": 23,
+        "bed_length": 72,
+        "price": 35000
+      },
+      "studio_suite": {
+        "pitch": 52,
+        "width": 23,
+        "bed_length": 72,
+        "price": 40000
+      },
+      "suite": {
+        "pitch": 74,
+        "width": 23,
+        "bed_length": 74,
+        "price": 40000
+      },
+      "staggered_suite": {
+        "pitch": 91,
+        "width": 30,
+        "bed_length": 72,
+        "price": 40000
+      },
+      "wide_suite": {
+        "pitch": 54,
+        "width": 35,
+        "bed_length": 72,
+        "price": 40000
+      },
+      "premium_herringbone": {
+        "pitch": 54,
+        "width": 33,
+        "bed_length": 72,
+        "price": 45000
+      }
+    },
+    "first": {
+      "regional": {
+        "pitch": "controllable",
+        "width": 22,
+        "price": 12000
+      },
+      "solo_suite": {
+        "pitch": 74,
+        "width": 30,
+        "bed_length": 72,
+        "price": 40000
+      },
+      "open_suite": {
+        "pitch": 79,
+        "width": 33,
+        "bed_length": 79,
+        "price": 40000
+      },
+      "diagonal_suite": {
+        "pitch": 79,
+        "width": 35,
+        "bed_length": 79,
+        "price": 40000
+      },
+      "private_suite": {
+        "pitch": 76,
+        "width": 38,
+        "bed_length": 76,
+        "price": 45000
+      },
+      "premium_suite": {
+        "pitch": 61,
+        "width": 40,
+        "bed_length": 78,
+        "price": 47500
+      },
+      "apartment": {
+        "pitch": 81,
+        "width": 40,
+        "bed_length": 81,
+        "price": 50000
+      },
+      "room_suite": {
+        "pitch": 85,
+        "width": 40,
+        "bed_length": 81,
+        "price": 50000
+      }
+    }
+  },
+  "ratings": {
+    "eco": {
+      "rating": {
+        "29": 60,
+        "30": 64,
+        "31": 68,
+        "32": 72,
+        "33": 76,
+        "34": 80
+      },
+      "product_multiplier": {
+        "super_slim": 0.9,
+        "slim": 0.95,
+        "standard": 1,
+        "comfort": 1.05,
+        "luxury": 1.1
+      },
+      "config_multiplier": {
+        "dense": 0.95,
+        "standard": 1,
+        "premium": 1.05
+      }
+    },
+    "premEco": {
+      "rating": {
+        "basic": 75,
+        "standard": 85,
+        "comfort": 90,
+        "luxury": 95
+      },
+      "pitch_multiplier": {
+        "36": 0.97,
+        "37": 0.9866666666666667,
+        "38": 1.0033333333333334,
+        "39": 1.02,
+        "40": 1.0366666666666666,
+        "41": 1.0533333333333335,
+        "42": 1.07
+      }
+    },
+    "biz": {
+      "rating": {
+        "european": 85,
+        "regional": 85,
+        "full_flat": 100,
+        "staggered": 105,
+        "reverse_herringbone": 107,
+        "comfort_suite": 107,
+        "studio_suite": 110,
+        "suite": 110,
+        "staggered_suite": 110,
+        "wide_suite": 115,
+        "premium_herringbone": 115
+      },
+      "regional_multiplier": {
+        "36": 0.95,
+        "37": 0.96,
+        "38": 0.97,
+        "39": 0.98,
+        "40": 0.99,
+        "41": 1,
+        "42": 1.01,
+        "43": 1.02,
+        "44": 1.03,
+        "45": 1.04,
+        "46": 1.05
+      }
+    },
+    "first": {
+      "rating": {
+        "regional": 95,
+        "solo_suite": 105,
+        "open_suite": 110,
+        "diagonal_suite": 115,
+        "private_suite": 120,
+        "premium_suite": 125,
+        "apartment": 130,
+        "room_suite": 140
+      },
+      "regional_multiplier": {
+        "48": 0.95,
+        "49": 0.9583333333333333,
+        "50": 0.9666666666666667,
+        "51": 0.975,
+        "52": 0.9833333333333333,
+        "53": 0.9916666666666667,
+        "54": 1,
+        "55": 1.0083333333333333,
+        "56": 1.0166666666666666,
+        "57": 1.025,
+        "58": 1.0333333333333334,
+        "59": 1.0416666666666667,
+        "60": 1.05
+      }
+    }
+  },
+  "aircraftSpecs": {
+    "A220": {
+      "eco": {
+        "standard": {
+          "config": "2-3",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "premium": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "dense": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        }
+      },
+      "premEco": {
+        "basic": {
+          "config": "2-3"
+        },
+        "standard": {
+          "config": "2-2"
+        },
+        "comfort": {
+          "config": "2-2"
+        },
+        "luxury": {
+          "config": "2-2"
+        }
+      },
+      "biz": {
+        "european": {
+          "config": "1-2"
+        },
+        "regional": {
+          "config": "2-2"
+        },
+        "full_flat": {
+          "config": "2-2"
+        },
+        "staggered": {
+          "config": "1-1"
+        },
+        "reverse_herringbone": {
+          "config": "1-1"
+        },
+        "comfort_suite": {
+          "config": "N/A"
+        },
+        "studio_suite": {
+          "config": "N/A"
+        },
+        "suite": {
+          "config": "N/A"
+        },
+        "staggered_suite": {
+          "config": "N/A"
+        },
+        "wide_suite": {
+          "config": "N/A"
+        },
+        "premium_herringbone": {
+          "config": "N/A"
+        }
+      },
+      "first": {
+        "regional": {
+          "config": "2-2"
+        },
+        "solo_suite": {
+          "config": "1-1"
+        },
+        "open_suite": {
+          "config": "1-1"
+        },
+        "diagonal_suite": {
+          "config": "N/A"
+        },
+        "private_suite": {
+          "config": "N/A"
+        },
+        "premium_suite": {
+          "config": "N/A"
+        },
+        "apartment": {
+          "config": "N/A"
+        },
+        "room_suite": {
+          "config": "N/A"
+        }
+      }
+    },
+    "A320": {
+      "eco": {
+        "standard": {
+          "config": "3-3",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "premium": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "dense": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        }
+      },
+      "premEco": {
+        "basic": {
+          "config": "3-3"
+        },
+        "standard": {
+          "config": "2-2"
+        },
+        "comfort": {
+          "config": "2-2"
+        },
+        "luxury": {
+          "config": "2-2"
+        }
+      },
+      "biz": {
+        "european": {
+          "config": "2-2"
+        },
+        "regional": {
+          "config": "2-2"
+        },
+        "full_flat": {
+          "config": "2-2"
+        },
+        "staggered": {
+          "config": "1-1"
+        },
+        "reverse_herringbone": {
+          "config": "1-1"
+        },
+        "comfort_suite": {
+          "config": "N/A"
+        },
+        "studio_suite": {
+          "config": "N/A"
+        },
+        "suite": {
+          "config": "N/A"
+        },
+        "staggered_suite": {
+          "config": "N/A"
+        },
+        "wide_suite": {
+          "config": "N/A"
+        },
+        "premium_herringbone": {
+          "config": "N/A"
+        }
+      },
+      "first": {
+        "regional": {
+          "config": "2-2"
+        },
+        "solo_suite": {
+          "config": "1-1"
+        },
+        "open_suite": {
+          "config": "1-1"
+        },
+        "diagonal_suite": {
+          "config": "N/A"
+        },
+        "private_suite": {
+          "config": "N/A"
+        },
+        "premium_suite": {
+          "config": "N/A"
+        },
+        "apartment": {
+          "config": "N/A"
+        },
+        "room_suite": {
+          "config": "N/A"
+        }
+      }
+    },
+    "A330": {
+      "eco": {
+        "standard": {
+          "config": "2-4-2",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "premium": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "dense": {
+          "config": "3-3-3",
+          "width": 16.5,
+          "pitch": "controllable"
+        }
+      },
+      "premEco": {
+        "basic": {
+          "config": "2-4-2"
+        },
+        "standard": {
+          "config": "2-3-2"
+        },
+        "comfort": {
+          "config": "2-3-2"
+        },
+        "luxury": {
+          "config": "2-3-2"
+        }
+      },
+      "biz": {
+        "european": {
+          "config": "N/A"
+        },
+        "regional": {
+          "config": "2-3-2"
+        },
+        "full_flat": {
+          "config": "2-2-2"
+        },
+        "staggered": {
+          "config": "1-2-1"
+        },
+        "reverse_herringbone": {
+          "config": "1-2-1"
+        },
+        "comfort_suite": {
+          "config": "2-2-2"
+        },
+        "studio_suite": {
+          "config": "1-2-1"
+        },
+        "suite": {
+          "config": "2-2-2"
+        },
+        "staggered_suite": {
+          "config": "2-3-2"
+        },
+        "wide_suite": {
+          "config": "1-2-1"
+        },
+        "premium_herringbone": {
+          "config": "1-2-1"
+        }
+      },
+      "first": {
+        "regional": {
+          "config": "2-2-2"
+        },
+        "solo_suite": {
+          "config": "N/A"
+        },
+        "open_suite": {
+          "config": "1-2-1"
+        },
+        "diagonal_suite": {
+          "config": "1-1-1"
+        },
+        "private_suite": {
+          "config": "1-1-1"
+        },
+        "premium_suite": {
+          "config": "1-1-1"
+        },
+        "apartment": {
+          "config": "1-1-1"
+        },
+        "room_suite": {
+          "config": "N/A"
+        }
+      }
+    },
+    "A350": {
+      "eco": {
+        "standard": {
+          "config": "3-3-3",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "premium": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "dense": {
+          "config": "3-4-3",
+          "width": 16.5,
+          "pitch": "controllable"
+        }
+      },
+      "premEco": {
+        "basic": {
+          "config": "3-3-3"
+        },
+        "standard": {
+          "config": "2-4-2"
+        },
+        "comfort": {
+          "config": "2-4-2"
+        },
+        "luxury": {
+          "config": "2-3-2"
+        }
+      },
+      "biz": {
+        "european": {
+          "config": "N/A"
+        },
+        "regional": {
+          "config": "2-4-2"
+        },
+        "full_flat": {
+          "config": "2-3-2"
+        },
+        "staggered": {
+          "config": "1-2-1"
+        },
+        "reverse_herringbone": {
+          "config": "1-2-1"
+        },
+        "comfort_suite": {
+          "config": "2-3-2"
+        },
+        "studio_suite": {
+          "config": "1-2-1"
+        },
+        "suite": {
+          "config": "2-2-2"
+        },
+        "staggered_suite": {
+          "config": "2-3-2"
+        },
+        "wide_suite": {
+          "config": "1-2-1"
+        },
+        "premium_herringbone": {
+          "config": "1-2-1"
+        }
+      },
+      "first": {
+        "regional": {
+          "config": "2-3-2"
+        },
+        "solo_suite": {
+          "config": "N/A"
+        },
+        "open_suite": {
+          "config": "1-2-1"
+        },
+        "diagonal_suite": {
+          "config": "1-2-1"
+        },
+        "private_suite": {
+          "config": "1-2-1"
+        },
+        "premium_suite": {
+          "config": "1-1-1"
+        },
+        "apartment": {
+          "config": "1-2-1"
+        },
+        "room_suite": {
+          "config": "1-1"
+        }
+      }
+    },
+    "A380": {
+      "eco": {
+        "standard": {
+          "config": "3-4-3",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "premium": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "dense": {
+          "config": "N/A",
+          "width": 16.5,
+          "pitch": "controllable"
+        }
+      },
+      "premEco": {
+        "basic": {
+          "config": "3-4-3"
+        },
+        "standard": {
+          "config": "2-4-2"
+        },
+        "comfort": {
+          "config": "2-4-2"
+        },
+        "luxury": {
+          "config": "2-4-2"
+        }
+      },
+      "biz": {
+        "european": {
+          "config": "N/A"
+        },
+        "regional": {
+          "config": "2-4-2"
+        },
+        "full_flat": {
+          "config": "2-3-2"
+        },
+        "staggered": {
+          "config": "1-2-1"
+        },
+        "reverse_herringbone": {
+          "config": "1-2-1"
+        },
+        "comfort_suite": {
+          "config": "2-3-2"
+        },
+        "studio_suite": {
+          "config": "1-2-1"
+        },
+        "suite": {
+          "config": "2-2-2"
+        },
+        "staggered_suite": {
+          "config": "2-3-2"
+        },
+        "wide_suite": {
+          "config": "1-2-1"
+        },
+        "premium_herringbone": {
+          "config": "1-2-1"
+        }
+      },
+      "first": {
+        "regional": {
+          "config": "2-3-2"
+        },
+        "solo_suite": {
+          "config": "N/A"
+        },
+        "open_suite": {
+          "config": "1-2-1"
+        },
+        "diagonal_suite": {
+          "config": "1-2-1"
+        },
+        "private_suite": {
+          "config": "1-2-1"
+        },
+        "premium_suite": {
+          "config": "1-1-1"
+        },
+        "apartment": {
+          "config": "1-2-1"
+        },
+        "room_suite": {
+          "config": "1-1"
+        }
+      }
+    },
+    "B737": {
+      "eco": {
+        "standard": {
+          "config": "3-3",
+          "width": 17.3,
+          "pitch": "controllable"
+        },
+        "premium": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "dense": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        }
+      },
+      "premEco": {
+        "basic": {
+          "config": "3-3"
+        },
+        "standard": {
+          "config": "2-2"
+        },
+        "comfort": {
+          "config": "2-2"
+        },
+        "luxury": {
+          "config": "2-2"
+        }
+      },
+      "biz": {
+        "european": {
+          "config": "2-2"
+        },
+        "regional": {
+          "config": "2-2"
+        },
+        "full_flat": {
+          "config": "2-2"
+        },
+        "staggered": {
+          "config": "1-1"
+        },
+        "reverse_herringbone": {
+          "config": "1-1"
+        },
+        "comfort_suite": {
+          "config": "N/A"
+        },
+        "studio_suite": {
+          "config": "N/A"
+        },
+        "suite": {
+          "config": "N/A"
+        },
+        "staggered_suite": {
+          "config": "N/A"
+        },
+        "wide_suite": {
+          "config": "N/A"
+        },
+        "premium_herringbone": {
+          "config": "N/A"
+        }
+      },
+      "first": {
+        "regional": {
+          "config": "2-2"
+        },
+        "solo_suite": {
+          "config": "1-1"
+        },
+        "open_suite": {
+          "config": "1-1"
+        },
+        "diagonal_suite": {
+          "config": "N/A"
+        },
+        "private_suite": {
+          "config": "N/A"
+        },
+        "premium_suite": {
+          "config": "N/A"
+        },
+        "apartment": {
+          "config": "N/A"
+        },
+        "room_suite": {
+          "config": "N/A"
+        }
+      }
+    },
+    "B747": {
+      "eco": {
+        "standard": {
+          "config": "3-4-3",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "premium": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "dense": {
+          "config": "N/A",
+          "width": 16.5,
+          "pitch": "controllable"
+        }
+      },
+      "premEco": {
+        "basic": {
+          "config": "3-4-3"
+        },
+        "standard": {
+          "config": "2-4-2"
+        },
+        "comfort": {
+          "config": "2-4-2"
+        },
+        "luxury": {
+          "config": "2-4-2"
+        }
+      },
+      "biz": {
+        "european": {
+          "config": "N/A"
+        },
+        "regional": {
+          "config": "2-4-2"
+        },
+        "full_flat": {
+          "config": "2-3-2"
+        },
+        "staggered": {
+          "config": "1-2-1"
+        },
+        "reverse_herringbone": {
+          "config": "1-2-1"
+        },
+        "comfort_suite": {
+          "config": "2-3-2"
+        },
+        "studio_suite": {
+          "config": "1-2-1"
+        },
+        "suite": {
+          "config": "2-2-2"
+        },
+        "staggered_suite": {
+          "config": "2-3-2"
+        },
+        "wide_suite": {
+          "config": "1-2-1"
+        },
+        "premium_herringbone": {
+          "config": "1-2-1"
+        }
+      },
+      "first": {
+        "regional": {
+          "config": "2-3-2"
+        },
+        "solo_suite": {
+          "config": "N/A"
+        },
+        "open_suite": {
+          "config": "1-2-1"
+        },
+        "diagonal_suite": {
+          "config": "1-2-1"
+        },
+        "private_suite": {
+          "config": "1-2-1"
+        },
+        "premium_suite": {
+          "config": "1-1-1"
+        },
+        "apartment": {
+          "config": "1-2-1"
+        },
+        "room_suite": {
+          "config": "1-1"
+        }
+      }
+    },
+    "B767": {
+      "eco": {
+        "standard": {
+          "config": "2-3-2",
+          "width": 17.5,
+          "pitch": "controllable"
+        },
+        "premium": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "dense": {
+          "config": "2-4-2",
+          "width": 16.5,
+          "pitch": "controllable"
+        }
+      },
+      "premEco": {
+        "basic": {
+          "config": "2-3-2"
+        },
+        "standard": {
+          "config": "2-2-2"
+        },
+        "comfort": {
+          "config": "2-2-2"
+        },
+        "luxury": {
+          "config": "2-2-2"
+        }
+      },
+      "biz": {
+        "european": {
+          "config": "N/A"
+        },
+        "regional": {
+          "config": "2-2-2"
+        },
+        "full_flat": {
+          "config": "2-1-2"
+        },
+        "staggered": {
+          "config": "1-1-1"
+        },
+        "reverse_herringbone": {
+          "config": "1-1-1"
+        },
+        "comfort_suite": {
+          "config": "2-1-2"
+        },
+        "studio_suite": {
+          "config": "1-1-1"
+        },
+        "suite": {
+          "config": "2-1-2"
+        },
+        "staggered_suite": {
+          "config": "2-2-2"
+        },
+        "wide_suite": {
+          "config": "1-1-1"
+        },
+        "premium_herringbone": {
+          "config": "1-1-1"
+        }
+      },
+      "first": {
+        "regional": {
+          "config": "2-2-2"
+        },
+        "solo_suite": {
+          "config": "N/A"
+        },
+        "open_suite": {
+          "config": "1-1-1"
+        },
+        "diagonal_suite": {
+          "config": "1-1-1"
+        },
+        "private_suite": {
+          "config": "1-1-1"
+        },
+        "premium_suite": {
+          "config": "1-1-1"
+        },
+        "apartment": {
+          "config": "1-1-1"
+        },
+        "room_suite": {
+          "config": "N/A"
+        }
+      }
+    },
+    "B777": {
+      "eco": {
+        "standard": {
+          "config": "3-4-3",
+          "width": 17,
+          "pitch": "controllable"
+        },
+        "premium": {
+          "config": "3-3-3",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "dense": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        }
+      },
+      "premEco": {
+        "basic": {
+          "config": "3-3-3"
+        },
+        "standard": {
+          "config": "2-4-2"
+        },
+        "comfort": {
+          "config": "2-4-2"
+        },
+        "luxury": {
+          "config": "2-4-2"
+        }
+      },
+      "biz": {
+        "european": {
+          "config": "N/A"
+        },
+        "regional": {
+          "config": "2-4-2"
+        },
+        "full_flat": {
+          "config": "2-3-2"
+        },
+        "staggered": {
+          "config": "1-2-1"
+        },
+        "reverse_herringbone": {
+          "config": "1-2-1"
+        },
+        "comfort_suite": {
+          "config": "2-3-2"
+        },
+        "studio_suite": {
+          "config": "1-2-1"
+        },
+        "suite": {
+          "config": "2-2-2"
+        },
+        "staggered_suite": {
+          "config": "2-3-2"
+        },
+        "wide_suite": {
+          "config": "1-2-1"
+        },
+        "premium_herringbone": {
+          "config": "1-2-1"
+        }
+      },
+      "first": {
+        "regional": {
+          "config": "2-3-2"
+        },
+        "solo_suite": {
+          "config": "N/A"
+        },
+        "open_suite": {
+          "config": "1-2-1"
+        },
+        "diagonal_suite": {
+          "config": "1-2-1"
+        },
+        "private_suite": {
+          "config": "1-2-1"
+        },
+        "premium_suite": {
+          "config": "1-1-1"
+        },
+        "apartment": {
+          "config": "1-2-1"
+        },
+        "room_suite": {
+          "config": "1-1"
+        }
+      }
+    },
+    "B77X": {
+      "eco": {
+        "standard": {
+          "config": "3-4-3",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "premium": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "dense": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        }
+      },
+      "premEco": {
+        "basic": {
+          "config": "3-4-3"
+        },
+        "standard": {
+          "config": "2-4-2"
+        },
+        "comfort": {
+          "config": "2-4-2"
+        },
+        "luxury": {
+          "config": "2-4-2"
+        }
+      },
+      "biz": {
+        "european": {
+          "config": "N/A"
+        },
+        "regional": {
+          "config": "2-4-2"
+        },
+        "full_flat": {
+          "config": "2-3-2"
+        },
+        "staggered": {
+          "config": "1-2-1"
+        },
+        "reverse_herringbone": {
+          "config": "1-2-1"
+        },
+        "comfort_suite": {
+          "config": "2-3-2"
+        },
+        "studio_suite": {
+          "config": "1-2-1"
+        },
+        "suite": {
+          "config": "2-2-2"
+        },
+        "staggered_suite": {
+          "config": "2-3-2"
+        },
+        "wide_suite": {
+          "config": "1-2-1"
+        },
+        "premium_herringbone": {
+          "config": "1-2-1"
+        }
+      },
+      "first": {
+        "regional": {
+          "config": "2-3-2"
+        },
+        "solo_suite": {
+          "config": "N/A"
+        },
+        "open_suite": {
+          "config": "1-2-1"
+        },
+        "diagonal_suite": {
+          "config": "1-2-1"
+        },
+        "private_suite": {
+          "config": "1-2-1"
+        },
+        "premium_suite": {
+          "config": "1-1-1"
+        },
+        "apartment": {
+          "config": "1-2-1"
+        },
+        "room_suite": {
+          "config": "1-1"
+        }
+      }
+    },
+    "B787": {
+      "eco": {
+        "standard": {
+          "config": "3-3-3",
+          "width": 17,
+          "pitch": "controllable"
+        },
+        "premium": {
+          "config": "2-4-2",
+          "width": 18.5,
+          "pitch": "controllable"
+        },
+        "dense": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        }
+      },
+      "premEco": {
+        "basic": {
+          "config": "3-3-3"
+        },
+        "standard": {
+          "config": "2-3-2"
+        },
+        "comfort": {
+          "config": "2-3-2"
+        },
+        "luxury": {
+          "config": "2-3-2"
+        }
+      },
+      "biz": {
+        "european": {
+          "config": "N/A"
+        },
+        "regional": {
+          "config": "2-2-2"
+        },
+        "full_flat": {
+          "config": "2-2-2"
+        },
+        "staggered": {
+          "config": "1-2-1"
+        },
+        "reverse_herringbone": {
+          "config": "1-2-1"
+        },
+        "comfort_suite": {
+          "config": "2-2-2"
+        },
+        "studio_suite": {
+          "config": "1-2-1"
+        },
+        "suite": {
+          "config": "2-2-2"
+        },
+        "staggered_suite": {
+          "config": "2-3-2"
+        },
+        "wide_suite": {
+          "config": "1-2-1"
+        },
+        "premium_herringbone": {
+          "config": "1-2-1"
+        }
+      },
+      "first": {
+        "regional": {
+          "config": "2-2-2"
+        },
+        "solo_suite": {
+          "config": "N/A"
+        },
+        "open_suite": {
+          "config": "1-2-1"
+        },
+        "diagonal_suite": {
+          "config": "1-2-1"
+        },
+        "private_suite": {
+          "config": "1-2-1"
+        },
+        "premium_suite": {
+          "config": "1-1-1"
+        },
+        "apartment": {
+          "config": "1-2-1"
+        },
+        "room_suite": {
+          "config": "1-1"
+        }
+      }
+    },
+    "CRJ": {
+      "eco": {
+        "standard": {
+          "config": "2-2",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "premium": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "dense": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        }
+      },
+      "premEco": {
+        "basic": {
+          "config": "2-2"
+        },
+        "standard": {
+          "config": "1-2"
+        },
+        "comfort": {
+          "config": "1-2"
+        },
+        "luxury": {
+          "config": "1-2"
+        }
+      },
+      "biz": {
+        "european": {
+          "config": "1-1"
+        },
+        "regional": {
+          "config": "1-2"
+        },
+        "full_flat": {
+          "config": "1-2"
+        },
+        "staggered": {
+          "config": "N/A"
+        },
+        "reverse_herringbone": {
+          "config": "N/A"
+        },
+        "comfort_suite": {
+          "config": "N/A"
+        },
+        "studio_suite": {
+          "config": "N/A"
+        },
+        "suite": {
+          "config": "N/A"
+        },
+        "staggered_suite": {
+          "config": "N/A"
+        },
+        "wide_suite": {
+          "config": "N/A"
+        },
+        "premium_herringbone": {
+          "config": "N/A"
+        }
+      },
+      "first": {
+        "regional": {
+          "config": "N/A"
+        },
+        "solo_suite": {
+          "config": "N/A"
+        },
+        "open_suite": {
+          "config": "N/A"
+        },
+        "diagonal_suite": {
+          "config": "N/A"
+        },
+        "private_suite": {
+          "config": "N/A"
+        },
+        "premium_suite": {
+          "config": "N/A"
+        },
+        "apartment": {
+          "config": "N/A"
+        },
+        "room_suite": {
+          "config": "N/A"
+        }
+      }
+    },
+    "ERJ": {
+      "eco": {
+        "standard": {
+          "config": "2-2",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "premium": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "dense": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        }
+      },
+      "premEco": {
+        "basic": {
+          "config": "2-2"
+        },
+        "standard": {
+          "config": "1-2"
+        },
+        "comfort": {
+          "config": "1-2"
+        },
+        "luxury": {
+          "config": "1-2"
+        }
+      },
+      "biz": {
+        "european": {
+          "config": "1-1"
+        },
+        "regional": {
+          "config": "1-2"
+        },
+        "full_flat": {
+          "config": "1-2"
+        },
+        "staggered": {
+          "config": "N/A"
+        },
+        "reverse_herringbone": {
+          "config": "N/A"
+        },
+        "comfort_suite": {
+          "config": "N/A"
+        },
+        "studio_suite": {
+          "config": "N/A"
+        },
+        "suite": {
+          "config": "N/A"
+        },
+        "staggered_suite": {
+          "config": "N/A"
+        },
+        "wide_suite": {
+          "config": "N/A"
+        },
+        "premium_herringbone": {
+          "config": "N/A"
+        }
+      },
+      "first": {
+        "regional": {
+          "config": "N/A"
+        },
+        "solo_suite": {
+          "config": "N/A"
+        },
+        "open_suite": {
+          "config": "N/A"
+        },
+        "diagonal_suite": {
+          "config": "N/A"
+        },
+        "private_suite": {
+          "config": "N/A"
+        },
+        "premium_suite": {
+          "config": "N/A"
+        },
+        "apartment": {
+          "config": "N/A"
+        },
+        "room_suite": {
+          "config": "N/A"
+        }
+      }
+    },
+    "ATR": {
+      "eco": {
+        "standard": {
+          "config": "2-2",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "premium": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "dense": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        }
+      },
+      "premEco": {
+        "basic": {
+          "config": "2-2"
+        },
+        "standard": {
+          "config": "1-2"
+        },
+        "comfort": {
+          "config": "1-2"
+        },
+        "luxury": {
+          "config": "1-2"
+        }
+      },
+      "biz": {
+        "european": {
+          "config": "1-1"
+        },
+        "regional": {
+          "config": "1-2"
+        },
+        "full_flat": {
+          "config": "1-2"
+        },
+        "staggered": {
+          "config": "N/A"
+        },
+        "reverse_herringbone": {
+          "config": "N/A"
+        },
+        "comfort_suite": {
+          "config": "N/A"
+        },
+        "studio_suite": {
+          "config": "N/A"
+        },
+        "suite": {
+          "config": "N/A"
+        },
+        "staggered_suite": {
+          "config": "N/A"
+        },
+        "wide_suite": {
+          "config": "N/A"
+        },
+        "premium_herringbone": {
+          "config": "N/A"
+        }
+      },
+      "first": {
+        "regional": {
+          "config": "N/A"
+        },
+        "solo_suite": {
+          "config": "N/A"
+        },
+        "open_suite": {
+          "config": "N/A"
+        },
+        "diagonal_suite": {
+          "config": "N/A"
+        },
+        "private_suite": {
+          "config": "N/A"
+        },
+        "premium_suite": {
+          "config": "N/A"
+        },
+        "apartment": {
+          "config": "N/A"
+        },
+        "room_suite": {
+          "config": "N/A"
+        }
+      }
+    },
+    "E135": {
+      "eco": {
+        "standard": {
+          "config": "1-2",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "premium": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        },
+        "dense": {
+          "config": "N/A",
+          "width": 18,
+          "pitch": "controllable"
+        }
+      },
+      "premEco": {
+        "basic": {
+          "config": "1-2"
+        },
+        "standard": {
+          "config": "1-1"
+        },
+        "comfort": {
+          "config": "1-1"
+        },
+        "luxury": {
+          "config": "1-1"
+        }
+      },
+      "biz": {
+        "european": {
+          "config": "1-1"
+        },
+        "regional": {
+          "config": "1-1"
+        },
+        "full_flat": {
+          "config": "1-1"
+        },
+        "staggered": {
+          "config": "N/A"
+        },
+        "reverse_herringbone": {
+          "config": "N/A"
+        },
+        "comfort_suite": {
+          "config": "N/A"
+        },
+        "studio_suite": {
+          "config": "N/A"
+        },
+        "suite": {
+          "config": "N/A"
+        },
+        "staggered_suite": {
+          "config": "N/A"
+        },
+        "wide_suite": {
+          "config": "N/A"
+        },
+        "premium_herringbone": {
+          "config": "N/A"
+        }
+      },
+      "first": {
+        "regional": {
+          "config": "N/A"
+        },
+        "solo_suite": {
+          "config": "N/A"
+        },
+        "open_suite": {
+          "config": "N/A"
+        },
+        "diagonal_suite": {
+          "config": "N/A"
+        },
+        "private_suite": {
+          "config": "N/A"
+        },
+        "premium_suite": {
+          "config": "N/A"
+        },
+        "apartment": {
+          "config": "N/A"
+        },
+        "room_suite": {
+          "config": "N/A"
+        }
+      }
+    }
+  },
+  "aircraftClasses": {
+    "ATR 42-600": "ATR",
+    "ATR 72-600": "ATR",
+    "Airbus A220-100": "A220",
+    "Airbus A220-300": "A220",
+    "Airbus A318-100": "A320",
+    "Airbus A319-100": "A320",
+    "Airbus A319neo": "A320",
+    "Airbus A320-200": "A320",
+    "Airbus A320neo": "A320",
+    "Airbus A321-100": "A320",
+    "Airbus A321-200": "A320",
+    "Airbus A321LR": "A320",
+    "Airbus A321XLR": "A320",
+    "Airbus A321neo": "A320",
+    "Airbus A330-200": "A330",
+    "Airbus A330-300": "A330",
+    "Airbus A330-800": "A330",
+    "Airbus A330-900": "A330",
+    "Airbus A340-300": "A330",
+    "Airbus A340-600": "A330",
+    "Airbus A350-1000": "A350",
+    "Airbus A350-1000ULR": "A350",
+    "Airbus A350-900": "A350",
+    "Airbus A350-900ULR": "A350",
+    "Airbus A380-800": "A380",
+    "Boeing 717-200": "A220",
+    "Boeing 737 MAX 10": "B737",
+    "Boeing 737 MAX 7": "B737",
+    "Boeing 737 MAX 8": "B737",
+    "Boeing 737 MAX 8200": "B737",
+    "Boeing 737 MAX 9": "B737",
+    "Boeing 737-600": "B737",
+    "Boeing 737-700": "B737",
+    "Boeing 737-800": "B737",
+    "Boeing 737-900": "B737",
+    "Boeing 737-900ER": "B737",
+    "Boeing 747-400": "B747",
+    "Boeing 747-400D": "B747",
+    "Boeing 747-8": "B747",
+    "Boeing 757-200": "B737",
+    "Boeing 757-300": "B737",
+    "Boeing 767-300ER": "B767",
+    "Boeing 767-400ER": "B767",
+    "Boeing 777-200": "B777",
+    "Boeing 777-200ER": "B777",
+    "Boeing 777-200LR": "B777",
+    "Boeing 777-300": "B777",
+    "Boeing 777-300ER": "B777",
+    "Boeing 777-9": "B77X",
+    "Boeing 787-10 Dreamliner": "B787",
+    "Boeing 787-8 Dreamliner": "B787",
+    "Boeing 787-9 Dreamliner": "B787",
+    "Bombardier CRJ-1000": "CRJ",
+    "Bombardier CRJ-200": "CRJ",
+    "Bombardier CRJ-550": "CRJ",
+    "Bombardier CRJ-700": "CRJ",
+    "Bombardier CRJ-705": "CRJ",
+    "Bombardier CRJ-900": "CRJ",
+    "Comac ARJ-21-700": "A220",
+    "Comac C919-100ER": "B737",
+    "Comac C919-100STD": "B737",
+    "De Havilland Canada Dash 8 Q100": "ATR",
+    "De Havilland Canada Dash 8 Q200": "ATR",
+    "De Havilland Canada Dash 8 Q300": "ATR",
+    "De Havilland Canada Dash 8 Q400": "ATR",
+    "Embraer E170": "ERJ",
+    "Embraer E175": "ERJ",
+    "Embraer E175LR": "ERJ",
+    "Embraer E190": "ERJ",
+    "Embraer E190-E2": "ERJ",
+    "Embraer E195": "ERJ",
+    "Embraer E195-E2": "ERJ",
+    "Embraer ERJ-135": "E135",
+    "Embraer ERJ-140": "E135",
+    "Embraer ERJ-145": "E135",
+    "Embraer ERJ-145XR": "E135",
+    "Sukhoi Superjet 100-95B": "A220",
+    "Sukhoi Superjet 100-95LR": "A220"
+  }
+}
