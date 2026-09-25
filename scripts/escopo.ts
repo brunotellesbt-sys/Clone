@@ -7,7 +7,7 @@
  * ele aceita, e ninguém percebe. Esta tabela é o que segura isso.
  */
 import {
-  AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, vooPermitido, type Escopo,
+  AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, PISTA_OPERACIONAL, vooPermitido, type Escopo,
 } from '../src/game/data/airports'
 import { distanceBetween } from '../src/game/geo'
 
@@ -314,6 +314,92 @@ console.log('\npar do mesmo sistema aeroportuário\n')
     const d = baseDemand(a, b, 0, 180)
     conferir(!barrado && d.total > 0, `${a}-${b} continua sendo voo`,
       `${distanciaKm(a, b).toFixed(0)} km · mercado ${d.total.toFixed(0)}`)
+  }
+
+  /*
+   * O satélite distante é voo, e o grupo dele continua não sendo.
+   *
+   * Dezenove pares revisados um a um: Southend com o cinturão de Londres,
+   * Bergamo com Milão, Ontario e Santa Ana entre si, Nyköping com Estocolmo.
+   * A régua não tem como acertar isso sozinha — Los Angeles–Santa Ana, a 58
+   * km, é proibido, e Ontario–Santa Ana, a 49, é voo. É conhecimento de
+   * mercado, e por isso está escrito em `EXCECOES_DE_SISTEMA`.
+   */
+  const satelites: [string, string][] = [
+    ['LHR', 'SEN'], ['LGW', 'SEN'], ['STN', 'SEN'], ['LTN', 'SEN'], ['LCY', 'SEN'],
+    ['LAX', 'ONT'], ['ONT', 'SNA'], ['ONT', 'BUR'], ['ONT', 'LGB'],
+    ['SNA', 'BUR'], ['LGB', 'SNA'],
+    ['ARN', 'NYO'], ['BMA', 'NYO'], ['VST', 'NYO'], ['OSL', 'TRF'],
+    ['MXP', 'BGY'], ['LIN', 'BGY'], ['NLU', 'TLC'], ['BWI', 'DCA'],
+  ]
+  let soltos = 0
+  for (const [a, b] of satelites) {
+    if (!vooPermitido(AIRPORT_BY_IATA[a], AIRPORT_BY_IATA[b])) soltos++
+  }
+  conferir(soltos === satelites.length, 'os satélites revisados continuam sendo voo',
+    `${soltos}/${satelites.length}`)
+
+  // E o centro do mesmo grupo continua junto: a exceção é do satélite, não do
+  // sistema inteiro.
+  for (const [a, b] of [['LHR', 'LGW'], ['LAX', 'SNA'], ['MXP', 'LIN'], ['MEX', 'TLC']] as const) {
+    conferir(!!vooPermitido(AIRPORT_BY_IATA[a], AIRPORT_BY_IATA[b]),
+      `${a}-${b} continua não sendo voo`, `${distanciaKm(a, b).toFixed(0)} km`)
+  }
+}
+
+
+// ------------------------------------------------- pista real na tela
+//
+// A pista de 47 aeroportos era inventada: cinco números repetidos por faixa de
+// teto (1.356, 1.600, 2.118, 2.149 e 2.576 m), postos ali para o teto de porte
+// funcionar enquanto a conta de operação e o dado da tela dividiam o mesmo
+// campo. Santos Dumont aparecia com 2.149 m; ele tem 1.323, e é o número que o
+// jogador lê no menu de porte.
+//
+// Agora `runway` é o comprimento de verdade e `pistaOperacional` guarda a
+// régua herdada. Esta trava mede as duas pontas: a tela mostra pista real, e
+// **nenhuma aeronave mudou de aeroporto** por causa disso.
+console.log('\npista real e régua de operação\n')
+{
+  const conhecidas: [string, number][] = [
+    ['SDU', 1323], ['CGH', 1940], ['PLU', 2540], ['CWB', 2218], ['JOI', 1640],
+  ]
+  for (const [iata, m] of conhecidas) {
+    const real = AIRPORT_BY_IATA[iata].runway * 0.3048
+    conferir(Math.abs(real - m) < 30, `${iata} mostra a pista de verdade (${m} m)`,
+      `${real.toFixed(0)} m`)
+  }
+
+  // Nenhum dos cinco valores sintéticos pode sobrar em `runway`. Eles têm nome
+  // próprio agora, e é `PISTA_OPERACIONAL`.
+  const sinteticos = [4450, 5250, 6950, 7050, 8450]
+  const sobrando = Object.keys(PISTA_OPERACIONAL)
+    .filter((i) => AIRPORT_BY_IATA[i] && sinteticos.includes(AIRPORT_BY_IATA[i].runway))
+  conferir(sobrando.length === 0, 'nenhum aeroporto com teto guarda pista sintética em `runway`',
+    sobrando.join(',') || 'nenhum')
+
+  /*
+   * E a frota aceita não mexeu.
+   *
+   * A régua de operação é herdada justamente para isso: trocar o comprimento
+   * da pista era para consertar o que a tela informa, não para redistribuir
+   * aeronave por aeroporto. Se um dia a régua passar a ser calculada, é aqui
+   * que a mudança aparece — de propósito.
+   */
+  const ESPERADO: [string, string, boolean][] = [
+    ['SDU', 'a320neo', true], ['SDU', 'a321neo', false],
+    ['CGH', 'b38m', true], ['CGH', 'b39m', false],
+    ['PLU', 'a320neo', true], ['PLU', 'a321neo', false],
+    ['CWB', 'a320neo', true],
+    ['JDF', 'e170', true], ['JDF', 'e195e2', false],
+    ['FEN', 'an225', false], ['SDU', 'an225', false],
+  ]
+  for (const [iata, id, deve] of ESPERADO) {
+    const t = AIRCRAFT_BY_ID[id]
+    if (!t) { conferir(false, `${id} existe no catálogo`); continue }
+    const serve = aeroportoServe(t, AIRPORT_BY_IATA[iata])
+    conferir(serve === deve, `${iata} ${deve ? 'recebe' : 'recusa'} ${t.name}`,
+      serve === deve ? '' : `mas ${serve ? 'recebe' : 'recusa'}`)
   }
 }
 
