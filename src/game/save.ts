@@ -1,7 +1,7 @@
 import { migrateLivery } from '../livery/presets'
 import { completarNumeros, migrarEscala, sincronizarMalha } from './escala'
 import { AIRCRAFT_BY_ID, ehCargueiro } from './data/aircraft'
-import { AIRPORT_BY_IATA } from './data/airports'
+import { AIRPORT_BY_IATA, vooPermitido } from './data/airports'
 import { clampPitch, defaultCabin, normalizarCabine } from './cabin'
 import { engineIdFor } from './spec'
 import type { Aircraft, GameState } from './types'
@@ -22,12 +22,37 @@ function migrate(s: GameState): GameState | null {
 
   s.airline.hubs = s.airline.hubs.filter((h) => AIRPORT_BY_IATA[h])
   s.airline.fleet = s.airline.fleet ?? []
+  /**
+   * Rota que a regra de hoje proíbe sai do save — e sai calada.
+   *
+   * O caso que motivou: Congonhas–Guarulhos, Congonhas–Viracopos e
+   * Santos Dumont–Galeão. São pares da mesma região metropolitana, sem
+   * mercado nenhum, e o jogo aceitava abri-los. Deixá-los num save antigo não
+   * seria "respeitar o que o jogador montou": seria manter rotas cuja demanda
+   * agora é zero, com aeronave presa nelas e resultado no vermelho todo dia.
+   *
+   * É a mesma peneira de `vooPermitido` que a tela de abrir rota usa, então
+   * não há como um save carregar par que o jogo não deixaria abrir hoje.
+   */
   s.airline.routes = (s.airline.routes ?? []).filter(
-    (r) => AIRPORT_BY_IATA[r.from] && AIRPORT_BY_IATA[r.to],
+    (r) => AIRPORT_BY_IATA[r.from] && AIRPORT_BY_IATA[r.to] &&
+      !vooPermitido(AIRPORT_BY_IATA[r.from], AIRPORT_BY_IATA[r.to]),
   )
   s.airline.loans = s.airline.loans ?? []
   s.airline.codeshareNumbers ??= {}
   s.competitors = s.competitors ?? []
+  /**
+   * E as rotas das concorrentes também: elas alimentam a disputa por
+   * passageiro e a lista de "quantas companhias voam este par". Uma rota
+   * fantasma numa concorrente roubaria fatia num mercado que não existe.
+   */
+  for (const c of s.competitors) {
+    c.routes = (c.routes ?? []).filter((r) => {
+      const a = AIRPORT_BY_IATA[r.from]
+      const b = AIRPORT_BY_IATA[r.to]
+      return a && b && !vooPermitido(a, b)
+    })
+  }
   s.ledger = s.ledger ?? []
   s.notices = s.notices ?? []
   s.lastShare = s.lastShare ?? {}

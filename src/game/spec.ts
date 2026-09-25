@@ -69,10 +69,21 @@ export const pistaExigida = (t: AircraftType, ap: { elev: number }) =>
 /** O que um aeroporto precisa oferecer para receber o tipo. */
 export interface Portao {
   elev: number
+  /** A pista do aeroporto, em pés. É fato, e é o que a tela mostra. */
   runway: number
+  /**
+   * A régua que a operação usa, quando ela não é a pista. Ver
+   * `PISTA_OPERACIONAL` em `airports.ts`: os dois papéis moravam no mesmo
+   * campo, e para o teto funcionar alguém precisou inflar a pista de 47
+   * aeroportos — Santos Dumont aparecia com 2.149 m, e tem 1.323.
+   */
+  pistaOperacional?: number
   /** Teto de operação onde a pista não é quem manda; ver `TETO_ASSENTOS`. */
   tetoAssentos?: number
 }
+
+/** A régua de operação: a herdada onde existe, a pista onde não existe. */
+const reguaDe = (ap: Portao) => ap.pistaOperacional ?? ap.runway
 
 /**
  * O aeroporto recebe este tipo?
@@ -80,9 +91,15 @@ export interface Portao {
  * Duas perguntas, e a segunda quase nunca é feita: a pista dá, e o aeroporto
  * aceita avião desse tamanho? Pampulha responde não à segunda com a pista
  * dizendo sim — ver `TETO_ASSENTOS` em `airports.ts`.
+ *
+ * "A pista dá" pergunta à **régua de operação**, não ao comprimento que a tela
+ * mostra. Nos 47 aeroportos com teto as duas divergem, e é de propósito: a
+ * régua é a herdada, que mantém aceita exatamente a mesma frota de antes, e o
+ * comprimento voltou a ser o de verdade para o jogador ler um número que
+ * existe.
  */
 export const aeroportoServe = (t: AircraftType, ap: Portao) =>
-  pistaExigida(t, ap) <= ap.runway &&
+  pistaExigida(t, ap) <= reguaDe(ap) &&
   (ap.tetoAssentos === undefined || t.maxSeats <= ap.tetoAssentos)
 
 /** A aeronave opera entre os dois aeroportos? Pista e porte — alcance é outra conta. */
@@ -98,7 +115,7 @@ export const pistaServe = (t: AircraftType, a: Portao, b: Portao) =>
  */
 export function motivoDoPar(t: AircraftType, a: Portao, b: Portao): string | null {
   for (const ap of [a, b]) {
-    if (pistaExigida(t, ap) > ap.runway) return 'Pista curta demais em uma das pontas.'
+    if (pistaExigida(t, ap) > reguaDe(ap)) return 'Pista curta demais em uma das pontas.'
     if (ap.tetoAssentos !== undefined && t.maxSeats > ap.tetoAssentos) {
       return `Aeronave grande demais para uma das pontas (teto de ${ap.tetoAssentos} assentos).`
     }

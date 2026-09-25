@@ -1,11 +1,91 @@
+import { Fragment, useState } from 'react'
 import { AIRPORT_BY_IATA } from '../game/data/airports'
-import { money, netWorth, num, pct, period } from '../game/engine'
+import { frotaDaConcorrente } from '../game/ai'
+import { distanceBetween } from '../game/geo'
+import { km, money, netWorth, num, pct, period } from '../game/engine'
 import { useGame } from '../store/useGame'
 import { Card, Empty } from './components/Bits'
+
+/**
+ * A ficha da rival: com o que ela voa e para onde.
+ *
+ * A tela dizia "118 aviões" e parava aí — um número sem nenhuma consequência
+ * para quem está decidindo em que par entrar. Saber que a companhia de 118
+ * aeronaves tem oitenta E195 em etapa curta, e não oitenta widebody, muda
+ * completamente onde vale a pena disputar.
+ *
+ * A frota é **derivada da malha**, e isso está dito na tela: a rival não tem
+ * cauda com matrícula, ela tem rota com oferta. Ver `frotaDaConcorrente`.
+ */
+function FichaDaRival({ id }: { id: string }) {
+  const { state } = useGame()
+  const c = state.competitors.find((x) => x.id === id)
+  if (!c) return null
+  const ano = state.startYear + state.day / 365
+  const frota = frotaDaConcorrente(c, ano)
+  // as maiores primeiro: é onde o dinheiro dela está, e onde doer mais entrar
+  const rotas = [...c.routes].sort((x, y) => y.seats * y.freq - x.seats * x.freq)
+
+  return (
+    <div className="grid g2" style={{ gap: 14, padding: '10px 0' }}>
+      <div>
+        <h4 className="sub">Frota</h4>
+        {frota.length === 0 ? (
+          <p className="muted" style={{ fontSize: 12 }}>Sem malha: a companhia ainda não voa.</p>
+        ) : (
+          <div className="scroll baixa">
+            <table className="compacta">
+              <thead>
+                <tr><th>Modelo</th><th className="r">Aviões</th><th className="r">Rotas</th><th className="r">Assentos/dia</th></tr>
+              </thead>
+              <tbody>
+                {frota.map((l) => (
+                  <tr key={l.typeId}>
+                    <td>{l.nome}</td>
+                    <td className="r"><b>{num(l.avioes)}</b></td>
+                    <td className="r muted">{num(l.rotas)}</td>
+                    <td className="r muted">{num(l.assentosDia)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="muted" style={{ fontSize: 11, margin: '6px 0 0' }}>
+          A rival não tem matrícula: a frota sai da malha dela. Para cada rota entra o modelo que
+          leva a oferta, alcança o destino com a pista das duas pontas e gasta menos por assento;
+          as caudas são repartidas por hora de voo.
+        </p>
+      </div>
+      <div>
+        <h4 className="sub">Maiores rotas</h4>
+        <div className="scroll baixa">
+          <table className="compacta">
+            <thead>
+              <tr><th>Rota</th><th className="r">Distância</th><th className="r">Voos</th><th className="r">Assentos</th></tr>
+            </thead>
+            <tbody>
+              {rotas.map((r) => (
+                <tr key={r.key}>
+                  <td><b>{r.from} → {r.to}</b> <span className="muted">{AIRPORT_BY_IATA[r.to]?.city}</span></td>
+                  <td className="r muted">{km(distanceBetween(r.from, r.to))}</td>
+                  <td className="r">{num(r.freq)}/dia</td>
+                  <td className="r muted">{num(r.seats)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export function RankingView() {
   const { state } = useGame()
   const p30 = period(state, 30)
+  /** Uma ficha aberta por vez: duas abertas viram uma tela de rolagem. */
+  const [aberta, setAberta] = useState<string | null>(null)
 
   const rows = [
     ...state.competitors.map((c) => ({
@@ -42,19 +122,38 @@ export function RankingView() {
             </thead>
             <tbody>
               {rows.map((r, i) => (
-                <tr key={r.id} className={r.me ? 'on' : ''}>
-                  <td>{i + 1}</td>
-                  <td>
-                    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: r.color, marginRight: 8 }} />
-                    <b>{r.name}</b> <span className="muted">{r.code}</span>
-                    {r.me && <span className="chip" style={{ marginLeft: 8 }}>você</span>}
-                  </td>
-                  <td>{r.hub} <span className="muted">{AIRPORT_BY_IATA[r.hub]?.city}</span></td>
-                  <td className="r">{money(r.revenue)}</td>
-                  <td className="r">{num(r.routes)}</td>
-                  <td className="r">{num(r.fleet)}</td>
-                  <td className="r">{pct(r.reputation)}</td>
-                </tr>
+                <Fragment key={r.id}>
+                  <tr
+                    className={`${r.me ? 'on' : ''} ${r.me ? '' : 'click'}`}
+                    onClick={() => !r.me && setAberta((x) => (x === r.id ? null : r.id))}
+                  >
+                    <td>{i + 1}</td>
+                    <td>
+                      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: r.color, marginRight: 8 }} />
+                      <b>{r.name}</b> <span className="muted">{r.code}</span>
+                      {r.me && <span className="chip" style={{ marginLeft: 8 }}>você</span>}
+                      {/* O convite é preciso: sem ele, uma linha que abre
+                          parece uma linha que não faz nada. */}
+                      {!r.me && (
+                        <span className="muted" style={{ fontSize: 11, marginLeft: 8 }}>
+                          {aberta === r.id ? '▾ fechar' : '▸ frota e malha'}
+                        </span>
+                      )}
+                    </td>
+                    <td>{r.hub} <span className="muted">{AIRPORT_BY_IATA[r.hub]?.city}</span></td>
+                    <td className="r">{money(r.revenue)}</td>
+                    <td className="r">{num(r.routes)}</td>
+                    <td className="r">{num(r.fleet)}</td>
+                    <td className="r">{pct(r.reputation)}</td>
+                  </tr>
+                  {aberta === r.id && !r.me && (
+                    <tr>
+                      <td colSpan={7} style={{ background: 'var(--sky-1)' }}>
+                        <FichaDaRival id={r.id} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>

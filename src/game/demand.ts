@@ -1,4 +1,4 @@
-import { AIRPORT_BY_IATA, temIrmao, type Airport } from './data/airports'
+import { AIRPORT_BY_IATA, mesmoSistemaAeroportuario, temIrmao, type Airport } from './data/airports'
 import { AIRCRAFT_BY_ID } from './data/aircraft'
 import { aeroportoServe } from './spec'
 import { derivaDoPais } from './data/crescimento'
@@ -189,6 +189,19 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
   const b = AIRPORT_BY_IATA[to]
   const distNm = distanceBetween(from, to)
   /**
+   * Par do mesmo sistema aeroportuário não tem mercado nenhum — zero, não
+   * "pouco".
+   *
+   * A rampa de etapa curta cobrava 15% num par de 44 nm, e 15% de Guarulhos
+   * com Viracopos ainda é um mercado grande: o modelo multiplica o movimento
+   * das duas pontas, e as duas ali são gigantes. O piso então passava por cima
+   * e garantia 112 passageiros por dia num trecho que ninguém voa. A régua
+   * está em `mesmoSistemaAeroportuario`, e é a mesma que proíbe abrir a rota.
+   */
+  if (mesmoSistemaAeroportuario(a, b)) {
+    return { pax: { y: 0, w: 0, c: 0, f: 0 }, total: 0, refFare: 0, distance: distNm }
+  }
+  /**
    * A massa do par é o movimento dos **aeroportos**, não a população das
    * cidades. Era `sqrt(a.pop * b.pop)`, e por isso Guarulhos, Congonhas e
    * Viracopos disputavam mercados idênticos: os três herdavam os mesmos 22
@@ -369,6 +382,9 @@ export function cargoDemand(from: string, to: string, day: number, dayOfYear: nu
   const a = AIRPORT_BY_IATA[from]
   const b = AIRPORT_BY_IATA[to]
   const dist = distanceBetween(from, to)
+  // Mesma regra do passageiro, e pela mesma razão: carga entre dois aeroportos
+  // da mesma cidade vai de caminhão. Ver `mesmoSistemaAeroportuario`.
+  if (mesmoSistemaAeroportuario(a, b)) return { tons: 0, refRate: 0, distance: dist }
   const mass = Math.sqrt(a.pop * b.pop)
   const gdp = (a.gdp + b.gdp) / 2
   const sameCountry = a.cc === b.cc ? 0.72 : 1 // no doméstico o caminhão compete
