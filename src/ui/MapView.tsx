@@ -1,4 +1,4 @@
-import { geoNaturalEarth1, geoPath, geoGraticule10 } from 'd3-geo'
+import { geoEquirectangular, geoPath, geoGraticule10 } from 'd3-geo'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { feature } from 'topojson-client'
 import type { FeatureCollection, Geometry as GeoGeometry } from 'geojson'
@@ -6,12 +6,15 @@ import world from 'world-atlas/countries-110m.json'
 import { AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, type Airport } from '../game/data/airports'
 import { aircraftOf, dowOf, km, metros, num, typeOf } from '../game/engine'
 import { MS_POR_DIA_NA_TELA } from './relogio'
-import { blocoDe, DIA, DOW_CURTO, escalaDe, hhmm, rotaDoPar } from '../game/escala'
+import { blocoDe, DIA, DOW_CURTO, escalaDe, hhmm, naSemana, noTempo, partidaUtc, rotaDoPar } from '../game/escala'
 import { distanceBetween, interpolate } from '../game/geo'
+import { spriteMapa } from '../livery/mapSprites'
 import type { Aircraft, GameState, Perna, Route } from '../game/types'
 
 const W = 1000
 const H = 520
+const SATELLITE = `${import.meta.env.BASE_URL}nasa-blue-marble.jpg`
+const PLANE_FALLBACK = `${import.meta.env.BASE_URL}assets_icons_png_vertical_plane_icon.png`
 /**
  * Até onde aproxima. Nove deixava o mapa parando no tamanho de estado; 40 chega
  * na escala de cidade, que é onde dá para separar Congonhas de Guarulhos a olho.
@@ -58,6 +61,7 @@ export function MapView({
   const [view, setView] = useState({ k: 1, x: 0, y: 0 })
   const [hover, setHover] = useState<{ iata: string; x: number; y: number } | null>(null)
   const [voo, setVoo] = useState<string | null>(null)
+  const [airport, setAirport] = useState<string | null>(null)
   /**
    * O relógio da tela, de 0 a 1 no dia. Começa às 8h e não à meia-noite: agora
    * que o avião no mapa é uma perna de verdade da escala, a madrugada está
@@ -119,7 +123,7 @@ export function MapView({
   }
 
   const projection = useMemo(
-    () => geoNaturalEarth1().fitExtent([[6, 6], [W - 6, H - 6]], { type: 'Sphere' }),
+    () => geoEquirectangular().fitExtent([[0, 10], [W, H - 10]], { type: 'Sphere' }),
     [],
   )
   const path = useMemo(() => geoPath(projection), [projection])
@@ -291,24 +295,24 @@ export function MapView({
      * que estão a três horas de distância. É o mesmo erro que a escala já não
      * comete, e o mapa não tem por que cometer sozinho.
      */
-    const agora = t * DIA
+    const agora = dow * DIA + t * DIA
     const out: {
       id: string; r: Route | undefined; ac: ReturnType<typeof aircraftOf>
       a: Airport; b: Airport; fase: number; perna: Perna; bloco: number
     }[] = []
     for (const p of escalaDe(state)) {
-      if (p.dow !== dow) continue
+      const ac = aircraftOf(state, p.aircraftId)
+      if (!ac || ac.groundedUntil > state.day) continue
       const a = AIRPORT_BY_IATA[p.from]
       const b = AIRPORT_BY_IATA[p.to]
       if (!a || !b) continue
       const bloco = blocoDe(state, p)
-      const partida = p.saida - a.fuso
-      const decorrido = ((agora - partida) % DIA + DIA) % DIA
+      const decorrido = naSemana(agora - partidaUtc(p))
       if (decorrido >= bloco) continue
       out.push({
         id: p.id, perna: p, bloco, a, b,
         r: rotaDoPar(state, p.from, p.to),
-        ac: aircraftOf(state, p.aircraftId),
+        ac,
         fase: bloco > 0 ? decorrido / bloco : 0,
       })
       if (out.length >= 80) break
@@ -465,7 +469,7 @@ export function MapView({
   }
 
   /** Clique no vazio larga o voo selecionado — mas não quando foi arrasto. */
-  const onFundo = () => { if (!andou.current) setVoo(null) }
+  const onFundo = () => { if (!andou.current) { setVoo(null); setAirport(null) } }
 
   const hoverAp = hover ? AIRPORT_BY_IATA[hover.iata] : null
 
@@ -494,8 +498,10 @@ export function MapView({
         </defs>
         <rect width={W} height={H} fill="url(#ocean)" onClick={onFundo} />
         <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
-          <path d={gratPath} fill="none" stroke="#18293f" strokeWidth={stroke(0.5)} />
-          <path d={landPath} fill="#1a2c42" stroke="#33506e" strokeWidth={stroke(0.6)} onClick={onFundo} />
+          <image href={SATELLITE} x="0" y="10" width={W} height={H - 20}
+            preserveAspectRatio="none" onClick={onFundo} />
+          <path d={gratPath} fill="none" stroke="#a9c5dd" strokeOpacity="0.1" strokeWidth={stroke(0.5)} />
+          <path d={landPath} fill="none" stroke="#b9d7ee" strokeOpacity="0.28" strokeWidth={stroke(0.55)} onClick={onFundo} />
 
           {compRoutes.map((r, i) => (
             <path key={`c${i}`} d={arc(r.from, r.to)} fill="none" stroke={r.color} strokeOpacity={0.15} strokeWidth={stroke(0.7)} />
@@ -504,7 +510,7 @@ export function MapView({
           {routes.map((r) => {
             // a rota escolhida sai da linha comum: quem a desenha é o traçado do
             // voo, e as duas juntas viravam três traços em cima do mesmo arco
-            if (voo === r.id) return null
+            if (vooSel?.r?.id === r.id) return null
             const prof = r.history.length ? r.history[r.history.length - 1].profit : 0
             const color = r.history.length === 0 ? '#64748b' : prof >= 0 ? '#3ddc97' : '#ff7a8a'
             return (
@@ -527,7 +533,8 @@ export function MapView({
             </g>
           )}
 
-          {AIRPORTS.map((a) => {
+          {/* Bases desenhadas por último para aeroportos vizinhos não roubarem o clique. */}
+          {[...AIRPORTS.filter(a => !hubs.has(a.iata)), ...AIRPORTS.filter(a => hubs.has(a.iata))].map((a) => {
             const isHub = hubs.has(a.iata)
             const isSel = selected === a.iata
             const served = servidos.has(a.iata)
@@ -541,16 +548,17 @@ export function MapView({
                     stroke="#ffc266" strokeOpacity={0.7} strokeWidth={stroke(1.1)} style={{ pointerEvents: 'none' }} />
                 )}
                 <circle
+                  aria-label={`Aeroporto ${a.iata}`}
                   cx={px}
                   cy={py}
                   r={dotR(a.tier) * (isHub ? 1.7 : 1)}
                   fill={isSel ? '#ffc266' : isHub ? '#4fc3f7' : served ? '#a9bdf5' : '#54688f'}
                   stroke={isSel ? '#fff6e6' : 'rgba(4,10,20,.7)'}
                   strokeWidth={stroke(isSel ? 1.4 : 0.6)}
-                  style={{ cursor: onPick ? 'pointer' : 'default' }}
+                  style={{ cursor: 'pointer' }}
                   onPointerEnter={(e) => setHover({ iata: a.iata, x: e.clientX, y: e.clientY })}
                   onPointerLeave={() => setHover(null)}
-                  onClick={(e) => { e.stopPropagation(); if (!andou.current) onPick?.(a.iata) }}
+                  onClick={(e) => { e.stopPropagation(); if (!andou.current) { if (onPick) onPick(a.iata); else { setAirport(a.iata); setVoo(null) } } }}
                 />
                 {(isHub || isSel || (view.k > 2.6 && a.tier >= 4)) && (
                   <text
@@ -568,7 +576,7 @@ export function MapView({
           })}
           {/* avião por último: desenhado depois do aeroporto, ele fica por cima
               e o clique é dele — antes o marcador do aeroporto de origem roubava */}
-          {voos.map(({ id, a, b, fase }) => {
+          {voos.map(({ id, a, b, fase, ac }) => {
             const [lon, lat] = interpolate(a, b, fase)
             const [x, y] = project(lon, lat)
             const [lon2, lat2] = interpolate(a, b, Math.min(1, fase + 0.01))
@@ -576,15 +584,15 @@ export function MapView({
             const ang = (Math.atan2(y2 - y, x2 - x) * 180) / Math.PI
             const on = voo === id
             const s = (on ? 2.2 : 1.5) * fator
+            const sprite = ac ? spriteMapa(ac.typeId, on) : null
             return (
               <g key={`p${id}`} transform={`translate(${x},${y}) rotate(${ang}) scale(${s})`}
                 style={{ cursor: 'pointer' }}
                 onClick={(e) => { e.stopPropagation(); if (!andou.current) setVoo(on ? null : id) }}>
                 {/* alvo de clique folgado: a seta tem 8 px de ponta a ponta */}
                 <circle r="6" fill="transparent" />
-                <path d="M4.5 0 L-3 2.6 L-1.6 0 L-3 -2.6 Z"
-                  fill={on ? '#ffd27a' : '#e2f4ff'} stroke="#0b1220" strokeWidth="0.4"
-                  filter={on ? 'url(#glow)' : undefined} />
+                <image href={sprite ?? PLANE_FALLBACK} x="-4" y="-4" width="8" height="8"
+                  transform="rotate(90)" filter={on ? 'url(#glow)' : undefined} />
               </g>
             )
           })}
@@ -610,6 +618,7 @@ export function MapView({
         ) : (
           <>
             <span><i className="dot hub" /> base</span>
+            <a href="https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/" target="_blank" rel="noreferrer">Imagem: NASA Earth Observatory</a>
             <span><i className="dash good" /> rota no lucro</span>
             <span><i className="dash bad" /> rota no prejuízo</span>
             {routes.length > 0 && (
@@ -625,7 +634,9 @@ export function MapView({
         )}
       </div>
 
-      {vooSel && <CartaoVoo voo={vooSel} onClose={() => setVoo(null)} />}
+      {vooSel && <CartaoVoo voo={vooSel} airlineCode={state.airline.code} onClose={() => setVoo(null)} />}
+      {!picking && !vooSel && airport && AIRPORT_BY_IATA[airport] &&
+        <CartaoAeroporto state={state} airport={AIRPORT_BY_IATA[airport]} onClose={() => setAirport(null)} />}
 
       {hoverAp && (
         <div className="map-tip" style={{ left: Math.min(hover!.x - 8, window.innerWidth - 220), top: hover!.y - 62 }}>
@@ -642,6 +653,42 @@ export function MapView({
   )
 }
 
+function CartaoAeroporto({ state, airport, onClose }: {
+  state: GameState; airport: Airport; onClose: () => void
+}) {
+  const base = state.airline.hubs.includes(airport.iata)
+  const pernas = escalaDe(state).filter(p => p.from === airport.iata || p.to === airport.iata)
+    .map(p => {
+      const chegada = p.to === airport.iata
+      const tempo = noTempo(state, p)
+      return { p, chegada, dia: chegada ? tempo.dowChegada : p.dow, hora: chegada ? tempo.chegadaLocal : p.saida }
+    }).sort((a, b) => a.dia - b.dia || a.hora - b.hora)
+  const concorrentes = state.competitors.flatMap(c => c.routes
+    .filter(r => r.from === airport.iata || r.to === airport.iata)
+    .map(r => ({ companhia: c.name, rota: r })))
+  const destinos = new Set([...pernas.map(({ p }) => p.from === airport.iata ? p.to : p.from),
+    ...concorrentes.map(x => x.rota.from === airport.iata ? x.rota.to : x.rota.from)])
+  return <div className={`map-card map-airport-card ${base ? 'hub' : ''}`}>
+    <div className="row" style={{ justifyContent: 'space-between' }}>
+      <b>{base ? '★ Sua base · ' : ''}{airport.iata}</b>
+      <button className="x" onClick={onClose} title="Fechar">×</button>
+    </div>
+    <span>{airport.city}, {airport.country}</span>
+    <small className="muted">{ESCOPO_LABEL[airport.escopo]} · {num(airport.paxDia)} passageiros/dia</small>
+    <small className="dim">{destinos.size} destinos · {pernas.length} voos seus/semana · {concorrentes.length} rotas de outras companhias</small>
+    <b className="map-airport-sub">Seus voos · hora local</b>
+    <div className="map-airport-flights">{pernas.length ? pernas.map(({ p, chegada, dia, hora }) =>
+      <small key={p.id}>{state.airline.code}{String(p.numero ?? 0).padStart(4, '0')} · {DOW_CURTO[dia]} {hhmm(hora)} · {chegada ? 'Chega de' : 'Parte para'} {chegada ? p.from : p.to}</small>
+    ) : <small className="muted">Nenhum voo programado.</small>}</div>
+    {concorrentes.length > 0 && <>
+      <b className="map-airport-sub">Outras companhias</b>
+      <div className="map-airport-flights">{concorrentes.map((x, i) =>
+        <small key={`${x.companhia}-${i}`}>{x.companhia} · {x.rota.from}–{x.rota.to} · {x.rota.freq}/dia</small>
+      )}</div>
+    </>}
+  </div>
+}
+
 /**
  * O que o jogador quer saber ao clicar num avião: qual cauda é, indo para onde
  * e a que horas.
@@ -652,9 +699,10 @@ export function MapView({
  * ela também diz de onde ela veio e para onde segue depois.
  */
 function CartaoVoo({
-  voo, onClose,
+  voo, airlineCode, onClose,
 }: {
   voo: { a: Airport; b: Airport; fase: number; perna: Perna; bloco: number; ac: Aircraft | undefined; r: Route | undefined }
+  airlineCode: string
   onClose: () => void
 }) {
   const { a, b, fase, perna, bloco, ac, r } = voo
@@ -665,7 +713,7 @@ function CartaoVoo({
   return (
     <div className="map-card">
       <div className="row" style={{ justifyContent: 'space-between', gap: 10 }}>
-        <b>{perna.from} → {perna.to}</b>
+        <b>{perna.numero ? `${airlineCode}${String(perna.numero).padStart(4, '0')} · ` : ''}{perna.from} → {perna.to}</b>
         <button className="x" onClick={onClose} title="Fechar">×</button>
       </div>
       <div className="muted" style={{ fontSize: 12 }}>{a.city} → {b.city}</div>

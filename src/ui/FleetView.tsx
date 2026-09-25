@@ -1,13 +1,13 @@
 import { SeatMapEditor } from './SeatMapEditor'
 import { useCabine } from './useCabine'
-import { seatChangeCost } from '../game/seatModels'
+import { SEAT_BY_ID, seatChangeCost } from '../game/seatModels'
 import { useState } from 'react'
 import { AIRCRAFT_BY_ID, acLabel, ehCargueiro } from '../game/data/aircraft'
 import { AIRPORT_BY_IATA } from '../game/data/airports'
 import { ENGINES, engineLabel } from '../game/data/engines'
 import { motivoDoPar } from '../game/spec'
 import {
-  cabinLength, checkCabin, crewFor, layoutsDe, pitchFare, pitchName, sumSeats, textoDasClasses,
+  cabinLength, checkCabin, crewFor, pitchFare, sumSeats, textoDasClasses,
 } from '../game/cabin'
 import { CLASS_FARE_MULT } from '../game/demand'
 import { resaleValue, sumCabins } from '../game/economy'
@@ -124,7 +124,7 @@ export function FleetView() {
                 ) : (
                   <>
                     <div><span className="muted">Comissários</span><br />{crewFor(sel.seats)}</div>
-                    <div><span className="muted">Passo econômica</span><br />{sel.pitch.y}″ · {pitchName('y', sel.pitch.y)}</div>
+                    <div><span className="muted">Poltrona econômica</span><br />{sel.pitch.y}″ · {SEAT_BY_ID[sel.seatConfig?.y?.style ?? '']?.name ?? 'Padrão'}</div>
                   </>
                 )}
                 <div>
@@ -225,16 +225,6 @@ function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
         <b>{t.maxSeats} passageiros</b>. Cada fileira come o passo que você escolher: passo maior
         rende mais por assento e leva menos gente. É a conta que a companhia faz de verdade.
       {' '}{textoDasClasses(t)}</p>
-
-      <h4 className="sub">Partir de um padrão</h4>
-      <div className="row tight" style={{ flexWrap: 'wrap', marginBottom: 12 }}>
-        {layoutsDe(t).map((l) => (
-          <button key={l.id} className="btn sm" title={l.note}
-            onClick={() => carregar({ ...l.build(t), seatConfig: {} })}>
-            {l.name}
-          </button>
-        ))}
-      </div>
 
       {salvas.length > 0 && (
         <>

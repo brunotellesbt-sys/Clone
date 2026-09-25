@@ -19,6 +19,10 @@ conferir(curta.pax.f === 0, 'doméstica até 2.000 km não gera primeira classe'
 const longaDom = baseDemand('JFK', 'LAX', 0, 180)
 conferir(longaDom.distance * 1.852 > 2000, 'caso doméstico de teste passa de 2.000 km')
 conferir(longaDom.pax.f > 0, 'doméstica longa elegível pode gerar primeira classe')
+conferir(ponte.pax.c > ponte.pax.w, 'executiva e premium têm demandas distintas na ponte aérea')
+conferir(baseDemand('IZA', 'GRU', 0, 180).total > 190, 'ligação regional ganhou procura sem perder teto do aeroporto')
+conferir(baseDemand('GRU', 'REC', 3650, 180).total !== baseDemand('GRU', 'REC', 0, 180).total,
+  'crescimento do mercado continua variando com os anos')
 
 // -------------------------------------------------- sugestão de tarifa por classe
 {

@@ -1,11 +1,11 @@
-import { AIRPORT_BY_IATA } from '../../game/data/airports'
 import {
-  atratividadeHorario, conexoesDaRota, hhmm, horaDaConcorrente, JANELA_COLADO, MCT_ALFANDEGA,
-  MCT_DOMESTICA, MCT_INTERNACIONAL, rotuloMct, voosColados, type Conexao,
+  atratividadeHorario, conexoesDaRota, hhmm, horaDaConcorrente, JANELA_COLADO,
+  voosColados, type Conexao,
 } from '../../game/malha'
-import { DOW_CURTO, lerHora, noTempo, pernasDaRota, remarcarVoo, removerVoo } from '../../game/escala'
+import { useState } from 'react'
+import { alterarNumeroVoo, DOW_CURTO, lerHora, noTempo, pernasDaRota, remarcarVoo, removerVoo } from '../../game/escala'
 import { odKey } from '../../game/geo'
-import { aircraftOf } from '../../game/engine'
+import { aircraftOf, num } from '../../game/engine'
 import type { Route } from '../../game/types'
 import { useGame } from '../../store/useGame'
 import { Card } from './Bits'
@@ -36,7 +36,6 @@ export function Horarios({ route }: { route: Route }) {
     c.routes.filter((r) => r.key === odKey(route.from, route.to))
       .map((r) => ({ nome: c.name, hora: horaDaConcorrente(r), freq: r.freq })),
   ).sort((a, b) => a.hora - b.hora)
-  const domestica = AIRPORT_BY_IATA[base].cc === AIRPORT_BY_IATA[route.to].cc
 
   return (
     <div className="grid" style={{ gap: 14 }}>
@@ -53,16 +52,15 @@ export function Horarios({ route }: { route: Route }) {
             <table className="horarios">
               <thead>
                 <tr>
-                  <th>Dia</th><th>Trecho</th><th>Aeronave</th><th>Parte</th>
-                  <th className="r">Chega</th><th className="r">Procura</th><th className="r">Conexões</th><th />
+                  <th>Dia</th><th>Voo</th><th>Trecho</th><th>Aeronave</th><th>Parte</th>
+                  <th className="r">Chega</th><th className="r">Procura</th><th className="r">Conexões · último voo</th><th />
                 </tr>
               </thead>
               <tbody>
                 {pernas.map((t) => {
                   const p = t.perna
                   const ac = aircraftOf(state, p.aircraftId)
-                  const entra = entrando.filter((c) => c.para.id === p.id).length
-                  const sai = saindo.filter((c) => c.de.id === p.id).length
+                  const apurado = p.ultimoVoo
                   const colado = colados.some(([x, y]) => x.id === p.id || y.id === p.id)
                   const peso = atratividadeHorario(p.saida)
                   return (
@@ -73,6 +71,8 @@ export function Horarios({ route }: { route: Route }) {
                           <span className="alerta" title={`Outro voo para ${p.to} a menos de ${JANELA_COLADO} min`}> ⚠</span>
                         )}
                       </td>
+                      <td><label className="flight-number"><b>{state.airline.code}</b><input aria-label={`Número do voo ${p.from} para ${p.to}`} type="number" min="1" max="9999" key={`${p.id}-${p.numero}`} defaultValue={p.numero ?? ''}
+                        onBlur={e => { const err = act(s => alterarNumeroVoo(s, p.id, Number(e.target.value))); if (err) { toast(err, 'error'); e.target.value = String(p.numero ?? '') } }} /></label></td>
                       <td><b>{p.from} → {p.to}</b></td>
                       <td>{ac ? ac.reg : <span className="bad">sem cauda</span>}</td>
                       <td>
@@ -98,13 +98,15 @@ export function Horarios({ route }: { route: Route }) {
                         </span>
                       </td>
                       <td className="r">
-                        <span className={entra ? 'good' : 'muted'} title="passageiros que chegam de outro voo e embarcam neste">
-                          {entra} entram
-                        </span>
-                        <span className="muted"> · </span>
-                        <span className={sai ? 'good' : 'muted'} title="passageiros que chegam neste voo e seguem em outro">
-                          {sai} seguem
-                        </span>
+                        {apurado ? <>
+                          <span className={apurado.conexoesEntrando ? 'good' : 'muted'} title="Passageiros apurados que chegaram de outro voo">
+                            {apurado.conexoesEntrando} vieram
+                          </span><span className="muted"> · </span>
+                          <span className={apurado.conexoesSaindo ? 'good' : 'muted'} title="Passageiros apurados que seguem em outro voo">
+                            {apurado.conexoesSaindo} seguem
+                          </span><br />
+                          <small className="muted">{num(Object.values(apurado.pax).reduce((n, v) => n + v, 0))} passageiros · dia {apurado.day}</small>
+                        </> : <span className="muted">Aguardando voo</span>}
                       </td>
                       <td className="r">
                         <button className="btn sm" onClick={() => act((s) => removerVoo(s, p.id))}>Tirar</button>
@@ -160,13 +162,7 @@ export function Horarios({ route }: { route: Route }) {
         )}
 
         <p className="muted" style={{ fontSize: 12, margin: '12px 0 0' }}>
-          Tempo mínimo de conexão: <b>{MCT_DOMESTICA} min</b> entre duas domésticas,{' '}
-          <b>{MCT_INTERNACIONAL} min</b> entre duas internacionais em trânsito e{' '}
-          <b>{MCT_ALFANDEGA / 60} h</b> quando o passageiro cruza a fronteira aqui — aí ele pega a
-          bagagem na esteira, passa na imigração e na receita e redespacha. Esta rota é{' '}
-          <b>{domestica ? 'doméstica' : 'internacional'}</b>: ela conecta com outra{' '}
-          {domestica ? 'doméstica' : 'internacional'} em {domestica ? MCT_DOMESTICA : MCT_INTERNACIONAL} min,
-          e com uma {domestica ? 'internacional' : 'doméstica'} só depois de {MCT_ALFANDEGA / 60} h.
+          Os passageiros são registrados quando o dia é apurado. As conexões abaixo mostram as possibilidades da grade; as janelas de transferência são aplicadas automaticamente.
         </p>
       </Card>
     </div>
@@ -181,6 +177,15 @@ function ListaConexao({
   conexoes: Conexao[]
   outraPonta: (c: Conexao) => string
 }) {
+  const [expandido, setExpandido] = useState(false)
+  const grupos = new Map<string, { c: Conexao; dias: number }>()
+  for (const c of conexoes) {
+    const key = `${c.de.ponta}:${c.para.ponta}:${c.de.local}:${c.para.local}:${c.parceira ?? ''}`
+    const grupo = grupos.get(key)
+    if (grupo) grupo.dias++
+    else grupos.set(key, { c, dias: 1 })
+  }
+  const lista = [...grupos.values()]
   return (
     <div>
       <h4 className="sub">{titulo}</h4>
@@ -188,16 +193,16 @@ function ListaConexao({
         <p className="muted" style={{ fontSize: 12, margin: 0 }}>{vazio}</p>
       ) : (
         <div className="conexoes">
-          {conexoes.slice(0, 8).map((c, i) => (
+          {(expandido ? lista : lista.slice(0, 8)).map(({ c, dias }, i) => (
             <div key={i} className="conexao">
               <b>{outraPonta(c)}</b>
               <span className="muted">{hhmm(c.de.local)} → {hhmm(c.para.local)}</span>
               <span className={c.espera - c.minimo < 20 ? 'warn' : 'dim'}>{dur(c.espera)}</span>
-              <small className="muted">{c.parceira ? `${c.parceira} · ` : ''}{rotuloMct(c.minimo)}</small>
+              <small className="muted">{c.parceira ? `${c.parceira}${c.codeshare ? ' · codeshare' : ''} · ` : ''}{Math.min(7, dias)} dias/sem.</small>
             </div>
           ))}
-          {conexoes.length > 8 && (
-            <span className="muted" style={{ fontSize: 11 }}>e mais {conexoes.length - 8}</span>
+          {lista.length > 8 && (
+            <button className="btn sm" onClick={() => setExpandido(!expandido)}>{expandido ? 'Mostrar menos' : `Ver mais ${lista.length - 8} conexões`}</button>
           )}
         </div>
       )}

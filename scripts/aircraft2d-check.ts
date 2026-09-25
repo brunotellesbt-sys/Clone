@@ -6,14 +6,18 @@ import { join } from 'node:path'
 import { AIRCRAFT_ALL, AIRCRAFT_BY_ID, FAMILY_OF } from '../src/game/data/aircraft'
 import { ENGINES } from '../src/game/data/engines'
 import { GENERATED_2D, PAINTABLE_2D, SOURCE_2D, paintConfig2d, selectedLayers, wingOptions, type Model2D } from '../src/livery/aircraft2d'
-import { SEAT_MODELS, seatLayouts } from '../src/game/seatModels'
-import { checkCabin, cabinUsed, defaultCabin, LAYOUTS } from '../src/game/cabin'
+import { apeloDaPoltrona, SEAT_BY_ID, SEAT_MODELS, seatFamily, seatLayouts } from '../src/game/seatModels'
+import { checkCabin, cabinUsed, classesDe, defaultCabin, LAYOUTS } from '../src/game/cabin'
 import { advanceDay, assignAircraft, buyAircraft, newGame, openRoute, setCabin } from '../src/game/engine'
 import { exportSave, importSave } from '../src/game/save'
 import { BLANK_LIVERY } from '../src/livery/presets'
 import type { GameState, SeatConfig } from '../src/game/types'
 
 const inventory = JSON.parse(readFileSync('public/aircraft2d/inventory.json', 'utf8'))
+for (const id of ['a21lr', 'a21xlr']) {
+  assert.equal(seatFamily(AIRCRAFT_BY_ID[id]), 'A320', `${id}: mesma família do A321 no APK`)
+  assert.deepEqual(seatLayouts(AIRCRAFT_BY_ID[id], 'y', 'eco_standard'), seatLayouts(AIRCRAFT_BY_ID.a321, 'y', 'eco_standard'))
+}
 const library = JSON.parse(readFileSync('public/aircraft2d/library.json', 'utf8')) as { id: string }[]
 const seen = new Set<string>()
 for (const entry of inventory.entries) {
@@ -51,12 +55,14 @@ for (const id of added) {
       assert(flown > 0 && ac.hours > 0 && ac.cycles > 0, `${id}: precisa voar após a compra`)
       assert(route.history.some(d => d.revenue > 0 && d.seats > 0), `${id}: precisa transportar passageiros`)
       assert(Number.isFinite(game.airline.cash))
-      const seatConfig: SeatConfig = { y: { style: 'eco_standard', layout: type.abreast === 3 ? '1-2' : type.abreast >= 7 ? '2-3-2' : type.abreast === 6 ? '3-3' : type.abreast === 5 ? '2-3' : '2-2' } }
+      const seatConfig: SeatConfig = { y: { style: 'eco_standard', layout: seatLayouts(type, 'y', 'eco_standard')[0] } }
       assert.equal(setCabin(game, ac.id, { y: Math.min(20, type.maxSeats), w: 0, c: 0, f: 0 }, { y: 31, w: 38, c: 60, f: 83 }, seatConfig), null)
       const restored = importSave(exportSave(game))!
       assert.equal(restored.airline.fleet[0].typeId, id)
       assert.equal(restored.airline.fleet[0].engineId, engineId)
-      assert.deepEqual(restored.airline.fleet[0].seatConfig, seatConfig)
+      assert.deepEqual(restored.airline.fleet[0].seatConfig?.y, seatConfig.y)
+      assert(classesDe(type).every(c => !!restored.airline.fleet[0].seatConfig?.[c]?.style),
+        'O save conserva um modelo de poltrona para cada classe disponível')
       flights += flown
     }
   }
@@ -90,7 +96,7 @@ assert(selectedLayers(a320, AIRCRAFT_BY_ID.a320, 'v2527').layers.some(l => l.nam
 assert(!selectedLayers(a320, AIRCRAFT_BY_ID.a320neo, 'leap1a26').layers.some(l => /wingtip_fence/.test(l.name)))
 assert(selectedLayers(a320, AIRCRAFT_BY_ID.a320neo, 'pw1127g').layers.some(l => l.variant === 'neo' && l.name === 'engine_pw'))
 const t = AIRCRAFT_BY_ID.a359
-const seats = { y: 90, w: 0, c: 16, f: 0 }, pitch = { y: 31, w: 38, c: 76, f: 94 }
+const seats = { y: 90, w: 0, c: 16, f: 0 }, pitch = { y: 31, w: 38, c: 50, f: 94 }
 const layout: SeatConfig = { c: { style: 'biz_reverse_herringbone', layout: '1-2-1' } }
 assert(cabinUsed(t, seats, pitch, layout) > cabinUsed(t, seats, pitch), 'Mapa deve mudar a ocupação real')
 assert(checkCabin(t, seats, pitch, layout).ok)
@@ -100,25 +106,31 @@ assert(!checkCabin(t, { ...seats, y: NaN }, pitch).ok)
 assert(!checkCabin(AIRCRAFT_BY_ID.a320, seats, pitch, { c: { style: 'biz_suite', layout: '3-4-3' } }).ok)
 for (const model of SEAT_MODELS) {
   assert(inventory.entries.some((e: {source: string}) => e.source.endsWith(`assets_seat_images_jpg_${model.id}.jpg`)))
-  assert(seatLayouts(t, model.cabin, model.id).length > 0)
   for (const layout of seatLayouts(t, model.cabin, model.id)) {
     const row = `assets_seat_icons_png_resized_light_images_${model.icon}_${layout.replaceAll('-', '')}.webp`
     const single = `assets_seat_icons_png_single_seat_resized_light_images_${model.icon}.webp`
     assert(library.some(item => item.id === row || item.id === single), `${model.id}/${layout}: desenho de assento ausente no ZIP`)
   }
 }
+assert.equal(seatLayouts(AIRCRAFT_BY_ID.a320, 'c', 'biz_wide_suite').length, 0,
+  'A suíte ampla não cabe no A320 no catálogo original')
+assert.deepEqual(seatLayouts(t, 'c', 'biz_wide_suite'), ['1-2-1'])
+assert.equal(SEAT_BY_ID.biz_wide_suite.minPitch, 54, 'Passo original da suíte ampla')
+assert.equal(SEAT_BY_ID.biz_wide_suite.extraCost, 40000, 'Preço original da suíte ampla')
+assert.equal(apeloDaPoltrona('biz_wide_suite', 54), 115, 'Apelo original da suíte ampla')
+assert(Math.abs(apeloDaPoltrona('prem_eco_luxury', 40) - 98.48333333333333) < 1e-8)
 const s = newGame({ name: 'Teste 2D', code: 'TD', hub: 'GRU', seed: 42 })
 s.airline.cash = 1e9
 assert.equal(buyAircraft(s, 'a359', false), null)
 const ac = s.airline.fleet[0]
 assert.equal(setCabin(s, ac.id, seats, pitch, layout), null)
-assert.deepEqual(ac.seatConfig, layout)
+assert.deepEqual(ac.seatConfig?.c, layout.c)
 const cash = s.airline.cash
 assert(setCabin(s, ac.id, { ...seats, y: -1 }, pitch))
 assert.equal(s.airline.cash, cash, 'Reforma inválida não cobra nem altera aeronave')
 s.airline.livery.aircraft2d = { a359: { engine: '#12ab34', winglet: 'winglet', marks: { primary: { text: 'TEXTO ÁÉ', x: .4, y: .2, color: '#abcdef', scale: .12, rotation: 12 } } } }
 const restored = importSave(exportSave(s))!
-assert.deepEqual(restored.airline.fleet[0].seatConfig, layout)
+assert.deepEqual(restored.airline.fleet[0].seatConfig?.c, layout.c)
 assert.equal(restored.airline.livery.aircraft2d?.a359.marks?.primary?.text, 'TEXTO ÁÉ')
 assert.equal(restored.airline.cash, cash)
 // Uma partida anterior não traz os campos novos; deve manter frota e progresso.
@@ -136,6 +148,8 @@ assert.equal(migrated.day, 405)
 assert.equal(migrated.airline.fleet.length, 1)
 assert.equal(migrated.airline.cash, cash)
 assert.deepEqual(migrated.airline.fleet[0].seats, old.airline.fleet[0].seats)
+assert(['y', 'w', 'c', 'f'].every(c => !!migrated.airline.fleet[0].seatConfig?.[c as keyof SeatConfig]?.style),
+  'A migração preenche modelos de assento explícitos')
 const qa = process.env.QA_DIR ?? '.qa'
 mkdirSync(qa, { recursive: true })
 writeFileSync(join(qa, 'partida-antiga.json'), JSON.stringify(old))

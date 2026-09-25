@@ -207,6 +207,12 @@ conferir(pousou, 'ao pousar, o cartão do voo se fecha sozinho')
 conferir((await page.locator('.mapwrap path[stroke-dasharray]').count()) === 0,
   'e o traçado some com ele: linha só enquanto o voo está no ar')
 await page.screenshot({ path: artifact('mapa-3-trajeto.png') })
+await page.locator('.speed button').first().click()
+await page.getByLabel('Aeroporto GRU', { exact: true }).click({ force: true })
+await page.locator('.map-airport-card.hub').waitFor()
+conferir((await page.locator('.map-airport-card.hub').count()) === 1, 'clicar na base abre painel de aeroporto destacado')
+conferir(/Seus voos.*hora local/is.test(await page.locator('.map-airport-card').innerText()), 'painel do aeroporto mostra os voos na hora local')
+await page.screenshot({ path: artifact('mapa-4-aeroporto.png') })
 conferir(!(await travou()), 'o jogo segue de pé no fim')
 
 const ruins = erros.filter((e) => !/favicon|Download the React/i.test(e))

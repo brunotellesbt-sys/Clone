@@ -256,6 +256,8 @@ export interface DayResult {
  */
 export interface Perna {
   id: string
+  /** Número comercial estável: o prefixo é o código da companhia. */
+  numero?: number
   aircraftId: string
   from: string
   to: string
@@ -263,6 +265,13 @@ export interface Perna {
   dow: number
   /** Hora local de partida na origem, em minutos depois da meia-noite. */
   saida: number
+  /** Resultado da última operação desta perna, apurado junto com a receita. */
+  ultimoVoo?: {
+    day: number
+    pax: Cabins
+    conexoesEntrando: number
+    conexoesSaindo: number
+  }
 }
 
 export interface Route {
@@ -372,6 +381,10 @@ export interface Airline {
    * partidas antigas, que não tinham acordo nenhum.
    */
   acordos?: string[]
+  /** Parceiras com venda sob o código da companhia e conexão protegida. */
+  codeshares?: string[]
+  /** Número sob nosso código para cada rota operada pela parceira. */
+  codeshareNumbers?: Record<string, number>
   /**
    * Configurações de cabine salvas com nome, para reusar em outra aeronave do
    * mesmo modelo.

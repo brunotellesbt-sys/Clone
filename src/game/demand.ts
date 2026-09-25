@@ -27,11 +27,10 @@ export interface MarketDemand {
 /**
  * Escala do mercado de passageiro.
  *
- * Mudou de valor quando a massa do modelo deixou de ser a população da cidade e
- * passou a ser o movimento do aeroporto: são grandezas de ordem diferente, e o
- * `K` foi recalibrado para o mercado GRU-JFK continuar do tamanho que estava.
+ * A massa vem do movimento do aeroporto. Esta escala ampliada cria mais procura
+ * nas ligações subatendidas sem tirar a sazonalidade ou a deriva anual.
  */
-export const K = 0.9
+export const K = 1.15
 const KM_POR_NM = 1.852
 const LIMIAR_DOMESTICO_F_NM = 2000 / KM_POR_NM
 /**
@@ -42,10 +41,10 @@ const LIMIAR_DOMESTICO_F_NM = 2000 / KM_POR_NM
  * ilha com dois destinos, um par maior que o aeroporto inteiro — e é assim que
  * a demanda fica coerente com as **duas** pontas e não só com a maior.
  *
- * Meio é generoso de propósito: existe aeroporto regional cuja ligação com o
- * hub é de fato metade do movimento dele. O que o teto corta é o absurdo.
+ * Cinquenta e cinco por cento permite concentração no hub regional. O teto
+ * continua impedindo que um par ultrapasse o movimento da ponta menor.
  */
-const TETO_PAR = 0.5
+const TETO_PAR = 0.55
 /**
  * Onde o teto começa a morder, como fração dele.
  *
@@ -141,9 +140,9 @@ const AFINIDADE_CRUZADA = 0.58
  *
  * Dois degraus, e cada um é a cabine cheia da menor aeronave que o par aceita:
  *
- * - **par que aceita jato regional** — 112 na econômica e 8 na econômica
- *   premium, que é o E195 de duas classes do próprio catálogo do jogo;
- * - **par que só aceita turboélice** — 38 na econômica, o ATR 42 em classe
+ * - **par que aceita jato regional** — 140 na econômica e 10 na econômica
+ *   premium, com espaço para frequências de aeronaves menores;
+ * - **par que só aceita turboélice** — 46 na econômica, o ATR 42 em classe
  *   única, e nada na premium, porque turboélice não tem premium.
  *
  * Pista e porte decidem, nas duas pontas, com a mesma conta que a tela de
@@ -152,8 +151,8 @@ const AFINIDADE_CRUZADA = 0.58
  * aeroporto de pista curta demais para a frota inteira, e inventar demanda lá
  * seria demanda que ninguém pode servir.
  */
-export const PISO_JATO: { y: number; w: number } = { y: 112, w: 8 }
-export const PISO_TURBO: { y: number; w: number } = { y: 38, w: 0 }
+export const PISO_JATO: { y: number; w: number } = { y: 140, w: 10 }
+export const PISO_TURBO: { y: number; w: number } = { y: 46, w: 0 }
 const SEM_PISO = { y: 0, w: 0 }
 
 /**
@@ -280,7 +279,9 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
     gdp > 0.95 &&
     (domestico ? distNm > LIMIAR_DOMESTICO_F_NM : distNm > 2600)
   const fShare = primeiraElegivel ? premium * 0.11 : 0
-  const cShare = premium * (distNm > 1500 ? 0.6 : 0.5)
+  // A executiva deixa de empatar exatamente com a premium em todas as rotas
+  // curtas. A inclinação aumenta com a duração, sem tirar espaço da econômica.
+  const cShare = premium * (0.54 + 0.14 * Math.min(1, distNm / 2200))
   const wShare = premium - cShare - fShare
   const pax: Cabins = {
     y: total * (1 - premium),

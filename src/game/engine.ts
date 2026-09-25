@@ -1,11 +1,11 @@
-import type { SeatConfig } from './types'
-import { custoDeFabrica, normalizeSeats, seatChangeCost } from './seatModels'
-import { AIRCRAFT_BY_ID, type AircraftType } from './data/aircraft'
+import type { Perna, SeatConfig } from './types'
+import { custoDeFabrica, normalizeSeats, normalizeSeatPitch, seatChangeCost } from './seatModels'
+import { AIRCRAFT_BY_ID, ehCargueiro, type AircraftType } from './data/aircraft'
 import { SAVE_VERSION } from './save'
 import { AIRPORT_BY_IATA, vooPermitido } from './data/airports'
 import {
   atratividadeDaRota, atratividadeHorario, fatorConexao, fatorConexaoIA, fracaoNoturna,
-  horaDaConcorrente,
+  horaDaConcorrente, registrarPassageirosDosVoos,
 } from './malha'
 import {
   escalaDe, marcarRotacao, montarRotacoes, pernasDoDia, posicionamentos, removerVoo, rotaDoPar,
@@ -13,7 +13,7 @@ import {
 } from './escala'
 import { BLANK_LIVERY } from '../livery/presets'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from './demand'
-import { cabinComfort, checkCabin, clampPitch, crewFor, defaultCabin } from './cabin'
+import { cabinComfort, checkCabin, clampPitch, crewFor, defaultCabin, normalizarCabine } from './cabin'
 import { engineIdFor, motivoDoPar, withEngine } from './spec'
 import {
   addCabins, allocateCargoMarket, allocateMarket, blockHours, CARGO_SELLABLE, escalarCabins,
@@ -200,11 +200,13 @@ export function buyAircraft(s: GameState, typeId: string, lease: boolean, opts: 
   const rng = makeRng(s.seed + s.day + s.airline.fleet.length * 977)
   const hubCc = AIRPORT_BY_IATA[s.airline.hubs[0]]?.cc ?? 'BR'
   const encomenda = opts.cabine
+  const base = defaultCabin(model, opts.seatBias ?? 1)
+  const cfg = normalizeSeats(model, encomenda?.seatConfig, encomenda?.pitch ?? base.pitch)
   const cabin = encomenda
-    ? { seats: encomenda.seats, pitch: clampPitch(encomenda.pitch) }
-    : defaultCabin(model, opts.seatBias ?? 1)
+    ? { seats: encomenda.seats, pitch: encomenda.seatConfig ? clampPitch(encomenda.pitch) : normalizeSeatPitch(clampPitch(encomenda.pitch), cfg), seatConfig: cfg }
+    : ehCargueiro(model) ? { ...base, seatConfig: undefined } : normalizarCabine(model, base.seats, base.pitch)
   if (encomenda) {
-    const chk = checkCabin(t, cabin.seats, cabin.pitch, encomenda.seatConfig)
+    const chk = checkCabin(t, cabin.seats, cabin.pitch, encomenda.seatConfig ?? cfg)
     if (chk.invalid || chk.seatError || chk.overLength || chk.overLimit)
       return chk.seatError ?? 'A cabine encomendada não cabe nesta aeronave.'
   }
@@ -218,7 +220,7 @@ export function buyAircraft(s: GameState, typeId: string, lease: boolean, opts: 
    * sentido do arrendamento — uma cabine de suítes num widebody custa dezenas
    * de milhões, e quem arrenda é justamente quem não quer esse desembolso.
    */
-  const poltronas = encomenda ? custoDeFabrica(cabin.seats, encomenda.seatConfig) : 0
+  const poltronas = encomenda ? custoDeFabrica(cabin.seats, cfg) : 0
   const mensal = lease ? leaseMonthly(t) + poltronas / PRAZO_DO_ARRENDAMENTO : 0
   const upfront = lease ? mensal * 2 : price + poltronas
   if (s.airline.cash < upfront) return 'Caixa insuficiente.'
@@ -231,7 +233,7 @@ export function buyAircraft(s: GameState, typeId: string, lease: boolean, opts: 
     cc: hubCc,
     seats: cabin.seats,
     pitch: cabin.pitch,
-    seatConfig: encomenda ? normalizeSeats(model, encomenda.seatConfig) : undefined,
+    seatConfig: cabin.seatConfig,
     age: lease ? between(rng, 0.5, 6) : 0,
     hours: 0,
     cycles: 0,
@@ -464,19 +466,20 @@ export function setCabin(s: GameState, acId: string, seats: Cabins, pitch: Cabin
   const ac = aircraftOf(s, acId)
   if (!ac) return null
   const t = modelOf(ac)
-  const p = clampPitch(pitch)
-  const chk = checkCabin(t, seats, p, seatConfig)
+  const cfg = normalizeSeats(t, seatConfig, pitch)
+  const p = seatConfig ? clampPitch(pitch) : normalizeSeatPitch(clampPitch(pitch), cfg)
+  const chk = checkCabin(t, seats, p, seatConfig ?? cfg)
   if (chk.invalid) return 'Informe uma quantidade válida de assentos para uma aeronave de passageiros.'
   if (chk.seatError) return chk.seatError
   if (chk.overLength) return 'A configuração não cabe no comprimento da cabine.'
   if (chk.overLimit) return `O limite de saídas do ${t.name} é de ${t.maxSeats} passageiros.`
   // Poltrona premium é cara e demora a instalar; mexer no passo da econômica é barato.
-  const cost = seatChangeCost(seats, seatConfig)
+  const cost = seatChangeCost(seats, cfg)
   if (s.airline.cash < cost) return `A reconfiguração custa ${money(cost)}.`
   s.airline.cash -= cost
   ac.seats = { y: Math.round(seats.y), w: Math.round(seats.w), c: Math.round(seats.c), f: Math.round(seats.f) }
   ac.pitch = p
-  ac.seatConfig = normalizeSeats(t, seatConfig)
+  ac.seatConfig = cfg
   ac.groundedUntil = s.day + (seats.c + seats.f > 0 ? 4 : 2)
   return null
 }
@@ -502,8 +505,9 @@ export function salvarCabine(
   if (!t) return 'Modelo inexistente.'
   const limpo = nome.trim().slice(0, 32)
   if (!limpo) return 'Dê um nome à configuração.'
-  const p = clampPitch(pitch)
-  const chk = checkCabin(t, seats, p, seatConfig)
+  const cfg = normalizeSeats(t, seatConfig, pitch)
+  const p = seatConfig ? clampPitch(pitch) : normalizeSeatPitch(clampPitch(pitch), cfg)
+  const chk = checkCabin(t, seats, p, seatConfig ?? cfg)
   if (!chk.ok) return chk.seatError ?? 'Essa configuração não é válida; ajuste antes de salvar.'
   const lista = (s.airline.cabines ??= [])
   const igual = lista.find((x) => x.typeId === typeId && x.nome.toLowerCase() === limpo.toLowerCase())
@@ -513,7 +517,7 @@ export function salvarCabine(
     typeId,
     seats: { ...seats },
     pitch: p,
-    seatConfig: normalizeSeats(t, seatConfig),
+    seatConfig: cfg,
   }
   if (igual) lista[lista.indexOf(igual)] = nova
   else {
@@ -586,7 +590,46 @@ export function assinarAcordo(s: GameState, compId: string): string | null {
 export function romperAcordo(s: GameState, compId: string) {
   const comp = s.competitors.find((c) => c.id === compId)
   s.airline.acordos = (s.airline.acordos ?? []).filter((id) => id !== compId)
+  romperCodeshare(s, compId)
   if (comp) notify(s, 'info', `Acordo com ${comp.name} encerrado.`)
+}
+
+export function assinarCodeshare(s: GameState, compId: string): string | null {
+  const comp = s.competitors.find(c => c.id === compId)
+  if (!comp) return 'Companhia não encontrada.'
+  if (!s.airline.acordos?.includes(compId)) return 'Assine primeiro o acordo de interline.'
+  if (s.airline.codeshares?.includes(compId)) return 'O codeshare já está ativo.'
+  if (s.airline.reputation < 0.65) return 'Codeshare exige reputação de 65%.'
+  const custo = custoDoAcordo(s, comp) * 1.5
+  if (s.airline.cash < custo) return `O codeshare com ${comp.name} custa ${money(custo)}.`
+  s.airline.cash -= custo
+  ;(s.airline.codeshares ??= []).push(compId)
+  sincronizarNumerosCodeshare(s)
+  notify(s, 'good', `Codeshare com ${comp.name}: bilhetes integrados e conexões protegidas.`)
+  return null
+}
+
+export function romperCodeshare(s: GameState, compId: string) {
+  s.airline.codeshares = (s.airline.codeshares ?? []).filter(id => id !== compId)
+  for (const key of Object.keys(s.airline.codeshareNumbers ?? {}))
+    if (key.startsWith(`${compId}:`)) delete s.airline.codeshareNumbers![key]
+}
+
+export function sincronizarNumerosCodeshare(s: GameState) {
+  const numbers = (s.airline.codeshareNumbers ??= {})
+  const used = new Set([...Object.values(numbers), ...escalaDe(s).map(p => p.numero).filter((n): n is number => !!n)])
+  for (const comp of s.competitors) {
+    if (!s.airline.codeshares?.includes(comp.id)) continue
+    for (const route of comp.routes) {
+      const key = `${comp.id}:${route.key}`
+      if (numbers[key]) continue
+      let number = 7001
+      while (used.has(number) && number <= 9999) number++
+      if (number > 9999) return
+      numbers[key] = number
+      used.add(number)
+    }
+  }
 }
 
 export function takeLoan(s: GameState, amount: number): string | null {
@@ -633,6 +676,7 @@ interface RouteDay {
   pitch: Cabins
   /** A cauda de cada perna do dia, na ordem da escala. */
   pernas: Aircraft[]
+  voos: Perna[]
 }
 
 /**
@@ -642,10 +686,9 @@ interface RouteDay {
  * que é o que acontece de verdade quando um avião fica em hangar: o voo é
  * cancelado, não transferido para outro por mágica.
  */
-function aeronavesDoDia(s: GameState, r: Route, dow: number): Aircraft[] {
+function voosDoDia(s: GameState, r: Route, dow: number): Perna[] {
   return pernasDoDia(s, r, dow)
-    .map((p) => aircraftOf(s, p.aircraftId))
-    .filter((a): a is Aircraft => !!a && a.groundedUntil <= s.day)
+    .filter(p => { const a = aircraftOf(s, p.aircraftId); return !!a && a.groundedUntil <= s.day })
 }
 
 export function advanceDay(s: GameState): GameState {
@@ -665,7 +708,8 @@ export function advanceDay(s: GameState): GameState {
 
   for (const r of s.airline.routes) {
     // Uma cauda por perna marcada: a escala é que diz quem voa o quê hoje.
-    const pernas = aeronavesDoDia(s, r, dow)
+    const voos = voosDoDia(s, r, dow)
+    const pernas = voos.map(p => aircraftOf(s, p.aircraftId)!)
     if (pernas.length === 0) continue
     // Duas pernas fazem uma rotação, que é como a oferta sempre foi medida.
     const flights = pernas.length / 2
@@ -716,7 +760,7 @@ export function advanceDay(s: GameState): GameState {
       quality: playerQuality * comfort * atratividadeDaRota(s, r, dow),
     })
     carriersByOd.set(key, list)
-    perRoute.push({ route: r, flights, seats, seatsTotal: sumCabins(seats), physicalSeats, pitch, pernas })
+    perRoute.push({ route: r, flights, seats, seatsTotal: sumCabins(seats), physicalSeats, pitch, pernas, voos })
   }
 
   // 2) Concorrentes no mesmo par.
@@ -763,11 +807,12 @@ export function advanceDay(s: GameState): GameState {
      * passageiro local do concorrente, e não é isso que acontece — a fatia
      * registrada continua sendo a do mercado local, sem o acréscimo.
      */
-    const conexao = fatorConexao(s, r, doy)
+    const conexao = fatorConexao(s, r, doy, dow)
     const noturno = fracaoNoturna(s, r, dow)
     // teto no assento ofertado: conexão preenche poltrona vazia, não cria
     // poltrona. Sem isto o aproveitamento passava de 100%, que é impossível.
     const pax = limitarCabins(escalarCabins(mine?.pax ?? emptyCabins(), conexao), rd.seats)
+    registrarPassageirosDosVoos(s, r, rd.voos, pax, mine?.pax ?? emptyCabins(), doy)
     s.lastShare[key] = mine?.share ?? 0
     pressure[key] = mine?.share ?? 0
 
@@ -957,7 +1002,8 @@ export function advanceDay(s: GameState): GameState {
 
   // 7) Concorrência reage uma vez por semana.
   if (s.day % 7 === 0) {
-    stepCompetitors(s.competitors, s.day, rng, pressure)
+    stepCompetitors(s.competitors, s.day, rng, pressure, s.airline.routes.length)
+    sincronizarNumerosCodeshare(s)
     /**
      * E, muito de vez em quando, alguém funda uma companhia.
      *
@@ -1023,7 +1069,6 @@ function computeCompetitorRevenue(s: GameState, doy: number) {
       comp.revenue30 += ticketRevenue(pax, fare, demand.refFare) * (1 - DISTRIBUTION_RATE) * 30
     })
   }
-  for (const c of s.competitors) c.fleetSize = Math.max(3, Math.round(c.routes.reduce((n, r) => n + r.freq, 0) / 2.6))
 }
 
 // -------------------------------------------------------------- formatação

@@ -23,7 +23,7 @@ import {
   adianteNaSemana, atratividadeHorario, DIA, escalaDe, naSemana, noTempo, pernasDaRota,
   pernasDoDia, type PernaNoTempo,
 } from './escala'
-import type { GameState, Perna, Route } from './types'
+import { CABINS, type Cabins, type GameState, type Perna, type Route } from './types'
 
 export { DIA, SEMANA, hhmm, lerHora, atratividadeHorario } from './escala'
 
@@ -46,6 +46,8 @@ export const MCT_ALFANDEGA = 180
 
 /** Uma conexão acima disso não é conexão, é pernoite. */
 export const ESPERA_MAXIMA = 360
+export const esperaMaxima = (chegadaInternacional: boolean, partidaInternacional: boolean) =>
+  chegadaInternacional !== partidaInternacional ? 360 : chegadaInternacional ? 240 : 180
 
 /** A etapa cruza fronteira? É o que decide se há alfândega na conexão. */
 export const etapaInternacional = (a: Airport, b: Airport) => a.cc !== b.cc
@@ -91,6 +93,7 @@ export interface Toque {
   local: number
   routeId?: string
   parceira?: string
+  codeshare?: boolean
 }
 
 export interface Conexao {
@@ -101,6 +104,7 @@ export interface Conexao {
   /** O mínimo exigido para esse par. */
   minimo: number
   parceira?: string
+  codeshare?: boolean
 }
 
 const rotaDaPerna = (s: GameState, p: Perna) =>
@@ -159,12 +163,15 @@ export function toquesNaBase(s: GameState, base: string): { chegadas: Toque[]; p
   const partidas: Toque[] = []
   for (const p of escalaDe(s)) {
     if (p.from !== base && p.to !== base) continue
+    const ac = s.airline.fleet.find(a => a.id === p.aircraftId)
+    if (!ac || ac.groundedUntil > s.day || rotaDaPerna(s, p)?.cargo) continue
     const t = noTempo(s, p)
     if (p.to === base) chegadas.push(toqueDeChegada(s, t))
     if (p.from === base) partidas.push(toqueDePartida(s, t))
   }
   for (const comp of s.competitors) {
-    if (!s.airline.acordos?.includes(comp.id)) continue
+    if (!s.airline.acordos?.includes(comp.id) && !s.airline.codeshares?.includes(comp.id)) continue
+    const codeshare = s.airline.codeshares?.includes(comp.id) ?? false
     for (const cr of comp.routes) {
       const p = pontasDaConcorrente(cr, base)
       if (!p) continue
@@ -174,11 +181,11 @@ export function toquesNaBase(s: GameState, base: string): { chegadas: Toque[]; p
         const id = `X:${comp.id}:${cr.key}:${dow}`
         chegadas.push({
           id, ponta: p.outraPonta, quando: naSemana(dow * DIA + p.chega - fuso),
-          internacional: p.internacional, local: p.chega, parceira: comp.name,
+          internacional: p.internacional, local: p.chega, parceira: comp.name, codeshare,
         })
         partidas.push({
           id, ponta: p.outraPonta, quando: naSemana(dow * DIA + p.parte - fuso),
-          internacional: p.internacional, local: p.parte, parceira: comp.name,
+          internacional: p.internacional, local: p.parte, parceira: comp.name, codeshare,
         })
       }
     }
@@ -205,8 +212,9 @@ export function conexoesNaBase(s: GameState, base: string): Conexao[] {
       if (de.parceira && para.parceira) continue
       const espera = adianteNaSemana(de.quando, para.quando)
       const minimo = mct(de.internacional, para.internacional)
-      if (espera < minimo || espera > ESPERA_MAXIMA) continue
-      out.push({ de, para, espera, minimo, parceira: de.parceira ?? para.parceira })
+      if (espera < minimo || espera > esperaMaxima(de.internacional, para.internacional)) continue
+      out.push({ de, para, espera, minimo, parceira: de.parceira ?? para.parceira,
+        codeshare: de.codeshare ?? para.codeshare })
     }
   }
   return out.sort((x, y) => x.espera - y.espera)
@@ -215,9 +223,8 @@ export function conexoesNaBase(s: GameState, base: string): Conexao[] {
 /**
  * Quanto uma conexão interline vale, comparada com uma da própria companhia.
  *
- * Menos, e por motivo concreto: bilhete separado, bagagem que troca de sistema,
- * e nenhuma das duas companhias se responsabiliza pela conexão perdida da outra.
- * O passageiro sabe disso e prefere a conexão online quando existe.
+ * Interline permite um itinerário integrado entre empresas. O peso menor
+ * representa a menor integração comercial em comparação com codeshare.
  */
 export const DESCONTO_INTERLINE = 0.45
 
@@ -322,27 +329,35 @@ function pesoDoTrajeto(de: string, para: string, dia: number, doy: number): numb
  * sem o cache, uma malha de cinquenta rotas fazia milhares de avaliações de
  * demanda por rota, todo dia simulado.
  */
-const cacheConexao = new Map<string, Map<string, number>>()
+const cacheConexao = new WeakMap<GameState, Map<string, Map<string, number>>>()
 
-export function pesosDeConexao(s: GameState, base: string, doy: number): Map<string, number> {
-  const chave = `${base}|${s.day}|${escalaDe(s).length}|${s.airline.acordos?.join(',') ?? ''}`
-  const pronto = cacheConexao.get(chave)
+export function pesosDeConexao(s: GameState, base: string, doy: number, dow?: number): Map<string, number> {
+  const escala = escalaDe(s)
+  const assinatura = escala.map(p => `${p.id}:${p.from}:${p.to}:${p.dow}:${p.saida}:${p.aircraftId}`).join('|')
+  const frota = s.airline.fleet.map(a => `${a.id}:${a.groundedUntil}`).join('|')
+  const acordos = [...(s.airline.acordos ?? []), ...(s.airline.codeshares ?? [])]
+  const parceiras = s.competitors.filter(c => acordos.includes(c.id))
+    .map(c => `${c.id}:${c.routes.map(r => `${r.key}:${r.hora}`).join(',')}`).join('|')
+  const chave = `${base}|${s.day}|${doy}|${dow ?? 'semana'}|${assinatura}|${frota}|${parceiras}|${s.airline.codeshares?.join(',') ?? ''}`
+  const cache = cacheConexao.get(s) ?? new Map<string, Map<string, number>>()
+  const pronto = cache.get(chave)
   if (pronto) return pronto
   const pesos = new Map<string, number>()
   const somar = (id: string | undefined, v: number) => {
     if (id) pesos.set(id, (pesos.get(id) ?? 0) + v)
   }
   for (const c of conexoesNaBase(s, base)) {
-    // a semana tem sete cópias de cada conexão diária; o peso é por dia
+    // Na previsão semanal divide por sete; na apuração usa só as pernas do dia.
     const peso = pesoDoTrajeto(c.de.ponta, c.para.ponta, s.day, doy) *
-      (c.parceira ? DESCONTO_INTERLINE : 1) / 7
+      (c.codeshare ? 0.8 : c.parceira ? DESCONTO_INTERLINE : 1) / (dow === undefined ? 7 : 1)
     // só a perna que é sua ganha o bônus: a da parceira é receita dela
-    somar(c.de.routeId, peso)
-    somar(c.para.routeId, peso)
+    if (dow === undefined || escala.some(p => p.id === c.de.id && p.dow === dow)) somar(c.de.routeId, peso)
+    if (dow === undefined || escala.some(p => p.id === c.para.id && p.dow === dow)) somar(c.para.routeId, peso)
   }
   // o cache é de um dia só; guardar mais seria guardar demanda de ontem
-  if (cacheConexao.size > 8) cacheConexao.clear()
-  cacheConexao.set(chave, pesos)
+  if (cache.size > 16) cache.clear()
+  cache.set(chave, pesos)
+  cacheConexao.set(s, cache)
   return pesos
 }
 
@@ -350,9 +365,47 @@ export function fatorConexaoIA(rotasNoHub: number): number {
   return 1 + Math.min(TETO_CONEXAO, POR_CONEXAO * Math.max(0, rotasNoHub - 1))
 }
 
-export function fatorConexao(s: GameState, r: Route, doy = 180): number {
+export function fatorConexao(s: GameState, r: Route, doy = 180, dow?: number): number {
   const base = s.airline.hubs.includes(r.from) ? r.from : s.airline.hubs.includes(r.to) ? r.to : null
   if (!base) return 1
-  const peso = pesosDeConexao(s, base, doy).get(r.id) ?? 0
+  const peso = pesosDeConexao(s, base, doy, dow).get(r.id) ?? 0
   return 1 + Math.min(TETO_CONEXAO, POR_CONEXAO * peso)
+}
+
+/** Distribui o resultado real da rota entre as pernas que efetivamente voaram. */
+export function registrarPassageirosDosVoos(s: GameState, r: Route, pernas: Perna[], pax: Cabins, locais: Cabins, doy: number) {
+  const total = { y: 0, w: 0, c: 0, f: 0 }
+  const lugares = pernas.map(p => s.airline.fleet.find(a => a.id === p.aircraftId)!.seats)
+  for (const seats of lugares) for (const c of CABINS) total[c] += seats[c]
+  const { entrando, saindo } = conexoesDaRota(s, r)
+  const peso = (conexoes: Conexao[]) => conexoes.reduce((n, c) => n +
+    pesoDoTrajeto(c.de.ponta, c.para.ponta, s.day, doy) * (c.codeshare ? 0.8 : c.parceira ? DESCONTO_INTERLINE : 1), 0)
+  const linhas = pernas.map((p, i) => {
+    const viajantes = { y: 0, w: 0, c: 0, f: 0 }
+    for (const c of CABINS) viajantes[c] = total[c] ? pax[c] * lugares[i][c] / total[c] : 0
+    p.ultimoVoo = { day: s.day, pax: viajantes, conexoesEntrando: 0, conexoesSaindo: 0 }
+    return { p, entram: peso(entrando.filter(c => c.para.id === p.id)), saem: peso(saindo.filter(c => c.de.id === p.id)),
+      limite: Math.floor(CABINS.reduce((n, c) => n + viajantes[c], 0)) }
+  })
+  // Só contabiliza a procura adicional que encontrou assento. Cada passageiro
+  // deste rateio recebe uma origem de conexão ou uma continuação, sem dobrar
+  // o total transportado pelo próprio voo.
+  let faltam = Math.max(0, Math.round(CABINS.reduce((n, c) => n + pax[c] - Math.min(pax[c], locais[c]), 0)))
+  let disponiveis = linhas.filter(x => x.entram + x.saem > 0 && x.limite > 0)
+  while (faltam > 0 && disponiveis.length) {
+    const soma = disponiveis.reduce((n, x) => n + x.entram + x.saem, 0)
+    const rodada = faltam
+    let atribuidos = 0
+    for (const x of disponiveis) {
+      const qtd = Math.min(x.limite, Math.max(1, Math.floor(rodada * (x.entram + x.saem) / soma)), faltam)
+      const entra = Math.round(qtd * x.entram / (x.entram + x.saem))
+      x.p.ultimoVoo!.conexoesEntrando += entra
+      x.p.ultimoVoo!.conexoesSaindo += qtd - entra
+      x.limite -= qtd
+      faltam -= qtd
+      atribuidos += qtd
+    }
+    if (!atribuidos) break
+    disponiveis = disponiveis.filter(x => x.limite > 0)
+  }
 }

@@ -54,6 +54,45 @@ export const hhmm = (min: number) => {
 
 export const DOW_CURTO = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
+/** Mantém o mesmo número nos dias em que o mesmo serviço repete. */
+function numeroLivre(s: GameState, from: string, to: string, saida: number): number | undefined {
+  const pernas = escalaDe(s)
+  const valido = (n?: number): n is number => Number.isInteger(n) && n! >= 1 && n! <= 9999
+  const usados = new Set([...pernas.map(p => p.numero).filter(valido), ...Object.values(s.airline.codeshareNumbers ?? {})])
+  const repetido = pernas.find(p => p.from === from && p.to === to && p.saida === saida && valido(p.numero))
+  if (repetido?.numero) return repetido.numero
+  const rota = rotaDoPar(s, from, to)
+  const saidaDaRota = !!rota && from === rota.from
+  const parOposto = pernas.find(p => p.from === to && p.to === from && valido(p.numero) &&
+    (saidaDaRota ? p.numero! > 1 : p.numero! < 9999) &&
+    !usados.has(saidaDaRota ? p.numero! - 1 : p.numero! + 1))
+  if (parOposto?.numero) return saidaDaRota ? parOposto.numero - 1 : parOposto.numero + 1
+  for (let ida = 101; ida < 9999; ida += 2)
+    if (!usados.has(ida) && !usados.has(ida + 1)) return ida + (saidaDaRota ? 0 : 1)
+  for (let n = 1; n <= 9999; n++) if (!usados.has(n)) return n
+  return undefined
+}
+
+/** Preenche números em saves anteriores sem renumerar serviços já marcados. */
+export function completarNumeros(s: GameState) {
+  for (const p of escalaDe(s)) {
+    if (!Number.isInteger(p.numero) || p.numero! < 1 || p.numero! > 9999) p.numero = numeroLivre(s, p.from, p.to, p.saida)
+  }
+}
+
+export function alterarNumeroVoo(s: GameState, pernaId: string, numero: number): string | null {
+  const p = escalaDe(s).find(x => x.id === pernaId)
+  if (!p) return 'Voo não encontrado.'
+  if (!Number.isInteger(numero) || numero < 1 || numero > 9999) return 'Escolha um número entre 1 e 9999.'
+  if (Object.values(s.airline.codeshareNumbers ?? {}).includes(numero))
+    return 'Esse número já identifica um voo em codeshare.'
+  const mesmoServico = (x: Perna) => x.from === p.from && x.to === p.to && x.saida === p.saida
+  if (escalaDe(s).some(x => x.numero === numero && !mesmoServico(x)))
+    return 'Esse número já identifica outro voo da companhia.'
+  for (const x of escalaDe(s)) if (mesmoServico(x)) x.numero = numero
+  return null
+}
+
 /**
  * Quanto vale sair a esta hora, de 0,46 a 1,05.
  *
@@ -570,7 +609,9 @@ export function marcarVoo(
   if (duro) return duro
   const cabe = cabeNaEscala(s, ac.id, from, to, d, hora)
   if (!cabe.ok) return cabe.motivo ?? 'Não cabe na escala da aeronave.'
-  s.airline.escala = [...escalaDe(s), { id: novoId(), aircraftId, from, to, dow: d, saida: hora }]
+  const numero = numeroLivre(s, from, to, hora)
+  if (!numero) return 'Todos os números de voo estão em uso.'
+  s.airline.escala = [...escalaDe(s), { id: novoId(), numero, aircraftId, from, to, dow: d, saida: hora }]
   sincronizarMalha(s)
   return null
 }
@@ -607,7 +648,7 @@ export function remarcarVoo(s: GameState, pernaId: string, dow: number, saida: n
     return erro
   }
   const nova = s.airline.escala[s.airline.escala.length - 1]
-  if (nova) nova.id = pernaId
+  if (nova) { nova.id = pernaId; nova.numero = antiga.numero }
   sincronizarMalha(s)
   return null
 }
