@@ -65,19 +65,35 @@ export function ConnectionsView() {
       </div>
       {/* O diagnóstico só aparece quando há o que explicar: com conexão
           vendida, ele seria ruído sobre um número que já fala. */}
-      {passengers === 0 && (
+      {/*
+        * Primeiro: algum dia já foi apurado?
+        *
+        * A conexão é vendida dentro da virada do dia. Um save pausado desde
+        * antes de a apuração existir mostrava zero — e zero lia como "o jogo
+        * olhou seus voos e não achou nada", quando na verdade ele nunca olhou.
+        */}
+      {state.conexoesApuradasEm === undefined ? (
+        <p className="aviso" style={{ margin: '10px 0 0' }}>
+          <b>Nenhum dia foi apurado ainda.</b> As conexões são vendidas quando o dia vira, e desde que a
+          apuração entrou no jogo nenhum dia passou neste save.
+          {pares - rodeio > 0 && <> A regra já enxerga <b>{pares - rodeio}</b>{' '}
+            {pares - rodeio === 1 ? 'par válido' : 'pares válidos'} nos seus voos.</>}
+          {' '}Tire da pausa e deixe o dia virar.
+        </p>
+      ) : passengers === 0 && (
         <p className="aviso" style={{ margin: '10px 0 0' }}>
           {pares === 0
-            ? <>Em {hubs.join(', ') || 'nenhuma base'} <b>nenhum par de voos casa no relógio</b>: não há chegada
-              e partida separadas pelo tempo mínimo de conexão. É aqui que marcar um voo resolve.</>
+            ? <>Em {hubs.join(', ') || 'nenhuma base'} <b>nenhum par dos seus voos casa no relógio</b>: não há
+              chegada e partida separadas pelo tempo mínimo de conexão. É aqui que marcar um voo resolve.</>
             : rodeio >= pares
-              ? <>A regra vê <b>{pares}</b> {pares === 1 ? 'par que casa' : 'pares que casam'} no relógio, e
-                <b> todos rodeiam demais</b>: passar pela base custa mais de {DESVIO_MAXIMO.toFixed(1)}× o voo
-                direto, e ninguém compra isso. Conexão precisa de pontas em lados opostos da base.</>
-              : <>A regra vê <b>{pares}</b> {pares === 1 ? 'par que casa' : 'pares que casam'} no relógio
-                {rodeio > 0 && <> ({rodeio} {rodeio === 1 ? 'rodeia' : 'rodeiam'} demais)</>}. Os que sobram
-                perdem o passageiro para o voo direto, ou o avião já saiu cheio de gente local — conexão só
-                ocupa lugar vago.</>}
+              ? <>A regra vê <b>{pares}</b> {pares === 1 ? 'par dos seus voos' : 'pares dos seus voos'} que
+                casam no relógio, e <b>todos rodeiam demais</b>: passar pela base custa mais de
+                {' '}{DESVIO_MAXIMO.toFixed(1)}× o voo direto, e ninguém compra isso.</>
+              : <>A regra vê <b>{pares}</b> {pares === 1 ? 'par dos seus voos' : 'pares dos seus voos'} que
+                casam no relógio{rodeio > 0 && <> ({rodeio} {rodeio === 1 ? 'rodeia' : 'rodeiam'} demais)</>}.
+                Os que sobram não venderam no último dia apurado (dia {state.conexoesApuradasEm}): o passageiro
+                preferiu um voo direto — inclusive o seu, se você voa o mesmo par sem escala —, ou o avião já saiu
+                cheio de gente local, e conexão só ocupa lugar vago.</>}
         </p>
       )}
     </Card>

@@ -471,4 +471,10 @@ export interface GameState {
   speed: number
   tutorialStep: number
   connectionJourneys?: ConnectionJourney[]
+  /**
+   * O último dia em que as conexões foram apuradas. Ausente quando nenhum dia
+   * rodou desde que a apuração existe — e aí a tela diz isso, em vez de
+   * mostrar zero como se o jogo tivesse olhado e não achado nada.
+   */
+  conexoesApuradasEm?: number
 }
