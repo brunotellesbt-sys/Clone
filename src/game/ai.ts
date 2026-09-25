@@ -2,6 +2,8 @@ import {
   AIRPORTS, AIRPORT_BY_IATA, noToqueDeRecolher, vooPermitido, type Airport,
 } from './data/airports'
 import { atratividadeHorario, DIA, horaDaConcorrente } from './malha'
+import { AIRCRAFT_BY_ID, ehCargueiro, type AircraftType } from './data/aircraft'
+import { aeroportoServe } from './spec'
 import { baseDemand } from './demand'
 import { distanceBetween, odKey } from './geo'
 import {
@@ -559,4 +561,164 @@ export function fundarCompanhia(
 
   ;(fundadas[escolhido.cc] ??= []).push(anos)
   return nova
+}
+
+// ------------------------------------------------------- a frota da rival
+
+/**
+ * Com que aeronave a concorrente voa cada rota dela.
+ *
+ * A rival não tem matrícula nem cauda: as rotas dela são abstratas — assento,
+ * frequência, tarifa e qualidade —, e é assim de propósito, porque dar escala
+ * por perna a trinta companhias custaria a partida inteira em tempo de conta.
+ * O que existe é `seats` por voo e a etapa, e **isso já determina a aeronave**:
+ * o planejador escolhe o menor avião que leva a carga oferecida e alcança o
+ * destino, porque avião maior que o necessário voa vazio.
+ *
+ * Então a frota não é inventada aqui, é lida: mesma regra de pista e porte que
+ * a tela de abrir rota usa para o jogador (`aeroportoServe`), mesmo catálogo,
+ * mesmo ano. Duas companhias com a mesma malha têm a mesma frota, e uma rival
+ * que só liga capital com capital em etapa curta aparece cheia de jato
+ * regional — que é o que ela de fato opera.
+ */
+export function modeloDaRota(seats: number, from: string, to: string, ano: number) {
+  const a = AIRPORT_BY_IATA[from]
+  const b = AIRPORT_BY_IATA[to]
+  const dist = distanceBetween(from, to)
+  const servem = Object.values(AIRCRAFT_BY_ID)
+    .filter((t) => !ehCargueiro(t) && ano >= t.since && t.range >= dist &&
+      aeroportoServe(t, a) && aeroportoServe(t, b))
+    .sort((x, y) => x.maxSeats - y.maxSeats)
+  if (!servem.length) return null
+  // se nenhum comporta a oferta, o maior que existe — a rival então voa mais
+  // de um avião por partida, que é o que a frequência dela já representa
+  const cabem = servem.filter((t) => t.maxSeats >= seats)
+  if (!cabem.length) return servem[servem.length - 1]
+  /**
+   * Entre os que servem, o que gasta menos por assento.
+   *
+   * Só "o menor que comporta" dava resultado esquisito na tela: uma companhia
+   * de Atlanta aparecia com Tu-204 e Il-96 porque, para aquele número de
+   * assentos, eram eles os menores do catálogo que cabiam. Nenhum planejador
+   * escolhe assim — ele escolhe o avião que **custa menos por assento** na
+   * etapa, e é isso que separa um 737-800 de um Tu-204 de porte parecido.
+   *
+   * O corte de 35% sobre o menor que cabe é o que impede a conta de derivar
+   * para o outro extremo: um A380 tem consumo por assento excelente e não é
+   * resposta para uma rota de duzentos lugares.
+   */
+  const teto = cabem[0].maxSeats * 1.35
+  return cabem
+    .filter((t) => t.maxSeats <= teto)
+    .sort((x, y) => x.burn / x.maxSeats - y.burn / y.maxSeats)[0] ?? cabem[0]
+}
+
+export interface LinhaDeFrota {
+  typeId: string
+  nome: string
+  avioes: number
+  rotas: number
+  assentosDia: number
+}
+
+/**
+ * A frota da rival por modelo, somando `fleetSize` exatamente.
+ *
+ * O reparto é por **hora de voo**, com a mesma conta que `limitarPelaFrota`
+ * usa para dimensionar a frota: o modelo que consome mais hora da malha é o
+ * que tem mais cauda. Fosse por número de rotas, uma ligação intercontinental
+ * diária pesaria o mesmo que um salto de quarenta minutos, e a lista diria
+ * que a companhia tem um 787 para cada E195.
+ *
+ * O ajuste do resto no fim existe para a soma bater com `fleetSize` na unha:
+ * uma lista de frota que não soma a frota é uma lista errada, e a diferença
+ * apareceria bem ao lado, na coluna do ranking.
+ */
+export function frotaDaConcorrente(comp: Competitor, ano: number): LinhaDeFrota[] {
+  const porRota = comp.routes.map((r) => ({ r, t: modeloDaRota(r.seats, r.from, r.to, ano) }))
+    .filter((x): x is { r: Competitor['routes'][number]; t: AircraftType } => !!x.t)
+  if (!porRota.length) return []
+
+  const horasDe = (r: Competitor['routes'][number]) =>
+    r.freq * cicloHoras(distanceBetween(r.from, r.to))
+
+  /**
+   * Companhia pequena padroniza a frota.
+   *
+   * Sem isto, uma rival de três aeronaves e cinco rotas aparecia com cinco
+   * modelos diferentes — um de cada —, e a lista somava cinco onde a coluna do
+   * ranking dizia três. Não é só a soma que ficava errada: ninguém opera cinco
+   * tipos com três caudas, porque cada tipo custa oficina, peça e treinamento
+   * de tripulação. Quem tem pouca cauda tem poucos tipos.
+   *
+   * Ficam os modelos que consomem mais hora de voo, e as rotas dos demais
+   * passam para o menor tipo mantido que ainda as cumpre.
+   */
+  const horasPorTipo = new Map<string, number>()
+  for (const { r, t } of porRota) horasPorTipo.set(t.id, (horasPorTipo.get(t.id) ?? 0) + horasDe(r))
+  const mantidos = [...horasPorTipo.entries()]
+    .sort((x, y) => y[1] - x[1])
+    .slice(0, Math.max(1, comp.fleetSize))
+    .map(([id]) => AIRCRAFT_BY_ID[id])
+    .sort((x, y) => x.maxSeats - y.maxSeats)
+
+  const porModelo = new Map<string, { horas: number; rotas: number; assentos: number }>()
+  for (const { r, t } of porRota) {
+    const dist = distanceBetween(r.from, r.to)
+    const serve = (m: AircraftType) => m.range >= dist &&
+      aeroportoServe(m, AIRPORT_BY_IATA[r.from]) && aeroportoServe(m, AIRPORT_BY_IATA[r.to])
+    const escolhido = mantidos.includes(t)
+      ? t
+      : mantidos.find((m) => m.maxSeats >= r.seats && serve(m)) ??
+        [...mantidos].reverse().find(serve) ?? t
+    const v = porModelo.get(escolhido.id) ?? { horas: 0, rotas: 0, assentos: 0 }
+    v.horas += horasDe(r)
+    v.rotas += 1
+    v.assentos += r.seats * r.freq
+    porModelo.set(escolhido.id, v)
+  }
+
+  const total = [...porModelo.values()].reduce((h, v) => h + v.horas, 0)
+  if (!total) return []
+  /**
+   * Quantas caudas repartir — e não é sempre `fleetSize`.
+   *
+   * Em quatro companhias das 329 do mundo inicial a malha exige um tipo que
+   * nenhum outro tipo mantido cumpre: um destino de pista curta, ou uma etapa
+   * longa demais. Aí o modelo entra na lista à força, e a lista passa a ter
+   * mais linhas do que a frota declarada tem aviões.
+   *
+   * Nesse caso quem cede é o número declarado, não a lista: a companhia voa
+   * aquela rota, logo ela **tem** aquele avião. É um deslize pequeno da conta
+   * de frota da IA — `limitarPelaFrota` dimensiona por hora de voo e não sabe
+   * de tipo —, e fica registrado aqui em vez de virar uma soma que não fecha.
+   */
+  const caudas = Math.max(comp.fleetSize, porModelo.size)
+  const linhas = [...porModelo.entries()]
+    .map(([typeId, v]) => ({
+      typeId,
+      nome: AIRCRAFT_BY_ID[typeId].name,
+      avioes: Math.max(1, Math.floor((caudas * v.horas) / total)),
+      rotas: v.rotas,
+      assentosDia: v.assentos,
+      peso: v.horas / total,
+    }))
+    .sort((x, y) => y.peso - x.peso)
+
+  /**
+   * O resto vai para quem tem mais malha, e some de quem tem menos.
+   *
+   * A soma tem que bater com `fleetSize` na unha: a frota declarada aparece na
+   * coluna ao lado, no ranking, e uma lista de frota que não soma a frota é
+   * uma lista errada. Nenhuma linha desce abaixo de um avião — o modelo está
+   * ali porque existe rota voando com ele.
+   */
+  let sobra = caudas - linhas.reduce((n, l) => n + l.avioes, 0)
+  for (let volta = 0; sobra !== 0 && volta < linhas.length * 4; volta++) {
+    const l = linhas[sobra > 0 ? volta % linhas.length : linhas.length - 1 - (volta % linhas.length)]
+    if (sobra < 0 && l.avioes <= 1) continue
+    l.avioes += sobra > 0 ? 1 : -1
+    sobra += sobra > 0 ? -1 : 1
+  }
+  return linhas.map(({ peso: _peso, ...l }) => l)
 }

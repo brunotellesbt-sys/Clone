@@ -6,7 +6,12 @@
  * assim envelhece mal e em silêncio: mudar o degrau de um aeroporto muda o que
  * ele aceita, e ninguém percebe. Esta tabela é o que segura isso.
  */
-import { AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, vooPermitido, type Escopo } from '../src/game/data/airports'
+import {
+  AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, vooPermitido, type Escopo,
+} from '../src/game/data/airports'
+import { distanceBetween } from '../src/game/geo'
+
+const distanciaKm = (a: string, b: string) => distanceBetween(a, b) * 1.852
 import { baseDemand } from '../src/game/demand'
 import { AIRCRAFT_BY_ID } from '../src/game/data/aircraft'
 import { aeroportoServe } from '../src/game/spec'
@@ -50,6 +55,10 @@ const PARES: [string, string, boolean, string][] = [
 ]
 
 let falhas = 0
+const conferir = (ok: boolean, oque: string, extra = '') => {
+  console.log(`${ok ? 'ok   ' : 'FALHA'} ${oque}${extra ? `  ${extra}` : ''}`)
+  if (!ok) falhas++
+}
 console.log('escopo de cada aeroporto\n')
 for (const [iata, esperado, porque] of ESPERADO) {
   const a = AIRPORT_BY_IATA[iata]
@@ -183,8 +192,12 @@ for (const [iata, esperado, porque] of [
 // de perder de vista: some numa regravação do catálogo e ninguém nota, porque
 // o jogo continua funcionando — só volta a oferecer A321neo em Pampulha.
 console.log('\nteto de porte\n')
+// O teto de Pampulha é 194 lugares — A320neo e 737 MAX 8 entram, A321neo e
+// 737-900 não. A trava pedia que Pampulha recusasse o A319, e isso ficou velho
+// no dia em que o teto subiu: o A319 tem 156 lugares e passa com folga. Medir
+// contra o teto de hoje é o que ela deveria ter feito desde sempre.
 for (const [iata, maior, barrado] of [
-  ['PLU', 'b73g', 'a319'],
+  ['PLU', 'a320neo', 'a321neo'],
 ] as const) {
   const ap = AIRPORT_BY_IATA[iata]
   const passa = ap && aeroportoServe(AIRCRAFT_BY_ID[maior], ap)
@@ -249,6 +262,59 @@ console.log('\nmovimento plausível\n')
   if (novos.length) falhas++
   console.log(`${novos.length === 0 ? 'ok   ' : 'FALHA'} nenhum aeroporto pequeno lidera o país por engano` +
     (novos.length ? `\n      ${novos.join('\n      ')}` : ''))
+}
+
+// --------------------------------------- par do mesmo sistema aeroportuário
+//
+// Ninguém vende passagem de Congonhas para Guarulhos. O jogo vendia, e o par
+// ainda vinha com mercado enorme, porque o modelo multiplica o movimento das
+// duas pontas e as duas ali são gigantes.
+//
+// A régua **não é distância**, e a lista abaixo é a razão. Congonhas–Viracopos
+// tem 85 km e não é voo; Salvador–Valença tem os mesmos 85 e é voo de linha,
+// porque a estrada tem travessia de balsa. O que separa os dois é servirem, ou
+// não, a mesma cidade. A regra mora em `mesmoSistemaAeroportuario`, e
+// `vooPermitido` é por onde passam abrir rota, marcar voo, a lista de destinos
+// e a escolha da concorrente.
+console.log('\npar do mesmo sistema aeroportuário\n')
+{
+  const proibidos: [string, string][] = [
+    ['CGH', 'GRU'], ['CGH', 'VCP'], ['VCP', 'GRU'], // São Paulo
+    ['SDU', 'GIG'],                                 // Rio de Janeiro
+    ['CNF', 'PLU'],                                 // Belo Horizonte
+    ['IZA', 'JDF'],                                 // Juiz de Fora
+    ['JFK', 'EWR'], ['LHR', 'LGW'], ['HND', 'NRT'], // e os do mundo
+  ]
+  for (const [a, b] of proibidos) {
+    const barrado = vooPermitido(AIRPORT_BY_IATA[a], AIRPORT_BY_IATA[b])
+    const d = baseDemand(a, b, 0, 180)
+    conferir(!!barrado && d.total === 0, `${a}-${b} não é voo: mesma cidade`,
+      `${distanciaKm(a, b).toFixed(0)} km · ${barrado ? 'barrado' : 'PERMITIDO'} · mercado ${d.total.toFixed(0)}`)
+  }
+
+  /*
+   * E a lista que **não** pode cair junto.
+   *
+   * São catorze pares curtos que uma régua de distância levou embora na
+   * primeira versão desta regra, e todos são rota: cidade diferente, aeroporto
+   * próprio, e em vários casos voo que existe na vida real. Salvador–Valença
+   * leva a Morro de São Paulo; Cabo Frio–Macaé e Campos–Macaé são do petróleo.
+   * Vários têm distância **menor** que pares proibidos aqui em cima, e é por
+   * isso que a régua deixou de ser quilômetro.
+   */
+  const permitidos: [string, string][] = [
+    ['GRU', 'SJK'], ['CGH', 'SJK'], ['CGH', 'SOD'], ['SSA', 'VAL'], ['CWB', 'JOI'],
+    ['POA', 'CXJ'], ['MGF', 'LDB'], ['JDO', 'CJZ'], ['OPS', 'SMT'], ['IPN', 'GVR'],
+    ['CAW', 'MEA'], ['CFB', 'MEA'], ['OAL', 'JPR'], ['JTC', 'MII'], ['IOS', 'UNA'],
+    // e os de sempre, que a régua nunca pode pegar
+    ['SDU', 'CGH'], ['GIG', 'GRU'], ['SDU', 'CAW'], ['SDU', 'CFB'], ['SDU', 'PLU'],
+  ]
+  for (const [a, b] of permitidos) {
+    const barrado = vooPermitido(AIRPORT_BY_IATA[a], AIRPORT_BY_IATA[b])
+    const d = baseDemand(a, b, 0, 180)
+    conferir(!barrado && d.total > 0, `${a}-${b} continua sendo voo`,
+      `${distanciaKm(a, b).toFixed(0)} km · mercado ${d.total.toFixed(0)}`)
+  }
 }
 
 console.log(falhas ? `\n${falhas} falha(s)` : '\ntudo certo')

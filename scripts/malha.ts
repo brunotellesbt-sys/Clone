@@ -10,9 +10,11 @@
  * Desde a escala por perna há uma regra nova, e mais fácil ainda de quebrar: um
  * avião só sai de onde ele está. Metade das conferências abaixo existe para isso.
  */
-import { AIRPORT_BY_IATA as AP, noToqueDeRecolher } from '../src/game/data/airports'
+import { AIRPORT_BY_IATA as AP, noToqueDeRecolher, vooPermitido } from '../src/game/data/airports'
 import { AIRCRAFT, AIRCRAFT_BY_ID } from '../src/game/data/aircraft'
 import { blockHours } from '../src/game/economy'
+import { frotaDaConcorrente, modeloDaRota } from '../src/game/ai'
+import { aeroportoServe } from '../src/game/spec'
 // Geometria de tela, não de simulação — mas é aritmética pura, e aritmética
 // pura se mede aqui em vez de num navegador. Ver `gradeEscala.ts`.
 import { ALTURA_MAXIMA, escalaDaGrade, menorIntervaloDoDia } from '../src/ui/gradeEscala'
@@ -666,6 +668,47 @@ console.log('\ntempo de etapa na ponte aérea do Sudeste\n')
   const absurdo = escalaDaGrade(janela, 1, 28, 360)
   conferir(absurdo.altura <= ALTURA_MAXIMA, 'e duas partidas coladas não viram uma grade sem fim',
     `${absurdo.altura}px`)
+}
+
+// ------------------------------------------- a frota que a rival opera
+//
+// O ranking dizia "118 aviões" e parava aí, o que não ajuda ninguém a decidir
+// em que par entrar: uma companhia de 118 jatos regionais em etapa curta e uma
+// de 118 widebody são adversárias completamente diferentes.
+//
+// A frota é derivada da malha, e é isso que se mede aqui — que ela **soma** a
+// frota declarada, e que o modelo escolhido de fato serve a rota.
+{
+  const t = newGame({ name: 'Rival', code: 'RV', hub: 'GRU', seed: 3 })
+  const rivais = t.competitors.filter((c) => c.routes.length > 0)
+  conferir(rivais.length > 0, 'o mundo nasce com concorrente voando', `${rivais.length} companhias`)
+
+  let somam = 0
+  let servem = 0
+  for (const c of rivais) {
+    const frota = frotaDaConcorrente(c, t.startYear)
+    // `caudas`, e não `fleetSize`: ver o comentário em `frotaDaConcorrente`
+    // sobre a companhia cuja malha exige um tipo que nenhum outro substitui.
+    const caudas = Math.max(c.fleetSize, frota.length)
+    if (frota.reduce((n, l) => n + l.avioes, 0) === caudas) somam++
+    const ok = c.routes.every((r) => {
+      const m = modeloDaRota(r.seats, r.from, r.to, t.startYear)
+      return !m || (m.range >= distanceBetween(r.from, r.to) &&
+        aeroportoServe(m, AP[r.from]) && aeroportoServe(m, AP[r.to]))
+    })
+    if (ok) servem++
+  }
+  conferir(somam === rivais.length, 'a lista de frota soma exatamente a frota da rival',
+    `${somam}/${rivais.length}`)
+  conferir(servem === rivais.length, 'e o modelo escolhido alcança a etapa e pousa nas duas pontas',
+    `${servem}/${rivais.length}`)
+
+  // E a rival não abre par da mesma região metropolitana — ela passa pela
+  // mesma peneira que o jogador.
+  const urbanos = t.competitors.flatMap((c) =>
+    c.routes.filter((r) => !!vooPermitido(AP[r.from], AP[r.to])).map((r) => r.key))
+  conferir(urbanos.length === 0, 'nenhuma concorrente voa par proibido',
+    urbanos.slice(0, 3).join(', '))
 }
 
 console.log(`\n${falhas === 0 ? 'tudo certo' : `${falhas} falha(s)`}`)

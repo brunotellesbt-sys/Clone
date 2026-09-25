@@ -3785,7 +3785,96 @@ export function noToqueDeRecolher(iata: string, minutos: number): boolean {
 /** O aeroporto tem nome oficial de verdade, ou só o rótulo curto? */
 export const temNomeOficial = (a: Airport) => a.official !== a.name
 
+/**
+ * Dois aeroportos do **mesmo sistema aeroportuário**. Não existe voo entre eles.
+ *
+ * Ninguém vende passagem de Congonhas para Guarulhos, nem de Santos Dumont
+ * para o Galeão: são o mesmo destino, e quem precisa trocar de aeroporto pega
+ * um carro. O jogo oferecia esses pares assim mesmo — pior, a demanda deles
+ * era grande, porque o modelo gravitacional multiplica o movimento das duas
+ * pontas e as duas ali são gigantes.
+ *
+ * **A régua não é distância, e essa foi a lição cara.** Uma primeira versão
+ * proibia todo par a menos de 100 km, e junto com os quatro pares que são a
+ * mesma cidade levou catorze que são rota de verdade: Salvador–Valença, que
+ * existe porque a estrada tem travessia de balsa; Cabo Frio–Macaé e
+ * Campos–Macaé, que o petróleo sustenta; Curitiba–Joinville, Maringá–Londrina,
+ * Porto Alegre–Caxias do Sul, Ilhéus–Una. Nenhuma distância separa esses de
+ * Congonhas–Viracopos, que tem três quilômetros a mais que Salvador–Valença.
+ *
+ * O que separa é outra coisa: **os dois aeroportos servem a mesma cidade?**
+ * Guarulhos, Congonhas e Viracopos são vendidos como São Paulo. Joinville é
+ * Joinville, e Curitiba é Curitiba — a etapa é curta e a rota existe.
+ *
+ * Duas fontes, porque uma só não cobre:
+ *
+ * 1. **a cidade do catálogo**, quando as duas pontas têm o mesmo nome — Galeão
+ *    e Santos Dumont, Confins e Pampulha, os dois de Juiz de Fora. Vem com
+ *    guarda de distância porque existe homônimo: Portland do Oregon e Portland
+ *    do Maine estão a 4.070 km uma da outra;
+ * 2. **uma lista à mão** para o metrô cujo aeroporto tem nome de outra cidade.
+ *    Viracopos é Campinas no catálogo e São Paulo no bilhete; Newark é Newark e
+ *    serve Nova York; Narita é Narita e serve Tóquio. Isso é conhecimento de
+ *    aviação, não geometria, e por isso está escrito e não derivado.
+ */
+const MESMA_CIDADE_KM = 120
+
+/**
+ * Os sistemas aeroportuários que a cidade do catálogo não junta sozinha.
+ *
+ * Só entra aqui o caso em que a companhia **vende os dois como a mesma
+ * cidade**. Cidade vizinha servida por aeroporto próprio não entra: Sorocaba
+ * não é São Paulo, Joinville não é Curitiba, e voo entre elas é voo.
+ */
+const SISTEMAS: string[][] = [
+  ['GRU', 'CGH', 'VCP'],                      // São Paulo
+  ['JFK', 'LGA', 'EWR'],                      // Nova York
+  ['LHR', 'LGW', 'STN', 'LTN', 'LCY', 'SEN'], // Londres
+  ['CDG', 'ORY', 'BVA'],                      // Paris
+  ['HND', 'NRT'],                             // Tóquio
+  ['KIX', 'ITM', 'UKB'],                      // Osaka
+  ['ICN', 'GMP'],                             // Seul
+  ['TPE', 'TSA'],                             // Taipé
+  ['BKK', 'DMK'],                             // Banguecoque
+  ['CGK', 'HLP'],                             // Jacarta
+  ['SVO', 'DME', 'VKO', 'ZIA'],               // Moscou
+  ['MXP', 'LIN', 'BGY'],                      // Milão
+  ['FCO', 'CIA'],                             // Roma
+  ['ARN', 'BMA', 'NYO', 'VST'],               // Estocolmo
+  ['OSL', 'TRF', 'RYG'],                      // Oslo
+  ['IAD', 'DCA', 'BWI'],                      // Washington
+  ['ORD', 'MDW'],                             // Chicago
+  ['DFW', 'DAL'],                             // Dallas
+  ['IAH', 'HOU'],                             // Houston
+  ['LAX', 'BUR', 'LGB', 'SNA', 'ONT'],        // Los Angeles
+  ['SFO', 'OAK', 'SJC'],                      // São Francisco
+  ['MIA', 'FLL'],                             // Miami
+  ['YYZ', 'YTZ'],                             // Toronto
+  ['MEX', 'NLU', 'TLC'],                      // Cidade do México
+  ['EZE', 'AEP'],                             // Buenos Aires
+  ['DXB', 'DWC'],                             // Dubai
+]
+
+/** Do IATA para o grupo, montado uma vez. */
+const SISTEMA_DE = (() => {
+  const m = new Map<string, number>()
+  SISTEMAS.forEach((g, i) => g.forEach((iata) => m.set(iata, i)))
+  return m
+})()
+
+export function mesmoSistemaAeroportuario(a: Airport, b: Airport): boolean {
+  if (a.iata === b.iata) return false
+  const ga = SISTEMA_DE.get(a.iata)
+  if (ga !== undefined && ga === SISTEMA_DE.get(b.iata)) return true
+  return a.cc === b.cc &&
+    a.city.toLowerCase() === b.city.toLowerCase() &&
+    kmEntre(a, b) <= MESMA_CIDADE_KM
+}
+
 export function vooPermitido(a: Airport, b: Airport): string | null {
+  if (mesmoSistemaAeroportuario(a, b)) {
+    return `${a.iata} e ${b.iata} servem a mesma cidade, a ${Math.round(kmEntre(a, b))} km um do outro: não há voo entre eles.`
+  }
   if (a.cc === b.cc) return null
   const fechado = a.escopo === 'dom' ? a : b.escopo === 'dom' ? b : null
   if (fechado) return `${fechado.iata} é doméstico: não recebe voo internacional.`

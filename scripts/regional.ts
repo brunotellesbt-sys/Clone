@@ -91,7 +91,10 @@ for (const [from, to] of [['SDU', 'CAW'], ['GRU', 'CAW'], ['SDU', 'MEA'], ['GRU'
 // Ele **substituiu** a trava anterior, que exigia que Rio–Cabo Frio não
 // fechasse. Cabo Frio aceita E195, então agora ele tem piso e fecha; a trava
 // velha e o piso novo não podem valer ao mesmo tempo, e quem manda é o pedido.
-for (const [from, to] of [['SDU', 'CFB'], ['SDU', 'CAW'], ['GRU', 'MEA'], ['CNF', 'PLU']]) {
+// Pampulha é medida a partir do Rio, e não de Confins: Confins e Pampulha são
+// os dois aeroportos de Belo Horizonte, a 23 km um do outro, e desde a regra de
+// par da mesma região metropolitana esse trecho não é voo (ver `vooPermitido`).
+for (const [from, to] of [['SDU', 'CFB'], ['SDU', 'CAW'], ['GRU', 'MEA'], ['SDU', 'PLU']]) {
   const d = baseDemand(from, to, 0, 180)
   const piso = pisoDoPar(AIRPORT_BY_IATA[from], AIRPORT_BY_IATA[to])
   conferir(d.pax.y >= piso.y - 0.5 && d.pax.w >= piso.w - 0.5,
