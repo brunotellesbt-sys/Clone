@@ -17,6 +17,7 @@ import type { GameState } from './game/types'
 import { GameContext, useGame } from './store/useGame'
 import { Dashboard } from './ui/Dashboard'
 import { CompetitorsView } from './ui/CompetitorsView'
+import { ConnectionsView } from './ui/ConnectionsView'
 import { FinanceView } from './ui/FinanceView'
 import { FleetView } from './ui/FleetView'
 import { LiveryEditor } from './ui/LiveryEditor'
@@ -29,6 +30,7 @@ import { Modal } from './ui/components/Bits'
 const TABS = [
   { id: 'painel', label: 'Painel' },
   { id: 'rotas', label: 'Rotas' },
+  { id: 'conexoes', label: 'Conexões' },
   { id: 'frota', label: 'Frota' },
   { id: 'mercado', label: 'Mercado' },
   { id: 'financas', label: 'Finanças' },
@@ -40,9 +42,9 @@ const TABS = [
 const SPEEDS = [
   { v: 0, label: '❚❚' },
   { v: 1, label: '1×' },
-  { v: 4, label: '4×' },
-  { v: 12, label: '12×' },
-  { v: 40, label: '40×' },
+  { v: 25, label: '25×' },
+  { v: 50, label: '50×' },
+  { v: 100, label: '100×' },
 ]
 
 export function App() {
@@ -173,6 +175,7 @@ export function App() {
           <div className="wrap">
             {tab === 'painel' && <Dashboard go={setTab} />}
             {tab === 'rotas' && <RoutesView />}
+            {tab === 'conexoes' && <ConnectionsView />}
             {tab === 'frota' && <FleetView />}
             {tab === 'mercado' && <MarketView />}
             {tab === 'financas' && <FinanceView />}

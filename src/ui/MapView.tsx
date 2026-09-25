@@ -9,6 +9,7 @@ import { MS_POR_DIA_NA_TELA } from './relogio'
 import { blocoDe, DIA, DOW_CURTO, escalaDe, hhmm, naSemana, noTempo, partidaUtc, rotaDoPar } from '../game/escala'
 import { distanceBetween, interpolate } from '../game/geo'
 import { spriteMapa } from '../livery/mapSprites'
+import { flightPose, MAP_MAX_ZOOM, spriteRotation } from './mapGeometry'
 import type { Aircraft, GameState, Perna, Route } from '../game/types'
 
 const W = 1000
@@ -16,10 +17,9 @@ const H = 520
 const SATELLITE = `${import.meta.env.BASE_URL}nasa-blue-marble.jpg`
 const PLANE_FALLBACK = `${import.meta.env.BASE_URL}assets_icons_png_vertical_plane_icon.png`
 /**
- * Até onde aproxima. Nove deixava o mapa parando no tamanho de estado; 40 chega
- * na escala de cidade, que é onde dá para separar Congonhas de Guarulhos a olho.
+ * Zoom até 72× para separar aeroportos próximos e acompanhar o avião de perto.
  */
-const K_MAX = 40
+const K_MAX = MAP_MAX_ZOOM
 /**
  * O tamanho do que é desenhado cresce com a raiz do zoom, mas para de crescer
  * aqui. Sem o teto, no zoom fundo o marcador de aeroporto virava uma bola
@@ -62,6 +62,19 @@ export function MapView({
   const [hover, setHover] = useState<{ iata: string; x: number; y: number } | null>(null)
   const [voo, setVoo] = useState<string | null>(null)
   const [airport, setAirport] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [lines, setLines] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('skyline-map-lines') ?? '{}')
+      return { own: saved?.own !== false, rivals: saved?.rivals === true, trail: saved?.trail !== false }
+    }
+    catch { return { own: true, rivals: false, trail: true } }
+  })
+  const toggleLine = (key: 'own' | 'rivals' | 'trail', enabled: boolean) => {
+    const next = { ...lines, [key]: enabled }
+    setLines(next)
+    try { localStorage.setItem('skyline-map-lines', JSON.stringify(next)) } catch { /* preferência só nesta sessão */ }
+  }
   /**
    * O relógio da tela, de 0 a 1 no dia. Começa às 8h e não à meia-noite: agora
    * que o avião no mapa é uma perna de verdade da escala, a madrugada está
@@ -123,8 +136,8 @@ export function MapView({
   }
 
   const projection = useMemo(
-    () => geoEquirectangular().fitExtent([[0, 10], [W, H - 10]], { type: 'Sphere' }),
-    [],
+    () => geoEquirectangular().fitExtent([[0, 10], [W, H - 10]], { type: 'Sphere' }).precision(0.2 / view.k),
+    [view.k],
   )
   const path = useMemo(() => geoPath(projection), [projection])
   const project = (lon: number, lat: number) => projection([lon, lat]) ?? [0, 0]
@@ -137,7 +150,7 @@ export function MapView({
    *
    * Este laço era o defeito por trás de "o jogo não pausa quando aperto em
    * pausar". O relógio do jogo parava certinho: o dia trava no clique, medido
-   * a 1×, 4×, 12× e 40×. O que não parava era **o mapa** — ele tem o próprio
+   * em todas as velocidades. O que não parava era **o mapa** — ele tem o próprio
    * `requestAnimationFrame` para mover os aviões pela rota, e ele não olhava
    * `paused`. O jogador pausava, via a frota continuar voando e concluía, com
    * razão, que a pausa não funcionava.
@@ -503,26 +516,26 @@ export function MapView({
           <path d={gratPath} fill="none" stroke="#a9c5dd" strokeOpacity="0.1" strokeWidth={stroke(0.5)} />
           <path d={landPath} fill="none" stroke="#b9d7ee" strokeOpacity="0.28" strokeWidth={stroke(0.55)} onClick={onFundo} />
 
-          {compRoutes.map((r, i) => (
-            <path key={`c${i}`} d={arc(r.from, r.to)} fill="none" stroke={r.color} strokeOpacity={0.15} strokeWidth={stroke(0.7)} />
+          {lines.rivals && compRoutes.map((r, i) => (
+            <path className="map-rival-route" key={`c${i}`} d={arc(r.from, r.to)} fill="none" stroke={r.color} strokeOpacity={0.15} strokeWidth={stroke(0.7)} />
           ))}
 
-          {routes.map((r) => {
+          {lines.own && routes.map((r) => {
             // a rota escolhida sai da linha comum: quem a desenha é o traçado do
             // voo, e as duas juntas viravam três traços em cima do mesmo arco
-            if (vooSel?.r?.id === r.id) return null
+            if (lines.trail && vooSel?.r?.id === r.id) return null
             const prof = r.history.length ? r.history[r.history.length - 1].profit : 0
             const color = r.history.length === 0 ? '#64748b' : prof >= 0 ? '#3ddc97' : '#ff7a8a'
             return (
-              <path key={r.id} d={arc(r.from, r.to)} fill="none" stroke={color}
+              <path className="map-own-route" key={r.id} d={arc(r.from, r.to)} fill="none" stroke={color}
                 strokeOpacity={voo ? 0.18 : 0.8}
                 strokeWidth={stroke(1.5)} strokeLinecap="round" />
             )
           })}
 
           {/* trajeto do voo escolhido: o percorrido cheio, o que falta pontilhado */}
-          {vooSel && (
-            <g style={{ pointerEvents: 'none' }}>
+          {lines.trail && vooSel && (
+            <g className="map-flight-trail" style={{ pointerEvents: 'none' }}>
               <path d={trecho(vooSel.a, vooSel.b, vooSel.fase, 1)} fill="none"
                 stroke="#93a6c4" strokeOpacity={0.75} strokeWidth={stroke(1.7)}
                 strokeLinecap="round" strokeDasharray={`${stroke(4)} ${stroke(5)}`} />
@@ -577,11 +590,7 @@ export function MapView({
           {/* avião por último: desenhado depois do aeroporto, ele fica por cima
               e o clique é dele — antes o marcador do aeroporto de origem roubava */}
           {voos.map(({ id, a, b, fase, ac }) => {
-            const [lon, lat] = interpolate(a, b, fase)
-            const [x, y] = project(lon, lat)
-            const [lon2, lat2] = interpolate(a, b, Math.min(1, fase + 0.01))
-            const [x2, y2] = project(lon2, lat2)
-            const ang = (Math.atan2(y2 - y, x2 - x) * 180) / Math.PI
+            const { x, y, angle: ang } = flightPose(projection, a, b, fase, W)
             const on = voo === id
             const s = (on ? 2.2 : 1.5) * fator
             const sprite = ac ? spriteMapa(ac.typeId, on) : null
@@ -592,7 +601,7 @@ export function MapView({
                 {/* alvo de clique folgado: a seta tem 8 px de ponta a ponta */}
                 <circle r="6" fill="transparent" />
                 <image href={sprite ?? PLANE_FALLBACK} x="-4" y="-4" width="8" height="8"
-                  transform="rotate(90)" filter={on ? 'url(#glow)' : undefined} />
+                  transform={`rotate(${spriteRotation(!!sprite)})`} filter={on ? 'url(#glow)' : undefined} />
               </g>
             )
           })}
@@ -604,10 +613,18 @@ export function MapView({
           estado deixaria o gesto seguinte medindo contra uma vista velha, e o
           mapa saltaria de volta no primeiro toque depois do botão */}
       <div className="map-tools">
-        <button onClick={() => aplicar(limitar(vista.current.k * 1.35, vista.current.x, vista.current.y))} title="Aproximar">+</button>
-        <button onClick={() => aplicar(limitar(vista.current.k / 1.35, vista.current.x, vista.current.y))} title="Afastar">−</button>
-        <button onClick={() => aplicar({ k: 1, x: 0, y: 0 })} title="Ver o mundo todo">⤢</button>
+        <button onClick={() => setSettingsOpen(!settingsOpen)} title="Configurações do mapa" aria-label="Configurações do mapa" aria-expanded={settingsOpen}>⚙</button>
+        <button onClick={() => aplicar(limitar(vista.current.k * 1.35, vista.current.x, vista.current.y))} title="Aproximar" aria-label="Aproximar">+</button>
+        <button onClick={() => aplicar(limitar(vista.current.k / 1.35, vista.current.x, vista.current.y))} title="Afastar" aria-label="Afastar">−</button>
+        <button onClick={() => aplicar({ k: 1, x: 0, y: 0 })} title="Ver o mundo todo" aria-label="Ver o mundo todo">⤢</button>
       </div>
+      {settingsOpen && <div className="map-settings" aria-label="Configurações do mapa">
+        <b>Linhas no mapa</b>
+        <label><input type="checkbox" checked={lines.own} onChange={e => toggleLine('own', e.target.checked)} /> Minhas rotas</label>
+        <label><input type="checkbox" checked={lines.rivals} onChange={e => toggleLine('rivals', e.target.checked)} /> Rotas de outras companhias</label>
+        <label><input type="checkbox" checked={lines.trail} onChange={e => toggleLine('trail', e.target.checked)} /> Trajeto do avião selecionado</label>
+        <small className="muted">Zoom até {K_MAX}×</small>
+      </div>}
 
       <div className="map-legend">
         {picking ? (

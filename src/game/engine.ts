@@ -2,14 +2,14 @@ import type { Perna, SeatConfig } from './types'
 import { custoDeFabrica, normalizeSeats, normalizeSeatPitch, seatChangeCost } from './seatModels'
 import { AIRCRAFT_BY_ID, ehCargueiro, type AircraftType } from './data/aircraft'
 import { SAVE_VERSION } from './save'
+import { allocateConnections } from './connections'
 import { AIRPORT_BY_IATA, vooPermitido } from './data/airports'
 import {
-  atratividadeDaRota, atratividadeHorario, fatorConexao, fatorConexaoIA, fracaoNoturna,
-  horaDaConcorrente, registrarPassageirosDosVoos,
+  atratividadeDaRota, atratividadeHorario, fatorConexaoIA, fracaoNoturna, horaDaConcorrente,
 } from './malha'
 import {
   escalaDe, marcarRotacao, montarRotacoes, pernasDoDia, posicionamentos, removerVoo, rotaDoPar,
-  sincronizarMalha,
+  sincronizarMalha, partidaUtc, DIA, pernasDaRota,
 } from './escala'
 import { BLANK_LIVERY } from '../livery/presets'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from './demand'
@@ -18,7 +18,6 @@ import { engineIdFor, motivoDoPar, withEngine } from './spec'
 import {
   addCabins, allocateCargoMarket, allocateMarket, blockHours, CARGO_SELLABLE, escalarCabins,
   classPriceExponent,
-  limitarCabins,
   DISTRIBUTION_RATE, emptyCabins, flightCost, leaseMonthly, marketPrice,
   maxDailyFrequency, resaleValue, SELLABLE, sumCabins, ticketRevenue,
   type CargoCarrier, type Carrier,
@@ -42,8 +41,8 @@ import {
  * cronômetro correndo — dava para abrir uma rota e perder um mês antes de
  * terminar de ler a tela.
  *
- * As outras velocidades são múltiplos disto, como sempre foram: 4× põe o dia
- * em quinze minutos, 12× em cinco, 40× em um e meio.
+ * As velocidades são múltiplos disto: 25× põe o dia em 2,4 minutos,
+ * 50× em 1,2 minuto e 100× em 36 segundos.
  *
  * O mapa segue a **mesma** escala. Ele tinha um laço próprio que rodava o dia
  * em trinta e quatro segundos independente da velocidade, e com isso o avião
@@ -687,7 +686,7 @@ interface RouteDay {
  * cancelado, não transferido para outro por mágica.
  */
 function voosDoDia(s: GameState, r: Route, dow: number): Perna[] {
-  return pernasDoDia(s, r, dow)
+  return pernasDaRota(s, r).filter(p => Math.floor(partidaUtc(p) / DIA) === dow)
     .filter(p => { const a = aircraftOf(s, p.aircraftId); return !!a && a.groundedUntil <= s.day })
 }
 
@@ -786,37 +785,32 @@ export function advanceDay(s: GameState): GameState {
 
   // 3) Reparte a demanda e apura o dia da companhia.
   const today: DayResult = {
-    day: s.day, pax: emptyCabins(), flights: 0, seats: 0, revenue: 0, cost: 0, profit: 0, loadFactor: 0,
+    day: s.day, pax: emptyCabins(), localPax: emptyCabins(), connectionPax: emptyCabins(), flights: 0, seats: 0, revenue: 0, cost: 0, profit: 0, loadFactor: 0,
   }
   const pressure: Record<string, number> = {}
   s.lastShare = {}
+
+  const localAllocations = perRoute.map(rd => {
+    const key = odKey(rd.route.from, rd.route.to)
+    const demand = baseDemand(rd.route.from, rd.route.to, s.day, doy)
+    const result = allocateMarket(demand, carriersByOd.get(key) ?? []).find(a => a.id === `P:${rd.route.id}`)
+    return { route: rd.route, voos: rd.voos, seats: rd.seats, local: result?.pax ?? emptyCabins() }
+  })
+  const manifests = allocateConnections(s, localAllocations, dow, doy)
 
   for (const rd of perRoute) {
     const r = rd.route
     const key = odKey(r.from, r.to)
     const demand = baseDemand(r.from, r.to, s.day, doy)
-    const carriers = carriersByOd.get(key) ?? []
-    const alloc = allocateMarket(demand, carriers)
-    const mine = alloc.find((a) => a.id === `P:${r.id}`)
-    /**
-     * Passageiro de conexão entra **somando**, depois do rateio do mercado.
-     *
-     * Quem voa Recife–São Paulo–Lisboa não estava no mercado Recife–São Paulo:
-     * ele existe porque as duas pontas se encaixam no horário. Se o ganho da
-     * malha entrasse no rateio, o jogo estaria dizendo que a conexão rouba
-     * passageiro local do concorrente, e não é isso que acontece — a fatia
-     * registrada continua sendo a do mercado local, sem o acréscimo.
-     */
-    const conexao = fatorConexao(s, r, doy, dow)
     const noturno = fracaoNoturna(s, r, dow)
-    // teto no assento ofertado: conexão preenche poltrona vazia, não cria
-    // poltrona. Sem isto o aproveitamento passava de 100%, que é impossível.
-    const pax = limitarCabins(escalarCabins(mine?.pax ?? emptyCabins(), conexao), rd.seats)
-    registrarPassageirosDosVoos(s, r, rd.voos, pax, mine?.pax ?? emptyCabins(), doy)
-    s.lastShare[key] = mine?.share ?? 0
-    pressure[key] = mine?.share ?? 0
+    const flightResults = rd.voos.map(p => manifests.get(`${s.day}:${p.id}`)!)
+    const localPax = flightResults.reduce((n, m) => addCabins(n, m.local), emptyCabins())
+    const connectionPax = flightResults.reduce((n, m) => addCabins(n, m.connecting), emptyCabins())
+    const pax = addCabins(localPax, connectionPax)
+    s.lastShare[key] = demand.total ? sumCabins(localPax) / demand.total : 0
+    pressure[key] = s.lastShare[key]
 
-    const gross = ticketRevenue(pax, r.fare, demand.refFare, rd.pitch)
+    const gross = ticketRevenue(localPax, r.fare, demand.refFare, rd.pitch) + flightResults.reduce((n, m) => n + m.revenue, 0)
     const cargo = gross * (r.distance > 2200 ? 0.11 : 0.05)
     const revenue = (gross + cargo) * (1 - DISTRIBUTION_RATE)
 
@@ -837,6 +831,8 @@ export function advanceDay(s: GameState): GameState {
     const dayRes: DayResult = {
       day: s.day,
       pax,
+      localPax,
+      connectionPax,
       flights: rd.flights,
       seats: rd.physicalSeats,
       revenue,
@@ -848,6 +844,8 @@ export function advanceDay(s: GameState): GameState {
     if (r.history.length > HISTORY_KEEP) r.history.shift()
 
     today.pax = addCabins(today.pax, pax)
+    today.localPax = addCabins(today.localPax!, localPax)
+    today.connectionPax = addCabins(today.connectionPax!, connectionPax)
     today.flights += dayRes.flights
     today.seats += dayRes.seats
     today.revenue += dayRes.revenue
@@ -1137,6 +1135,7 @@ export function routeEconomics(s: GameState, r: Route) {
       pax: tons,
       loadFactor: oferta ? tons / oferta : 0,
       atendidoDiaCabine: emptyCabins(),
+      conexoesDia: 0,
       restanteDiaCabine: emptyCabins(),
       sugestaoFare: { ...r.fare },
       demandaDia: dc.tons,
@@ -1152,10 +1151,10 @@ export function routeEconomics(s: GameState, r: Route) {
   const seats = last.reduce((x, d) => x + d.seats, 0)
   const dias = diasCorridos
   const atendidoDiaCabine: Cabins = {
-    y: last.reduce((x, d) => x + d.pax.y, 0) / dias,
-    w: last.reduce((x, d) => x + d.pax.w, 0) / dias,
-    c: last.reduce((x, d) => x + d.pax.c, 0) / dias,
-    f: last.reduce((x, d) => x + d.pax.f, 0) / dias,
+    y: last.reduce((x, d) => x + (d.localPax ?? d.pax).y, 0) / dias,
+    w: last.reduce((x, d) => x + (d.localPax ?? d.pax).w, 0) / dias,
+    c: last.reduce((x, d) => x + (d.localPax ?? d.pax).c, 0) / dias,
+    f: last.reduce((x, d) => x + (d.localPax ?? d.pax).f, 0) / dias,
   }
   const restanteDiaCabine: Cabins = {
     y: Math.max(0, demand.pax.y - atendidoDiaCabine.y),
@@ -1169,6 +1168,7 @@ export function routeEconomics(s: GameState, r: Route) {
     pax,
     loadFactor: seats ? pax / seats : 0,
     atendidoDiaCabine,
+    conexoesDia: last.reduce((n, d) => n + sumCabins(d.connectionPax ?? emptyCabins()), 0) / dias,
     restanteDiaCabine,
     sugestaoFare: sugerirTarifasParaCobertura(r, demand.pax, atendidoDiaCabine),
     demandaDia: demand.total,

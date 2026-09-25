@@ -41,7 +41,7 @@ console.log('tempo mínimo de conexão\n')
 conferir(mct(false, false) === MCT_DOMESTICA, 'doméstica com doméstica: 40 min')
 conferir(mct(true, true) === MCT_INTERNACIONAL, 'internacional com internacional em trânsito: 60 min')
 conferir(mct(true, false) === MCT_ALFANDEGA, 'internacional que chega e doméstica que sai: 3 h')
-conferir(mct(false, true) === MCT_ALFANDEGA, 'doméstica que chega e internacional que sai: 3 h')
+conferir(mct(false, true) === MCT_INTERNACIONAL, 'doméstica que chega e internacional que sai: 1 h, sem retirar bagagem')
 conferir(esperaMaxima(false, false) === 180, 'doméstica termina em 3 h')
 conferir(esperaMaxima(true, true) === 240, 'trânsito internacional termina em 4 h')
 conferir(esperaMaxima(true, false) === 360, 'imigração termina em 6 h')
@@ -203,9 +203,9 @@ conferir(conexoes.every((c) => c.de.ponta !== c.para.ponta), 'ninguém conecta p
   }
   conferir(
     medido && conexoesNaBase(s, 'GRU')
-      .filter((c) => c.de.ponta === 'LIS' || c.para.ponta === 'LIS')
+      .filter((c) => c.de.ponta === 'LIS')
       .every((c) => c.minimo === MCT_ALFANDEGA),
-    'nenhum par com Lisboa escapa da alfândega',
+    'chegadas de Lisboa conectando a doméstico em GRU exigem redespacho',
   )
   const exemplo = conexoes[0]
   if (exemplo) {
@@ -434,7 +434,7 @@ console.log('\no relógio\n')
 {
   conferir(MINUTOS_REAIS_POR_HORA === 2.5, 'uma hora de jogo custa 2,5 min reais a 1×',
     `${MINUTOS_REAIS_POR_HORA} min`)
-  for (const [v, min] of [[1, 60], [4, 15], [12, 5], [40, 1.5]] as [number, number][]) {
+  for (const [v, min] of [[1, 60], [25, 2.4], [50, 1.2], [100, 0.6]] as [number, number][]) {
     const real = MS_POR_DIA / v / 60000
     conferir(Math.abs(real - min) < 0.01, `a ${v}× o dia de jogo leva ${min} min`,
       `${real.toFixed(2)} min`)

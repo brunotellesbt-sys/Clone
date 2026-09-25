@@ -106,6 +106,7 @@ export function Horarios({ route }: { route: Route }) {
                             {apurado.conexoesSaindo} seguem
                           </span><br />
                           <small className="muted">{num(Object.values(apurado.pax).reduce((n, v) => n + v, 0))} passageiros · dia {apurado.day}</small>
+                          {apurado.localPax && <><br /><small className="dim">{num(Object.values(apurado.localPax).reduce((n, v) => n + v, 0))} locais</small></>}
                         </> : <span className="muted">Aguardando voo</span>}
                       </td>
                       <td className="r">

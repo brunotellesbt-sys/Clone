@@ -53,9 +53,12 @@ conferir(/scale\((?!1\))/.test(antesZoom ?? ''), `a roda aproxima (${antesZoom})
 
 // zoom fundo: a roda tem que passar de 9, que era o teto antigo
 for (let i = 0; i < 16; i++) { await page.mouse.wheel(0, -260); await page.waitForTimeout(40) }
+// Eventos de roda podem ser agrupados pelo navegador; confirme o limite pelos botões.
+for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Aproximar', exact: true }).click()
 const fundo = Number((await transform()).match(/scale\(([\d.]+)\)/)[1])
-conferir(fundo > 9, `o zoom passa do teto antigo (${fundo.toFixed(1)}x)`)
+conferir(fundo === 72, `o zoom alcança o novo teto (${fundo.toFixed(1)}x)`)
 await page.screenshot({ path: artifact('mapa-0-zoom.png') })
+await page.mouse.move(cx, cy)
 for (let i = 0; i < 12; i++) { await page.mouse.wheel(0, 260); await page.waitForTimeout(40) }
 
 // ------------------------------------------------------- arrasto com zoom
@@ -186,6 +189,19 @@ await aviao.click({ force: true })
 await page.waitForTimeout(400)
 conferir((await page.locator('.map-card').count()) > 0, 'clicar no avião abre o cartão do voo')
 conferir((await page.locator('.mapwrap path[stroke-dasharray]').count()) > 0, 'o que falta do trajeto sai pontilhado')
+const sprite = aviao.locator('image')
+conferir((await sprite.getAttribute('transform')) === 'rotate(-90)', 'sprite do APK aponta o nariz no sentido do voo')
+await page.getByRole('button', { name: 'Configurações do mapa', exact: true }).click()
+await page.getByLabel('Trajeto do avião selecionado', { exact: true }).uncheck()
+conferir((await page.locator('.map-flight-trail').count()) === 0, 'configuração oculta o trajeto selecionado')
+conferir((await page.locator('.map-own-route').count()) > 0, 'rota comum continua independente do trajeto selecionado')
+await page.getByLabel('Minhas rotas', { exact: true }).uncheck()
+conferir((await page.locator('.map-own-route').count()) === 0, 'configuração oculta suas linhas')
+await page.getByLabel('Rotas de outras companhias', { exact: true }).check()
+conferir((await page.locator('.map-rival-route').count()) > 0, 'configuração permite linhas das concorrentes')
+await page.getByLabel('Rotas de outras companhias', { exact: true }).uncheck()
+await page.getByLabel('Trajeto do avião selecionado', { exact: true }).check()
+await page.getByRole('button', { name: 'Configurações do mapa', exact: true }).click()
 
 /*
  * O traçado só existe enquanto o voo está no ar.
@@ -214,6 +230,11 @@ conferir((await page.locator('.map-airport-card.hub').count()) === 1, 'clicar na
 conferir(/Seus voos.*hora local/is.test(await page.locator('.map-airport-card').innerText()), 'painel do aeroporto mostra os voos na hora local')
 await page.screenshot({ path: artifact('mapa-4-aeroporto.png') })
 conferir(!(await travou()), 'o jogo segue de pé no fim')
+await page.reload({ waitUntil: 'networkidle' })
+const continuar = page.getByRole('button', { name: 'Continuar', exact: true }).first()
+if (await continuar.count()) await continuar.click()
+await page.getByRole('button', { name: 'Configurações do mapa', exact: true }).click()
+conferir(!(await page.getByLabel('Minhas rotas', { exact: true }).isChecked()), 'preferência de linhas sobrevive ao recarregamento')
 
 const ruins = erros.filter((e) => !/favicon|Download the React/i.test(e))
 if (ruins.length) console.log('\nconsole:', ruins.slice(0, 8).map((e) => e.slice(0, 200)))
