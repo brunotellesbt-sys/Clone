@@ -619,6 +619,8 @@ export interface LinhaDeFrota {
   avioes: number
   rotas: number
   assentosDia: number
+  /** As rotas que este modelo voa, da maior oferta para a menor. */
+  trechos: { key: string; from: string; to: string; freq: number; seats: number }[]
 }
 
 /**
@@ -662,7 +664,9 @@ export function frotaDaConcorrente(comp: Competitor, ano: number): LinhaDeFrota[
     .map(([id]) => AIRCRAFT_BY_ID[id])
     .sort((x, y) => x.maxSeats - y.maxSeats)
 
-  const porModelo = new Map<string, { horas: number; rotas: number; assentos: number }>()
+  const porModelo = new Map<string, {
+    horas: number; rotas: number; assentos: number; trechos: LinhaDeFrota['trechos']
+  }>()
   for (const { r, t } of porRota) {
     const dist = distanceBetween(r.from, r.to)
     const serve = (m: AircraftType) => m.range >= dist &&
@@ -671,10 +675,11 @@ export function frotaDaConcorrente(comp: Competitor, ano: number): LinhaDeFrota[
       ? t
       : mantidos.find((m) => m.maxSeats >= r.seats && serve(m)) ??
         [...mantidos].reverse().find(serve) ?? t
-    const v = porModelo.get(escolhido.id) ?? { horas: 0, rotas: 0, assentos: 0 }
+    const v = porModelo.get(escolhido.id) ?? { horas: 0, rotas: 0, assentos: 0, trechos: [] }
     v.horas += horasDe(r)
     v.rotas += 1
     v.assentos += r.seats * r.freq
+    v.trechos.push({ key: r.key, from: r.from, to: r.to, freq: r.freq, seats: r.seats })
     porModelo.set(escolhido.id, v)
   }
 
@@ -701,6 +706,7 @@ export function frotaDaConcorrente(comp: Competitor, ano: number): LinhaDeFrota[
       avioes: Math.max(1, Math.floor((caudas * v.horas) / total)),
       rotas: v.rotas,
       assentosDia: v.assentos,
+      trechos: [...v.trechos].sort((x, y) => y.seats * y.freq - x.seats * x.freq),
       peso: v.horas / total,
     }))
     .sort((x, y) => y.peso - x.peso)

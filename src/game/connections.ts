@@ -18,6 +18,19 @@ export interface FlightManifest {
   leaving: number
   revenue: number
 }
+/**
+ * Até quanto a conexão pode rodear, contra o voo direto.
+ *
+ * Ninguém compra São Paulo–Brasília passando por Fortaleza: são 4.050 km para
+ * cobrir 870. Mil e oitocentos por mil é o limite, e ele existe aqui, com
+ * nome, porque a tela de conexões precisa **explicar** por que um par
+ * compatível de horário mesmo assim não vende — antes ela mostrava zero e
+ * mandava o jogador programar voo que já estava programado.
+ */
+export const DESVIO_MAXIMO = 1.8
+/** Abaixo disto o par é a mesma viagem, não conexão. */
+export const ETAPA_MINIMA_CONEXAO = 60
+
 const flightKey = (p: ConnectionLeg) => `${p.day}:${p.id}`
 const nearbyCache = new Map<string, string[]>()
 
@@ -149,10 +162,10 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
     if (!first || !second || soldIds.has(`${s.day}:${first.leg.id}>${second.leg.id}`)) continue
     const from = c.de.ponta, to = c.para.ponta
     const directDistance = distanceBetween(from, to)
-    if (directDistance < 60 || nearbyAirports(from).includes(to)) continue
+    if (directDistance < ETAPA_MINIMA_CONEXAO || nearbyAirports(from).includes(to)) continue
     const d1 = distanceBetween(from, hub), d2 = distanceBetween(hub, to)
     const detour = (d1 + d2) / directDistance
-    if (detour > 1.8) continue
+    if (detour > DESVIO_MAXIMO) continue
     const demand = baseDemand(from, to, s.day, doy)
     const r1 = p1 && routeFor.get(odKey(p1.from, p1.to)), r2 = p2 && routeFor.get(odKey(p2.from, p2.to))
     const fare1 = r1 ? (r1.fare.y * 3 + r1.fare.c) / 4 : partner1!.fare
