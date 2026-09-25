@@ -217,6 +217,7 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
     }
   }
   s.connectionJourneys = journeys
+  s.conexoesApuradasEm = s.day
   for (const m of manifests.values()) {
     for (const c of CABINS) m.local[c] = Math.max(0, Math.min(m.baseline[c], m.capacity[c] - m.connecting[c]))
     if (m.leg.own && m.leg.day === s.day) legs.get(m.leg.id)!.ultimoVoo = {

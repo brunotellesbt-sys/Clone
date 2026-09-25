@@ -732,7 +732,12 @@ console.log('\ntempo de etapa na ponte aérea do Sudeste\n')
   }
   const pares = conexoesNaBase(t, 'GRU')
   conferir(pares.length > 0, 'a regra enxerga par de voos que casa no relógio', `${pares.length} pares`)
+  // Antes de o dia virar a tela não pode dizer "zero": ela precisa saber que
+  // ninguém olhou ainda. Foi o caso de um save pausado no dia 77.
+  conferir(t.conexoesApuradasEm === undefined, 'jogo que não virou o dia não tem apuração registrada')
   for (let d = 0; d < 14; d++) advanceDay(t)
+  conferir(t.conexoesApuradasEm === t.day - 1 || t.conexoesApuradasEm === t.day,
+    'e depois de virar, o dia apurado fica registrado', `dia ${t.conexoesApuradasEm}`)
   const viagens = t.connectionJourneys ?? []
   conferir(viagens.length > 0, 'e o tick vende essas conexões', `${viagens.length} viagens`)
   conferir(viagens.every((j) => j.via === 'GRU'), 'todas pela base do jogador')
