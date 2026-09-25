@@ -14,13 +14,15 @@ import { AIRPORT_BY_IATA as AP, noToqueDeRecolher, vooPermitido } from '../src/g
 import { AIRCRAFT, AIRCRAFT_BY_ID } from '../src/game/data/aircraft'
 import { blockHours } from '../src/game/economy'
 import { frotaDaConcorrente, modeloDaRota } from '../src/game/ai'
+import { DESVIO_MAXIMO } from '../src/game/connections'
 import { aeroportoServe } from '../src/game/spec'
 // Geometria de tela, não de simulação — mas é aritmética pura, e aritmética
 // pura se mede aqui em vez de num navegador. Ver `gradeEscala.ts`.
 import { ALTURA_MAXIMA, escalaDaGrade, menorIntervaloDoDia } from '../src/ui/gradeEscala'
 import { distanceBetween } from '../src/game/geo'
 import {
-  assinarAcordo, assinarCodeshare, assignAircraft, buyAircraft, MINUTOS_REAIS_POR_HORA, MS_POR_DIA, newGame,
+  advanceDay, assinarAcordo, assinarCodeshare, assignAircraft, buyAircraft, MINUTOS_REAIS_POR_HORA,
+  MS_POR_DIA, newGame,
   openRoute, romperAcordo, setAllFrequencies, setFrequency, unassignAircraft,
 } from '../src/game/engine'
 import {
@@ -709,6 +711,47 @@ console.log('\ntempo de etapa na ponte aérea do Sudeste\n')
     c.routes.filter((r) => !!vooPermitido(AP[r.from], AP[r.to])).map((r) => r.key))
   conferir(urbanos.length === 0, 'nenhuma concorrente voa par proibido',
     urbanos.slice(0, 3).join(', '))
+}
+
+// ------------------------------------------- a conexão que a regra vende
+//
+// O relato foi "minhas conexões não aparecem". O motor estava certo: o que
+// faltava era a tela dizer **por que** um par que casa no relógio mesmo assim
+// não vende. Aqui ficam as duas metades medidas.
+{
+  const t = newGame({ name: 'Cx', code: 'CX', hub: 'GRU', seed: 5 })
+  t.airline.cash = 5e9
+  for (const d of ['POA', 'REC', 'SSA', 'CWB', 'FOR']) openRoute(t, 'GRU', d)
+  for (let i = 0; i < 10; i++) buyAircraft(t, 'a320neo', false)
+  const f = t.airline.fleet.map((a) => a.id)
+  // banco de manhã: sul chega, nordeste sai — a conexão clássica de hub
+  for (const dia of [1, 2, 3]) {
+    let k = 0
+    ;['POA', 'CWB'].forEach((o, i) => marcarVoo(t, f[k++], o, 'GRU', dia, 6 * 60 + i * 30))
+    ;['REC', 'FOR', 'SSA'].forEach((d, i) => marcarVoo(t, f[k++], 'GRU', d, dia, 9 * 60 + i * 30))
+  }
+  const pares = conexoesNaBase(t, 'GRU')
+  conferir(pares.length > 0, 'a regra enxerga par de voos que casa no relógio', `${pares.length} pares`)
+  for (let d = 0; d < 14; d++) advanceDay(t)
+  const viagens = t.connectionJourneys ?? []
+  conferir(viagens.length > 0, 'e o tick vende essas conexões', `${viagens.length} viagens`)
+  conferir(viagens.every((j) => j.via === 'GRU'), 'todas pela base do jogador')
+
+  /*
+   * O desvio, que é o motivo que mais engana.
+   *
+   * Recife–Fortaleza–Maceió casa perfeitamente no relógio e roda sete vezes a
+   * distância do voo direto. Nenhum passageiro compra isso, e nenhum aviso
+   * sobre "programar chegadas compatíveis" explicaria — o horário está certo.
+   * A tela de conexões passa a contar quantos pares caem aqui.
+   */
+  const rodeio = (de: string, via: string, para: string) =>
+    (distanceBetween(de, via) + distanceBetween(via, para)) / distanceBetween(de, para)
+  conferir(rodeio('REC', 'FOR', 'MCZ') > DESVIO_MAXIMO,
+    'Recife–Fortaleza–Maceió é rodeio, por mais que o horário case',
+    `${rodeio('REC', 'FOR', 'MCZ').toFixed(2)}× o direto`)
+  conferir(rodeio('POA', 'GRU', 'REC') <= DESVIO_MAXIMO,
+    'e Porto Alegre–Guarulhos–Recife não é', `${rodeio('POA', 'GRU', 'REC').toFixed(2)}× o direto`)
 }
 
 console.log(`\n${falhas === 0 ? 'tudo certo' : `${falhas} falha(s)`}`)

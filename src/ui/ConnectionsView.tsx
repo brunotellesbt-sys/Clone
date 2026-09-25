@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { useGame } from '../store/useGame'
+import { conexoesNaBase } from '../game/malha'
+import { distanceBetween } from '../game/geo'
+import { DESVIO_MAXIMO } from '../game/connections'
 import { CABINS, CABIN_SHORT } from '../game/types'
 import { gameDate, num } from '../game/engine'
 import { sumCabins } from '../game/economy'
@@ -19,6 +22,34 @@ export function ConnectionsView() {
   const passengers = active.reduce((n, j) => n + sumCabins(j.pax), 0)
   const boardings = active.reduce((n, j) => n + sumCabins(j.pax) * (Number(j.first.own && j.first.day <= state.day) + Number(j.second.own && j.second.day <= state.day)), 0)
   const waiting = active.filter(j => j.second.day > state.day).reduce((n, j) => n + sumCabins(j.pax), 0)
+
+  /**
+   * Por que não há conexão — perguntado às **mesmas regras** que vendem.
+   *
+   * A tela mostrava três zeros e um recado mandando programar chegadas e
+   * partidas compatíveis. Quem já programou lê isso e conclui que o jogo não
+   * viu os voos dele; quase sempre o jogo viu, e recusou por outro motivo.
+   * Aqui ela pergunta à regra: quantos pares de horário existem na base, e
+   * quantos deles o desvio reprova.
+   *
+   * O desvio é o motivo que mais engana, porque não tem nada a ver com
+   * horário: Recife–Fortaleza–Maceió casa perfeitamente no relógio e roda sete
+   * vezes a distância do voo direto. Nenhum passageiro compra isso, e nenhum
+   * aviso sobre "chegadas compatíveis" explicaria.
+   */
+  const hubs = hub ? [hub] : state.airline.hubs
+  const diagnostico = hubs.map(h => {
+    const pares = conexoesNaBase(state, h)
+    const rodeio = pares.filter(c => {
+      const direto = distanceBetween(c.de.ponta, c.para.ponta)
+      return direto > 0 &&
+        (distanceBetween(c.de.ponta, h) + distanceBetween(h, c.para.ponta)) / direto > DESVIO_MAXIMO
+    }).length
+    return { h, pares: pares.length, rodeio }
+  })
+  const pares = diagnostico.reduce((n, d) => n + d.pares, 0)
+  const rodeio = diagnostico.reduce((n, d) => n + d.rodeio, 0)
+
   return <div className="grid" style={{ gap: 14 }}>
     <Card title="Conexões">
       <p className="muted">Cada viagem liga dois voos e reserva o mesmo número de passageiros nos dois trechos. Eles contam na lotação de cada voo, mas não como demanda local atendida entre essas duas pontas.</p>
@@ -32,6 +63,23 @@ export function ConnectionsView() {
         <div><span className="muted">Embarques nos seus voos</span><br /><b>{num(boardings)}</b><small className="dim"> · dois quando os dois trechos são seus</small></div>
         <div><span className="muted">Aguardando próximo trecho</span><br /><b>{num(waiting)}</b></div>
       </div>
+      {/* O diagnóstico só aparece quando há o que explicar: com conexão
+          vendida, ele seria ruído sobre um número que já fala. */}
+      {passengers === 0 && (
+        <p className="aviso" style={{ margin: '10px 0 0' }}>
+          {pares === 0
+            ? <>Em {hubs.join(', ') || 'nenhuma base'} <b>nenhum par de voos casa no relógio</b>: não há chegada
+              e partida separadas pelo tempo mínimo de conexão. É aqui que marcar um voo resolve.</>
+            : rodeio >= pares
+              ? <>A regra vê <b>{pares}</b> {pares === 1 ? 'par que casa' : 'pares que casam'} no relógio, e
+                <b> todos rodeiam demais</b>: passar pela base custa mais de {DESVIO_MAXIMO.toFixed(1)}× o voo
+                direto, e ninguém compra isso. Conexão precisa de pontas em lados opostos da base.</>
+              : <>A regra vê <b>{pares}</b> {pares === 1 ? 'par que casa' : 'pares que casam'} no relógio
+                {rodeio > 0 && <> ({rodeio} {rodeio === 1 ? 'rodeia' : 'rodeiam'} demais)</>}. Os que sobram
+                perdem o passageiro para o voo direto, ou o avião já saiu cheio de gente local — conexão só
+                ocupa lugar vago.</>}
+        </p>
+      )}
     </Card>
     <Card title="Itinerários vendidos">
       {trips.length ? <div className="scroll"><table className="connection-journeys">
@@ -43,7 +91,7 @@ export function ConnectionsView() {
           <td>{Math.floor(j.wait / 60)}h{String(j.wait % 60).padStart(2, '0')}</td>
           <td className={j.cancelled ? 'bad' : 'good'}>{j.cancelled ? 'Conexão interrompida' : j.second.day > state.day ? `Próximo voo em ${date(j.second.day)}` : 'Concluída'}</td>
         </tr>)}</tbody>
-      </table></div> : <Empty>Nenhuma conexão apurada neste filtro. Programe chegadas e partidas compatíveis em um hub e avance o jogo.</Empty>}
+      </table></div> : <Empty>Nenhuma conexão apurada neste filtro.{pares > 0 && ' O quadro acima diz o que a regra viu.'}</Empty>}
       <p className="muted" style={{ fontSize: 12 }}>Preço, tempo total, espera, conveniência do aeroporto e concorrência de voos diretos influenciam a escolha. Conexões ocupam lugares vagos; quando o voo enche, parte dos assentos deixa de atender passageiros locais. A demanda local permanece disponível.</p>
     </Card>
   </div>
