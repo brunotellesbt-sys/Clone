@@ -124,7 +124,7 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
         <div className="grid g2" style={{ gap: 8, fontSize: 13, marginBottom: 10 }}>
           <div><span className="muted">Distância</span><br />{km(route.distance)}</div>
           <div><span className="muted">Demanda total</span><br />{num(e.demandaDia)} {e.unidade}/dia</div>
-          <div><span className="muted">Atendido por você</span><br />{num(e.atendidoDia)} {e.unidade}/dia</div>
+          <div><span className="muted">{e.cargo ? 'Atendido por você' : 'Demanda local atendida'}</span><br />{num(e.atendidoDia)} {e.unidade}/dia{!e.cargo && <small className="good" style={{ display: 'block' }}>+ {num(e.conexoesDia)} embarques de conexão/dia</small>}</div>
           <div><span className="muted">Restante da demanda</span><br />{num(e.restanteDia)} {e.unidade}/dia</div>
           <div><span className="muted">Sua fatia</span><br />{pct(e.share, 1)}</div>
           <div>
@@ -163,7 +163,7 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
             </table>
           </div>
           <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
-            Demanda total é o mercado do dia; atendido é sua média recente; restante é o que ainda falta para cobrir 100%.
+            Demanda total é o mercado local do dia; atendido é sua média recente de passageiros locais. As conexões aumentam a lotação sem preencher essa demanda local.
           </p>
         </Card>
       )}

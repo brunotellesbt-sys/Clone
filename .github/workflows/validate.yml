@@ -27,6 +27,8 @@ jobs:
       - run: npm run malha
       - run: npm run ai:foundation
       - run: npm run flights:check
+      - run: npm run connections:check
+      - run: npm run map:geometry
       - run: npx tsx scripts/cargo-check.ts
       - run: npm run sim -- GRU 1460
       - run: npm run smoke

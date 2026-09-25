@@ -233,6 +233,9 @@ export interface Aircraft {
 export interface DayResult {
   day: number
   pax: Cabins
+  /** O&D local efetivamente atendido, exclui embarques de conexões. */
+  localPax?: Cabins
+  connectionPax?: Cabins
   flights: number
   seats: number
   revenue: number
@@ -269,9 +272,35 @@ export interface Perna {
   ultimoVoo?: {
     day: number
     pax: Cabins
+    localPax?: Cabins
+    connectionPax?: Cabins
     conexoesEntrando: number
     conexoesSaindo: number
   }
+}
+
+export interface ConnectionLeg {
+  id: string
+  day: number
+  from: string
+  to: string
+  departure: number
+  number: string
+  own: boolean
+  operator: string
+}
+
+/** Uma venda O&D, com os mesmos passageiros reservados nos dois trechos. */
+export interface ConnectionJourney {
+  id: string
+  via: string
+  first: ConnectionLeg
+  second: ConnectionLeg
+  wait: number
+  pax: Cabins
+  firstRevenue: number
+  secondRevenue: number
+  cancelled?: boolean
 }
 
 export interface Route {
@@ -441,4 +470,5 @@ export interface GameState {
   paused: boolean
   speed: number
   tutorialStep: number
+  connectionJourneys?: ConnectionJourney[]
 }

@@ -207,7 +207,7 @@ await page.waitForTimeout(900)
 assert.equal(await page.getByText('Abrir nova rota', { exact: true }).count(), 0, 'modal deve fechar depois de abrir a rota')
 
 // ------------------------------------------------------------ cada tela
-for (const nome of ['Painel', 'Rotas', 'Frota', 'Mercado', 'Finanças', 'Pintura', 'Ranking', 'Companhias']) {
+for (const nome of ['Painel', 'Rotas', 'Conexões', 'Frota', 'Mercado', 'Finanças', 'Pintura', 'Ranking', 'Companhias']) {
   await aba(nome)
   await medir(nome)
   await page.screenshot({ path: artifact(`mobile-tela-${nome.toLowerCase()}.png`), fullPage: true })

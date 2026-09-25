@@ -63,7 +63,7 @@ if (await marcar.count()) { await marcar.click(); await page.waitForTimeout(600)
 await page.screenshot({ path: artifact('shot-5-rota.png') })
 
 // rodar o tempo
-await page.getByTitle('40× mais rápido').click()
+await page.getByTitle('100× mais rápido').click()
 await page.waitForTimeout(6000)
 await page.getByRole('button', { name: 'Painel' }).click()
 await page.waitForTimeout(700)

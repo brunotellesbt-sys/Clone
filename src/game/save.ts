@@ -31,6 +31,8 @@ function migrate(s: GameState): GameState | null {
   s.ledger = s.ledger ?? []
   s.notices = s.notices ?? []
   s.lastShare = s.lastShare ?? {}
+  s.speed = s.speed === 4 ? 25 : s.speed === 12 ? 50 : s.speed === 40 ? 100 :
+    [0, 1, 25, 50, 100].includes(s.speed) ? s.speed : 1
 
   s.airline.livery = migrateLivery(s.airline.livery)
   s.airline.fleet = s.airline.fleet.flatMap((raw): Aircraft[] => {
