@@ -46,7 +46,7 @@ export const rowCount = (layout: string) => layout.split('-').reduce((n, part) =
 export function seatFamily(t: AircraftType): Family {
   const id = t.id
   if (id.startsWith('a220') || ['b712', 'arj21', 'ssj100', 'sj100', 'an148', 'an158'].includes(id)) return 'A220'
-  if (/^a3[12]/.test(id)) return 'A320'
+  if (/^a3[12]/.test(id) || id === 'a21lr' || id === 'a21xlr') return 'A320'
   if (/^a3[34]/.test(id) || id === 'il96') return 'A330'
   if (id.startsWith('a35')) return 'A350'
   if (id === 'a388') return 'A380'

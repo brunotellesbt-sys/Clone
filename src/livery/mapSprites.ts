@@ -18,7 +18,7 @@ const SPRITES: Record<string, [string, string]> = {
 }
 
 export function spriteMapa(typeId: string, selected: boolean): string | null {
-  const family = /^a3(18|19|20|21)/.test(typeId) ? 'a320' :
+  const family = /^a3(18|19|20|21)|^a21(lr|xlr)/.test(typeId) ? 'a320' :
     /^a33/.test(typeId) ? 'a330' : /^a34/.test(typeId) ? 'a340' :
     /^a35/.test(typeId) ? 'a350' : /^a38/.test(typeId) ? 'a380' :
     /^(atr|q[234]00)/.test(typeId) ? 'atr' : /^(a220|b712|crj|erj|e1|ssj|sj|arj|an1[45])/.test(typeId) ? 'b733' :

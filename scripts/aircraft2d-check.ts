@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { AIRCRAFT_ALL, AIRCRAFT_BY_ID, FAMILY_OF } from '../src/game/data/aircraft'
 import { ENGINES } from '../src/game/data/engines'
 import { GENERATED_2D, PAINTABLE_2D, SOURCE_2D, paintConfig2d, selectedLayers, wingOptions, type Model2D } from '../src/livery/aircraft2d'
-import { apeloDaPoltrona, SEAT_BY_ID, SEAT_MODELS, seatLayouts } from '../src/game/seatModels'
+import { apeloDaPoltrona, SEAT_BY_ID, SEAT_MODELS, seatFamily, seatLayouts } from '../src/game/seatModels'
 import { checkCabin, cabinUsed, classesDe, defaultCabin, LAYOUTS } from '../src/game/cabin'
 import { advanceDay, assignAircraft, buyAircraft, newGame, openRoute, setCabin } from '../src/game/engine'
 import { exportSave, importSave } from '../src/game/save'
@@ -14,6 +14,10 @@ import { BLANK_LIVERY } from '../src/livery/presets'
 import type { GameState, SeatConfig } from '../src/game/types'
 
 const inventory = JSON.parse(readFileSync('public/aircraft2d/inventory.json', 'utf8'))
+for (const id of ['a21lr', 'a21xlr']) {
+  assert.equal(seatFamily(AIRCRAFT_BY_ID[id]), 'A320', `${id}: mesma família do A321 no APK`)
+  assert.deepEqual(seatLayouts(AIRCRAFT_BY_ID[id], 'y', 'eco_standard'), seatLayouts(AIRCRAFT_BY_ID.a321, 'y', 'eco_standard'))
+}
 const library = JSON.parse(readFileSync('public/aircraft2d/library.json', 'utf8')) as { id: string }[]
 const seen = new Set<string>()
 for (const entry of inventory.entries) {
