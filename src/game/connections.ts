@@ -63,9 +63,16 @@ export function nearbyAirports(iata: string) {
   return nearbyCache.get(iata)!
 }
 
+/** Fração máxima dos assentos de um voo que a conexão pode ocupar. */
+export const TETO_CONEXAO_NO_VOO = 0.4
+
 /** Preferência relativa de uma conexão: mais espera, desvio e preço reduzem a escolha. */
-export function connectionAttraction(detour: number, wait: number, fareRatio: number, reputation: number, integration = 1) {
-  return 0.9 * Math.exp(-1.6 * Math.max(0, detour - 1)) * Math.exp(-wait / 480) *
+export function connectionAttraction(detour: number, wait: number, fareRatio: number, reputation: number, integration = 1, domestica = false) {
+  // Numa viagem doméstica o voo inteiro dura duas, três horas: esperar mais que
+  // duas no hub pesa bem mais do que numa viagem de doze horas, e o passageiro
+  // prefere outra conexão ou o direto.
+  const esperaLonga = domestica ? Math.exp(-Math.max(0, wait - 120) / 90) : 1
+  return 0.9 * Math.exp(-1.6 * Math.max(0, detour - 1)) * Math.exp(-wait / 480) * esperaLonga *
     Math.exp(-1.2 * (Math.max(0.5, fareRatio) - 1)) * (0.7 + 0.6 * reputation) * integration
 }
 
@@ -191,7 +198,8 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
     const fare2 = r2 ? (r2.fare.y * 3 + r2.fare.c) / 4 : partner2!.fare
     // tarifa cheia do mercado; o desconto, se houver, sai da força do direto (ver DESCONTO_CONEXAO)
     const fare = Math.max(0.5, (fare1 * d1 + fare2 * d2) / (d1 + d2))
-    const weight = connectionAttraction(detour, c.espera, fare, s.airline.reputation, c.codeshare ? .85 : c.parceira ? .55 : 1) *
+    const domestica = AP[from]?.cc === AP[to]?.cc
+    const weight = connectionAttraction(detour, c.espera, fare, s.airline.reputation, c.codeshare ? .85 : c.parceira ? .55 : 1, domestica) *
       Math.min(1.5, Math.min(sumCabins(first.capacity), sumCabins(second.capacity)) / Math.max(60, demand.total / 2))
     // Aeroportos próximos compartilham um orçamento de procura; multiplicar
     // frequências e combinações não pode multiplicar os mesmos viajantes O&D.
@@ -223,7 +231,8 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
     for (const c of g.candidates.sort((a, b) => b.weight - a.weight || a.first.leg.id.localeCompare(b.first.leg.id))) {
       const pax = emptyCabins()
       for (const cb of CABINS) {
-        const remaining = (m: FlightManifest) => Math.max(0, Math.min(m.capacity[cb] * .7,
+        // No máximo 40% do voo é passageiro em conexão; o resto é do mercado local.
+        const remaining = (m: FlightManifest) => Math.max(0, Math.min(m.capacity[cb] * TETO_CONEXAO_NO_VOO,
           m.capacity[cb] - .6 * m.baseline[cb]) - m.connecting[cb])
         pax[cb] = Math.floor(Math.min(available[cb], g.demand[cb] * c.weight / denominator, remaining(c.first), remaining(c.second)))
         available[cb] -= pax[cb]
