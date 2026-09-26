@@ -106,21 +106,26 @@ export function alterarNumeroVoo(s: GameState, pernaId: string, numero: number):
  * tornar a madrugada inútil — voo noturno continua fechando conta em rota longa,
  * onde o fuso obriga.
  */
+/** Atratividade às 0h, 1h … 6h. */
+const MADRUGADA = [0.9, 0.85, 0.8, 0.75, 0.82, 0.92, 1.02]
+
 export function atratividadeHorario(min: number): number {
   const h = noDia(min) / 60
   /** Distância até uma hora do dia, pelo caminho curto da roda de 24 h. */
   const perto = (c: number) => ((h - c + 12) % 24) - 12
   const corcova = (c: number) => Math.exp(-(perto(c) ** 2) / 18)
   /**
-   * A queda da madrugada é estreita de propósito. Larga, ela vazava para as seis
-   * da manhã e punha a primeira onda do dia valendo menos que um voo das nove da
-   * noite — o contrário do que acontece numa ponte aérea.
-   *
-   * E é rasa: com 0,42 o voo das 3h valia 0,44 e perdia quase todo passageiro
-   * para qualquer rival no par. Madrugada vende menos, mas vende — é o voo
-   * barato de quem troca o sono pela tarifa, e a conexão que casa com o
-   * longo curso. Com 0,085 o fundo fica em 0,75, perto de 70% da hora de pico da tarde.
+   * Da meia-noite às seis a curva é a tabela do jogo, hora a hora, com reta
+   * entre uma hora e a seguinte. O fundo é às 3h: madrugada vende menos, mas
+   * vende — é o voo barato de quem troca o sono pela tarifa, e a conexão que
+   * casa com o longo curso.
    */
+  if (h < 6) {
+    const i = Math.floor(h)
+    return MADRUGADA[i] + (MADRUGADA[i + 1] - MADRUGADA[i]) * (h - i)
+  }
+  // Fora da tabela, a curva de antes, inteira — inclusive a beirada da queda
+  // que ainda toca as 22h e 23h.
   const madrugada = Math.exp(-(perto(3) ** 2) / 6)
   return 0.78 + 0.32 * Math.max(corcova(8), corcova(18)) - 0.085 * madrugada
 }
