@@ -47,6 +47,34 @@ export function ConnectionsView() {
     }).length
     return { h, pares: pares.length, rodeio }
   })
+  /**
+   * As conexões da malha: o que a escala oferece, e não o que vendeu.
+   *
+   * O quadro de itinerários é por dia — ele só existe depois que o dia vira e
+   * o passageiro compra. Este aqui é a malha: todo par de voos **seus** que a
+   * regra aceita — casa no relógio e não rodeia demais —, agrupado pelo
+   * horário, com quantos dias da semana ele se repete. É o que a tela de rotas
+   * já mostra por rota ("chegam em BSB e embarcam nesta rota"), aqui juntado
+   * por base. Aparece com o jogo pausado, porque não depende de venda.
+   */
+  const malha = (() => {
+    const grupos = new Map<string, { via: string; de: string; para: string; chega: number; sai: number; espera: number; dias: Set<number> }>()
+    for (const h of hubs) for (const c of conexoesNaBase(state, h)) {
+      if (c.parceira || c.codeshare || c.de.parceira || c.para.parceira) continue
+      const direto = distanceBetween(c.de.ponta, c.para.ponta)
+      if (!direto || (distanceBetween(c.de.ponta, h) + distanceBetween(h, c.para.ponta)) / direto > DESVIO_MAXIMO) continue
+      const chave = `${h}|${c.de.ponta}|${c.para.ponta}|${c.de.local}|${c.para.local}`
+      const g = grupos.get(chave) ?? { via: h, de: c.de.ponta, para: c.para.ponta, chega: c.de.local, sai: c.para.local, espera: c.espera, dias: new Set<number>() }
+      g.dias.add(Math.floor(c.de.quando / (24 * 60)) % 7)
+      grupos.set(chave, g)
+    }
+    const q = search.toLowerCase()
+    return [...grupos.values()]
+      .filter(g => !q || `${g.de} ${g.via} ${g.para}`.toLowerCase().includes(q))
+      .sort((a, b) => a.via.localeCompare(b.via) || a.chega - b.chega || a.sai - b.sai)
+  })()
+  const hm = (m: number) => `${String(Math.floor(((m % 1440) + 1440) % 1440 / 60)).padStart(2, '0')}:${String(((m % 60) + 60) % 60).padStart(2, '0')}`
+
   const pares = diagnostico.reduce((n, d) => n + d.pares, 0)
   const rodeio = diagnostico.reduce((n, d) => n + d.rodeio, 0)
 
@@ -96,6 +124,18 @@ export function ConnectionsView() {
                 cheio de gente local, e conexão só ocupa lugar vago.</>}
         </p>
       )}
+    </Card>
+    <Card title="Conexões da malha" right={<span className="muted">{malha.length}</span>}>
+      {/* Duas colunas, no padrão da tela de rotas: com quatro, "Dias" saía
+          cortado na borda do celular, e aqui nada rola de lado. */}
+      {malha.length ? <div className="scroll media"><table className="connection-journeys">
+        <thead><tr><th>Viagem</th><th className="r">Chega → sai</th></tr></thead>
+        <tbody>{malha.map(g => <tr key={`${g.via}${g.de}${g.para}${g.chega}${g.sai}`}>
+          <td><b>{g.de} → {g.via} → {g.para}</b><br /><small className="muted">{g.dias.size} {g.dias.size === 1 ? 'dia' : 'dias'}/sem.</small></td>
+          <td className="r">{hm(g.chega)} → {hm(g.sai)}<br /><small className="muted">espera {Math.floor(g.espera / 60)}h{String(g.espera % 60).padStart(2, '0')}</small></td>
+        </tr>)}</tbody>
+      </table></div> : <Empty>Nenhum par dos seus voos casa no relógio sem rodear demais neste filtro.</Empty>}
+      <p className="muted" style={{ fontSize: 12 }}>O que a sua escala oferece hoje, pelas regras de conexão: tempo mínimo e máximo de espera e desvio de até {DESVIO_MAXIMO.toFixed(1)}× o voo direto. Não depende de o dia virar — os itinerários vendidos, abaixo, sim.</p>
     </Card>
     <Card title="Itinerários vendidos">
       {trips.length ? <div className="scroll"><table className="connection-journeys">
