@@ -23,6 +23,9 @@ export function RoutesView() {
   const [ordem, setOrdem] = useState<OrdenacaoRotas>('dist-asc')
   const [selId, setSelId] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
+  /** A última origem usada em "Abrir rota": voltar à primeira base a cada
+   *  abertura fazia o jogador reescolher o aeroporto toda vez. */
+  const [origem, setOrigem] = useState<string | null>(null)
   useEffect(() => {
     if (hubFiltro !== 'todos' && !state.airline.hubs.includes(hubFiltro)) setHubFiltro('todos')
   }, [hubFiltro, state.airline.hubs])
@@ -102,7 +105,8 @@ export function RoutesView() {
       </Card>
 
       {sel ? <RouteDetail route={sel} onClosed={() => setSelId(null)} /> : <Card title="Detalhe"><Empty>Selecione uma rota.</Empty></Card>}
-      {opening && <OpenRouteModal onClose={() => setOpening(false)} onOpened={(id) => { setSelId(id) }} />}
+      {opening && <OpenRouteModal origem={hubFiltro !== 'todos' ? hubFiltro : origem ?? state.airline.hubs[0]}
+        onOrigem={h => { setOrigem(h); if (hubFiltro !== 'todos') setHubFiltro(h) }} onClose={() => setOpening(false)} onOpened={(id) => { setSelId(id) }} />}
     </div>
     {/* horários e conexões ocupam a largura toda: a malha não cabe na coluna
         estreita, e é a tela mais densa da rota */}
@@ -338,9 +342,11 @@ function Porte({ lista, carga, de, para }: {
  */
 const ETAPA_MINIMA = 45
 
-function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: (id: string) => void }) {
+function OpenRouteModal({ origem, onOrigem, onClose, onOpened }: {
+  origem: string; onOrigem: (h: string) => void; onClose: () => void; onOpened: (id: string) => void
+}) {
   const { state, act, toast } = useGame()
-  const [hub, setHub] = useState(state.airline.hubs[0])
+  const [hub, setHub] = useState(state.airline.hubs.includes(origem) ? origem : state.airline.hubs[0])
   const [ordem, setOrdem] = useState<OrdenacaoRotas>('dist-asc')
   const [q, setQ] = useState('')
   const [dest, setDest] = useState<string | null>(null)
@@ -478,7 +484,7 @@ function OpenRouteModal({ onClose, onOpened }: { onClose: () => void; onOpened: 
         </div>
         <label className="field" style={{ flex: '0 0 200px', marginBottom: 0 }}>
           <span>Saindo de</span>
-          <select value={hub} onChange={(e) => setHub(e.target.value)}>
+          <select value={hub} onChange={(e) => { setHub(e.target.value); onOrigem(e.target.value) }}>
             {state.airline.hubs.map((h) => (
               <option key={h} value={h}>{h} — {AIRPORT_BY_IATA[h].city}</option>
             ))}
