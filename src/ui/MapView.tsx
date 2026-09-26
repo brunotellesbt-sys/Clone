@@ -680,6 +680,8 @@ function CartaoAeroporto({ state, airport, onClose }: {
       const tempo = noTempo(state, p)
       return { p, chegada, dia: chegada ? tempo.dowChegada : p.dow, hora: chegada ? tempo.chegadaLocal : p.saida }
     }).sort((a, b) => a.dia - b.dia || a.hora - b.hora)
+  const [sentido, setSentido] = useState<'dep' | 'arr'>('dep')
+  const lista = pernas.filter(x => x.chegada === (sentido === 'arr'))
   const concorrentes = state.competitors.flatMap(c => c.routes
     .filter(r => r.from === airport.iata || r.to === airport.iata)
     .map(r => ({ companhia: c.name, rota: r })))
@@ -693,10 +695,18 @@ function CartaoAeroporto({ state, airport, onClose }: {
     <span>{airport.city}, {airport.country}</span>
     <small className="muted">{ESCOPO_LABEL[airport.escopo]} · {num(airport.paxDia)} passageiros/dia</small>
     <small className="dim">{destinos.size} destinos · {pernas.length} voos seus/semana · {concorrentes.length} rotas de outras companhias</small>
-    <b className="map-airport-sub">Seus voos · hora local</b>
-    <div className="map-airport-flights">{pernas.length ? pernas.map(({ p, chegada, dia, hora }) =>
-      <small key={p.id}>{state.airline.code}{String(p.numero ?? 0).padStart(4, '0')} · {DOW_CURTO[dia]} {hhmm(hora)} · {chegada ? 'Chega de' : 'Parte para'} {chegada ? p.from : p.to}</small>
-    ) : <small className="muted">Nenhum voo programado.</small>}</div>
+    {/* Partidas e chegadas numa lista só embaralhavam os dois sentidos; o
+        menu mostra um de cada vez, como o painel do aeroporto. */}
+    <div className="row" style={{ justifyContent: 'space-between', gap: 8 }}>
+      <b className="map-airport-sub">Seus voos · hora local</b>
+      <select aria-label="Partidas ou chegadas" value={sentido} onChange={e => setSentido(e.target.value as 'dep' | 'arr')}>
+        <option value="dep">Departures</option>
+        <option value="arr">Arrivals</option>
+      </select>
+    </div>
+    <div className="map-airport-flights">{lista.length ? lista.map(({ p, chegada, dia, hora }) =>
+      <small key={p.id}>{state.airline.code}{String(p.numero ?? 0).padStart(4, '0')} · {DOW_CURTO[dia]} {hhmm(hora)} · {chegada ? 'de' : 'para'} {chegada ? p.from : p.to}</small>
+    ) : <small className="muted">{sentido === 'dep' ? 'Nenhuma partida programada.' : 'Nenhuma chegada programada.'}</small>}</div>
     {concorrentes.length > 0 && <>
       <b className="map-airport-sub">Outras companhias</b>
       <div className="map-airport-flights">{concorrentes.map((x, i) =>
