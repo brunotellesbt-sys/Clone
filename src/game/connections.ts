@@ -31,6 +31,25 @@ export const DESVIO_MAXIMO = 1.8
 /** Abaixo disto o par é a mesma viagem, não conexão. */
 export const ETAPA_MINIMA_CONEXAO = 60
 
+/**
+ * Quanto a conexão cede no preço quando existe voo direto no mercado.
+ *
+ * A tarifa da conexão era a média dos dois trechos com 10% de desconto, e o
+ * desconto valia sempre — inclusive para Salvador–Tabatinga, que não tem voo
+ * direto nenhum. Aí ele não tem motivo de existir: quem precisa ir de A para B
+ * e só chega com escala paga a tarifa do mercado, porque não há produto mais
+ * barato para comparar. Com o desconto fixo, todo conectante pagava menos por
+ * trecho que o passageiro local, e a conexão só servia para trocar passageiro
+ * bom por passageiro barato.
+ *
+ * Na vida real o desconto aparece **quando há direto**: a conexão é o produto
+ * pior — mais tempo, uma escala — e só vende se custar menos. O tamanho dele
+ * acompanha a força do direto no mercado (`directCompetition`, que já pesa
+ * oferta, tarifa, qualidade e o aeroporto preferido de cada ponta): um direto
+ * fraco tira pouco, um direto forte tira até este teto.
+ */
+export const DESCONTO_CONEXAO = 0.15
+
 const flightKey = (p: ConnectionLeg) => `${p.day}:${p.id}`
 const nearbyCache = new Map<string, string[]>()
 
@@ -170,7 +189,8 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
     const r1 = p1 && routeFor.get(odKey(p1.from, p1.to)), r2 = p2 && routeFor.get(odKey(p2.from, p2.to))
     const fare1 = r1 ? (r1.fare.y * 3 + r1.fare.c) / 4 : partner1!.fare
     const fare2 = r2 ? (r2.fare.y * 3 + r2.fare.c) / 4 : partner2!.fare
-    const fare = Math.max(0.5, (fare1 * d1 + fare2 * d2) / (d1 + d2) * .9)
+    // tarifa cheia do mercado; o desconto, se houver, sai da força do direto (ver DESCONTO_CONEXAO)
+    const fare = Math.max(0.5, (fare1 * d1 + fare2 * d2) / (d1 + d2))
     const weight = connectionAttraction(detour, c.espera, fare, s.airline.reputation, c.codeshare ? .85 : c.parceira ? .55 : 1) *
       Math.min(1.5, Math.min(sumCabins(first.capacity), sumCabins(second.capacity)) / Math.max(60, demand.total / 2))
     // Aeroportos próximos compartilham um orçamento de procura; multiplicar
@@ -186,6 +206,7 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
   }
   for (const [, g] of [...groups].sort(([a], [b]) => a.localeCompare(b))) {
     const directWeight = directCompetition(g.from, g.to, sumCabins(g.demand))
+    const desconto = 1 - DESCONTO_CONEXAO * Math.min(1, directWeight)
     const denominator = .35 + directWeight + g.candidates.reduce((n, c) => n + c.weight, 0)
     const available = { ...g.demand }
     // O viajante que já comprou um direto nosso não pode ser vendido outra
@@ -208,7 +229,8 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
         available[cb] -= pax[cb]
       }
       if (!sumCabins(pax)) continue
-      const price = ticketRevenue(pax, { y: c.fare, w: c.fare, c: c.fare, f: c.fare }, c.refFare, c.pitch)
+      const cobra = c.fare * desconto
+      const price = ticketRevenue(pax, { y: cobra, w: cobra, c: cobra, f: cobra }, c.refFare, c.pitch)
       const journey: ConnectionJourney = { id: `${s.day}:${c.first.leg.id}>${c.second.leg.id}`, via: c.via,
         first: c.first.leg, second: c.second.leg, wait: c.c.espera, pax,
         firstRevenue: price * c.d1 / (c.d1 + c.d2), secondRevenue: price * c.d2 / (c.d1 + c.d2) }
