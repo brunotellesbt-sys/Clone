@@ -120,6 +120,22 @@ export function atratividadeHorario(min: number): number {
   return 0.78 + 0.32 * Math.max(corcova(8), corcova(18)) - 0.42 * madrugada
 }
 
+/**
+ * Quanto da procura existe no horário, de 0 a 1 — em absoluto, e não contra a
+ * concorrente.
+ *
+ * `atratividadeHorario` só reparte: um voo das três da manhã sozinho no par
+ * levava o mercado inteiro, porque não havia com quem perder. Mas pouca gente
+ * quer voar de madrugada com ou sem alternativa; quem não quer simplesmente
+ * não compra. O fundo é às 3h, com um terço da procura; às 0h e às 6h já volta
+ * perto do normal.
+ */
+export function procuraNoHorario(min: number): number {
+  const h = noDia(min) / 60
+  const perto = ((h - 3 + 12) % 24) - 12
+  return 1 - 0.65 * Math.exp(-(perto ** 2) / 5)
+}
+
 /** Minutos do dia a partir de "07:25". Devolve nulo se não entender. */
 export function lerHora(txt: string): number | null {
   const m = txt.trim().match(/^(\d{1,2}):?(\d{2})$/)

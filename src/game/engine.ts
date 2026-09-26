@@ -5,7 +5,7 @@ import { SAVE_VERSION } from './save'
 import { allocateConnections } from './connections'
 import { AIRPORT_BY_IATA, vooPermitido } from './data/airports'
 import {
-  atratividadeDaRota, atratividadeHorario, fatorConexaoIA, fracaoNoturna, horaDaConcorrente,
+  atratividadeDaRota, procuraDaRota, atratividadeHorario, fatorConexaoIA, fracaoNoturna, horaDaConcorrente,
 } from './malha'
 import {
   escalaDe, marcarRotacao, montarRotacoes, pernasDoDia, posicionamentos, removerVoo, rotaDoPar,
@@ -794,7 +794,12 @@ export function advanceDay(s: GameState): GameState {
     const key = odKey(rd.route.from, rd.route.to)
     const demand = baseDemand(rd.route.from, rd.route.to, s.day, doy)
     const result = allocateMarket(demand, carriersByOd.get(key) ?? []).find(a => a.id === `P:${rd.route.id}`)
-    return { route: rd.route, voos: rd.voos, seats: rd.seats, local: result?.pax ?? emptyCabins() }
+    // A disputa reparte quem quer voar; o horário decide quantos querem — um
+    // voo de madrugada sozinho no par não leva o mercado inteiro.
+    const procura = procuraDaRota(s, rd.route, dow)
+    const local = emptyCabins()
+    if (result) for (const cb of CABINS) local[cb] = result.pax[cb] * procura
+    return { route: rd.route, voos: rd.voos, seats: rd.seats, local }
   })
   const manifests = allocateConnections(s, localAllocations, dow, doy)
 
