@@ -14,7 +14,7 @@ import { AIRPORT_BY_IATA as AP, noToqueDeRecolher, vooPermitido } from '../src/g
 import { AIRCRAFT, AIRCRAFT_BY_ID } from '../src/game/data/aircraft'
 import { blockHours } from '../src/game/economy'
 import { frotaDaConcorrente, modeloDaRota } from '../src/game/ai'
-import { DESVIO_MAXIMO } from '../src/game/connections'
+import { DESCONTO_CONEXAO, DESVIO_MAXIMO } from '../src/game/connections'
 import { aeroportoServe } from '../src/game/spec'
 // Geometria de tela, não de simulação — mas é aritmética pura, e aritmética
 // pura se mede aqui em vez de num navegador. Ver `gradeEscala.ts`.
@@ -741,6 +741,11 @@ console.log('\ntempo de etapa na ponte aérea do Sudeste\n')
   const viagens = t.connectionJourneys ?? []
   conferir(viagens.length > 0, 'e o tick vende essas conexões', `${viagens.length} viagens`)
   conferir(viagens.every((j) => j.via === 'GRU'), 'todas pela base do jogador')
+  // A conexão só cede preço quando existe direto no mercado, e cede até um
+  // teto: acima de uns 30% ela passaria a ser vendida abaixo do custo do
+  // assento, e sem teto o direto fortíssimo zeraria a tarifa.
+  conferir(DESCONTO_CONEXAO > 0 && DESCONTO_CONEXAO <= 0.3,
+    'o desconto da conexão tem teto, e só existe contra voo direto', `${DESCONTO_CONEXAO * 100}%`)
 
   /*
    * O desvio, que é o motivo que mais engana.
