@@ -108,6 +108,8 @@ export function alterarNumeroVoo(s: GameState, pernaId: string, numero: number):
  */
 /** Atratividade às 0h, 1h … 6h. */
 const MADRUGADA = [0.9, 0.85, 0.8, 0.75, 0.82, 0.92, 1.02]
+/** Atratividade às 22h, 23h e 0h — a noite emenda na madrugada sem degrau. */
+const NOITE = [1.0, 0.96, 0.9]
 
 export function atratividadeHorario(min: number): number {
   const h = noDia(min) / 60
@@ -115,17 +117,20 @@ export function atratividadeHorario(min: number): number {
   const perto = (c: number) => ((h - c + 12) % 24) - 12
   const corcova = (c: number) => Math.exp(-(perto(c) ** 2) / 18)
   /**
-   * Da meia-noite às seis a curva é a tabela do jogo, hora a hora, com reta
+   * Das 22h às seis a curva é a tabela do jogo, hora a hora, com reta
    * entre uma hora e a seguinte. O fundo é às 3h: madrugada vende menos, mas
    * vende — é o voo barato de quem troca o sono pela tarifa, e a conexão que
    * casa com o longo curso.
    */
+  if (h >= 22) {
+    const i = Math.floor(h) - 22
+    return NOITE[i] + (NOITE[i + 1] - NOITE[i]) * (h - Math.floor(h))
+  }
   if (h < 6) {
     const i = Math.floor(h)
     return MADRUGADA[i] + (MADRUGADA[i + 1] - MADRUGADA[i]) * (h - i)
   }
-  // Fora da tabela, a curva de antes, inteira — inclusive a beirada da queda
-  // que ainda toca as 22h e 23h.
+  // Das 6h às 22h, a curva de antes.
   const madrugada = Math.exp(-(perto(3) ** 2) / 6)
   return 0.78 + 0.32 * Math.max(corcova(8), corcova(18)) - 0.085 * madrugada
 }
