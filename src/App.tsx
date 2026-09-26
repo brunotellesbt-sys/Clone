@@ -121,7 +121,7 @@ export function App() {
   }
 
   const date = gameDate(state)
-  const p7 = period(state, 7)
+  const p1 = period(state, 1)
 
   return (
     <GameContext.Provider value={ctx}>
@@ -141,13 +141,11 @@ export function App() {
 
           <div className="stat"><b className={state.airline.cash < 0 ? 'bad' : ''}>{money(state.airline.cash)}</b><span>Caixa</span></div>
           <div className="stat"><b>{money(netWorth(state))}</b><span>Patrimônio</span></div>
-          {/* Média dos últimos 7 dias, e o rótulo diz isso. Sem o "7d" o número
-              parecia o lucro de ontem, e depois de qualquer mudança — preço,
-              rota nova — ele subia ou descia por uma semana inteira, um dia
-              ruim saindo da janela a cada dia, sem nada mudar na malha. A média
-              fica porque o dia sozinho oscila com o dia da semana. */}
-          <div className="stat" title="Média do resultado dos últimos 7 dias. Depois de uma mudança, leva 7 dias para refletir inteira.">
-            <b className={p7.profit >= 0 ? 'good' : 'bad'}>{money(p7.profit / Math.max(1, p7.days))}</b><span>Lucro/dia · 7d</span>
+          {/* O resultado do último dia fechado, sem média: o número reage já no
+              dia seguinte a uma mudança de preço ou de rota. Oscila com o dia da
+              semana, e a tela Finanças tem os períodos maiores. */}
+          <div className="stat" title="Resultado do último dia fechado.">
+            <b className={p1.profit >= 0 ? 'good' : 'bad'}>{money(p1.profit)}</b><span>Lucro/dia</span>
           </div>
           <div className="stat"><b>{state.airline.fleet.length}</b><span>Frota</span></div>
           <div className="stat"><b>{pct(state.airline.reputation)}</b><span>Reputação</span></div>
