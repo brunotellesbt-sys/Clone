@@ -115,25 +115,14 @@ export function atratividadeHorario(min: number): number {
    * A queda da madrugada é estreita de propósito. Larga, ela vazava para as seis
    * da manhã e punha a primeira onda do dia valendo menos que um voo das nove da
    * noite — o contrário do que acontece numa ponte aérea.
+   *
+   * E é rasa: com 0,42 o voo das 3h valia 0,44 e perdia quase todo passageiro
+   * para qualquer rival no par. Madrugada vende menos, mas vende — é o voo
+   * barato de quem troca o sono pela tarifa, e a conexão que casa com o
+   * longo curso. Com 0,2 o fundo fica perto de 2/3 da hora de pico da tarde.
    */
   const madrugada = Math.exp(-(perto(3) ** 2) / 6)
-  return 0.78 + 0.32 * Math.max(corcova(8), corcova(18)) - 0.42 * madrugada
-}
-
-/**
- * Quanto da procura existe no horário, de 0 a 1 — em absoluto, e não contra a
- * concorrente.
- *
- * `atratividadeHorario` só reparte: um voo das três da manhã sozinho no par
- * levava o mercado inteiro, porque não havia com quem perder. Mas pouca gente
- * quer voar de madrugada com ou sem alternativa; quem não quer simplesmente
- * não compra. O fundo é às 3h, com um terço da procura; às 0h e às 6h já volta
- * perto do normal.
- */
-export function procuraNoHorario(min: number): number {
-  const h = noDia(min) / 60
-  const perto = ((h - 3 + 12) % 24) - 12
-  return 1 - 0.65 * Math.exp(-(perto ** 2) / 5)
+  return 0.78 + 0.32 * Math.max(corcova(8), corcova(18)) - 0.2 * madrugada
 }
 
 /** Minutos do dia a partir de "07:25". Devolve nulo se não entender. */

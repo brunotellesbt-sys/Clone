@@ -19,7 +19,7 @@ import { hashStr } from './rng'
 import { blockHours } from './economy'
 import { AIRCRAFT_BY_ID } from './data/aircraft'
 import {
-  adianteNaSemana, atratividadeHorario, procuraNoHorario, DIA, escalaDe, naSemana, noTempo, pernasDaRota,
+  adianteNaSemana, atratividadeHorario, DIA, escalaDe, naSemana, noTempo, pernasDaRota,
   partidaUtc, type PernaNoTempo,
 } from './escala'
 import type { GameState, Perna, Route } from './types'
@@ -281,13 +281,6 @@ export function fracaoNoturna(s: GameState, r: Route, dow?: number): number {
   if (!pernas.length) return 0
   const noite = (min: number) => { const h = (min / 60) % 24; return h >= 22 || h < 6 }
   return pernas.filter((p) => noite(p.saida)).length / pernas.length
-}
-
-/** A procura absoluta dos horários da rota no dia — ver `procuraNoHorario`. */
-export function procuraDaRota(s: GameState, r: Route, dow?: number): number {
-  const pernas = pernasDaRota(s, r).filter(p => dow === undefined || Math.floor(partidaUtc(p) / DIA) === dow)
-  if (!pernas.length) return 1
-  return pernas.reduce((soma, p) => soma + procuraNoHorario(p.saida), 0) / pernas.length
 }
 
 /** A média da rota no dia, que é o que entra na disputa por passageiro. */

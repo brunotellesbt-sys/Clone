@@ -2,7 +2,7 @@ import { AIRPORTS, AIRPORT_BY_IATA as AP } from './data/airports'
 import { AIRCRAFT_BY_ID } from './data/aircraft'
 import { baseDemand } from './demand'
 import { addCabins, blockHours, emptyCabins, SELLABLE, sumCabins, ticketRevenue } from './economy'
-import { blocoDe, DIA, escalaDe, naSemana, noDia, partidaUtc, procuraNoHorario } from './escala'
+import { blocoDe, DIA, escalaDe, naSemana, noDia, partidaUtc } from './escala'
 import { distanceBetween, distanceNm, odKey } from './geo'
 import { conexoesNaBase, type Conexao, type Toque } from './malha'
 import { CABINS, type Cabins, type ConnectionJourney, type ConnectionLeg, type GameState, type Perna, type Route } from './types'
@@ -199,9 +199,7 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
     // tarifa cheia do mercado; o desconto, se houver, sai da força do direto (ver DESCONTO_CONEXAO)
     const fare = Math.max(0.5, (fare1 * d1 + fare2 * d2) / (d1 + d2))
     const domestica = AP[from]?.cc === AP[to]?.cc
-    // Madrugada vale para a conexão como vale para o direto: pouca gente quer.
-    const horario = Math.min(p1 ? procuraNoHorario(p1.saida) : 1, p2 ? procuraNoHorario(p2.saida) : 1)
-    const weight = connectionAttraction(detour, c.espera, fare, s.airline.reputation, c.codeshare ? .85 : c.parceira ? .55 : 1, domestica) * horario *
+    const weight = connectionAttraction(detour, c.espera, fare, s.airline.reputation, c.codeshare ? .85 : c.parceira ? .55 : 1, domestica) *
       Math.min(1.5, Math.min(sumCabins(first.capacity), sumCabins(second.capacity)) / Math.max(60, demand.total / 2))
     // Aeroportos próximos compartilham um orçamento de procura; multiplicar
     // frequências e combinações não pode multiplicar os mesmos viajantes O&D.
