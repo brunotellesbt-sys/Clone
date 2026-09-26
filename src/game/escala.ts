@@ -119,10 +119,10 @@ export function atratividadeHorario(min: number): number {
    * E é rasa: com 0,42 o voo das 3h valia 0,44 e perdia quase todo passageiro
    * para qualquer rival no par. Madrugada vende menos, mas vende — é o voo
    * barato de quem troca o sono pela tarifa, e a conexão que casa com o
-   * longo curso. Com 0,2 o fundo fica perto de 2/3 da hora de pico da tarde.
+   * longo curso. Com 0,085 o fundo fica em 0,75, perto de 70% da hora de pico da tarde.
    */
   const madrugada = Math.exp(-(perto(3) ** 2) / 6)
-  return 0.78 + 0.32 * Math.max(corcova(8), corcova(18)) - 0.2 * madrugada
+  return 0.78 + 0.32 * Math.max(corcova(8), corcova(18)) - 0.085 * madrugada
 }
 
 /** Minutos do dia a partir de "07:25". Devolve nulo se não entender. */
