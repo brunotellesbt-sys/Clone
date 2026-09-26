@@ -31,6 +31,35 @@ export interface MarketDemand {
  * nas ligações subatendidas sem tirar a sazonalidade ou a deriva anual.
  */
 export const K = 1.15
+
+/**
+ * O nível do preço padrão, para todas as companhias.
+ *
+ * A tarifa de referência estava calibrada no piso do que se paga de verdade, e
+ * a conexão — que ocupa assento de passageiro local pagando a tarifa da viagem
+ * inteira, rateada por dois voos — empurrava malha lucrativa para o prejuízo.
+ * O nível sobe o preço padrão de todo mundo: a companhia do jogador e as
+ * concorrentes leem a mesma tarifa de referência.
+ *
+ * O número saiu da conta. Numa malha de hub em Salvador com conexão, o lucro
+ * diário era $36 mil; 1,12 o devolve aos $67 mil que ela dava antes de a
+ * conexão existir, e 1,15 deixa folga para malha mais densa em conexão, que
+ * perde mais assento para ela. 1,2 já deixava o jogo fácil: o patrimônio de
+ * oito anos a partir de Guarulhos ia de $4,8 bi para $10,7 bi. As tarifas
+ * continuam dentro do que se paga no Brasil — Santos Dumont–Congonhas por uns
+ * R$ 400, Guarulhos–Salvador por uns R$ 690. As classes continuam com o
+ * mesmo multiplicador entre elas, e a disputa entre companhias continua sendo
+ * pelo preço relativo — a demanda não reage a este número.
+ */
+export const NIVEL_TARIFARIO = 1.15
+
+/**
+ * Procura 1,2% acima do que o modelo calcula, pedida por cima do ajuste de
+ * preço. A lógica da demanda não muda — crescimento por país, estação, dia da
+ * semana, teto do par —; o número final é que sai um pouco maior. O piso de
+ * demanda continua sendo o mesmo número, porque ele é decisão de projeto.
+ */
+export const DEMANDA_EXTRA = 1.012
 const KM_POR_NM = 1.852
 const LIMIAR_DOMESTICO_F_NM = 2000 / KM_POR_NM
 /**
@@ -283,7 +312,8 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
    * gente, o aeroporto move mais gente; senão o crescimento só apareceria nas
    * rotas pequenas, que é o avesso do que acontece.
    */
-  total = Math.max(0, satura(total, TETO_PAR * Math.min(a.paxDia * derivaA, b.paxDia * derivaB)))
+  // o acréscimo entra antes do teto do par: nenhum par passa do que a ponta menor aguenta
+  total = Math.max(0, satura(total * DEMANDA_EXTRA, TETO_PAR * Math.min(a.paxDia * derivaA, b.paxDia * derivaB)))
 
   // Mistura de classes: renda e distância empurram para a frente do avião.
   const premium = Math.min(0.34, 0.03 + 0.13 * Math.max(0, gdp - 0.55) + 0.075 * Math.min(distNm / 4200, 1))
@@ -346,7 +376,7 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
    * Os 44 mexem quase só no curto, por construção: são 21% a mais num bilhete
    * de 126 nm, 7% num de 1.100 nm (2.037 km) e 1% num de seis mil.
    */
-  const refFare = (44 + 0.088 * distNm) * (0.68 + 0.5 * gdp)
+  const refFare = (44 + 0.088 * distNm) * (0.68 + 0.5 * gdp) * NIVEL_TARIFARIO
   return { pax, total, refFare, distance: distNm }
 }
 
