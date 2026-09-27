@@ -98,9 +98,12 @@ const reguaDe = (ap: Portao) => ap.pistaOperacional ?? ap.runway
  * comprimento voltou a ser o de verdade para o jogador ler um número que
  * existe.
  */
-export const aeroportoServe = (t: AircraftType, ap: Portao) =>
-  pistaExigida(t, ap) <= reguaDe(ap) &&
-  (ap.tetoAssentos === undefined || t.maxSeats <= ap.tetoAssentos)
+export const aeroportoServe = (t: AircraftType, ap: Portao) => {
+  if (ap.tetoAssentos !== undefined) {
+    return t.maxSeats <= ap.tetoAssentos
+  }
+  return pistaExigida(t, ap) <= reguaDe(ap)
+}
 
 /** A aeronave opera entre os dois aeroportos? Pista e porte — alcance é outra conta. */
 export const pistaServe = (t: AircraftType, a: Portao, b: Portao) =>
@@ -115,9 +118,12 @@ export const pistaServe = (t: AircraftType, a: Portao, b: Portao) =>
  */
 export function motivoDoPar(t: AircraftType, a: Portao, b: Portao): string | null {
   for (const ap of [a, b]) {
-    if (pistaExigida(t, ap) > reguaDe(ap)) return 'Pista curta demais em uma das pontas.'
-    if (ap.tetoAssentos !== undefined && t.maxSeats > ap.tetoAssentos) {
-      return `Aeronave grande demais para uma das pontas (teto de ${ap.tetoAssentos} assentos).`
+    if (ap.tetoAssentos !== undefined) {
+      if (t.maxSeats > ap.tetoAssentos) {
+        return `Aeronave grande demais para uma das pontas (teto de ${ap.tetoAssentos} assentos).`
+      }
+    } else if (pistaExigida(t, ap) > reguaDe(ap)) {
+      return 'Pista curta demais em uma das pontas.'
     }
   }
   return null
