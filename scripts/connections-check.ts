@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { allocateConnections, nearbyAirports } from '../src/game/connections'
+import { allocateConnections, connectionRoom, nearbyAirports } from '../src/game/connections'
 import { connectionWindow } from '../src/game/connectionRules'
 import { buyAircraft, dowOf, newGame, openRoute, routeEconomics } from '../src/game/engine'
 import { marcarVoo } from '../src/game/escala'
@@ -9,6 +9,17 @@ import { odKey } from '../src/game/geo'
 import { fracaoNoturna } from '../src/game/malha'
 import { exportSave, importSave } from '../src/game/save'
 import type { GameState } from '../src/game/types'
+
+const room = (local: number, booked = 0) => connectionRoom({
+  capacity: { y: 100, w: 0, c: 0, f: 0 },
+  baseline: { y: local, w: 0, c: 0, f: 0 },
+  connecting: { y: booked, w: 0, c: 0, f: 0 },
+}, 'y')
+assert.equal(room(20), 80, 'voo com poucos locais pode preencher todos os assentos vagos com conexões')
+assert.equal(room(20, 50), 30, 'reservas anteriores consomem só os lugares disponíveis')
+assert.equal(room(99), 1, 'voo quase cheio não desloca locais')
+assert.equal(room(100), 40, 'apenas voo localmente cheio pode deslocar até 40%')
+assert.equal(room(100, 35), 5, 'teto de 40% vale para todas as conexões já reservadas')
 
 for (const [from, via, to, min, max] of [
   ['SDU', 'BSB', 'REC', 40, 180], ['SDU', 'BSB', 'LIM', 60, 240],

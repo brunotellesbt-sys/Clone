@@ -204,7 +204,11 @@ await medir('modal com destino escolhido')
 await page.screenshot({ path: artifact('mobile-3-modal-destino.png'), fullPage: true })
 await page.getByRole('button', { name: /^Abrir por/ }).click()
 await page.waitForTimeout(900)
-assert.equal(await page.getByText('Abrir nova rota', { exact: true }).count(), 0, 'modal deve fechar depois de abrir a rota')
+assert.equal(await page.getByText('Abrir nova rota', { exact: true }).count(), 1, 'modal continua aberto depois de abrir a rota')
+await page.locator('.overlay').click({ position: { x: 2, y: 2 } })
+assert.equal(await page.getByText('Abrir nova rota', { exact: true }).count(), 1, 'clique fora não fecha o modal de rotas')
+await page.getByRole('button', { name: 'Fechar', exact: true }).first().click()
+assert.equal(await page.getByText('Abrir nova rota', { exact: true }).count(), 0, 'o X fecha o modal')
 
 // ------------------------------------------------------------ cada tela
 for (const nome of ['Painel', 'Rotas', 'Conexões', 'Frota', 'Mercado', 'Finanças', 'Pintura', 'Ranking', 'Companhias']) {

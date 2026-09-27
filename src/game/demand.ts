@@ -169,10 +169,11 @@ const AFINIDADE_CRUZADA = 0.58
  *
  * Dois degraus, e cada um é a cabine cheia da menor aeronave que o par aceita:
  *
- * - **par que aceita jato regional** — 140 na econômica e 10 na econômica
- *   premium, com espaço para frequências de aeronaves menores;
- * - **par que só aceita turboélice** — 46 na econômica, o ATR 42 em classe
- *   única, e nada na premium, porque turboélice não tem premium.
+ * - **par que aceita jato regional** — 140 econômicos e 10 premium em cada
+ *   sentido: 300 passageiros nos dois sentidos, suficientes para uma ida e volta;
+ * - **par que só aceita turboélice** — 57 econômicos em cada sentido, para
+ *   comportar uma ida e volta de ATR 42 mesmo com tarifa até 1,15× acima
+ *   da referência, sem inventar demanda premium.
  *
  * Pista e porte decidem, nas duas pontas, com a mesma conta que a tela de
  * abrir rota usa (`aeroportoServe`): elevação entra, e o teto de porte de
@@ -180,8 +181,8 @@ const AFINIDADE_CRUZADA = 0.58
  * aeroporto de pista curta demais para a frota inteira, e inventar demanda lá
  * seria demanda que ninguém pode servir.
  */
-export const PISO_JATO: { y: number; w: number } = { y: 140, w: 10 }
-export const PISO_TURBO: { y: number; w: number } = { y: 46, w: 0 }
+export const PISO_JATO: { y: number; w: number } = { y: 280, w: 20 }
+export const PISO_TURBO: { y: number; w: number } = { y: 114, w: 0 }
 const SEM_PISO = { y: 0, w: 0 }
 
 /**
@@ -336,9 +337,9 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
   /**
    * O piso, e o piso é do jogo, não do mundo.
    *
-   * Um par que aceita jato regional nunca vale menos do que um E195 cheio por
-   * dia, e um par que só aceita turboélice nunca vale menos do que um ATR 42
-   * cheio. É decisão de projeto do dono do jogo, pedida com esses números, e
+   * Um par que aceita jato regional nunca vale menos do que uma ida e volta
+   * de E195 por dia; com turboélice, vale uma ida e volta de ATR 42. O total
+   * de `baseDemand` reúne ambos os sentidos. É decisão de projeto do jogo, e
    * ela **descola o aeroporto pequeno do movimento publicado** — o teto por
    * par continua valendo para cima, mas para baixo passa a mandar o piso. Sem
    * esse aviso aqui alguém vai achar daqui a um ano que o modelo gravitacional

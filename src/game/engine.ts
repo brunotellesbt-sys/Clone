@@ -28,7 +28,7 @@ import {
 } from './ai'
 import { between, chance, hashStr, makeRng, type Rng } from './rng'
 import {
-  CABINS, type Aircraft, type Cabins, type Competitor, type DayResult, type GameState, type Livery,
+  CABINS, type Aircraft, type Cabins, type Competitor, type DayResult, type FlightCostBreakdown, type GameState, type Livery,
   type Notice, type Route, type Densidade,
 } from './types'
 
@@ -797,6 +797,20 @@ export function advanceDay(s: GameState): GameState {
     return { route: rd.route, voos: rd.voos, seats: rd.seats, local: result?.pax ?? emptyCabins() }
   })
   const manifests = allocateConnections(s, localAllocations, dow, doy)
+  const journeyLegs = new Map<string, { journey: NonNullable<GameState['connectionJourneys']>[number]; side: 'first' | 'second' }[]>()
+  for (const journey of s.connectionJourneys ?? []) {
+    if (journey.cancelled) continue
+    for (const side of ['first', 'second'] as const) {
+      const leg = journey[side]
+      if (!leg.own || leg.day !== s.day) continue
+      const key = `${s.day}:${leg.id}`
+      const list = journeyLegs.get(key) ?? []
+      list.push({ journey, side })
+      journeyLegs.set(key, list)
+    }
+  }
+  const costCategories = ['fuel', 'crew', 'maintenance', 'fees', 'handling', 'catering'] as const
+  const blankCosts = (): FlightCostBreakdown => ({ fuel: 0, crew: 0, maintenance: 0, fees: 0, handling: 0, catering: 0 })
 
   for (const rd of perRoute) {
     const r = rd.route
@@ -816,13 +830,21 @@ export function advanceDay(s: GameState): GameState {
 
     // Custo: uma conta por perna voada, com a cauda que a escala pôs nela.
     let cost = 0
-    const legs = Math.max(1, rd.pernas.length)
-    const paxPerLeg = sumCabins(pax) / legs
-    const premiumPerLeg = (pax.w + pax.c + pax.f) / legs
-    for (const ac of rd.pernas) {
+    const costBreakdown = blankCosts()
+    for (let i = 0; i < rd.pernas.length; i++) {
+      const ac = rd.pernas[i]
+      const flight = flightResults[i]
+      const flightPax = addCabins(flight.local, flight.connecting)
+      const passengers = sumCabins(flightPax)
       const t = typeOf(ac)
-      const c = flightCost(t, r.distance, r.from, r.to, s.fuelPrice, ac.age, paxPerLeg, premiumPerLeg, crewFor(ac.seats), noturno)
+      const c = flightCost(t, r.distance, r.from, r.to, s.fuelPrice, ac.age,
+        passengers, flightPax.w + flightPax.c + flightPax.f, crewFor(ac.seats), noturno)
       cost += c.total
+      const raw = costCategories.reduce((n, category) => n + c[category], 0)
+      for (const category of costCategories) costBreakdown[category] += c[category] * c.total / raw
+      for (const { journey, side } of journeyLegs.get(`${s.day}:${rd.voos[i].id}`) ?? []) {
+        journey[`${side}Cost`] = passengers ? c.total * sumCabins(journey.pax) / passengers : 0
+      }
       ac.hours += c.blockH
       ac.cycles += 1
       ac.condition = Math.max(0, ac.condition - (0.00028 + c.blockH * 0.00013))
@@ -837,6 +859,7 @@ export function advanceDay(s: GameState): GameState {
       seats: rd.physicalSeats,
       revenue,
       cost,
+      costBreakdown,
       profit: revenue - cost,
       loadFactor: rd.physicalSeats > 0 ? sumCabins(pax) / rd.physicalSeats : 0,
     }
@@ -881,12 +904,15 @@ export function advanceDay(s: GameState): GameState {
     const revenue = tons * demandaC.refRate * r.fare.y * (1 - DISTRIBUTION_RATE)
 
     let cost = 0
+    const costBreakdown = blankCosts()
     const noturnoC = fracaoNoturna(s, r, dow)
     for (const ac of cd.pernas) {
       const t = typeOf(ac)
       // Sem passageiro não há comissaria nem comissário: os dois entram zerados.
       const c = flightCost(t, r.distance, r.from, r.to, s.fuelPrice, ac.age, 0, 0, 0, noturnoC)
       cost += c.total
+      const raw = costCategories.reduce((n, category) => n + c[category], 0)
+      for (const category of costCategories) costBreakdown[category] += c[category] * c.total / raw
       ac.hours += c.blockH
       ac.cycles += 1
       ac.condition = Math.max(0, ac.condition - (0.00028 + c.blockH * 0.00013))
@@ -899,6 +925,7 @@ export function advanceDay(s: GameState): GameState {
       seats: 0,
       revenue,
       cost,
+      costBreakdown,
       profit: revenue - cost,
       loadFactor: cd.tons > 0 ? tons / cd.tons : 0,
       tons,

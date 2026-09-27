@@ -4,8 +4,9 @@ import { conexoesNaBase } from '../game/malha'
 import { distanceBetween } from '../game/geo'
 import { DESVIO_MAXIMO } from '../game/connections'
 import { CABINS, CABIN_SHORT } from '../game/types'
-import { gameDate, num } from '../game/engine'
+import { gameDate, money, num } from '../game/engine'
 import { sumCabins } from '../game/economy'
+import { connectionResult } from '../game/financeDiagnostics'
 import { Card, Empty } from './components/Bits'
 
 export function ConnectionsView() {
@@ -13,11 +14,16 @@ export function ConnectionsView() {
   const [hub, setHub] = useState('')
   const [search, setSearch] = useState('')
   const [period, setPeriod] = useState(7)
+  const [resultOrder, setResultOrder] = useState<'best' | 'worst'>('best')
   const date = (day: number) => new Date(gameDate(state).getTime() + (day - state.day) * 86400000)
     .toLocaleDateString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' })
   const all = (state.connectionJourneys ?? []).filter(j => j.first.day >= state.day - period + 1 && (!hub || j.via === hub))
   const trips = all.filter(j => `${j.first.from} ${j.via} ${j.second.to} ${j.first.number} ${j.second.number}`.toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) => b.first.day - a.first.day || a.first.departure - b.first.departure)
+    .sort((a, b) => {
+      const av = connectionResult(a).profit, bv = connectionResult(b).profit
+      if (av === null || bv === null) return av === null ? (bv === null ? b.first.day - a.first.day : 1) : -1
+      return (resultOrder === 'best' ? bv - av : av - bv) || b.first.day - a.first.day
+    })
   const active = all.filter(j => !j.cancelled)
   const passengers = active.reduce((n, j) => n + sumCabins(j.pax), 0)
   const boardings = active.reduce((n, j) => n + sumCabins(j.pax) * (Number(j.first.own && j.first.day <= state.day) + Number(j.second.own && j.second.day <= state.day)), 0)
@@ -137,18 +143,27 @@ export function ConnectionsView() {
       </table></div> : <Empty>Nenhum par dos seus voos casa no relógio sem rodear demais neste filtro.</Empty>}
       <p className="muted" style={{ fontSize: 12 }}>O que a sua escala oferece hoje, pelas regras de conexão: tempo mínimo e máximo de espera e desvio de até {DESVIO_MAXIMO.toFixed(1)}× o voo direto. Não depende de o dia virar — os itinerários vendidos, abaixo, sim.</p>
     </Card>
-    <Card title="Itinerários vendidos">
+    <Card title="Itinerários vendidos" className="connection-sold" right={<label className="field" style={{ marginBottom: 0 }}><span>Ordenar resultado</span>
+      <select aria-label="Ordenar resultado das conexões" value={resultOrder} onChange={e => setResultOrder(e.target.value as 'best' | 'worst')}>
+        <option value="best">Maior lucro primeiro</option><option value="worst">Maior prejuízo primeiro</option>
+      </select></label>}>
       {trips.length ? <div className="scroll"><table className="connection-journeys">
-        <thead><tr><th>Viagem</th><th>Voos</th><th className="r">Passageiros</th><th>Espera</th><th>Situação</th></tr></thead>
-        <tbody>{trips.map(j => <tr key={j.id}>
+        <thead><tr><th>Viagem</th><th className="r">Lucro / prejuízo</th><th>Voos</th><th className="r">Passageiros</th><th>Espera</th><th>Situação</th></tr></thead>
+        <tbody>{trips.map(j => {
+          const result = connectionResult(j)
+          return <tr key={j.id}>
           <td><b>{j.first.from} → {j.via} → {j.second.to}</b><br /><small className="muted">{date(j.first.day)}</small></td>
+          <td className={`r ${result.profit === null ? 'muted' : result.profit >= 0 ? 'good' : 'bad'}`}>
+            <b>{result.profit === null ? '—' : money(result.profit)}</b><br />
+            <small>{result.profit === null ? 'sem custos apurados' : result.complete ? 'operação concluída' : 'resultado parcial'}</small>
+          </td>
           <td>{j.first.number} → {j.second.number}<br /><small className="muted">{j.first.operator}{j.first.operator !== j.second.operator && ` / ${j.second.operator}`}</small></td>
           <td className="r"><b>{num(sumCabins(j.pax))}</b><br /><small className="muted">{CABINS.filter(c => j.pax[c]).map(c => `${CABIN_SHORT[c]} ${j.pax[c]}`).join(' · ')}</small></td>
           <td>{Math.floor(j.wait / 60)}h{String(j.wait % 60).padStart(2, '0')}</td>
           <td className={j.cancelled ? 'bad' : 'good'}>{j.cancelled ? 'Conexão interrompida' : j.second.day > state.day ? `Próximo voo em ${date(j.second.day)}` : 'Concluída'}</td>
-        </tr>)}</tbody>
+        </tr>})}</tbody>
       </table></div> : <Empty>Nenhuma conexão apurada neste filtro.{pares > 0 && ' O quadro acima diz o que a regra viu.'}</Empty>}
-      <p className="muted" style={{ fontSize: 12 }}>Preço, tempo total, espera, conveniência do aeroporto e concorrência de voos diretos influenciam a escolha. Conexões ocupam lugares vagos; quando o voo enche, parte dos assentos deixa de atender passageiros locais. A demanda local permanece disponível.</p>
+      <p className="muted" style={{ fontSize: 12 }}>O resultado atribui a cada conexão sua receita líquida e uma parcela proporcional do custo dos voos próprios que já operaram. Antes do próximo trecho, aparece como parcial. Preço, espera, desvio e concorrência de voos diretos influenciam a escolha. Conexões preenchem lugares vagos; se a classe já sairia cheia, podem ocupar até 40% dela.</p>
     </Card>
   </div>
 }
