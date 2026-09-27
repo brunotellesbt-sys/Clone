@@ -50,13 +50,15 @@ export function Spark({ values, w = 160, h = 34, color = '#38bdf8' }: { values: 
   )
 }
 
-export function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
+export function Modal({ title, onClose, children, wide, closeOnlyByButton = false }: {
+  title: string; onClose: () => void; children: ReactNode; wide?: boolean; closeOnlyByButton?: boolean
+}) {
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay" onClick={closeOnlyByButton ? undefined : onClose}>
       <div className="modal" style={wide ? { width: 'min(1040px, 100%)' } : undefined} onClick={(e) => e.stopPropagation()}>
         <div className="row" style={{ justifyContent: 'space-between', marginBottom: 14 }}>
           <h2 style={{ fontSize: 18 }}>{title}</h2>
-          <button className="btn sm" onClick={onClose}>Fechar</button>
+          <button className="btn sm" onClick={onClose} aria-label="Fechar" title="Fechar">{closeOnlyByButton ? '×' : 'Fechar'}</button>
         </div>
         {children}
       </div>

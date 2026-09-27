@@ -103,8 +103,8 @@ await linhaPlu.locator('.porte summary').click()
 await page.waitForTimeout(350)
 const tetoPlu = await page.locator('.porte-menu').innerText()
 conferir(
-  /149 lugares/.test(tetoPlu) && !/A32[01]/.test(tetoPlu),
-  'o menu de PLU mostra o teto de 149 e nenhum A320/A321',
+  /194 lugares/.test(tetoPlu) && /A320/.test(tetoPlu) && !/A321/.test(tetoPlu),
+  'o menu de PLU acompanha o teto atual de 194 e não inclui A321',
   tetoPlu.replace(/\n/g, ' · ').slice(0, 100),
 )
 await page.screenshot({ path: artifact('destinos-2-plu.png'), fullPage: true })

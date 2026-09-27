@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { sumCabins } from '../game/economy'
+import { deficitRoutes } from '../game/financeDiagnostics'
 import {
   assinarAcordo, assinarCodeshare, creditLimit, custoDoAcordo, debtTotal, fleetValue, money,
   netWorth, num, pct, period, repayLoan, REPUTACAO_ACORDO, romperAcordo, romperCodeshare, setMarketing, takeLoan,
@@ -10,11 +11,14 @@ import { Card, Kpi, Spark } from './components/Bits'
 export function FinanceView() {
   const { state, act, toast } = useGame()
   const [amount, setAmount] = useState(30)
+  const [selectedDeficit, setSelectedDeficit] = useState('')
   const p30 = period(state, 30)
   const p90 = period(state, 90)
   const p365 = period(state, 365)
   const limit = creditLimit(state)
   const fuelSeries = state.ledger.slice(-90).map((d) => d.cost / Math.max(1, d.flights))
+  const deficits = deficitRoutes(state)
+  const selectedLoss = deficits.find(d => d.route.id === selectedDeficit) ?? deficits[0]
 
   /** Concorrentes que tocam alguma base sua: são as únicas com o que conectar. */
   const parceiras = state.competitors
@@ -152,6 +156,33 @@ export function FinanceView() {
 
         </div>
       </div>
+
+      <Card title={`Rotas em déficit · 14 dias (${deficits.length})`}>
+        {selectedLoss ? <>
+          <label className="field" style={{ maxWidth: 460 }}><span>Escolha a rota · maiores prejuízos primeiro</span>
+            <select aria-label="Rota em déficit" value={selectedLoss.route.id} onChange={e => setSelectedDeficit(e.target.value)}>
+              {deficits.map(d => <option key={d.route.id} value={d.route.id}>{d.route.from} → {d.route.to} · {money(d.profit)}</option>)}
+            </select>
+          </label>
+          <div className="grid g4" style={{ marginBottom: 12 }}>
+            <Kpi label="Receita" value={money(selectedLoss.revenue)} />
+            <Kpi label="Custo operacional" value={money(selectedLoss.cost)} />
+            <Kpi label="Prejuízo" value={money(selectedLoss.profit)} tone="bad" />
+            <Kpi label="Ocupação" value={selectedLoss.offered ? pct(selectedLoss.carried / selectedLoss.offered, 1) : '—'} />
+          </div>
+          <p className="muted">Nos últimos {selectedLoss.days} dias, faltaram <b className="bad">{money(-selectedLoss.profit)}</b> para a receita cobrir os custos desta rota.</p>
+          <ul className="finance-reasons">
+            {selectedLoss.offered > 0 && selectedLoss.carried / selectedLoss.offered < .65 &&
+              <li>Baixa ocupação: {num(selectedLoss.carried)} {selectedLoss.cargo ? 't' : 'passageiros'} em {num(selectedLoss.offered)} {selectedLoss.cargo ? 't' : 'assentos'} ofertados no período.</li>}
+            {selectedLoss.offered / selectedLoss.days > selectedLoss.demand * 1.05 &&
+              <li>Oferta média de {num(selectedLoss.offered / selectedLoss.days)} {selectedLoss.cargo ? 't' : 'assentos'}/dia acima da procura estimada de {num(selectedLoss.demand)} {selectedLoss.cargo ? 't' : 'passageiros'}/dia no par.</li>}
+            {selectedLoss.carried > 0 && <li>Receita média de {money(selectedLoss.revenue / selectedLoss.carried)} por {selectedLoss.cargo ? 'tonelada' : 'passageiro'}; seriam necessários {money(selectedLoss.cost / selectedLoss.carried)} para cobrir o custo operacional atual.</li>}
+            {selectedLoss.largest && <li>Maior despesa medida: {selectedLoss.largest.label}, {pct(selectedLoss.largest.share, 1)} dos custos detalhados.</li>}
+            {selectedLoss.competitors > 0 && <li>{selectedLoss.competitors} {selectedLoss.competitors === 1 ? 'concorrente disputa' : 'concorrentes disputam'} passageiros neste par.</li>}
+          </ul>
+          <small className="muted">Diagnóstico da operação da rota; empréstimos e despesas gerais aparecem no demonstrativo da companhia.</small>
+        </> : <p className="muted">Nenhuma rota operada ficou em déficit nos últimos 14 dias.</p>}
+      </Card>
 
       <Card title="Passageiros por classe (30 dias)">
         <div className="grid g4">

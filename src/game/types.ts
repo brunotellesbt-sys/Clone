@@ -240,12 +240,23 @@ export interface DayResult {
   seats: number
   revenue: number
   cost: number
+  /** Custos operacionais por categoria, já com o ajuste econômico do jogo. */
+  costBreakdown?: FlightCostBreakdown
   profit: number
   loadFactor: number
   /** Toneladas embarcadas, só em rota de carga. */
   tons?: number
   /** Toneladas oferecidas, só em rota de carga — o denominador do load factor. */
   tonsOffered?: number
+}
+
+export interface FlightCostBreakdown {
+  fuel: number
+  crew: number
+  maintenance: number
+  fees: number
+  handling: number
+  catering: number
 }
 
 /**
@@ -300,6 +311,9 @@ export interface ConnectionJourney {
   pax: Cabins
   firstRevenue: number
   secondRevenue: number
+  /** Parcela do custo do voo atribuída aos passageiros deste itinerário. */
+  firstCost?: number
+  secondCost?: number
   cancelled?: boolean
 }
 

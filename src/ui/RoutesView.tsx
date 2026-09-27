@@ -350,6 +350,7 @@ function OpenRouteModal({ origem, onOrigem, onClose, onOpened }: {
   const [ordem, setOrdem] = useState<OrdenacaoRotas>('dist-asc')
   const [q, setQ] = useState('')
   const [dest, setDest] = useState<string | null>(null)
+  const [opened, setOpened] = useState<string | null>(null)
   // Passageiro ou carga é escolha da abertura: a rota nasce sem aeronave, então
   // não dá para deduzir da frota alocada.
   const [carga, setCarga] = useState(false)
@@ -472,7 +473,8 @@ function OpenRouteModal({ origem, onOrigem, onClose, onOpened }: {
     : []
 
   return (
-    <Modal title="Abrir nova rota" onClose={onClose} wide>
+    <Modal title="Abrir nova rota" onClose={onClose} wide closeOnlyByButton>
+      {opened && <p className="good" role="status">Rota {opened} aberta. Escolha outro destino ou feche no × acima.</p>}
       <div className="row" style={{ marginBottom: 12 }}>
         <div className="row tight" style={{ flex: '0 0 auto' }}>
           <button className={`btn sm ${carga ? '' : 'primary'}`} onClick={() => { setCarga(false); setDest(null) }}>
@@ -607,8 +609,8 @@ function OpenRouteModal({ origem, onOrigem, onClose, onOpened }: {
                     return null
                   })
                   if (err) return toast(err, 'error')
+                  setOpened(`${hub} → ${chosen.a.iata}`)
                   setDest(null)
-                  onClose()
                   if (novoId) onOpened(novoId)
                 }}
               >

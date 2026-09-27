@@ -63,8 +63,16 @@ export function nearbyAirports(iata: string) {
   return nearbyCache.get(iata)!
 }
 
-/** Fração máxima dos assentos de um voo que a conexão pode ocupar. */
+/** Só para a classe que já sairia cheia; assentos vagos não têm teto percentual. */
 export const TETO_CONEXAO_NO_VOO = 0.4
+
+/** Lugares ainda livres para conexão numa classe, sem revender os mesmos assentos. */
+export function connectionRoom(m: Pick<FlightManifest, 'capacity' | 'baseline' | 'connecting'>, cb: keyof Cabins) {
+  const vacant = m.capacity[cb] - m.baseline[cb]
+  const limit = vacant > 1e-9 ? vacant : Math.min(m.capacity[cb] * TETO_CONEXAO_NO_VOO,
+    m.capacity[cb] - .6 * m.baseline[cb])
+  return Math.max(0, limit - m.connecting[cb])
+}
 
 /** Preferência relativa de uma conexão: mais espera, desvio e preço reduzem a escolha. */
 export function connectionAttraction(detour: number, wait: number, fareRatio: number, reputation: number, integration = 1, domestica = false) {
@@ -231,10 +239,10 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
     for (const c of g.candidates.sort((a, b) => b.weight - a.weight || a.first.leg.id.localeCompare(b.first.leg.id))) {
       const pax = emptyCabins()
       for (const cb of CABINS) {
-        // No máximo 40% do voo é passageiro em conexão; o resto é do mercado local.
-        const remaining = (m: FlightManifest) => Math.max(0, Math.min(m.capacity[cb] * TETO_CONEXAO_NO_VOO,
-          m.capacity[cb] - .6 * m.baseline[cb]) - m.connecting[cb])
-        pax[cb] = Math.floor(Math.min(available[cb], g.demand[cb] * c.weight / denominator, remaining(c.first), remaining(c.second)))
+        // Se ainda havia assentos vazios, a conexão apenas os ocupa. Só um
+        // voo que já sairia cheio desloca locais, limitado a 40% da classe.
+        pax[cb] = Math.floor(Math.min(available[cb], g.demand[cb] * c.weight / denominator,
+          connectionRoom(c.first, cb), connectionRoom(c.second, cb)))
         available[cb] -= pax[cb]
       }
       if (!sumCabins(pax)) continue

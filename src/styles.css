@@ -367,6 +367,8 @@ h4.sub {
 .swatch.on { outline: 2px solid var(--amber); outline-offset: 1px; }
 .spark { display: block; width: 100%; }
 .scroll { max-height: 420px; overflow: auto; }
+.finance-reasons { margin: 0 0 12px; padding-left: 20px; color: var(--ink-2); line-height: 1.55; }
+.finance-reasons li + li { margin-top: 5px; }
 /* Alturas de lista, em classe e não no `style` de cada tela: o celular precisa
    sobrepor isso, e regra de folha de estilo não vence atributo inline. */
 .scroll.alta { max-height: 560px; }
