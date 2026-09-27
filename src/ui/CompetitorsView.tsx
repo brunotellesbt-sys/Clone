@@ -64,7 +64,7 @@ export function CompetitorsView() {
     if (!selected) return []
     const doy = dayOfYear(state)
     return selected.routes.map(r => {
-      const demand = baseDemand(r.from, r.to, state.day, doy)
+      const demand = baseDemand(r.from, r.to, state.day, doy, state.startYear)
       const competitors = state.competitors.flatMap(c => c.routes.filter(x => x.key === r.key).map(x => ofertaConcorrente(c, x)))
       const myRoute = state.airline.routes.find(x => !x.cargo && odKey(x.from, x.to) === r.key)
       const own = myRoute && ofertaJogador(state, myRoute)

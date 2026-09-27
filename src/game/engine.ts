@@ -792,7 +792,7 @@ export function advanceDay(s: GameState): GameState {
 
   const localAllocations = perRoute.map(rd => {
     const key = odKey(rd.route.from, rd.route.to)
-    const demand = baseDemand(rd.route.from, rd.route.to, s.day, doy)
+    const demand = baseDemand(rd.route.from, rd.route.to, s.day, doy, s.startYear)
     const result = allocateMarket(demand, carriersByOd.get(key) ?? []).find(a => a.id === `P:${rd.route.id}`)
     return { route: rd.route, voos: rd.voos, seats: rd.seats, local: result?.pax ?? emptyCabins() }
   })
@@ -815,7 +815,7 @@ export function advanceDay(s: GameState): GameState {
   for (const rd of perRoute) {
     const r = rd.route
     const key = odKey(r.from, r.to)
-    const demand = baseDemand(r.from, r.to, s.day, doy)
+    const demand = baseDemand(r.from, r.to, s.day, doy, s.startYear)
     const noturno = fracaoNoturna(s, r, dow)
     const flightResults = rd.voos.map(p => manifests.get(`${s.day}:${p.id}`)!)
     const localPax = flightResults.reduce((n, m) => addCabins(n, m.local), emptyCabins())
@@ -1027,7 +1027,7 @@ export function advanceDay(s: GameState): GameState {
 
   // 7) Concorrência reage uma vez por semana.
   if (s.day % 7 === 0) {
-    stepCompetitors(s.competitors, s.day, rng, pressure, s.airline.routes.length)
+    stepCompetitors(s.competitors, s.day, rng, pressure, s.airline.routes.length, s.startYear)
     sincronizarNumerosCodeshare(s)
     /**
      * E, muito de vez em quando, alguém funda uma companhia.
@@ -1036,7 +1036,7 @@ export function advanceDay(s: GameState): GameState {
      * porque a conta só é feita quando há país habilitado — o que quase nunca
      * há. Ver `fundarCompanhia`.
      */
-    const nova = fundarCompanhia(s.competitors, s.day, rng, s.airline.hubs, (s.fundadas ??= {}))
+    const nova = fundarCompanhia(s.competitors, s.day, rng, s.airline.hubs, (s.fundadas ??= {}), s.startYear)
     if (nova) {
       s.competitors.push(nova)
       notify(s, 'info',
@@ -1071,7 +1071,7 @@ function computeCompetitorRevenue(s: GameState, doy: number) {
   for (const c of s.competitors) c.revenue30 = 0
   for (const [, list] of byOd) {
     const first = list[0].route
-    const demand = baseDemand(first.from, first.to, s.day, doy)
+    const demand = baseDemand(first.from, first.to, s.day, doy, s.startYear)
     const premium = 0.12
     const carriers: Carrier[] = list.map(({ comp, route }) => ({
       id: comp.id,
@@ -1173,7 +1173,7 @@ export function routeEconomics(s: GameState, r: Route) {
     }
   }
 
-  const demand = baseDemand(r.from, r.to, s.day, dayOfYear(s))
+  const demand = baseDemand(r.from, r.to, s.day, dayOfYear(s), s.startYear)
   const pax = last.reduce((x, d) => x + sumCabins(d.pax), 0)
   const seats = last.reduce((x, d) => x + d.seats, 0)
   const dias = diasCorridos
@@ -1243,7 +1243,7 @@ export function estimateRoute(s: GameState, from: string, to: string, typeId: st
   const t: AircraftType = AIRCRAFT_BY_ID[typeId]
   const dist = distanceBetween(from, to)
   if (t.payload !== undefined) return estimateCargoRoute(s, from, to, t, freq, dist)
-  const demand = baseDemand(from, to, s.day, dayOfYear(s))
+  const demand = baseDemand(from, to, s.day, dayOfYear(s), s.startYear)
   const seats = defaultCabin(t, 1).seats
   const offered = sumCabins(seats) * freq * 2 * SELLABLE
   const rivals = s.competitors.flatMap((c) => c.routes.filter((r) => r.key === odKey(from, to)))

@@ -18,6 +18,7 @@ import { GameContext, useGame } from './store/useGame'
 import { Dashboard } from './ui/Dashboard'
 import { CompetitorsView } from './ui/CompetitorsView'
 import { ConnectionsView } from './ui/ConnectionsView'
+import { CalendarView } from './ui/CalendarView'
 import { FinanceView } from './ui/FinanceView'
 import { FleetView } from './ui/FleetView'
 import { LiveryEditor } from './ui/LiveryEditor'
@@ -31,6 +32,7 @@ const TABS = [
   { id: 'painel', label: 'Painel' },
   { id: 'rotas', label: 'Rotas' },
   { id: 'conexoes', label: 'Conexões' },
+  { id: 'calendario', label: 'Calendário' },
   { id: 'frota', label: 'Frota' },
   { id: 'mercado', label: 'Mercado' },
   { id: 'financas', label: 'Finanças' },
@@ -181,6 +183,7 @@ export function App() {
             {tab === 'painel' && <Dashboard go={setTab} />}
             {tab === 'rotas' && <RoutesView />}
             {tab === 'conexoes' && <ConnectionsView />}
+            {tab === 'calendario' && <CalendarView />}
             {tab === 'frota' && <FleetView />}
             {tab === 'mercado' && <MarketView />}
             {tab === 'financas' && <FinanceView />}
