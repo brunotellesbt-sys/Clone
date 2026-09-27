@@ -36,7 +36,9 @@
     "flights:check": "tsx scripts/flight-metrics.ts",
     "connections:check": "tsx scripts/connections-check.ts",
     "connections:ui": "node scripts/connections-ui.mjs",
-    "map:geometry": "tsx scripts/map-geometry.ts"
+    "map:geometry": "tsx scripts/map-geometry.ts",
+    "calendar:check": "tsx scripts/calendar-check.ts",
+    "calendar:ui": "node scripts/calendar-ui.mjs"
   },
   "dependencies": {
     "d3-geo": "^3.1.1",

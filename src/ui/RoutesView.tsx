@@ -35,7 +35,7 @@ export function RoutesView() {
       .filter((r) => hubFiltro === 'todos' || r.from === hubFiltro || r.to === hubFiltro)
       .map((r) => ({
         route: r,
-        demand: r.cargo ? cargoDemand(r.from, r.to, state.day, doy).tons : baseDemand(r.from, r.to, state.day, doy).total,
+        demand: r.cargo ? cargoDemand(r.from, r.to, state.day, doy).tons : baseDemand(r.from, r.to, state.day, doy, state.startYear).total,
       }))
       .sort((x, y) => compararPorOrdenacao(
         ordem,
@@ -167,8 +167,9 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
             </table>
           </div>
           <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
-            Demanda total é o mercado local do dia; atendido é sua média recente de passageiros locais. As conexões aumentam a lotação sem preencher essa demanda local.
+            Demanda total é o mercado local diário, com referência igual de segunda a domingo; atendido é sua média recente de passageiros locais. As conexões aumentam a lotação sem preencher essa demanda local.
           </p>
+          {'calendarBoost' in e.demand && <SeasonalDemandNote boost={e.demand.calendarBoost} />}
         </Card>
       )}
 
@@ -374,7 +375,7 @@ function OpenRouteModal({ origem, onOrigem, onClose, onOpened }: {
       .filter((a) => !busca || `${a.iata} ${a.city} ${a.country}`.toLowerCase().includes(busca))
       .map((a) => {
         const dist = distanceBetween(hub, a.iata)
-        const dp = baseDemand(hub, a.iata, state.day, doy)
+        const dp = baseDemand(hub, a.iata, state.day, doy, state.startYear)
         const dc = cargoDemand(hub, a.iata, state.day, doy)
         const d = carga
           ? { ...dp, total: dc.tons, refFare: dc.refRate }
@@ -558,6 +559,7 @@ function OpenRouteModal({ origem, onOrigem, onClose, onOpened }: {
           {!chosen && <Empty>Escolha um destino para ver a projeção.</Empty>}
           {chosen && (
             <Card title={`${hub} → ${chosen.a.iata}`}>
+              {!carga && <SeasonalDemandNote boost={chosen.demand.calendarBoost} />}
               <div style={{ fontSize: 13, marginBottom: 10 }}>
                 <div className="row" style={{ justifyContent: 'space-between' }}>
                   <span className="muted">Distância</span><b>{km(chosen.dist)}</b>
@@ -622,4 +624,10 @@ function OpenRouteModal({ origem, onOrigem, onClose, onOpened }: {
       </div>
     </Modal>
   )
+}
+
+function SeasonalDemandNote({ boost = 0 }: { boost?: number }) {
+  return boost > 0 ? <p className="good" style={{ fontSize: 12, lineHeight: 1.6 }}>
+    Férias/eventos nesta semana: +{Math.round(boost * 100)}% de procura na econômica, já incluído na demanda. Consulte os períodos na aba Calendário.
+  </p> : null
 }

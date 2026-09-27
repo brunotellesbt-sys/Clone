@@ -4,9 +4,19 @@ import { aeroportoServe } from './spec'
 import { derivaDoPais } from './data/crescimento'
 import { distanceBetween, odKey } from './geo'
 import { hashStr } from './rng'
+import { DAY_MS, gameDayDate, mondayOf, utcDate } from './calendarDates'
+import { routeCalendarEffect } from './travelCalendar'
 import type { CabinClass, Cabins } from './types'
 
-const WEEKDAY = [1.02, 1.06, 0.93, 0.95, 1.03, 1.16, 0.85] // dom..sáb
+// Compartilha o relógio entre milhares de consultas do mesmo dia.
+let lastClock: { day: number; startYear: number; date: number; age: number; doy: number } | undefined
+function weeklyClock(day: number, startYear: number) {
+  if (lastClock?.day === day && lastClock.startYear === startYear) return lastClock
+  const date = mondayOf(gameDayDate(day, startYear))
+  return lastClock = { day, startYear, date,
+    age: Math.max(0, (date - utcDate(startYear, 1, 1)) / DAY_MS),
+    doy: (date - utcDate(new Date(date).getUTCFullYear(), 1, 1)) / DAY_MS }
+}
 
 /** Sazonalidade: verão do hemisfério de cada ponta + pico de fim de ano. */
 function seasonFactor(dayOfYear: number, lat: number): number {
@@ -22,6 +32,8 @@ export interface MarketDemand {
   total: number
   refFare: number
   distance: number
+  /** Acréscimo máximo (econômica) dos eventos e férias desta semana. */
+  calendarBoost?: number
 }
 
 /**
@@ -41,23 +53,17 @@ export const K = 1.15
  * O nível sobe o preço padrão de todo mundo: a companhia do jogador e as
  * concorrentes leem a mesma tarifa de referência.
  *
- * O número saiu da conta. Numa malha de hub em Salvador com conexão, o lucro
- * diário era $36 mil; 1,12 o devolve aos $67 mil que ela dava antes de a
- * conexão existir, e 1,15 deixa folga para malha mais densa em conexão, que
- * perde mais assento para ela. 1,2 já deixava o jogo fácil: o patrimônio de
- * oito anos a partir de Guarulhos ia de $4,8 bi para $10,7 bi. As tarifas
- * continuam dentro do que se paga no Brasil — Santos Dumont–Congonhas por uns
- * R$ 400, Guarulhos–Salvador por uns R$ 690. As classes continuam com o
- * mesmo multiplicador entre elas, e a disputa entre companhias continua sendo
- * pelo preço relativo — a demanda não reage a este número.
+ * Ajuste adicional pedido: +3% sobre o nível anterior (1,15). Só a receita
+ * por passagem muda; combustível, taxas, tripulação, manutenção e demais
+ * parâmetros de custo continuam iguais. As classes mantêm seus multiplicadores
+ * e a disputa continua pelo preço relativo — a demanda não reage a este número.
  */
-export const NIVEL_TARIFARIO = 1.15
+export const NIVEL_TARIFARIO = 1.15 * 1.03
 
 /**
  * Procura 1,2% acima do que o modelo calcula, pedida por cima do ajuste de
- * preço. A lógica da demanda não muda — crescimento por país, estação, dia da
- * semana, teto do par —; o número final é que sai um pouco maior. O piso de
- * demanda continua sendo o mesmo número, porque ele é decisão de projeto.
+ * preço. Mantém crescimento por país, estação e teto do par; aplica-se antes
+ * dos pisos, que têm seus próprios valores de balanceamento definidos abaixo.
  */
 export const DEMANDA_EXTRA = 1.012
 const KM_POR_NM = 1.852
@@ -65,13 +71,13 @@ const LIMIAR_DOMESTICO_F_NM = 2000 / KM_POR_NM
 /**
  * Teto de um par sobre o movimento da ponta menor.
  *
- * Nenhuma ligação isolada pode ser mais que isto do que o aeroporto menor move
- * no dia inteiro. Sem o teto o modelo gravitacional produzia, num aeroporto de
+ * Limita a base estrutural antes dos pisos e dos eventos. Sem o teto o modelo
+ * gravitacional produzia, num aeroporto de
  * ilha com dois destinos, um par maior que o aeroporto inteiro — e é assim que
  * a demanda fica coerente com as **duas** pontas e não só com a maior.
  *
  * Cinquenta e cinco por cento permite concentração no hub regional. O teto
- * continua impedindo que um par ultrapasse o movimento da ponta menor.
+ * contém a base gravitacional; pisos e eventos são acréscimos de jogo explícitos.
  */
 const TETO_PAR = 0.55
 /**
@@ -167,11 +173,11 @@ const AFINIDADE_CRUZADA = 0.58
 /**
  * O piso de demanda de um par, em passageiros por dia.
  *
- * Dois degraus, e cada um é a cabine cheia da menor aeronave que o par aceita:
+ * Dois degraus, com 3% de folga adicional sobre os pisos anteriores:
  *
- * - **par que aceita jato regional** — 140 econômicos e 10 premium em cada
- *   sentido: 300 passageiros nos dois sentidos, suficientes para uma ida e volta;
- * - **par que só aceita turboélice** — 57 econômicos em cada sentido, para
+ * - **par que aceita jato regional** — 288,4 econômicos + 20,6 premium nos dois
+ *   sentidos: 309 passageiros (antes 300), suficientes para uma ida e volta;
+ * - **par que só aceita turboélice** — 117,42 econômicos nos dois sentidos, para
  *   comportar uma ida e volta de ATR 42 mesmo com tarifa até 1,15× acima
  *   da referência, sem inventar demanda premium.
  *
@@ -181,8 +187,8 @@ const AFINIDADE_CRUZADA = 0.58
  * aeroporto de pista curta demais para a frota inteira, e inventar demanda lá
  * seria demanda que ninguém pode servir.
  */
-export const PISO_JATO: { y: number; w: number } = { y: 280, w: 20 }
-export const PISO_TURBO: { y: number; w: number } = { y: 114, w: 0 }
+export const PISO_JATO: { y: number; w: number } = { y: 288.4, w: 20.6 }
+export const PISO_TURBO: { y: number; w: number } = { y: 117.42, w: 0 }
 const SEM_PISO = { y: 0, w: 0 }
 
 /**
@@ -214,7 +220,10 @@ export function pisoDoPar(a: Airport, b: Airport) {
   return SEM_PISO
 }
 
-export function baseDemand(from: string, to: string, day: number, dayOfYear: number): MarketDemand {
+export function baseDemand(from: string, to: string, day: number, _dayOfYear: number, startYear = 2027, withCalendar = true): MarketDemand {
+  // O quarto argumento é mantido para compatibilidade. A data real do save
+  // governa estação/eventos: inclusive quem antes passava "180" fixo para a IA.
+  const clock = weeklyClock(day, startYear)
   const a = AIRPORT_BY_IATA[from]
   const b = AIRPORT_BY_IATA[to]
   const distNm = distanceBetween(from, to)
@@ -253,7 +262,7 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
   const sameRegion = Math.abs(a.lon - b.lon) < 45 && Math.abs(a.lat - b.lat) < 35 ? 1.12 : 1
   const hubBonus = 1 + 0.05 * (a.tier + b.tier - 4)
   const decay = 1 / (1 + Math.pow(distNm / 700, 1.35))
-  const season = (seasonFactor(dayOfYear, a.lat) + seasonFactor(dayOfYear, b.lat)) / 2
+  const season = (seasonFactor(clock.doy, a.lat) + seasonFactor(clock.doy, b.lat)) / 2
   const noise = 0.82 + 0.36 * hashStr(odKey(from, to))
   /**
    * O mundo não cresce todo junto.
@@ -264,8 +273,8 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
    * é geométrica porque as duas pontas pesam igual num mercado O&D — quem voa
    * GRU–LIS é metade brasileiro e metade português.
    */
-  const derivaA = derivaDoPais(a.cc, day)
-  const derivaB = derivaDoPais(b.cc, day)
+  const derivaA = derivaDoPais(a.cc, clock.age)
+  const derivaB = derivaDoPais(b.cc, clock.age)
   const growth = Math.sqrt(derivaA * derivaB)
 
   let total =
@@ -281,8 +290,7 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
     hubBonus *
     season *
     noise *
-    growth *
-    WEEKDAY[(day + 4) % 7]
+    growth
 
   /**
    * Par colado não sustenta voo — mas o corte era um degrau.
@@ -361,6 +369,10 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
   const piso = pisoDoPar(a, b)
   pax.y = Math.max(pax.y, piso.y)
   pax.w = Math.max(pax.w, piso.w)
+  // Aplica depois do piso/teto estrutural: aeroportos pequenos também ganham
+  // procura nos eventos. Carga e classes sem demanda não ganham turistas.
+  const calendar = withCalendar ? routeCalendarEffect(from, to, clock.date) : undefined
+  if (calendar) for (const c of ['y', 'w', 'c', 'f'] as const) pax[c] *= calendar.multipliers[c]
   total = pax.y + pax.w + pax.c + pax.f
 
   /**
@@ -378,7 +390,7 @@ export function baseDemand(from: string, to: string, day: number, dayOfYear: num
    * de 126 nm, 7% num de 1.100 nm (2.037 km) e 1% num de seis mil.
    */
   const refFare = (44 + 0.088 * distNm) * (0.68 + 0.5 * gdp) * NIVEL_TARIFARIO
-  return { pax, total, refFare, distance: distNm }
+  return { pax, total, refFare, distance: distNm, calendarBoost: calendar?.boost ?? 0 }
 }
 
 export interface CargoDemand {

@@ -16,7 +16,7 @@ O painel **Conexões** distingue passageiros únicos, embarques nos voos própri
 
 Os itinerários vendidos são ordenáveis por lucro ou prejuízo. Cada resultado usa a receita líquida dos trechos próprios e uma parcela proporcional do custo operacional de cada voo; reservas com segundo trecho ainda pendente mostram resultado parcial. Saves anteriores à gravação de custos por conexão mostram o resultado indisponível. A aba **Finanças** lista rotas em déficit dos últimos 14 dias, da maior perda à menor, com ocupação, oferta, procura, receita por passageiro ou tonelada, custo por unidade e principal despesa quando houver detalhamento.
 
-A procura apresentada para um par reúne ida e volta. O piso de um par que aceita jato regional passa a 300 passageiros por dia (150 por sentido); o de um par restrito a turboélices passa a 114 (57 por sentido, permitindo uma ida e volta de ATR 42 mesmo com tarifa 1,15×). Trata-se de procura potencial do mercado, não de passageiros garantidos à companhia: concorrência, preço, horários e número de assentos continuam disputando esse mercado.
+A procura apresentada para um par reúne ida e volta. Com o ajuste adicional de 3%, o piso de um par que aceita jato regional é 309 passageiros por dia (154,5 por sentido); o de um par restrito a turboélices é 117,42 (58,71 por sentido, permitindo uma ida e volta de ATR 42 mesmo com tarifa 1,15×). Trata-se de procura potencial do mercado, não de passageiros garantidos à companhia: concorrência, preço, horários e número de assentos continuam disputando esse mercado. Eventos e férias podem elevar essa base nas semanas indicadas no [calendário](calendario-demanda.md).
 
 ## Retirada de bagagem, não apenas imigração
 

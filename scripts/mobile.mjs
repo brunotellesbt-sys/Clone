@@ -211,7 +211,7 @@ await page.getByRole('button', { name: 'Fechar', exact: true }).first().click()
 assert.equal(await page.getByText('Abrir nova rota', { exact: true }).count(), 0, 'o X fecha o modal')
 
 // ------------------------------------------------------------ cada tela
-for (const nome of ['Painel', 'Rotas', 'Conexões', 'Frota', 'Mercado', 'Finanças', 'Pintura', 'Ranking', 'Companhias']) {
+for (const nome of ['Painel', 'Rotas', 'Conexões', 'Calendário', 'Frota', 'Mercado', 'Finanças', 'Pintura', 'Ranking', 'Companhias']) {
   await aba(nome)
   await medir(nome)
   await page.screenshot({ path: artifact(`mobile-tela-${nome.toLowerCase()}.png`), fullPage: true })

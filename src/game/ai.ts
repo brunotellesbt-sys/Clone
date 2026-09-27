@@ -80,22 +80,25 @@ function noAlcance(base: Airport, destino: Airport, alcance: Alcance): boolean {
 const VALIDADE = 730
 const cacheDestinos = new Map<string, { ate: number; lista: { iata: string; score: number }[] }>()
 
-function candidateDestinations(hub: string, day: number, limit: number, alcance: Alcance = 'int') {
+function candidateDestinations(hub: string, day: number, limit: number, alcance: Alcance = 'int', startYear = 2027) {
   const base = AIRPORT_BY_IATA[hub]
-  const hit = cacheDestinos.get(hub)
+  const cacheKey = startYear + ':' + hub
+  const hit = cacheDestinos.get(cacheKey)
   const completa = hit && day < hit.ate
     ? hit.lista
     : (() => {
         const lista = AIRPORTS.filter((a) => a.iata !== hub && !vooPermitido(base, a))
           .map((a) => {
-            const d = baseDemand(hub, a.iata, day, 180)
+            // Ranking estrutural guardado por dois anos: não eterniza um pico
+            // de festival. Oferta e receita consultam o calendário atual.
+            const d = baseDemand(hub, a.iata, day, 180, startYear, false)
             return { iata: a.iata, score: d.total / (1 + distanceBetween(hub, a.iata) / 4000) }
           })
           .sort((x, y) => y.score - x.score)
           // guarda sempre uma lista longa: pedir 60 e depois 90 não pode custar
           // uma varredura nova, e a lista longa cabe de sobra na memória
           .slice(0, 260)
-        cacheDestinos.set(hub, { ate: day + VALIDADE, lista })
+        cacheDestinos.set(cacheKey, { ate: day + VALIDADE, lista })
         return lista
       })()
   // O alcance filtra a lista guardada em vez de gerar outra: a ordem por
@@ -251,8 +254,8 @@ export function createCompetitors(rng: Rng, densidade: Densidade = DENSIDADE_PAD
  * 2027 e o jogador a tomava sem esforço — a IA parecia burra por um bug de
  * argumento.
  */
-function addAiRoute(comp: Competitor, dest: string, rng: Rng, day: number) {
-  const demand = baseDemand(comp.hub, dest, day, 180)
+function addAiRoute(comp: Competitor, dest: string, rng: Rng, day: number, startYear = 2027) {
+  const demand = baseDemand(comp.hub, dest, day, 180, startYear)
   // Dimensiona a oferta para pegar um pedaço do mercado, com ruído.
   const target = demand.total * between(rng, 0.05, 0.13) * comp.aggression
   const freq = Math.max(1, Math.min(10, Math.round(target / between(rng, 150, 260))))
@@ -313,7 +316,7 @@ function limitarPelaFrota(comp: Competitor) {
 }
 
 /** Decisão semanal: mexe em tarifa, oferta, abre e fecha rota. */
-export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, playerPressure: Record<string, number>, playerRoutes = 0) {
+export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, playerPressure: Record<string, number>, playerRoutes = 0, startYear = 2027) {
   const ritmoJogador = 1 + Math.min(0.55, playerRoutes / 45)
   const limiteDeRotas = Math.min(70, 34 + Math.floor(playerRoutes * 0.45))
   for (const comp of comps) {
@@ -350,10 +353,10 @@ export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, play
     if (chance(rng, 0.17 * comp.aggression * ritmoJogador) && comp.routes.length < limiteDeRotas) {
       // a rota nova tem que caber no que a companhia já alcança: é assim que
       // ela sobe de doméstica a regional e a internacional, um degrau por vez
-      const dests = candidateDestinations(comp.hub, day, 60, alcanceDe(comp, day))
+      const dests = candidateDestinations(comp.hub, day, 60, alcanceDe(comp, day), startYear)
       const open = new Set(comp.routes.map((r) => r.key))
       const next = dests.find((d) => !open.has(odKey(comp.hub, d.iata)))
-      if (next) addAiRoute(comp, next.iata, rng, day)
+      if (next) addAiRoute(comp, next.iata, rng, day, startYear)
     }
     if (chance(rng, 0.1) && comp.routes.length > 10) {
       const weakest = comp.routes.reduce((w, r, i, arr) => (r.freq < arr[w].freq ? i : w), 0)
@@ -375,7 +378,7 @@ export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, play
      */
     if (comp.routes.length) {
       const r = comp.routes[Math.floor(rng() * comp.routes.length)]
-      const mercado = baseDemand(r.from, r.to, day, 180).total
+      const mercado = baseDemand(r.from, r.to, day, 180, startYear).total
       const alvo = mercado * 0.09 * comp.aggression
       const oferta = r.seats * r.freq
       if (oferta > 0) {
@@ -477,6 +480,7 @@ export function fundarCompanhia(
   rng: Rng,
   hubsDoJogador: string[],
   fundadas: Record<string, number[]>,
+  startYear = 2027,
 ): Competitor | null {
   const anos = day / 365
   if (anos < ANOS_ATE_A_PRIMEIRA) return null
@@ -540,21 +544,21 @@ export function fundarCompanhia(
   const quantas = Math.round(between(rng, 3, 6))
   // `'dom'`: companhia nova é companhia doméstica. Ela vira regional e depois
   // internacional com o tempo e o tamanho — ver `alcanceDe`.
-  const dests = candidateDestinations(hub, day, 60, 'dom')
+  const dests = candidateDestinations(hub, day, 60, 'dom', startYear)
   for (const d of dests.filter((x) => !voadas.has(odKey(hub, x.iata)))) {
     if (nova.routes.length >= quantas) break
-    addAiRoute(nova, d.iata, rng, day)
+    addAiRoute(nova, d.iata, rng, day, startYear)
   }
   for (const d of dests) {
     if (nova.routes.length >= 3) break
-    addAiRoute(nova, d.iata, rng, day)
+    addAiRoute(nova, d.iata, rng, day, startYear)
   }
   // Num país de um aeroporto só não há par doméstico, e a companhia nasceria
   // vazia. Ali ela já nasce regional — que é o que Malta e o Bahrein são.
   if (!nova.routes.length) {
-    for (const d of candidateDestinations(hub, day, 20, 'reg')) {
+    for (const d of candidateDestinations(hub, day, 20, 'reg', startYear)) {
       if (nova.routes.length >= 3) break
-      addAiRoute(nova, d.iata, rng, day)
+      addAiRoute(nova, d.iata, rng, day, startYear)
     }
   }
   if (!nova.routes.length) return null

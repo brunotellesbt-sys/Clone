@@ -23,12 +23,12 @@ conferir(longaDom.pax.f > 0, 'doméstica longa elegível pode gerar primeira cla
 conferir(ponte.pax.c > ponte.pax.w, 'executiva e premium têm demandas distintas na ponte aérea')
 conferir(baseDemand('IZA', 'GRU', 0, 180).total > 190, 'ligação regional ganhou procura sem perder teto do aeroporto')
 const jatoRegional = baseDemand('VAL', 'SSA', 0, 1)
-conferir(jatoRegional.total >= 300 && jatoRegional.total * priceElasticity(1.15) >= 248,
+conferir(jatoRegional.total >= 309 && jatoRegional.total * priceElasticity(1.15) >= 248,
   'piso bidirecional suporta uma ida e volta diária de E195 até tarifa 1,15×')
 conferir(baseDemand('SSA', 'VAL', 0, 1).total === jatoRegional.total,
   'ida e volta compartilham um único mercado bidirecional')
 const pisoTurbo = pisoDoPar(AIRPORT_BY_IATA.GRU, AIRPORT_BY_IATA.PGZ)
-conferir(pisoTurbo.y === 114 && pisoTurbo.y * priceElasticity(1.15) >= 100,
+conferir(pisoTurbo.y === 117.42 && pisoTurbo.y * priceElasticity(1.15) >= 100,
   'piso do turboélice suporta uma ida e volta diária de ATR 42 até tarifa 1,15×')
 conferir(baseDemand('GRU', 'REC', 3650, 180).total !== baseDemand('GRU', 'REC', 0, 180).total,
   'crescimento do mercado continua variando com os anos')
