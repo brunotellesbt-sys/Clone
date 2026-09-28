@@ -1,0 +1,66 @@
+import { event as e, fixed as f, weekday as w, easter as p, recurring as r, edition as c } from './travelEventHelpers'
+
+const uk = 'https://www.visitbritain.com/en/annual-events-britain'
+const spain = 'https://www.spain.info/es/consulta/fiestas-abril-espana/'
+const france = 'https://www.france.fr/en/article/major-events-france-thisyear/'
+const riviera = 'https://www.france.fr/fr/article/evenements-hiver-cote-azur/'
+const montreux = 'https://www.myswitzerland.com/fr/decouvrir/manifestations/manifestations-rechercher/-/montreux-riviera/?rubrik=fetesdanslesvilles'
+const madeira = 'https://visitmadeira.com/pt/a-acontecer/eventos/calendario-oficial-2026-2028/'
+const brussels = 'https://www.visit.brussels/en/visitors/agenda/brussels-annual-cultural-events/Zomer'
+const tallinn = 'https://www.visittallinn.ee/fin/matkailija/vinkit-ideat/kaikki-vinkit/tallinnan-tapahtumat'
+export const EUROPE_EVENTS = [
+  e('london-new-year', 'London New Year Parade', 'Londres, Reino Unido', 'LHR LGW LCY', .10, f(1, 1), uk, r),
+  e('celtic-connections', 'Celtic Connections', 'Glasgow, Reino Unido', 'GLA', .20, f(1, 14, 1, 31), uk, c(2027, '01-14', '01-31')),
+  e('burns-night', 'Burns Night', 'Escócia, Reino Unido', 'EDI GLA ABZ INV', .12, f(1, 25), uk, r),
+  e('up-helly-aa', 'Up Helly Aa', 'Lerwick, Shetland, Reino Unido', 'LSI', .40, w(1, 2, -1), uk, { ...r, ...c(2027, '01-26') }),
+  e('glasgow-film', 'Glasgow Film Festival', 'Glasgow, Reino Unido', 'GLA', .18, f(2, 24, 3, 7), uk, c(2027, '02-24', '03-07')),
+  e('crufts', 'Crufts', 'Birmingham, Reino Unido', 'BHX', .20, w(3, 4, 1, 4), uk, c(2027, '03-04', '03-07')),
+  e('cheltenham-races', 'Cheltenham Festival', 'Cheltenham, Reino Unido', 'BHX BRS', .15, w(3, 2, 3, 4), uk, c(2027, '03-16', '03-19')),
+  e('grand-national', 'Grand National · Aintree', 'Liverpool, Reino Unido', 'LPL', .25, w(4, 4, 2, 3), uk, c(2027, '04-08', '04-10')),
+  e('london-marathon', 'Maratona de Londres', 'Londres, Reino Unido', 'LHR LGW LCY', .15, w(4, 0, -1), uk, c(2027, '04-25')),
+  e('chelsea-flowers', 'Chelsea Flower Show', 'Londres, Reino Unido', 'LHR LGW LCY', .12, w(5, 2, 3, 5), uk, c(2027, '05-18', '05-22')),
+  e('royal-ascot', 'Royal Ascot', 'Ascot, Reino Unido', 'LHR', .15, w(6, 2, 3, 5), uk, c(2027, '06-15', '06-19')),
+  e('isle-wight', 'Isle of Wight Festival', 'Ilha de Wight, Reino Unido', 'SOU', .30, w(6, 4, 3, 4), uk, c(2027, '06-17', '06-20')),
+  e('bando-huerta', 'Bando de la Huerta', 'Múrcia, Espanha', 'RMU', .25, p(2), spain, r),
+  e('sardina-murcia', 'Entierro de la Sardina', 'Múrcia, Espanha', 'RMU', .20, p(6), spain, r),
+  e('cabezadas-leon', 'Las Cabezadas', 'León, Espanha', 'LEN', .20, w(4, 0, -1), spain, r),
+  e('faldeta-fraga', 'Día de la Faldeta', 'Fraga, Espanha · acesso por Zaragoza', 'ZAZ', .10, w(4, 0, -1, 3, -2), spain, c(2027, '04-23', '04-25')),
+  e('jerez-caballo', 'Feria del Caballo', 'Jerez de la Frontera, Espanha', 'XRY', .30, f(4, 24, 5, 1), spain, c(2027, '04-24', '05-01')),
+  e('tudela-angel', 'El Volatín y el Ángel', 'Tudela, Espanha', 'PNA', .12, p(-1, 0), spain, r),
+  e('patum', 'La Patum de Berga', 'Berga, Espanha', 'BCN', .10, p(59, 63), 'https://www.spain.info/es/descubrir-espana/fiestas-espana-patrimonio-inmaterial-unesco/', r),
+  e('hogueras-alicante', 'Hogueras de San Juan', 'Alicante, Espanha', 'ALC', .25, f(6, 20, 6, 25), 'https://www.spain.info/en/calendar/bonfires-san-juan-alicante/', r),
+  e('san-isidro', 'Fiestas de San Isidro', 'Madri, Espanha', 'MAD', .12, f(5, 15), 'https://www.spain.info/es/agenda/fiestas-san-isidro/', r),
+  e('cocentaina', 'Feria de Todos los Santos', 'Cocentaina, Espanha', 'ALC', .12, f(10, 30, 11, 1), 'https://www.spain.info/es/agenda/feria-todos-santos/'),
+  e('nice-carnaval', 'Carnaval de Nice', 'Nice, França', 'NCE', .25, p(-53, -35), riviera, c(2026, '02-11', '03-01')),
+  e('menton-citron', 'Fête du Citron', 'Menton, França', 'NCE', .20, f(2, 14, 3, 1), riviera),
+  e('mandelieu-mimosa', 'Fête du Mimosa', 'Mandelieu, França', 'NCE', .12, f(2, 11, 2, 15), riviera, c(2026, '02-11', '02-15')),
+  e('cannes-film', 'Festival de Cannes', 'Cannes, França', 'NCE', .25, w(5, 2, 2, 12), 'https://www.france.fr/fr/evenement/cote-azur-festival-cannes/', c(2026, '05-12', '05-23')),
+  e('fete-musique', 'Fête de la Musique', 'Paris, Lyon, Marselha e Toulouse, França', 'CDG ORY LYS MRS TLS', .10, f(6, 21), france, r),
+  e('bastille', 'Fête Nationale · 14 Juillet', 'Paris, França', 'CDG ORY', .12, f(7, 14), france, r),
+  e('lyon-lumieres', 'Fête des Lumières', 'Lyon, França', 'LYS', .25, f(12, 5, 12, 8), 'https://www.france.fr/fr/evenement/fete-des-lumieres-lyon/'),
+  e('strasbourg-noel', 'Mercado de Natal de Estrasburgo', 'Estrasburgo, França', 'SXB', .25, f(11, 25, 12, 24), france),
+  e('avignon', 'Festival de Avignon', 'Avignon, França', 'MRS', .15, f(7, 7, 7, 25), 'https://festival-avignon.com/en/edition-2026/programme/by-date?cat=all&date=2026-07-21'),
+  e('bayonne', 'Fêtes de Bayonne', 'Bayonne, França', 'BIQ', .35, w(7, 3, 3, 5), 'https://fetes.bayonne.fr/informations-transversales/actualites/le-calendrier-des-fetes-2025-et-2026-fixe-35072', c(2026, '07-15', '07-19')),
+  e('venice-carnival', 'Carnaval de Veneza', 'Veneza, Itália', 'VCE TSF', .30, p(-64, -47), 'https://www.italia.it/en/veneto/venice/things-to-do/venice-carnival'),
+  e('venice-film', 'Festival de Cinema de Veneza', 'Veneza, Itália', 'VCE', .25, f(8, 31, 9, 10), 'https://www.italia.it/en/veneto/guide-history-facts'),
+  e('ivrea-oranges', 'Carnaval de Ivrea · Batalha das Laranjas', 'Ivrea, Itália', 'TRN', .18, p(-49, -47), 'https://www.italia.it/en/italy/things-to-do/italian-carnival-from-north-to-south', r),
+  e('montreux-jazz', 'Montreux Jazz Festival', 'Montreux, Suíça', 'GVA', .20, w(7, 5, 1, 16), 'https://www.myswitzerland.com/fr-ch/decouvrir/manifestations/manifestations-rechercher/festivalfete/montreux-riviera/', c(2027, '07-02', '07-17')),
+  e('septembre-musical', 'Septembre Musical', 'Montreux e Vevey, Suíça', 'GVA', .12, f(9, 9, 9, 18), montreux, c(2026, '09-09', '09-18')),
+  e('montreux-comedy', 'Montreux Comedy', 'Montreux, Suíça', 'GVA', .12, f(11, 11, 11, 22), montreux, c(2026, '11-11', '11-22')),
+  e('bregenz', 'Bregenzer Festspiele', 'Bregenz, Áustria', 'ACH FDH', .25, f(7, 22, 8, 23), 'https://www.austria.info/en-us/events/bregenz-festival/', c(2026, '07-22', '08-23')),
+  e('vienna-film', 'Film Festival Rathausplatz', 'Viena, Áustria', 'VIE', .12, f(7, 4, 9, 6), 'https://b2b.austria.info/fileadmin/user_upload/Media_Library/Downloads/Downloads_AUS/Austria_Like_a_Local_2026.pdf', c(2026, '07-04', '09-06')),
+  e('wacken', 'Wacken Open Air', 'Wacken, Alemanha', 'HAM', .20, w(7, 3, -1, 4), 'https://faq.wacken.com/en-us/43-w-o-a-2026/536-when-will-w-o-a-2026-take-place', c(2027, '07-28', '07-31')),
+  e('cologne-carnival', 'Carnaval de Colônia', 'Colônia, Alemanha', 'CGN', .30, p(-52, -47), 'https://www.germany.travel/en/inspiring-germany/german-carnival-hotspots.html', r),
+  e('dresden-striezelmarkt', 'Dresdner Striezelmarkt', 'Dresden, Alemanha', 'DRS', .25, f(11, 27, 12, 24), 'https://www.germany.travel/en/campaign/christmas-markets/christmas-markets.html'),
+  e('roskilde', 'Roskilde Festival', 'Roskilde, Dinamarca', 'CPH', .20, w(6, 6, -1, 8), 'https://www.roskilde-festival.dk/en/press/press-kit/facts-about-roskilde-festival', c(2026, '06-27', '07-04')),
+  e('sziget', 'Sziget', 'Budapeste, Hungria', 'BUD', .30, f(8, 10, 8, 14), 'https://szigetfestival.com/hu/', c(2027, '08-10', '08-14')),
+  e('tallinn-old-town', 'Tallinn Old Town Days', 'Tallinn, Estônia', 'TLL', .20, w(6, 5, 1, 3), tallinn, c(2026, '06-05', '06-07')),
+  e('tallinn-medieval', 'Tallinn Medieval Days', 'Tallinn, Estônia', 'TLL', .18, w(7, 5, 2, 3), tallinn, c(2026, '07-10', '07-12')),
+  e('tallinn-fringe', 'Tallinn Fringe', 'Tallinn, Estônia', 'TLL', .18, f(8, 18, 9, 18), tallinn, c(2026, '08-18', '09-18')),
+  e('brussels-ommegang', 'Ommegang', 'Bruxelas, Bélgica', 'BRU', .15, f(7, 1, 7, 3), brussels),
+  e('brussels-couleur', 'Couleur Café', 'Bruxelas, Bélgica', 'BRU', .18, w(6, 5, -1, 3), brussels),
+  e('belgium-national', 'Festa Nacional da Bélgica', 'Bruxelas, Bélgica', 'BRU', .15, f(7, 20, 7, 21), brussels, r),
+  e('madeira-flower', 'Festa da Flor', 'Funchal, Portugal', 'FNC', .35, f(4, 30, 5, 31), madeira, c(2026, '04-30', '05-31')),
+  e('madeira-atlantic', 'Festival do Atlântico', 'Funchal, Portugal', 'FNC', .25, f(6, 5, 6, 28), madeira, c(2026, '06-05', '06-28')),
+  e('porto-santo-vindimas', 'Festa das Vindimas de Porto Santo', 'Porto Santo, Portugal', 'PXO', .30, w(8, 5, 3), 'https://www.visitportugal.com/en/node/519779', c(2026, '08-21')),
+]

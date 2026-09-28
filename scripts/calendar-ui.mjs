@@ -29,6 +29,27 @@ try {
   const options = await month.locator('option').evaluateAll(items => items.map(i => i.value))
   assert.equal(options.length, 19)
   assert.equal(options.at(-1), String(2028 * 12 + 11))
+  assert(Number((await page.locator('.calendar-catalog').textContent()).match(/(\d+) eventos/)[1]) >= 200)
+
+  // Um catálogo mundial precisa permitir recortes geográficos e expansão acessível.
+  const continent = page.getByLabel('Continente do calendário')
+  const country = page.getByLabel('País do calendário')
+  await continent.selectOption('EU')
+  assert.equal(await country.locator('option[value="BR"]').count(), 0)
+  await country.selectOption('PT')
+  assert(await page.locator('[data-event="madeira-atlantic"]').count() > 0)
+  assert.equal(await page.locator('[data-event="parintins"]').count(), 0)
+  await continent.selectOption('SA')
+  assert.equal(await country.inputValue(), 'all', 'trocar continente limpa país incompatível')
+  await country.selectOption('BR')
+  assert(await page.locator('[data-event="parintins"]').count() > 0)
+  await continent.selectOption('all')
+  const firstWeek = page.locator('.calendar-week').first()
+  assert.equal(await firstWeek.locator('.calendar-event').count(), 6)
+  await firstWeek.getByRole('button', { name: /Mostrar mais/ }).click()
+  assert(await firstWeek.locator('.calendar-event').count() > 6)
+  await firstWeek.getByRole('button', { name: 'Mostrar menos' }).click()
+  assert.equal(await firstWeek.locator('.calendar-event').count(), 6)
 
   await page.getByLabel('Buscar evento ou aeroporto', { exact: true }).fill('Parintins')
   const event = page.locator('[data-event="parintins"]').first()
@@ -73,6 +94,13 @@ try {
   assert(await page.getByLabel('Próximo mês', { exact: true }).isDisabled())
   await page.getByRole('button', { name: 'Mês atual', exact: true }).click()
   assert.equal(await month.inputValue(), String(2027 * 12 + 5))
+
+  await month.selectOption(String(2028 * 12))
+  await page.getByLabel('Buscar evento ou aeroporto', { exact: true }).fill('Ano-Novo Chinês')
+  const lunar = page.locator('[data-event="hong-kong-new-year"]').first()
+  assert(await lunar.isVisible())
+  await lunar.locator('summary').click()
+  assert((await lunar.textContent()).includes('26/01/2028'), 'data HKO igual no navegador e na simulação')
 
   // A rota exibida usa o mesmo aumento mostrado no calendário.
   await page.getByRole('button', { name: /^Rotas/ }).click()

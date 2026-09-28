@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { AIRPORT_BY_IATA } from '../src/game/data/airports'
 import { TRAVEL_EVENTS } from '../src/game/data/travelEvents'
+import { LUNAR_FESTIVAL_DATES } from '../src/game/data/lunarFestivalDates'
 import { DAY_MS, dayOfYearAt, easterDate, gameDayDate, mondayOf, utcDate } from '../src/game/calendarDates'
 import { eventDates, eventsBetween, eventsForYear, monthBounds, routeCalendarEffect } from '../src/game/travelCalendar'
 import { baseDemand, NIVEL_TARIFARIO, PISO_JATO, PISO_TURBO } from '../src/game/demand'
@@ -14,6 +15,12 @@ const demand = (from: string, to: string, date: number, calendar = true, startYe
 const close = (a: number, b: number) => assert(Math.abs(a - b) < 1e-8, `${a} ≈ ${b}`)
 
 assert.equal(new Set(TRAVEL_EVENTS.map(e => e.id)).size, TRAVEL_EVENTS.length)
+assert(TRAVEL_EVENTS.filter(e => e.category === 'evento').length >= 200, 'mínimo de 200 eventos, excluindo férias')
+assert(TRAVEL_EVENTS.filter(e => e.category === 'ferias').length >= 20, 'férias têm contagem independente')
+assert.equal(new Set(TRAVEL_EVENTS.map(e => e.name)).size, TRAVEL_EVENTS.length, 'sem duplicar nomes de eventos')
+const destinations = TRAVEL_EVENTS.flatMap(e => e.airports.map(a => AIRPORT_BY_IATA[a.iata]))
+assert(new Set(destinations.map(a => a.cc)).size >= 40)
+assert.deepEqual([...new Set(destinations.map(a => a.cont))].sort(), ['AF', 'AS', 'EU', 'NA', 'OC', 'SA'])
 for (const event of TRAVEL_EVENTS) {
   assert(event.sources.length > 0, `${event.id}: fontes`)
   assert(event.sources.every(s => new URL(s.url).protocol === 'https:'))
@@ -23,8 +30,11 @@ for (const event of TRAVEL_EVENTS) {
     assert(airport.boost > 0 && airport.boost <= 1.2)
   }
   for (const iata of event.gateways ?? []) assert(AIRPORT_BY_IATA[iata], `${event.id}: acesso ${iata}`)
-  for (let year = 2026; year < 2070; year++) {
-    const o = occurrence(event.id, year)
+}
+// Percorre por ano para validar também o catálogo grande sem inutilizar os caches limitados.
+for (let year = 2026; year < 2070; year++) {
+  for (const o of eventsForYear(year)) {
+    const event = o.event
     assert(o.actualEnd >= o.actualStart)
     assert(o.start <= o.actualStart && o.end >= o.actualEnd)
     assert.equal(new Date(o.start).getUTCDay(), 1)
@@ -32,6 +42,28 @@ for (const event of TRAVEL_EVENTS) {
     assert(o.end - o.start < 130 * DAY_MS, `${event.id}: temporada não se prolonga indevidamente`)
   }
 }
+
+// Tabelas do Observatório de Hong Kong: anos lunares mudam de data e não repetem no mês intercalar.
+assert.equal(iso(occurrence('hong-kong-new-year', 2027).actualStart), '2027-02-06')
+assert.equal(iso(occurrence('hong-kong-new-year', 2028).actualStart), '2028-01-26')
+assert.equal(iso(occurrence('hong-kong-dragon', 2026).actualStart), '2026-06-19')
+assert.equal(iso(occurrence('singapore-mid-autumn', 2026).actualStart), '2026-09-25')
+assert.equal(iso(occurrence('hong-kong-new-year', 2033).actualStart), '2033-01-31')
+assert.equal(iso(occurrence('hong-kong-new-year', 2034).actualStart), '2034-02-19')
+assert.equal(Object.keys(LUNAR_FESTIVAL_DATES).length, 75)
+for (let year = 2026; year <= 2100; year++) {
+  const row = LUNAR_FESTIVAL_DATES[year]
+  assert(row && row[0] >= 121 && row[0] <= 220 && row[1] >= 501 && row[1] <= 630 && row[2] >= 801 && row[2] <= 1031)
+  for (const id of ['hong-kong-new-year', 'hong-kong-dragon', 'singapore-mid-autumn']) {
+    const o = occurrence(id, year)
+    assert.equal(o.certainty, 'Recorrência anual')
+    assert.equal(eventsForYear(year).filter(x => x.event.id === id).length, 1)
+  }
+}
+assert.equal(occurrence('hong-kong-new-year', 2101).certainty, 'Projeção anual')
+assert.equal(iso(occurrence('hiwasa', 2027).actualStart), '2027-10-09', 'fim de semana antes da segunda segunda-feira')
+assert.equal(occurrence('australian-open', 2027).certainty, 'Datas confirmadas')
+assert.equal(occurrence('australian-open', 2028).certainty, 'Projeção anual')
 
 assert.equal(iso(easterDate(2027)), '2027-03-28')
 assert.equal(iso(easterDate(2028)), '2028-04-16')
