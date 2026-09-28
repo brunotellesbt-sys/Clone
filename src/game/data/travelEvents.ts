@@ -1,8 +1,15 @@
-/** Pesquisa revisada em 27/09/2026. Fontes sustentam datas/lugares, não os bônus do jogo. */
+import { ASIA_EVENTS } from './travelEventsAsia'
+import { EUROPE_EVENTS } from './travelEventsEurope'
+import { BRAZIL_EVENTS } from './travelEventsBrazil'
+import { AMERICAS_EVENTS } from './travelEventsAmericas'
+import { AFRICA_OCEANIA_EVENTS } from './travelEventsAfricaOceania'
+import { TRAVEL_SEASONS } from './travelSeasons'
+/** Pesquisa revisada em 28/09/2026. Fontes sustentam datas/lugares, não os bônus do jogo. */
 export type EventRule =
   | { kind: 'fixed'; start: [number, number]; end: [number, number] }
   | { kind: 'easter'; startOffset: number; endOffset: number }
-  | { kind: 'weekday'; month: number; weekday: number; nth: number; duration: number }
+  | { kind: 'chinese'; month: number; day: number; duration: number }
+  | { kind: 'weekday'; month: number; weekday: number; nth: number; duration: number; offset?: number }
   | { kind: 'oktoberfest' }
 export interface TravelEvent {
   id: string
@@ -34,6 +41,12 @@ const july = { title: 'Ministério do Turismo · férias de julho',
   url: 'https://www.gov.br/turismo/pt-br/assuntos/ultimas-noticia/partiu-ferias' }
 
 export const TRAVEL_EVENTS: TravelEvent[] = [
+  ...ASIA_EVENTS,
+  ...EUROPE_EVENTS,
+  ...BRAZIL_EVENTS,
+  ...AMERICAS_EVENTS,
+  ...AFRICA_OCEANIA_EVENTS,
+  ...TRAVEL_SEASONS,
   {
     id: 'ferias-verao-sc', name: 'Férias de verão · litoral catarinense', place: 'Navegantes, Florianópolis e litoral de SC',
     category: 'ferias', basis: 'regra-do-jogo', rule: fixed(12, 16, 2, 15),

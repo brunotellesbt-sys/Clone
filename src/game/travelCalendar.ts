@@ -1,6 +1,7 @@
 import { TRAVEL_EVENTS, type TravelEvent } from './data/travelEvents'
-import { DAY_MS, easterDate, mondayOf, nthWeekday, sundayOf, utcDate } from './calendarDates'
+import { DAY_MS, chineseDate, easterDate, mondayOf, nthWeekday, sundayOf, utcDate } from './calendarDates'
 import type { Cabins } from './types'
+import { LUNAR_FESTIVAL_DATES } from './data/lunarFestivalDates'
 
 export interface EventOccurrence {
   event: TravelEvent
@@ -21,6 +22,10 @@ export function eventDates(event: TravelEvent, year: number): [number, number] {
   const confirmed = event.confirmed?.[year]
   if (confirmed) return confirmed.map(d => Date.parse(d + 'T00:00:00Z')) as [number, number]
   const rule = event.rule
+  if (rule.kind === 'chinese') {
+    const start = chineseDate(year, rule.month, rule.day)
+    return [start, start + (rule.duration - 1) * DAY_MS]
+  }
   if (rule.kind === 'fixed') {
     const start = utcDate(year, ...rule.start)
     let end = utcDate(year, ...rule.end)
@@ -32,7 +37,7 @@ export function eventDates(event: TravelEvent, year: number): [number, number] {
     return [easter + rule.startOffset * DAY_MS, easter + rule.endOffset * DAY_MS]
   }
   if (rule.kind === 'weekday') {
-    const start = nthWeekday(year, rule.month, rule.weekday, rule.nth)
+    const start = nthWeekday(year, rule.month, rule.weekday, rule.nth) + (rule.offset ?? 0) * DAY_MS
     return [start, start + (rule.duration - 1) * DAY_MS]
   }
   // Primeiro sábado estritamente após 15/09. Extensões não anunciadas ficam como projeção.
@@ -46,6 +51,7 @@ export function eventsForYear(year: number) {
     list = TRAVEL_EVENTS.map(event => {
       const [actualStart, actualEnd] = eventDates(event, year)
       const certainty: EventOccurrence['certainty'] = event.confirmed?.[year] ? 'Datas confirmadas' :
+        event.rule.kind === 'chinese' && !LUNAR_FESTIVAL_DATES[year] ? 'Projeção anual' :
         event.basis === 'recorrencia' ? 'Recorrência anual' :
           event.basis === 'regra-do-jogo' ? 'Temporada do jogo' : 'Projeção anual'
       return { event, key: event.id + ':' + year, year, actualStart, actualEnd,
