@@ -37,6 +37,8 @@
     "connections:check": "tsx scripts/connections-check.ts",
     "connections:ui": "node scripts/connections-ui.mjs",
     "map:geometry": "tsx scripts/map-geometry.ts",
+    "map:tiles": "tsx scripts/map-tiles-check.ts",
+    "map:tiles:ui": "node scripts/map-tiles-ui.mjs",
     "calendar:check": "tsx scripts/calendar-check.ts",
     "calendar:ui": "node scripts/calendar-ui.mjs"
   },

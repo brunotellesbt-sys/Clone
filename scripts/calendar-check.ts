@@ -15,10 +15,13 @@ const demand = (from: string, to: string, date: number, calendar = true, startYe
 const close = (a: number, b: number) => assert(Math.abs(a - b) < 1e-8, `${a} ≈ ${b}`)
 
 assert.equal(new Set(TRAVEL_EVENTS.map(e => e.id)).size, TRAVEL_EVENTS.length)
-assert(TRAVEL_EVENTS.filter(e => e.category === 'evento').length >= 200, 'mínimo de 200 eventos, excluindo férias')
+assert.equal(TRAVEL_EVENTS.filter(e => e.category === 'evento').length, 300, '300 eventos, excluindo férias')
 assert(TRAVEL_EVENTS.filter(e => e.category === 'ferias').length >= 20, 'férias têm contagem independente')
 assert.equal(new Set(TRAVEL_EVENTS.map(e => e.name)).size, TRAVEL_EVENTS.length, 'sem duplicar nomes de eventos')
-const destinations = TRAVEL_EVENTS.flatMap(e => e.airports.map(a => AIRPORT_BY_IATA[a.iata]))
+const destinations = TRAVEL_EVENTS.flatMap(e => e.airports.map(a => {
+  assert(AIRPORT_BY_IATA[a.iata], `${e.id}: aeroporto ${a.iata} deve existir`)
+  return AIRPORT_BY_IATA[a.iata]
+}))
 assert(new Set(destinations.map(a => a.cc)).size >= 40)
 assert.deepEqual([...new Set(destinations.map(a => a.cont))].sort(), ['AF', 'AS', 'EU', 'NA', 'OC', 'SA'])
 for (const event of TRAVEL_EVENTS) {
@@ -140,7 +143,8 @@ assert(demand('GRU', 'PIN', festival.start).total > demand('GRU', 'PIN', festiva
 const carnival = occurrence('carnaval', 2027).start
 close(routeCalendarEffect('SSA', 'REC', carnival).boost, .45 + .30)
 close(routeCalendarEffect('NVT', 'FLN', january).boost, .35)
-close(routeCalendarEffect('NVT', 'REC', january).boost, .35)
+// Férias catarinenses + Encantos do Natal; férias nordestinas não duplicam o bônus.
+close(routeCalendarEffect('NVT', 'REC', january).boost, .35 + .12)
 close(routeCalendarEffect('MCO', 'PIN', festival.start).boost, 1.2)
 assert.notEqual(demand('LHR', 'JFK', utcDate(2027, 3, 15), false).total,
   demand('LHR', 'JFK', utcDate(2027, 7, 15), false).total, 'sazonalidade continua')

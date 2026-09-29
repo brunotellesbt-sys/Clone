@@ -10,6 +10,8 @@ import { blocoDe, DIA, DOW_CURTO, escalaDe, hhmm, naSemana, noTempo, partidaUtc,
 import { distanceBetween, interpolate } from '../game/geo'
 import { spriteMapa } from '../livery/mapSprites'
 import { flightPose, MAP_MAX_ZOOM, spriteRotation } from './mapGeometry'
+import { SatelliteTiles } from './SatelliteTiles'
+import { MAP_BOUNDS } from './mapTiles'
 import type { Aircraft, GameState, Perna, Route } from '../game/types'
 
 const W = 1000
@@ -111,6 +113,25 @@ export function MapView({
    */
   const andou = useRef(false)
   const svgRef = useRef<SVGSVGElement>(null)
+  const [raster, setRaster] = useState({ pixelScale: 1, bounds: MAP_BOUNDS })
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!svg) return
+    const measure = () => {
+      const rect = svg.getBoundingClientRect()
+      const scale = Math.min(rect.width / W, rect.height / H)
+      if (!scale) return
+      // O SVG no celular tem área visível acima/abaixo do viewBox por causa do xMidYMid.
+      const width = rect.width / scale, height = rect.height / scale
+      setRaster({ pixelScale: Math.max(.1, scale * Math.min(window.devicePixelRatio || 1, 2)),
+        bounds: { left: (W - width) / 2, right: (W + width) / 2,
+          top: (H - height) / 2, bottom: (H + height) / 2 } })
+    }
+    const observer = new ResizeObserver(measure)
+    observer.observe(svg)
+    measure()
+    return () => observer.disconnect()
+  }, [])
   /**
    * A vista de agora, fora do React.
    *
@@ -133,6 +154,12 @@ export function MapView({
   const aplicar = (v: { k: number; x: number; y: number }) => {
     vista.current = v
     setView(v)
+  }
+  const zoomCentro = (factor: number) => {
+    const current = vista.current
+    const k = Math.min(K_MAX, Math.max(1, current.k * factor))
+    aplicar(limitar(k, W / 2 - (W / 2 - current.x) * k / current.k,
+      H / 2 - (H / 2 - current.y) * k / current.k))
   }
 
   const projection = useMemo(
@@ -513,8 +540,9 @@ export function MapView({
         <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
           <image href={SATELLITE} x="0" y="10" width={W} height={H - 20}
             preserveAspectRatio="none" onClick={onFundo} />
+          <SatelliteTiles view={view} {...raster} />
           <path d={gratPath} fill="none" stroke="#a9c5dd" strokeOpacity="0.1" strokeWidth={stroke(0.5)} />
-          <path d={landPath} fill="none" stroke="#b9d7ee" strokeOpacity="0.28" strokeWidth={stroke(0.55)} onClick={onFundo} />
+          <path d={landPath} fill="none" stroke="#b9d7ee" strokeOpacity={view.k > 8 ? 0 : 0.28} strokeWidth={stroke(0.55)} onClick={onFundo} />
 
           {lines.rivals && compRoutes.map((r, i) => (
             <path className="map-rival-route" key={`c${i}`} d={arc(r.from, r.to)} fill="none" stroke={r.color} strokeOpacity={0.15} strokeWidth={stroke(0.7)} />
@@ -614,8 +642,8 @@ export function MapView({
           mapa saltaria de volta no primeiro toque depois do botão */}
       <div className="map-tools">
         <button onClick={() => setSettingsOpen(!settingsOpen)} title="Configurações do mapa" aria-label="Configurações do mapa" aria-expanded={settingsOpen}>⚙</button>
-        <button onClick={() => aplicar(limitar(vista.current.k * 1.35, vista.current.x, vista.current.y))} title="Aproximar" aria-label="Aproximar">+</button>
-        <button onClick={() => aplicar(limitar(vista.current.k / 1.35, vista.current.x, vista.current.y))} title="Afastar" aria-label="Afastar">−</button>
+        <button onClick={() => zoomCentro(1.35)} title="Aproximar" aria-label="Aproximar">+</button>
+        <button onClick={() => zoomCentro(1 / 1.35)} title="Afastar" aria-label="Afastar">−</button>
         <button onClick={() => aplicar({ k: 1, x: 0, y: 0 })} title="Ver o mundo todo" aria-label="Ver o mundo todo">⤢</button>
       </div>
       {settingsOpen && <div className="map-settings" aria-label="Configurações do mapa">
@@ -627,6 +655,7 @@ export function MapView({
       </div>}
 
       <div className="map-legend">
+        <a href="https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/" target="_blank" rel="noreferrer">Imagem: NASA Earth Observatory / GIBS</a>
         {picking ? (
           <span>
             {noDedo ? 'Toque' : 'Clique'} num aeroporto para escolher a base ·{' '}
@@ -635,7 +664,6 @@ export function MapView({
         ) : (
           <>
             <span><i className="dot hub" /> base</span>
-            <a href="https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/" target="_blank" rel="noreferrer">Imagem: NASA Earth Observatory</a>
             <span><i className="dash good" /> rota no lucro</span>
             <span><i className="dash bad" /> rota no prejuízo</span>
             {routes.length > 0 && (

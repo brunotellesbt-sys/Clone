@@ -152,6 +152,7 @@ conferir((await menu.locator('option').count()) > 1, 'o destino é um menu suspe
 conferir(/\d+ km/.test(await menu.locator('option').nth(1).textContent()), 'o menu mostra a distância em km')
 await page.getByRole('button', { name: /^Abrir por/ }).click()
 await page.waitForTimeout(500)
+await page.locator('.modal').getByRole('button', { name: 'Fechar', exact: true }).click()
 conferir(/km/.test(await page.locator('table').first().textContent()), 'a tabela de rotas mostra km')
 
 // a rota nasce sem voo: quem marca é o jogador, e sem perna marcada não há

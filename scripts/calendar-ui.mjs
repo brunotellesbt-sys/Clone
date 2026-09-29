@@ -29,7 +29,7 @@ try {
   const options = await month.locator('option').evaluateAll(items => items.map(i => i.value))
   assert.equal(options.length, 19)
   assert.equal(options.at(-1), String(2028 * 12 + 11))
-  assert(Number((await page.locator('.calendar-catalog').textContent()).match(/(\d+) eventos/)[1]) >= 200)
+  assert.equal(Number((await page.locator('.calendar-catalog').textContent()).match(/(\d+) eventos/)[1]), 300)
 
   // Um catálogo mundial precisa permitir recortes geográficos e expansão acessível.
   const continent = page.getByLabel('Continente do calendário')

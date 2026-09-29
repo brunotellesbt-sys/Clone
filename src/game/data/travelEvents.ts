@@ -4,6 +4,7 @@ import { BRAZIL_EVENTS } from './travelEventsBrazil'
 import { AMERICAS_EVENTS } from './travelEventsAmericas'
 import { AFRICA_OCEANIA_EVENTS } from './travelEventsAfricaOceania'
 import { TRAVEL_SEASONS } from './travelSeasons'
+import { EXPANSION_EVENTS } from './travelEventsExpansion'
 /** Pesquisa revisada em 28/09/2026. Fontes sustentam datas/lugares, não os bônus do jogo. */
 export type EventRule =
   | { kind: 'fixed'; start: [number, number]; end: [number, number] }
@@ -41,6 +42,7 @@ const july = { title: 'Ministério do Turismo · férias de julho',
   url: 'https://www.gov.br/turismo/pt-br/assuntos/ultimas-noticia/partiu-ferias' }
 
 export const TRAVEL_EVENTS: TravelEvent[] = [
+  ...EXPANSION_EVENTS,
   ...ASIA_EVENTS,
   ...EUROPE_EVENTS,
   ...BRAZIL_EVENTS,
