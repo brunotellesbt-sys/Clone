@@ -30,10 +30,11 @@ jobs:
       - run: npm run connections:check
       - run: npm run calendar:check
       - run: npm run map:geometry
+      - run: npm run map:tiles
       - run: npx tsx scripts/cargo-check.ts
       - run: npm run sim -- GRU 1460
       - run: npm run smoke
-      - name: Calendário no celular e desktop
+      - name: Calendário e mapa no celular e desktop
         run: |
           npm run dev -- --host 127.0.0.1 > /tmp/calendar-vite.log 2>&1 &
           calendar_pid=$!
@@ -43,3 +44,4 @@ jobs:
             sleep 1
           done
           npm run calendar:ui
+          npm run map:tiles:ui

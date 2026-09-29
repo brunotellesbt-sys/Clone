@@ -1,6 +1,6 @@
 # Calendário de demanda turística
 
-Pesquisa ampliada em 28/09/2026: **207 eventos distintos e 23 períodos de férias e temporadas**, em **43 países e territórios** dos seis continentes habitados. O requisito de 200 conta apenas eventos: férias, vários aeroportos e semanas de uma mesma festa não aumentam essa contagem. O catálogo é uma seleção mundial, não uma lista exaustiva de todos os eventos e escolas.
+Pesquisa ampliada em 28/09/2026: **300 eventos distintos e 23 períodos de férias e temporadas**, em **47 países e territórios** dos seis continentes habitados, beneficiando 285 aeroportos. O requisito de 300 conta apenas eventos: férias, vários aeroportos e semanas de uma mesma festa não aumentam essa contagem. O catálogo é uma seleção mundial, não uma lista exaustiva de todos os eventos e escolas.
 
 ## Demanda fluida e planejamento semanal
 
