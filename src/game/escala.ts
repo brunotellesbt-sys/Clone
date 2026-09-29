@@ -203,10 +203,12 @@ export function pernasDaRota(s: GameState, r: Route): Perna[] {
   )
 }
 
-/** Saldo ímpar entre os dois sentidos, somando as pernas de todas as aeronaves na semana. */
-export function saldoImparDaRota(s: GameState, r: Route): boolean {
-  const saldo = pernasDaRota(s, r).reduce((n, p) => n + (p.from === r.from ? 1 : -1), 0)
-  return Math.abs(saldo) % 2 === 1
+/** Indica qualquer desequilíbrio entre saídas e chegadas na semana, em todas as aeronaves. */
+export function saldoDiferenteDaRota(s: GameState, r: Route): boolean {
+  const voos = pernasDaRota(s, r)
+  const saidas = voos.filter((p) => p.from === r.from).length
+  const chegadas = voos.filter((p) => p.to === r.from).length
+  return saidas !== chegadas
 }
 
 /** Quantas partidas a rota tem num dia da semana, contando os dois sentidos. */
