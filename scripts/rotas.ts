@@ -2,6 +2,7 @@ import { baseDemand, pisoDoPar, priceElasticity } from '../src/game/demand'
 import { AIRPORT_BY_IATA } from '../src/game/data/airports'
 import { newGame, openRoute, routeEconomics, sugerirTarifasParaCobertura } from '../src/game/engine'
 import { compararPorOrdenacao } from '../src/game/routeOrdering'
+import { saldoImparDaRota } from '../src/game/escala'
 import type { Cabins, DayResult } from '../src/game/types'
 
 let falhas = 0
@@ -135,6 +136,28 @@ conferir(baseDemand('GRU', 'REC', 3650, 180).total !== baseDemand('GRU', 'REC', 
   const porDemanda = [...lista].sort((x, y) => compararPorOrdenacao('demand-desc', x, y)).map((x) => x.id).join('')
   conferir(porDist === 'acb', 'ordenação padrão por distância crescente')
   conferir(porDemanda === 'bca', 'ordenação por demanda prioriza mais alta')
+}
+
+// A marcação usa as partidas da semana inteira, inclusive caudas distintas.
+{
+  const s = newGame({ name: 'Teste', code: 'TS', hub: 'SSA', seed: 11 })
+  openRoute(s, 'SSA', 'AJU')
+  const r = s.airline.routes[0]
+  const check = (idas: number, voltas: number, odd: boolean) => {
+    s.airline.escala = [
+      ...Array.from({ length: idas }, (_, i) => ({ id: `i${i}`, aircraftId: `a${i % 2}`, from: 'SSA', to: 'AJU', dow: i % 7, saida: 480 })),
+      ...Array.from({ length: voltas }, (_, i) => ({ id: `v${i}`, aircraftId: `a${(i + 1) % 2}`, from: 'AJU', to: 'SSA', dow: i % 7, saida: 720 })),
+      { id: 'outra', aircraftId: 'a3', from: 'SSA', to: 'REC', dow: 0, saida: 900 },
+    ]
+    conferir(saldoImparDaRota(s, r) === odd, `${idas} idas e ${voltas} voltas: ${odd ? 'com' : 'sem'} asterisco`)
+  }
+  check(0, 0, false)
+  check(1, 0, true)
+  check(2, 1, true)
+  check(2, 3, true)
+  check(2, 0, false)
+  check(3, 1, false)
+  check(2, 2, false)
 }
 
 console.log(falhas ? `\n${falhas} falha(s)` : '\ntudo certo')

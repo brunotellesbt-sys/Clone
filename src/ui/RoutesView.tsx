@@ -5,6 +5,7 @@ import {
 } from '../game/data/airports'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from '../game/demand'
 import { distanceBetween, odKey } from '../game/geo'
+import { saldoImparDaRota } from '../game/escala'
 import { CAMBIO, moedaDoPais, tarifa } from '../game/money'
 import { compararPorOrdenacao, ORDENACOES_ROTAS, type OrdenacaoRotas } from '../game/routeOrdering'
 import { aeroportoServe, pistaServe } from '../game/spec'
@@ -86,9 +87,10 @@ export function RoutesView() {
               <tbody>
                 {routes.map((r) => {
                   const e = routeEconomics(state, r)
+                  const odd = saldoImparDaRota(state, r)
                   return (
                     <tr key={r.id} className={`click ${sel?.id === r.id ? 'on' : ''}`} onClick={() => setSelId(r.id)}>
-                      <td><b>{r.from} → {r.to}</b><br /><span className="muted">{AIRPORT_BY_IATA[r.to].city}</span></td>
+                      <td><b>{r.from} → {r.to}{odd && <span className="alerta" title="Saldo ímpar entre voos de ida e volta na semana">*</span>}</b><br /><span className="muted">{AIRPORT_BY_IATA[r.to].city}</span></td>
                       <td className="r">{km(r.distance)}</td>
                       <td className="r">{r.aircraftIds.length}</td>
                       <td className="r">{Math.max(...r.freq)}/dia</td>
@@ -117,6 +119,7 @@ export function RoutesView() {
 
 function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }) {
   const { state, act } = useGame()
+  const odd = saldoImparDaRota(state, route)
   const e = routeEconomics(state, route)
   const hist = route.history.map((h) => h.profit)
   // A passagem é vendida onde a viagem começa: a rota é lida na moeda da origem.
@@ -124,7 +127,7 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
 
   return (
     <div className="grid" style={{ gap: 14 }}>
-      <Card title={`${route.from} → ${route.to} · ${AIRPORT_BY_IATA[route.to].city}`}>
+      <Card title={`${route.from} → ${route.to}${odd ? '*' : ''} · ${AIRPORT_BY_IATA[route.to].city}`}>
         <div className="grid g2" style={{ gap: 8, fontSize: 13, marginBottom: 10 }}>
           <div><span className="muted">Distância</span><br />{km(route.distance)}</div>
           <div><span className="muted">Demanda total</span><br />{num(e.demandaDia)} {e.unidade}/dia</div>
