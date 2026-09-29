@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from 'react'
 import { AIRPORT_BY_IATA } from '../game/data/airports'
 import { frotaDaConcorrente } from '../game/ai'
+import { competitorHubs } from '../game/hubDevelopment'
 import { baseDemand, CLASS_FARE_MULT } from '../game/demand'
 import { allocateMarket, SELLABLE, type Carrier } from '../game/economy'
 import { dayOfYear, km, modelOf, num, pct } from '../game/engine'
@@ -55,7 +56,7 @@ export function CompetitorsView() {
   })).sort((a, b) => b.overlap - a.overlap || b.comp.fleetSize - a.comp.fleetSize), [state.competitors, state.day, mine])
   const filtered = companies.filter(({ comp, overlap }) =>
     (!onlyOverlap || overlap > 0) &&
-    `${comp.name} ${comp.code} ${comp.hub}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
+    `${comp.name} ${comp.code} ${competitorHubs(comp).join(' ')}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
   const selected = filtered.find(x => x.comp.id === picked)?.comp ?? filtered[0]?.comp
   /** Um modelo aberto por vez: dois abertos viram uma tela de rolagem. */
   const [modelo, setModelo] = useState<string | null>(null)
@@ -64,7 +65,7 @@ export function CompetitorsView() {
     if (!selected) return []
     const doy = dayOfYear(state)
     return selected.routes.map(r => {
-      const demand = baseDemand(r.from, r.to, state.day, doy, state.startYear)
+      const demand = baseDemand(r.from, r.to, state.day, doy, state.startYear, true, state)
       const competitors = state.competitors.flatMap(c => c.routes.filter(x => x.key === r.key).map(x => ofertaConcorrente(c, x)))
       const myRoute = state.airline.routes.find(x => !x.cargo && odKey(x.from, x.to) === r.key)
       const own = myRoute && ofertaJogador(state, myRoute)
@@ -88,7 +89,7 @@ export function CompetitorsView() {
           {filtered.length ? filtered.map(({ comp, overlap }) =>
             <button key={comp.id} className={selected?.id === comp.id ? 'on' : ''} onClick={() => setPicked(comp.id)}>
               <span className="competitor-mark" style={{ background: comp.color }} />
-              <span><b>{comp.name}</b><small>{comp.code} · {comp.hub} · {comp.routes.length} rotas · {comp.fleetSize} aviões</small></span>
+              <span><b>{comp.name}</b><small>{comp.code} · {competitorHubs(comp).length} hubs · {comp.routes.length} rotas · {comp.fleetSize} aviões</small></span>
               {overlap > 0 && <strong>{overlap}</strong>}
             </button>
           ) : <Empty>Nenhuma companhia corresponde ao filtro.</Empty>}
@@ -97,7 +98,7 @@ export function CompetitorsView() {
           {selected ? <>
             <h3>{selected.name} <small className="muted">{selected.code}</small>{state.airline.codeshares?.includes(selected.id) && <small className="good"> · codeshare ativo</small>}</h3>
             <div className="grid g4" style={{ gap: 10 }}>
-              <div><small className="muted">Base</small><br /><b>{selected.hub} · {AIRPORT_BY_IATA[selected.hub]?.city}</b></div>
+              <div><small className="muted">Hubs</small><br /><b>{competitorHubs(selected).join(' · ')}</b></div>
               <div><small className="muted">Aeronaves</small><br /><b>{selected.fleetSize}</b></div>
               <div><small className="muted">Rotas comigo</small><br /><b>{routes.filter(x => x.overlap).length}</b></div>
               <div><small className="muted">Reputação</small><br /><b>{pct(selected.reputation)}</b></div>

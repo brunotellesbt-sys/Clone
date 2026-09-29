@@ -40,7 +40,7 @@ export function deficitRoutes(state: GameState) {
     const date = new Date(Date.UTC(state.startYear, 0, 1 + state.day))
     const doy = Math.floor((date.getTime() - Date.UTC(date.getUTCFullYear(), 0, 1)) / 86400000)
     const demand = cargo ? cargoDemand(route.from, route.to, state.day, doy).tons :
-      baseDemand(route.from, route.to, state.day, doy, state.startYear).total
+      baseDemand(route.from, route.to, state.day, doy, state.startYear, true, state).total
     const breakdown = history.reduce((sum, d) => {
       if (d.costBreakdown) for (const key of Object.keys(COST_LABEL) as (keyof FlightCostBreakdown)[])
         sum[key] += d.costBreakdown[key]

@@ -36,7 +36,7 @@ export function RoutesView() {
       .filter((r) => hubFiltro === 'todos' || r.from === hubFiltro || r.to === hubFiltro)
       .map((r) => ({
         route: r,
-        demand: r.cargo ? cargoDemand(r.from, r.to, state.day, doy).tons : baseDemand(r.from, r.to, state.day, doy, state.startYear).total,
+        demand: r.cargo ? cargoDemand(r.from, r.to, state.day, doy).tons : baseDemand(r.from, r.to, state.day, doy, state.startYear, true, state).total,
       }))
       .sort((x, y) => compararPorOrdenacao(
         ordem,
@@ -378,7 +378,7 @@ function OpenRouteModal({ origem, onOrigem, onClose, onOpened }: {
       .filter((a) => !busca || `${a.iata} ${a.city} ${a.country}`.toLowerCase().includes(busca))
       .map((a) => {
         const dist = distanceBetween(hub, a.iata)
-        const dp = baseDemand(hub, a.iata, state.day, doy, state.startYear)
+        const dp = baseDemand(hub, a.iata, state.day, doy, state.startYear, true, state)
         const dc = cargoDemand(hub, a.iata, state.day, doy)
         const d = carga
           ? { ...dp, total: dc.tons, refFare: dc.refRate }

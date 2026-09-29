@@ -200,7 +200,7 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
     const d1 = distanceBetween(from, hub), d2 = distanceBetween(hub, to)
     const detour = (d1 + d2) / directDistance
     if (detour > DESVIO_MAXIMO) continue
-    const demand = baseDemand(from, to, s.day, doy, s.startYear)
+    const demand = baseDemand(from, to, s.day, doy, s.startYear, true, s)
     const r1 = p1 && routeFor.get(odKey(p1.from, p1.to)), r2 = p2 && routeFor.get(odKey(p2.from, p2.to))
     const fare1 = r1 ? (r1.fare.y * 3 + r1.fare.c) / 4 : partner1!.fare
     const fare2 = r2 ? (r2.fare.y * 3 + r2.fare.c) / 4 : partner2!.fare

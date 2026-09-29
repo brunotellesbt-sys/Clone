@@ -2,15 +2,18 @@ import {
   AIRPORTS, AIRPORT_BY_IATA, noToqueDeRecolher, vooPermitido, type Airport,
 } from './data/airports'
 import { atratividadeHorario, DIA, horaDaConcorrente } from './malha'
-import { AIRCRAFT_BY_ID, ehCargueiro, type AircraftType } from './data/aircraft'
+import { AIRCRAFT_BY_ID, type AircraftType } from './data/aircraft'
+import { derivaDoPais } from './data/crescimento'
 import { aeroportoServe } from './spec'
 import { baseDemand } from './demand'
+import { largestPassengerAircraft, passengerAircraftForRoute } from './routeCapacity'
+import { competitorHubs, invalidateHubActivity } from './hubDevelopment'
 import { distanceBetween, odKey } from './geo'
 import {
   batizar, caixaInicial, MERCADOS, PAISES_COM_AVIACAO, quantasCompanhias, vagasDoMundo,
 } from './mundo'
-import { between, chance, type Rng } from './rng'
-import type { Competitor, Densidade } from './types'
+import { between, chance, hashStr, type Rng } from './rng'
+import type { Competitor, Densidade, GameState } from './types'
 
 /**
  * Até onde uma companhia voa, pela idade e pelo tamanho dela.
@@ -254,23 +257,25 @@ export function createCompetitors(rng: Rng, densidade: Densidade = DENSIDADE_PAD
  * 2027 e o jogador a tomava sem esforço — a IA parecia burra por um bug de
  * argumento.
  */
-function addAiRoute(comp: Competitor, dest: string, rng: Rng, day: number, startYear = 2027) {
-  const demand = baseDemand(comp.hub, dest, day, 180, startYear)
+function addAiRoute(comp: Competitor, dest: string, rng: Rng, day: number, startYear = 2027, hub = comp.hub, state?: GameState, initializeFleet = true) {
+  const plane = largestPassengerAircraft(hub, dest, startYear + day / 365.25)
+  if (!plane) return
+  const demand = baseDemand(hub, dest, day, 180, startYear, true, state)
   // Dimensiona a oferta para pegar um pedaço do mercado, com ruído.
   const target = demand.total * between(rng, 0.05, 0.13) * comp.aggression
   const freq = Math.max(1, Math.min(10, Math.round(target / between(rng, 150, 260))))
-  const seats = Math.max(70, Math.min(360, Math.round(target / Math.max(1, freq) / between(rng, 0.7, 0.95))))
+  const seats = Math.min(plane.maxSeats, Math.max(50, Math.min(360, Math.round(target / Math.max(1, freq) / between(rng, 0.7, 0.95)))))
   comp.routes.push({
-    key: odKey(comp.hub, dest),
+    key: odKey(hub, dest),
     hora: Math.round(6 * 60 + 15 * 60 * (rng() as number)),
-    from: comp.hub,
+    from: hub,
     to: dest,
     seats,
     freq,
     fare: between(rng, 0.86, 1.18),
     quality: (0.75 + 0.5 * comp.reputation) * between(rng, 0.94, 1.08),
   })
-  limitarPelaFrota(comp)
+  if (initializeFleet) limitarPelaFrota(comp)
 }
 
 /**
@@ -301,24 +306,111 @@ const UTILIZACAO_DIARIA = 18
  * A frota cresce com a malha em vez de sair dela: `fleetSize` era derivado da
  * frequência, o que deixava o teto se ajustando ao que ele deveria limitar.
  */
-function limitarPelaFrota(comp: Competitor) {
-  const precisa = comp.routes.reduce((h, r) => h + r.freq * cicloHoras(distanceBetween(r.from, r.to)), 0)
-  const teto = Math.max(3, Math.round(precisa / UTILIZACAO_DIARIA))
-  // a frota persegue a necessidade, mas não salta: quem cresce demais de uma vez
-  // não acha piloto nem slot, e no jogo isso vira frequência sem lastro
-  comp.fleetSize = comp.fleetSize
-    ? Math.min(teto, comp.fleetSize + Math.max(1, Math.round(comp.fleetSize * 0.06)))
-    : teto
+export function aiFleetHours(comp: Competitor) {
+  return comp.routes.reduce((h, r) => h + r.freq * cicloHoras(distanceBetween(r.from, r.to)), 0)
+}
+
+function limitarPelaFrota(comp: Competitor, initial = true) {
+  const precisa = aiFleetHours(comp)
+  if (initial) comp.fleetSize = Math.max(comp.fleetSize, 3, Math.ceil(precisa / UTILIZACAO_DIARIA))
   const disponivel = comp.fleetSize * UTILIZACAO_DIARIA
   if (precisa <= disponivel) return
-  const fator = disponivel / precisa
-  for (const r of comp.routes) r.freq = Math.max(1, Math.round(r.freq * fator))
+  // Arredondar para cima e impor uma frequência mantinha voos sem avião.
+  const factor = disponivel / precisa
+  let remaining = disponivel
+  for (const r of [...comp.routes].sort((a,b) => b.seats * b.freq - a.seats * a.freq)) {
+    const cycle = cicloHoras(distanceBetween(r.from, r.to))
+    r.freq = Math.min(Math.max(1, Math.floor(r.freq * factor)), Math.floor(remaining / cycle))
+    remaining -= r.freq * cycle
+  }
+  comp.routes = comp.routes.filter(r => r.freq > 0)
+}
+
+/** Alvo de porte, não cópia instantânea: país, maturidade e perfil distinguem as rivais. */
+export function competitorGrowthTarget(comp: Competitor, state?: GameState) {
+  const market = MERCADOS.find(m => m.cc === AIRPORT_BY_IATA[comp.hub].cc)
+  const scope = Math.min(1, Math.sqrt((market?.paxDia ?? 1000) / 120_000))
+  const age = comp.desde === undefined ? 20 : Math.max(0, ((state?.day ?? 0) - comp.desde) / 365)
+  const maturity = Math.min(1, .2 + age / 18)
+  const profile = .8 + .4 * hashStr(comp.id)
+  const cc = AIRPORT_BY_IATA[comp.hub].cc
+  const baseline = comp.growthBase
+  const organic = baseline ? baseline.fleet * derivaDoPais(cc, state?.day ?? baseline.day) / derivaDoPais(cc, baseline.day) : comp.fleetSize
+  const fleet = Math.max(comp.fleetSize, Math.round(organic), Math.round((state?.airline.fleet.length ?? 20) * profile * scope * maturity))
+  const hubs = Math.max(1, Math.min(Math.floor(fleet / 4), Math.max(Math.floor(fleet / 12), Math.round((state?.airline.hubs.length ?? 2) * profile * maturity))))
+  return { fleet, hubs, routes: Math.max(34, Math.round(fleet * 1.5), Math.round((state?.airline.routes.length ?? 40) * profile * scope * maturity)) }
+}
+
+function expandCompetitor(comp: Competitor, day: number, rng: Rng, startYear: number, state?: GameState) {
+  comp.growthBase ??= { day, fleet: comp.fleetSize }
+  const target = competitorGrowthTarget(comp, state)
+  const year = startYear + day / 365.25
+  comp.hubs = competitorHubs(comp)
+  // Contabilidade simplificada das rivais: reinvestimento de 10% da receita,
+  // com entrada de leasing por aeronave e investimento ao abrir cada base.
+  comp.cash += Math.max(0, comp.revenue30) * .1 * 7 / 30
+  const needed = Math.max(target.fleet, Math.ceil(aiFleetHours(comp) / UTILIZACAO_DIARIA))
+  const acquisitions = Math.max(0, Math.min(needed - comp.fleetSize, Math.max(1, Math.ceil(comp.fleetSize * .04)), Math.floor(comp.cash / 3e6)))
+  comp.fleetSize += acquisitions
+  comp.cash -= acquisitions * 3e6
+  if (comp.hubs.length < target.hubs && day - (comp.lastExpansionDay ?? -28) >= 28 && comp.cash >= 5e6) {
+    const primary = AIRPORT_BY_IATA[comp.hub]
+    const cities = new Set(comp.hubs.map(h => AIRPORT_BY_IATA[h].city))
+    const served = new Set(comp.routes.flatMap(r => [r.from, r.to]))
+    const next = AIRPORTS.filter(a => a.cc === primary.cc && served.has(a.iata) && !cities.has(a.city))
+      .sort((a, b) => b.paxDia - a.paxDia)[0]
+    if (next) {
+      comp.hubs.push(next.iata)
+      comp.lastExpansionDay = day
+      comp.cash -= 5e6
+      if (state) invalidateHubActivity(state)
+    }
+  }
+  const budget = comp.fleetSize * UTILIZACAO_DIARIA
+  let hours = aiFleetHours(comp)
+  // A expansão cria operação nos hubs secundários, não só nomes no painel.
+  const attempts = Math.min(6, Math.max(1, Math.ceil((target.routes - comp.routes.length) / 30)))
+  for (let i = 0; i < attempts && comp.routes.length < target.routes; i++) {
+    if (hours >= budget || !chance(rng, .7 * comp.aggression)) break
+    const hub = comp.hubs[(Math.floor(day / 7) + i) % comp.hubs.length]
+    const open = new Set(comp.routes.map(r => r.key))
+    const next = candidateDestinations(hub, day, 180, alcanceDe(comp, day), startYear)
+      .find(d => !open.has(odKey(hub, d.iata)) && largestPassengerAircraft(hub, d.iata, year) &&
+        hours + cicloHoras(distanceBetween(hub, d.iata)) <= budget)
+    if (!next) continue
+    const count = comp.routes.length
+    addAiRoute(comp, next.iata, rng, day, startYear, hub, state, false)
+    const route = comp.routes[count]
+    if (route) {
+      route.freq = Math.min(route.freq, Math.floor((budget - hours) / cicloHoras(distanceBetween(hub, next.iata))))
+      hours = aiFleetHours(comp)
+    }
+  }
+  // Revê a malha inteira: demanda nos dois sentidos exige contar ida e volta.
+  for (const route of comp.routes) {
+    const plane = largestPassengerAircraft(route.from, route.to, year)
+    if (!plane) { route.freq = 0; continue }
+    route.seats = Math.min(plane.maxSeats, route.seats)
+    const market = baseDemand(route.from, route.to, day, 0, startYear, true, state).total
+    const supply = route.seats * route.freq * 2
+    const share = .12 * comp.aggression
+    if (market * share > supply) {
+      route.seats = Math.min(plane.maxSeats, Math.ceil(route.seats * 1.04))
+      const cycle = cicloHoras(distanceBetween(route.from, route.to))
+      if (route.seats >= plane.maxSeats * .7 && hours + cycle <= budget && route.freq < 16) {
+        route.freq++
+        hours += cycle
+      }
+    } else if (market * share < supply * .6) {
+      route.seats = Math.max(Math.min(50, plane.maxSeats), Math.round(route.seats * .98))
+    }
+  }
+  comp.routes = comp.routes.filter(r => r.freq > 0)
+  limitarPelaFrota(comp, false)
 }
 
 /** Decisão semanal: mexe em tarifa, oferta, abre e fecha rota. */
-export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, playerPressure: Record<string, number>, playerRoutes = 0, startYear = 2027) {
-  const ritmoJogador = 1 + Math.min(0.55, playerRoutes / 45)
-  const limiteDeRotas = Math.min(70, 34 + Math.floor(playerRoutes * 0.45))
+export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, playerPressure: Record<string, number>, _playerRoutes = 0, startYear = 2027, state?: GameState) {
   for (const comp of comps) {
     for (const r of comp.routes) {
       const pressure = playerPressure[r.key] ?? 0
@@ -328,7 +420,8 @@ export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, play
       } else if (pressure < 0.05 && chance(rng, 0.25)) {
         r.fare = Math.min(1.35, r.fare + between(rng, 0.01, 0.04))
       }
-      if (pressure > 0.4 && chance(rng, 0.22 * comp.aggression)) r.freq = Math.min(11, r.freq + 1)
+      if (pressure > 0.4 && chance(rng, 0.22 * comp.aggression) &&
+          aiFleetHours(comp) + cicloHoras(distanceBetween(r.from, r.to)) <= comp.fleetSize * UTILIZACAO_DIARIA) r.freq = Math.min(16, r.freq + 1)
       if (pressure > 0.62 && chance(rng, 0.12)) r.freq = Math.max(1, r.freq - 1)
       /**
        * Remarca o horário quando está apanhando.
@@ -349,50 +442,7 @@ export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, play
       }
       r.quality = Math.min(1.3, r.quality * between(rng, 0.997, 1.006))
     }
-    // Crescimento e poda.
-    if (chance(rng, 0.17 * comp.aggression * ritmoJogador) && comp.routes.length < limiteDeRotas) {
-      // a rota nova tem que caber no que a companhia já alcança: é assim que
-      // ela sobe de doméstica a regional e a internacional, um degrau por vez
-      const dests = candidateDestinations(comp.hub, day, 60, alcanceDe(comp, day), startYear)
-      const open = new Set(comp.routes.map((r) => r.key))
-      const next = dests.find((d) => !open.has(odKey(comp.hub, d.iata)))
-      if (next) addAiRoute(comp, next.iata, rng, day, startYear)
-    }
-    if (chance(rng, 0.1) && comp.routes.length > 10) {
-      const weakest = comp.routes.reduce((w, r, i, arr) => (r.freq < arr[w].freq ? i : w), 0)
-      if (chance(rng, 0.5)) comp.routes.splice(weakest, 1)
-    }
-    /**
-     * A malha existente acompanha o mercado, e não fica parada em 2027.
-     *
-     * Este era o buraco maior do crescimento da IA: uma rota aberta no primeiro
-     * dia guardava para sempre os assentos e a frequência do primeiro dia. Num
-     * mundo em que a Índia cresce 5,4% ao ano, a companhia indiana ficava do
-     * mesmo tamanho enquanto o mercado quintuplicava — e o jogador tomava o
-     * país sem precisar ser melhor que ninguém, só mais novo.
-     *
-     * Uma rota por semana, escolhida ao acaso, e um passo de 4% por vez. Devagar
-     * de propósito: companhia aérea não dobra oferta num mês, e um ajuste
-     * instantâneo faria a IA responder ao ciclo econômico mais rápido do que o
-     * jogador consegue responder à IA.
-     */
-    if (comp.routes.length) {
-      const r = comp.routes[Math.floor(rng() * comp.routes.length)]
-      const mercado = baseDemand(r.from, r.to, day, 180, startYear).total
-      const alvo = mercado * 0.09 * comp.aggression
-      const oferta = r.seats * r.freq
-      if (oferta > 0) {
-        const passo = alvo > oferta ? 1.04 : 0.98
-        const novo = oferta * passo
-        // cresce por frequência até o avião encher; daí em diante por porte,
-        // que é a ordem em que uma companhia de verdade cresce numa rota
-        if (alvo > oferta && r.freq < 11 && r.seats > 150) r.freq += 1
-        else r.seats = Math.max(50, Math.min(420, Math.round(novo / Math.max(1, r.freq))))
-      }
-    }
-
-    // Inclui as rotas e frequências que acabaram de crescer nesta rodada.
-    limitarPelaFrota(comp)
+    expandCompetitor(comp, day, rng, startYear, state)
     comp.reputation = Math.min(0.95, Math.max(0.3, comp.reputation + between(rng, -0.006, 0.007)))
   }
 }
@@ -586,12 +636,7 @@ export function fundarCompanhia(
  * regional — que é o que ela de fato opera.
  */
 export function modeloDaRota(seats: number, from: string, to: string, ano: number) {
-  const a = AIRPORT_BY_IATA[from]
-  const b = AIRPORT_BY_IATA[to]
-  const dist = distanceBetween(from, to)
-  const servem = Object.values(AIRCRAFT_BY_ID)
-    .filter((t) => !ehCargueiro(t) && ano >= t.since && t.range >= dist &&
-      aeroportoServe(t, a) && aeroportoServe(t, b))
+  const servem = passengerAircraftForRoute(from, to, ano)
     .sort((x, y) => x.maxSeats - y.maxSeats)
   if (!servem.length) return null
   // se nenhum comporta a oferta, o maior que existe — a rival então voa mais
@@ -665,7 +710,7 @@ export function frotaDaConcorrente(comp: Competitor, ano: number): LinhaDeFrota[
   const mantidos = [...horasPorTipo.entries()]
     .sort((x, y) => y[1] - x[1])
     .slice(0, Math.max(1, comp.fleetSize))
-    .map(([id]) => AIRCRAFT_BY_ID[id])
+    .map(([id]) => porRota.find(p => p.t.id === id)!.t)
     .sort((x, y) => x.maxSeats - y.maxSeats)
 
   const porModelo = new Map<string, {

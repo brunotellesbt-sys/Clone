@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { invalidateHubActivity } from './game/hubDevelopment'
 import { advanceDay, gameDate, money, netWorth, pct, period } from './game/engine'
 import { MS_POR_DIA_NA_TELA } from './ui/relogio'
 import {
@@ -69,6 +70,7 @@ export function App() {
     const s = stateRef.current
     if (!s) return null
     const err = fn(s) ?? null
+    invalidateHubActivity(s)
     if (!err) {
       saveGame(s, getActiveSlot())
     }

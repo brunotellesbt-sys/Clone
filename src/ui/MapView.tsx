@@ -5,6 +5,7 @@ import type { FeatureCollection, Geometry as GeoGeometry } from 'geojson'
 import world from 'world-atlas/countries-110m.json'
 import { AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, type Airport } from '../game/data/airports'
 import { aircraftOf, dowOf, km, metros, num, typeOf } from '../game/engine'
+import { cityDevelopment, hubExtraSlots, activeHubs, hubGrowthRateMultiplier } from '../game/hubDevelopment'
 import { MS_POR_DIA_NA_TELA } from './relogio'
 import { blocoDe, DIA, DOW_CURTO, escalaDe, hhmm, naSemana, noTempo, partidaUtc, rotaDoPar } from '../game/escala'
 import { distanceBetween, interpolate } from '../game/geo'
@@ -702,6 +703,9 @@ function CartaoAeroporto({ state, airport, onClose }: {
   state: GameState; airport: Airport; onClose: () => void
 }) {
   const base = state.airline.hubs.includes(airport.iata)
+  const development = cityDevelopment(state, airport.iata)
+  const activity = activeHubs(state).get(airport.iata)
+  const growthRate = activity ? hubGrowthRateMultiplier(airport.pop, activity.movements, activity.international) : 1
   const pernas = escalaDe(state).filter(p => p.from === airport.iata || p.to === airport.iata)
     .map(p => {
       const chegada = p.to === airport.iata
@@ -722,6 +726,8 @@ function CartaoAeroporto({ state, airport, onClose }: {
     </div>
     <span>{airport.city}, {airport.country}</span>
     <small className="muted">{ESCOPO_LABEL[airport.escopo]} · {num(airport.paxDia)} passageiros/dia</small>
+    {activity && <small className="good">Desenvolvimento do hub: {growthRate.toFixed(1)}× a taxa local · procura +{((development.traffic - 1) * 100).toFixed(1)}%</small>}
+    {development.traffic > 1 && <small className="muted">Efeito acumulado dos hubs: população +{((development.population - 1) * 100).toFixed(1)}% · poder de compra +{((development.purchasingPower - 1) * 100).toFixed(1)}%{base ? ` · ${hubExtraSlots(state, airport.iata)} slots adicionais para sua base` : ''}</small>}
     <small className="dim">{destinos.size} destinos · {pernas.length} voos seus/semana · {concorrentes.length} rotas de outras companhias</small>
     {/* Partidas e chegadas numa lista só embaralhavam os dois sentidos; o
         menu mostra um de cada vez, como o painel do aeroporto. */}
