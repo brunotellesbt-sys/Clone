@@ -4,11 +4,11 @@ import { MS_POR_DIA_NA_TELA } from './ui/relogio'
 import {
   AVAILABLE_SLOTS,
   clearSave,
-  exportSave,
+  exportSaveFile,
   getActiveSlot,
   getSlotInfo,
   hasSave,
-  importSave,
+  importSaveFile,
   loadGame,
   saveGame,
 } from './game/save'
@@ -27,6 +27,7 @@ import { NewGame } from './ui/NewGame'
 import { RankingView } from './ui/RankingView'
 import { RoutesView } from './ui/RoutesView'
 import { Modal } from './ui/components/Bits'
+import { downloadFile } from './livery/export'
 
 const TABS = [
   { id: 'painel', label: 'Painel' },
@@ -236,9 +237,9 @@ function ConfirmModal({
 
 function GameMenu({ onClose }: { onClose: () => void }) {
   const { state, replace, reset, toast } = useGame()
-  const [code, setCode] = useState('')
+  const [pendingFile, setPendingFile] = useState<{ name: string; game: GameState } | null>(null)
   const [pendingConfirm, setPendingConfirm] = useState<{
-    type: 'save' | 'load' | 'delete' | 'new'
+    type: 'save' | 'load' | 'delete' | 'new' | 'import'
     slot?: number
     title: string
     message: string
@@ -277,6 +278,15 @@ function GameMenu({ onClose }: { onClose: () => void }) {
       clearSave(slot)
       toast(`Save do Slot ${slot} excluído.`)
       refreshSlots()
+    } else if (type === 'import' && pendingFile) {
+      pendingFile.game.paused = true
+      if (saveGame(pendingFile.game, activeSlot)) {
+        replace(pendingFile.game)
+        toast(`Partida importada no Slot ${activeSlot}.`)
+        onClose()
+      } else {
+        toast('Não foi possível salvar a partida importada. Verifique o espaço do navegador.', 'error')
+      }
     } else if (type === 'new') {
       reset()
       onClose()
@@ -393,48 +403,43 @@ function GameMenu({ onClose }: { onClose: () => void }) {
         </button>
       </div>
 
-      <label className="field">
-        <span>Exportar partida atual</span>
-        <textarea
-          readOnly
-          rows={2}
-          value={exportSave(state)}
-          style={{
-            width: '100%',
-            background: '#0b1424',
-            border: '1px solid var(--line)',
-            borderRadius: 8,
-            padding: 8,
-            color: 'var(--ink-2)',
-            fontSize: 11,
-          }}
-        />
-      </label>
+      <div className="grid" style={{ gap: 12 }}>
+        <div className="field">
+          <span>Exportar partida atual</span>
+          <button className="btn" onClick={() => {
+            try {
+              const filename = `the-airline-simulator-${state.airline.code.replace(/[^a-z0-9-]/gi, '') || 'save'}-slot-${activeSlot}-${new Date().toISOString().slice(0, 10)}.json`
+              downloadFile(filename, new Blob([exportSaveFile(state)], { type: 'application/json;charset=utf-8' }))
+            } catch { toast('Não foi possível gerar o arquivo da partida.', 'error') }
+          }}>Baixar save em JSON</button>
+          <small className="muted">Arquivo legível com a partida completa para guardar ou compartilhar para correção.</small>
+        </div>
 
-      <label className="field">
-        <span>Importar partida</span>
-        <input
-          type="text"
-          value={code}
-          placeholder="Cole aqui o texto exportado"
-          onChange={(e) => setCode(e.target.value)}
-        />
-      </label>
-
-      <button
-        className="btn"
-        onClick={() => {
-          const s = importSave(code)
-          if (s) {
-            replace(s)
-            saveGame(s, activeSlot)
-            toast('Partida importada com sucesso.')
-            onClose()
-          } else toast('Texto inválido.', 'error')
-        }}
-      >
-        Importar partida
-      </button>
+        <label className="field">
+          <span>Importar partida de arquivo</span>
+          <input type="file" accept=".json,.txt,application/json,text/plain" aria-label="Selecionar arquivo de save" onChange={async e => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            setPendingFile(null)
+            if (!file) return
+            if (file.size > 50 * 1024 * 1024) return toast('Arquivo maior que 50 MB.', 'error')
+            try {
+              const game = importSaveFile(await file.text())
+              if (!game) return toast('Arquivo de save inválido ou incompatível.', 'error')
+              setPendingFile({ name: file.name, game })
+            } catch { toast('Não foi possível ler o arquivo de save.', 'error') }
+          }} />
+          <small className="muted">Aceita o novo JSON e códigos antigos guardados em arquivo .txt.</small>
+        </label>
+        {pendingFile && <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+          {pendingFile.name} · {pendingFile.game.airline.name} · dia {pendingFile.game.day}
+        </p>}
+        <button className="btn" disabled={!pendingFile} onClick={() => {
+          if (!pendingFile) return
+          setPendingConfirm({ type: 'import', title: `Importar no Slot ${activeSlot}`,
+            message: `O arquivo ${pendingFile.name} substituirá o save do Slot ${activeSlot}. Deseja continuar?` })
+        }}>Importar partida</button>
+      </div>
 
       <hr style={{ border: 0, borderTop: '1px solid var(--line)', margin: '18px 0' }} />
       <p className="muted" style={{ fontSize: 12, margin: 0 }}>

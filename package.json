@@ -40,7 +40,9 @@
     "map:tiles": "tsx scripts/map-tiles-check.ts",
     "map:tiles:ui": "node scripts/map-tiles-ui.mjs",
     "calendar:check": "tsx scripts/calendar-check.ts",
-    "calendar:ui": "node scripts/calendar-ui.mjs"
+    "calendar:ui": "node scripts/calendar-ui.mjs",
+    "save:file:check": "tsx scripts/save-file-check.ts",
+    "save:file:ui": "node scripts/save-file-ui.mjs"
   },
   "dependencies": {
     "d3-geo": "^3.1.1",

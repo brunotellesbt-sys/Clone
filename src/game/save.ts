@@ -212,6 +212,29 @@ export function clearSave(slot = getActiveSlot()) {
   }
 }
 
+/** Arquivo JSON legível, com todos os dados da partida para análise e reparo. */
+export function exportSaveFile(state: GameState): string {
+  return JSON.stringify({
+    format: 'the-airline-simulator-save',
+    fileVersion: 1,
+    exportedAt: new Date().toISOString(),
+    game: state,
+  }, null, 2)
+}
+
+export function importSaveFile(text: string): GameState | null {
+  try {
+    const file = JSON.parse(text)
+    if (file?.format === 'the-airline-simulator-save' && file.fileVersion === 1 && file.game)
+      return migrate(file.game as GameState)
+    if (file?.version && file?.airline) return migrate(file as GameState)
+    return null
+  } catch {
+    // Backups anteriores eram texto em base64; podem ser importados se salvos como .txt.
+    return importSave(text)
+  }
+}
+
 export function exportSave(state: GameState): string {
   return btoa(unescape(encodeURIComponent(JSON.stringify(state))))
 }
