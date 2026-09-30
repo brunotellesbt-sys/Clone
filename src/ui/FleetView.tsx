@@ -254,7 +254,7 @@ function CabinModal({ ac, onClose }: { ac: Aircraft; onClose: () => void }) {
           </div>
           <Bar value={chk.used / inches} tone={chk.overLength ? '#fb7185' : undefined} />
           <div className="row" style={{ justifyContent: 'space-between', fontSize: 12, marginTop: 8 }}>
-            <span className="dim">Comissários exigidos</span><b>{crewFor(seats)}</b>
+            <span className="dim" title="Regra geral por assentos instalados: 1 a cada 50 ou fração. A classe não acrescenta comissários automaticamente.">Comissários por configuração</span><b>{crewFor(seats)}</b>
           </div>
           <div className="row" style={{ justifyContent: 'space-between', fontSize: 12 }}>
             <span className="dim">Receita com o avião cheio</span>

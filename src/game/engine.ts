@@ -1270,7 +1270,7 @@ export function estimateRoute(s: GameState, from: string, to: string, typeId: st
   const premiumPax = pax * 0.12
   const revenue = pax * demand.refFare * 1.2 * (1 - DISTRIBUTION_RATE)
   const cost =
-    flightCost(t, dist, from, to, s.fuelPrice, 2, pax / Math.max(1, freq * 2), premiumPax / Math.max(1, freq * 2))
+    flightCost(t, dist, from, to, s.fuelPrice, 2, pax / Math.max(1, freq * 2), premiumPax / Math.max(1, freq * 2), crewFor(seats))
       .total * 2 * freq
   return { dist, demand, offered, pax, revenue, cost, profit: revenue - cost, rivals: rivals.length, blockH: blockHours(t, dist) }
 }
