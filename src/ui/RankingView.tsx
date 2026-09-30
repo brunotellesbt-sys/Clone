@@ -27,7 +27,7 @@ function FichaDaRival({ id }: { id: string }) {
   const rotas = [...c.routes].sort((x, y) => y.seats * y.freq - x.seats * x.freq)
 
   return (
-    <div className="grid g2" style={{ gap: 14, padding: '10px 0' }}>
+    <div className="grid g2 ranking-detail" style={{ gap: 14, padding: '10px 0' }}>
       <div>
         <h4 className="sub">Frota</h4>
         {frota.length === 0 ? (
@@ -113,7 +113,8 @@ export function RankingView() {
         {state.ledger.length === 0 ? (
           <Empty>Comece a voar para entrar no ranking.</Empty>
         ) : (
-          <table>
+          <div className="ranking-list" role="region" aria-label="Ranking de companhias" tabIndex={0}>
+          <table className="ranking-table">
             <thead>
               <tr>
                 <th>#</th><th>Companhia</th><th>Base</th><th className="r">Receita (30 d)</th>
@@ -127,8 +128,8 @@ export function RankingView() {
                     className={`${r.me ? 'on' : ''} ${r.me ? '' : 'click'}`}
                     onClick={() => !r.me && setAberta((x) => (x === r.id ? null : r.id))}
                   >
-                    <td>{i + 1}</td>
-                    <td>
+                    <td data-label="Posição">{i + 1}º</td>
+                    <td className="ranking-company">
                       <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: r.color, marginRight: 8 }} />
                       <b>{r.name}</b> <span className="muted">{r.code}</span>
                       {r.me && <span className="chip" style={{ marginLeft: 8 }}>você</span>}
@@ -140,14 +141,14 @@ export function RankingView() {
                         </span>
                       )}
                     </td>
-                    <td>{r.hub} <span className="muted">{AIRPORT_BY_IATA[r.hub]?.city}</span></td>
-                    <td className="r">{money(r.revenue)}</td>
-                    <td className="r">{num(r.routes)}</td>
-                    <td className="r">{num(r.fleet)}</td>
-                    <td className="r">{pct(r.reputation)}</td>
+                    <td data-label="Base">{r.hub} <span className="muted">{AIRPORT_BY_IATA[r.hub]?.city}</span></td>
+                    <td data-label="Receita (30 d)" className="r">{money(r.revenue)}</td>
+                    <td data-label="Rotas" className="r">{num(r.routes)}</td>
+                    <td data-label="Frota" className="r">{num(r.fleet)}</td>
+                    <td data-label="Reputação" className="r">{pct(r.reputation)}</td>
                   </tr>
                   {aberta === r.id && !r.me && (
-                    <tr>
+                    <tr className="ranking-expanded">
                       <td colSpan={7} style={{ background: 'var(--sky-1)' }}>
                         <FichaDaRival id={r.id} />
                       </td>
@@ -157,6 +158,7 @@ export function RankingView() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
 
