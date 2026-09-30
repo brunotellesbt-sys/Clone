@@ -14,7 +14,7 @@ Só hubs com voos programados ativos desenvolvem a cidade. Movimento próprio e 
 - Bônus da taxa = força × 1 em hub doméstico; força × 3 quando há voo internacional. Assim hubs fortes chegam a **2× e 4× a taxa anual**, respectivamente.
 - Em cidades com pelo menos 10 milhões de habitantes, o bônus cai pela metade: até 1,5×/2,5×.
 - Taxa local de referência = crescimento do país, com mínimo de 0,5% para o investimento adicional do hub. A tendência/ciclo original do país permanece separado, inclusive quando negativo.
-- O fator adicional acumula semanalmente como `((1 + taxa × multiplicador) / (1 + taxa))^(dias / 365)`. Não dobra a população instantaneamente.
+- O fator adicional acumula diariamente como `((1 + taxa × multiplicador) / (1 + taxa))^(1 / 365)` e é publicado nas segundas-feiras. O crédito pendente sobrevive ao save e ao encerramento do hub: uma base recém-aberta não ganha dias retroativos. Não dobra a população instantaneamente.
 - O efeito acumulado se distribui entre população (`fator^0,55`) e poder de compra (`fator^0,45`); seu produto amplia a procura. Poder de compra também afeta a mistura de classes e a tarifa de referência.
 - Slots adicionais = parte inteira de `slots originais × (fator - 1)`, disponíveis para quem possui e opera hub no aeroporto. Hub próprio vazio não recebe slots por conta de operação da IA.
 
@@ -33,5 +33,7 @@ A malha inteira revê assentos/frequências semanalmente. A regra de fundação 
 ## Verificação
 
 `npm run economy:hubs` cobre pisos/classes, conexões sem direto, hubs ativos/inativos, persistência e isolamento de saves, crescimento doméstico/internacional/megacidades, slots e um ano de expansão de concorrente.
+
+`npm run economy:regressions` cobre competição do jogador na receita das rivais, limite físico dos passageiros adicionais de conexão, crédito de desenvolvimento proporcional aos dias operados e rejeição de itinerários como GIG–MAO–GRU na oferta das telas. A receita estimada da IA e o painel usam a mesma oferta média semanal do jogador. A frota usa o ano civil real, inclusive em anos bissextos. O filtro geográfico de conexões é compartilhado entre oferta e venda; os pares rejeitados só aparecem na contagem explicativa do diagnóstico.
 
 Também foi executada uma simulação de 28 dias em memória a partir do save de diagnóstico (46 aeronaves, 7 hubs, 224 rotas). As rotas MAO–GYN e FOR–JDO deixaram de apresentar déficit na janela final. As rivais brasileiras passaram de 18/10/12 para 22/14/16 aeronaves e abriram um segundo hub. Isso é resultado dessa simulação, não promessa de lucro para qualquer malha. O arquivo original foi preservado e não é incluído no repositório.

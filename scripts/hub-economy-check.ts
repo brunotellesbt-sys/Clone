@@ -55,10 +55,12 @@ assert.equal(cityDevelopment(copy,'MAO').traffic,1)
 assert.equal(activeHubs(copy).size,0)
 assert.equal(nearbyHubDemand(copy,'MAO','PVH'),1)
 const accumulated=cityDevelopment(s,'MAO').traffic
+const earnedPending=s.hubDevelopment!.pending?.['BR:Manaus'] ?? 0
 s.competitors=[]
 invalidateHubActivity(s)
 for(let day=366;day<=400;day++){s.day=day;stepHubDevelopment(s)}
-assert.equal(cityDevelopment(s,'MAO').traffic,accumulated,'hub inativo não continua crescendo')
+assert(Math.abs(cityDevelopment(s,'MAO').traffic - accumulated * Math.exp(earnedPending)) < 1e-10,
+  'hub inativo apenas recebe o crédito já acumulado antes de encerrar')
 
 // Empresa madura com capacidade de reinvestir abre bases e cresce gradualmente.
 const world=newGame({name:'Expansão',code:'EX',hub:'GRU',seed:22,densidade:'enxuta'})

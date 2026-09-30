@@ -4,13 +4,13 @@ import { frotaDaConcorrente } from '../game/ai'
 import { competitorHubs } from '../game/hubDevelopment'
 import { baseDemand, CLASS_FARE_MULT } from '../game/demand'
 import { allocateMarket, SELLABLE, type Carrier } from '../game/economy'
-import { dayOfYear, km, modelOf, num, pct } from '../game/engine'
-import { cabinComfort } from '../game/cabin'
-import { pernasDaRota } from '../game/escala'
+import { dayOfYear, km, num, pct } from '../game/engine'
+import { playerWeeklyOffer } from '../game/playerOffer'
+import { gameDayDate } from '../game/calendarDates'
 import { atratividadeHorario, horaDaConcorrente } from '../game/malha'
 import { distanceBetween, odKey } from '../game/geo'
 import { moedaDoPais, tarifa } from '../game/money'
-import type { Competitor, GameState, Route } from '../game/types'
+import type { Competitor } from '../game/types'
 import { useGame } from '../store/useGame'
 import { Card, Empty } from './components/Bits'
 
@@ -20,28 +20,6 @@ function ofertaConcorrente(comp: Competitor, r: Competitor['routes'][number]): C
     id: comp.id,
     seats: { y: total * 0.88, w: total * 0.042, c: total * 0.072, f: total * 0.006 },
     freq: r.freq, fareMult: r.fare, quality: r.quality * atratividadeHorario(horaDaConcorrente(r)),
-  }
-}
-
-function ofertaJogador(s: GameState, r: Route): Carrier | null {
-  const voos = pernasDaRota(s, r).flatMap(p => {
-    const a = s.airline.fleet.find(x => x.id === p.aircraftId && x.groundedUntil <= s.day)
-    return a ? [{ p, a }] : []
-  })
-  if (!voos.length) return null
-  const seats = { y: 0, w: 0, c: 0, f: 0 }
-  let comfort = 0
-  let horario = 0
-  for (const { p, a } of voos) {
-    for (const c of ['y', 'w', 'c', 'f'] as const) seats[c] += a.seats[c] * SELLABLE / 7
-    const type = modelOf(a)
-    comfort += type.comfort * cabinComfort(type, a.seats, a.pitch, a.seatConfig) * (0.85 + 0.15 * a.condition)
-    horario += atratividadeHorario(p.saida)
-  }
-  return {
-    id: `P:${r.id}`, freq: voos.length / 14, fareMult: (r.fare.y * 3 + r.fare.c) / 4,
-    quality: (0.72 + 0.55 * s.airline.reputation) * (1 + Math.min(0.12, s.airline.marketing / 2.4e6)) *
-      (comfort / voos.length) * (horario / voos.length), seats,
   }
 }
 
@@ -60,7 +38,7 @@ export function CompetitorsView() {
   const selected = filtered.find(x => x.comp.id === picked)?.comp ?? filtered[0]?.comp
   /** Um modelo aberto por vez: dois abertos viram uma tela de rolagem. */
   const [modelo, setModelo] = useState<string | null>(null)
-  const frota = selected ? frotaDaConcorrente(selected, state.startYear + state.day / 365) : []
+  const frota = selected ? frotaDaConcorrente(selected, new Date(gameDayDate(state.day, state.startYear)).getUTCFullYear()) : []
   const routes = useMemo(() => {
     if (!selected) return []
     const doy = dayOfYear(state)
@@ -68,7 +46,7 @@ export function CompetitorsView() {
       const demand = baseDemand(r.from, r.to, state.day, doy, state.startYear, true, state)
       const competitors = state.competitors.flatMap(c => c.routes.filter(x => x.key === r.key).map(x => ofertaConcorrente(c, x)))
       const myRoute = state.airline.routes.find(x => !x.cargo && odKey(x.from, x.to) === r.key)
-      const own = myRoute && ofertaJogador(state, myRoute)
+      const own = myRoute && playerWeeklyOffer(state, myRoute)
       if (own) competitors.push(own)
       const allocation = allocateMarket(demand, competitors).find(x => x.id === selected.id)
       const supply = r.seats * r.freq * 2 * SELLABLE

@@ -1,4 +1,5 @@
 import type { Perna, SeatConfig } from './types'
+import { playerWeeklyOffer } from './playerOffer'
 import { hubExtraSlots, stepHubDevelopment, invalidateHubActivity } from './hubDevelopment'
 import { custoDeFabrica, normalizeSeats, normalizeSeatPitch, seatChangeCost } from './seatModels'
 import { AIRCRAFT_BY_ID, ehCargueiro, type AircraftType } from './data/aircraft'
@@ -17,7 +18,7 @@ import { baseDemand, cargoDemand, CLASS_FARE_MULT } from './demand'
 import { cabinComfort, checkCabin, clampPitch, crewFor, defaultCabin, normalizarCabine } from './cabin'
 import { engineIdFor, motivoDoPar, withEngine } from './spec'
 import {
-  addCabins, allocateCargoMarket, allocateMarket, blockHours, CARGO_SELLABLE, escalarCabins,
+  addCabins, allocateCargoMarket, allocateMarket, blockHours, CARGO_SELLABLE,
   classPriceExponent,
   DISTRIBUTION_RATE, emptyCabins, flightCost, leaseMonthly, marketPrice,
   maxDailyFrequency, resaleValue, SELLABLE, sumCabins, ticketRevenue,
@@ -692,6 +693,7 @@ function voosDoDia(s: GameState, r: Route, dow: number): Perna[] {
 }
 
 export function advanceDay(s: GameState): GameState {
+  if (!s.hubDevelopment?.pending) stepHubDevelopment(s)
   s.day += 1
   stepHubDevelopment(s)
   const dow = dowOf(s)
@@ -1062,7 +1064,17 @@ export function advanceDay(s: GameState): GameState {
 }
 
 /** Estima a receita mensal de cada concorrente disputando de verdade cada par. */
-function computeCompetitorRevenue(s: GameState, doy: number) {
+export function computeCompetitorRevenue(s: GameState, doy: number) {
+  const ownByOd = new Map<string, Carrier[]>()
+  for (const route of s.airline.routes) {
+    if (route.cargo) continue
+    const offer = playerWeeklyOffer(s, route)
+    if (!offer) continue
+    const key = odKey(route.from, route.to)
+    const list = ownByOd.get(key) ?? []
+    list.push(offer)
+    ownByOd.set(key, list)
+  }
   const byOd = new Map<string, { comp: (typeof s.competitors)[number]; route: (typeof s.competitors)[number]['routes'][number] }[]>()
   for (const comp of s.competitors) {
     for (const r of comp.routes) {
@@ -1088,12 +1100,14 @@ function computeCompetitorRevenue(s: GameState, doy: number) {
       fareMult: route.fare,
       quality: route.quality * atratividadeHorario(horaDaConcorrente(route)),
     }))
-    const alloc = allocateMarket(demand, carriers)
-    alloc.forEach((a, i) => {
+    const alloc = allocateMarket(demand, [...carriers, ...(ownByOd.get(first.key) ?? [])])
+    list.forEach((_, i) => {
+      const a = alloc.find(a => a.id === list[i].comp.id)!
       const { comp, route } = list[i]
       const fare: Cabins = { y: route.fare, w: route.fare, c: route.fare, f: route.fare }
       // a concorrente também carrega conexão: ver `fatorConexaoIA`
-      const pax = escalarCabins(a.pax, fatorConexaoIA(comp.routes.length))
+      const pax = { ...a.pax }
+      for (const cb of CABINS) pax[cb] = Math.min(carriers[i].seats[cb], pax[cb] * fatorConexaoIA(comp.routes.length))
       comp.revenue30 += ticketRevenue(pax, fare, demand.refFare) * (1 - DISTRIBUTION_RATE) * 30
     })
   }

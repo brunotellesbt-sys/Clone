@@ -51,9 +51,14 @@ export function hubGrowthRateMultiplier(population: number, movements: number, i
 
 /** Acumula só o tempo observado. Saves antigos não ganham anos retroativos. */
 export function stepHubDevelopment(s: GameState) {
-  if (!s.hubDevelopment) { s.hubDevelopment = { day: s.day, cities: {} }; return }
+  if (!s.hubDevelopment) { s.hubDevelopment = { day: s.day, cities: {}, pending: {} }; return }
+  if (!s.hubDevelopment.pending) {
+    s.hubDevelopment.pending = {}
+    s.hubDevelopment.day = s.day
+    return // migração: não presume a operação dos dias anteriores
+  }
   const elapsed = s.day - s.hubDevelopment.day
-  if (elapsed <= 0 || new Date(gameDayDate(s.day, s.startYear)).getUTCDay() !== 1) return
+  if (elapsed <= 0) return
   s.hubDevelopment.day = s.day
   const cities = new Map<string, { ap: Airport; movements: number; international: number }>()
   for (const [iata, value] of activeHubs(s)) {
@@ -67,8 +72,14 @@ export function stepHubDevelopment(s: GameState) {
     const rate = Math.max(.005, crescimentoDe(city.ap.cc))
     const multiplier = hubGrowthRateMultiplier(city.ap.pop, city.movements, city.international)
     // Quociente entre taxas compostas: junto à tendência original resulta em 2×/4× a taxa.
-    const extra = Math.pow((1 + rate * multiplier) / (1 + rate), Math.min(7, elapsed) / 365)
-    s.hubDevelopment.cities[key] = (s.hubDevelopment.cities[key] ?? 1) * extra
+    const extra = Math.log((1 + rate * multiplier) / (1 + rate)) / 365
+    s.hubDevelopment.pending[key] = (s.hubDevelopment.pending[key] ?? 0) + extra
+  }
+  // Observação diária, publicação semanal. Abrir/fechar um hub não reescreve a semana.
+  if (new Date(gameDayDate(s.day, s.startYear)).getUTCDay() === 1) {
+    for (const [key, logGrowth] of Object.entries(s.hubDevelopment.pending))
+      s.hubDevelopment.cities[key] = (s.hubDevelopment.cities[key] ?? 1) * Math.exp(logGrowth)
+    s.hubDevelopment.pending = {}
   }
 }
 

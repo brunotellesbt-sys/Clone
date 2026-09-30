@@ -4,6 +4,7 @@ import {
 import { atratividadeHorario, DIA, horaDaConcorrente } from './malha'
 import { AIRCRAFT_BY_ID, type AircraftType } from './data/aircraft'
 import { derivaDoPais } from './data/crescimento'
+import { gameDayDate } from './calendarDates'
 import { aeroportoServe } from './spec'
 import { baseDemand } from './demand'
 import { largestPassengerAircraft, passengerAircraftForRoute } from './routeCapacity'
@@ -258,7 +259,7 @@ export function createCompetitors(rng: Rng, densidade: Densidade = DENSIDADE_PAD
  * argumento.
  */
 function addAiRoute(comp: Competitor, dest: string, rng: Rng, day: number, startYear = 2027, hub = comp.hub, state?: GameState, initializeFleet = true) {
-  const plane = largestPassengerAircraft(hub, dest, startYear + day / 365.25)
+  const plane = largestPassengerAircraft(hub, dest, new Date(gameDayDate(day, startYear)).getUTCFullYear())
   if (!plane) return
   const demand = baseDemand(hub, dest, day, 180, startYear, true, state)
   // Dimensiona a oferta para pegar um pedaço do mercado, com ruído.
@@ -344,7 +345,7 @@ export function competitorGrowthTarget(comp: Competitor, state?: GameState) {
 function expandCompetitor(comp: Competitor, day: number, rng: Rng, startYear: number, state?: GameState) {
   comp.growthBase ??= { day, fleet: comp.fleetSize }
   const target = competitorGrowthTarget(comp, state)
-  const year = startYear + day / 365.25
+  const year = new Date(gameDayDate(day, startYear)).getUTCFullYear()
   comp.hubs = competitorHubs(comp)
   // Contabilidade simplificada das rivais: reinvestimento de 10% da receita,
   // com entrada de leasing por aeronave e investimento ao abrir cada base.
