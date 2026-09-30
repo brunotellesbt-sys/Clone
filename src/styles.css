@@ -122,6 +122,7 @@ main { flex: 1; overflow: auto; padding: 18px 16px 28px; }
 .wrap { max-width: 1400px; margin: 0 auto; }
 
 .grid { display: grid; gap: 14px; }
+.grid > *, .split > * { min-width: 0; }
 .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -778,4 +779,19 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
 @media (max-width: 600px) {
   .connection-filters { grid-template-columns: 1fr 1fr; }
   .connection-filters label:last-child { grid-column: 1 / -1; }
+}
+
+/* Ranking: a ficha inteira cabe no celular, sem deslocar a página. */
+.ranking-list { max-width: 100%; overflow: auto; max-height: 70vh; }
+@media (max-width: 760px) {
+  .ranking-table, .ranking-table > tbody { display: block; }
+  .ranking-table > thead { display: none; }
+  .ranking-table > tbody > tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; padding: 8px; }
+  .ranking-table > tbody > tr > td { display: block; min-width: 0; text-align: left; border: 0; white-space: normal; overflow-wrap: anywhere; }
+  .ranking-table > tbody > tr > td::before { content: attr(data-label); display: block; font-size: 10px; color: var(--ink-3); margin-bottom: 3px; }
+  .ranking-table > tbody > tr > .ranking-company { grid-column: 1 / -1; grid-row: 1; }
+  .ranking-table > tbody > tr.ranking-expanded { grid-template-columns: minmax(0, 1fr); }
+  .ranking-detail.g2 { grid-template-columns: minmax(0, 1fr); }
+  .ranking-detail table.compacta th, .ranking-detail table.compacta td { display: table-cell; }
+  .ranking-detail table.compacta th:first-child, .ranking-detail table.compacta td:first-child { width: auto; max-width: none; }
 }

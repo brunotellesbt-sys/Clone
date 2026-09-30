@@ -522,6 +522,10 @@ export function clampPitch(pitch: Partial<Cabins> | undefined): Cabins {
   return out
 }
 
-/** Comissários exigidos: um por 50 assentos, mais reforço para a cabine da frente. */
+/**
+ * Regra geral de assentos do RBAC 121.391(a), aplicada à configuração instalada.
+ * Classe premium não impõe reforço automático. Não depende de bilhetes vendidos.
+ * Requisitos adicionais de evacuação/especificações operativas não são simulados.
+ */
 export const crewFor = (seats: Cabins) =>
-  Math.max(1, Math.ceil(sumSeats(seats) / 50) + Math.ceil((seats.c + seats.f) / 18))
+  Math.max(0, Math.ceil(sumSeats(seats) / 50))
