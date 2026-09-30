@@ -33,6 +33,8 @@
     "aircraft2d:ui": "node scripts/aircraft2d-ui.mjs",
     "cabin:selected": "node scripts/cabin-selected-ui.mjs",
     "ai:foundation": "tsx scripts/ai-foundation.ts",
+    "economy:hubs": "tsx scripts/hub-economy-check.ts",
+    "economy:regressions": "tsx scripts/pr100-regressions.ts",
     "flights:check": "tsx scripts/flight-metrics.ts",
     "connections:check": "tsx scripts/connections-check.ts",
     "connections:ui": "node scripts/connections-ui.mjs",

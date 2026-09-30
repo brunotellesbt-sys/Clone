@@ -6,7 +6,10 @@ import { distanceBetween, odKey } from './geo'
 import { hashStr } from './rng'
 import { DAY_MS, gameDayDate, mondayOf, utcDate } from './calendarDates'
 import { routeCalendarEffect } from './travelCalendar'
-import type { CabinClass, Cabins } from './types'
+import type { CabinClass, Cabins, GameState } from './types'
+import { largestPassengerAircraft } from './routeCapacity'
+import { classesDe } from './cabin'
+import { cityDevelopment, nearbyHubDemand } from './hubDevelopment'
 
 // Compartilha o relógio entre milhares de consultas do mesmo dia.
 let lastClock: { day: number; startYear: number; date: number; age: number; doy: number } | undefined
@@ -171,21 +174,10 @@ const AFINIDADE_CRUZADA = 0.58
 // ------------------------------------------------------------------- piso
 
 /**
- * O piso de demanda de um par, em passageiros por dia.
- *
- * Dois degraus, com 3% de folga adicional sobre os pisos anteriores:
- *
- * - **par que aceita jato regional** — 288,4 econômicos + 20,6 premium nos dois
- *   sentidos: 309 passageiros (antes 300), suficientes para uma ida e volta;
- * - **par que só aceita turboélice** — 117,42 econômicos nos dois sentidos, para
- *   comportar uma ida e volta de ATR 42 mesmo com tarifa até 1,15× acima
- *   da referência, sem inventar demanda premium.
- *
- * Pista e porte decidem, nas duas pontas, com a mesma conta que a tela de
- * abrir rota usa (`aeroportoServe`): elevação entra, e o teto de porte de
- * Pampulha também. Par que não aceita nem turboélice não tem piso — o jogo tem
- * aeroporto de pista curta demais para a frota inteira, e inventar demanda lá
- * seria demanda que ninguém pode servir.
+ * Referências históricas de calibração, não os pisos atuais.
+ * A razão entre 2× maxSeats e esta escala amplia também a curva/teto
+ * gravitacional. Mantê-las fixas preserva a proporção do aumento por cidade.
+ * O piso efetivo é calculado por aeronave, alcance, motor e ano em baseDemand.
  */
 export const PISO_JATO: { y: number; w: number } = { y: 288.4, w: 20.6 }
 export const PISO_TURBO: { y: number; w: number } = { y: 117.42, w: 0 }
@@ -220,7 +212,7 @@ export function pisoDoPar(a: Airport, b: Airport) {
   return SEM_PISO
 }
 
-export function baseDemand(from: string, to: string, day: number, _dayOfYear: number, startYear = 2027, withCalendar = true): MarketDemand {
+export function baseDemand(from: string, to: string, day: number, _dayOfYear: number, startYear = 2027, withCalendar = true, state?: GameState): MarketDemand {
   // O quarto argumento é mantido para compatibilidade. A data real do save
   // governa estação/eventos: inclusive quem antes passava "180" fixo para a IA.
   const clock = weeklyClock(day, startYear)
@@ -255,7 +247,8 @@ export function baseDemand(from: string, to: string, day: number, _dayOfYear: nu
    * ao grande, que é o avesso do que se quer.
    */
   const fluxo = Math.sqrt(a.fluxo * b.fluxo)
-  const gdp = (a.gdp + b.gdp) / 2
+  const cityA = cityDevelopment(state, from), cityB = cityDevelopment(state, to)
+  const gdp = (a.gdp * cityA.purchasingPower + b.gdp * cityB.purchasingPower) / 2
   const tour = (a.tour + b.tour) / 2
   const sameCountry = a.cc === b.cc ? 1.55 : a.country === b.country ? 1.3 : 1
   const afinidade = afinidadeDeAeroporto(a, b)
@@ -281,7 +274,7 @@ export function baseDemand(from: string, to: string, day: number, _dayOfYear: nu
     K *
     Math.pow(mass, 0.9) *
     fluxo *
-    gdp *
+    ((a.gdp + b.gdp) / 2) *
     Math.pow(tour, 0.55) *
     decay *
     sameCountry *
@@ -324,16 +317,26 @@ export function baseDemand(from: string, to: string, day: number, _dayOfYear: nu
   // o acréscimo entra antes do teto do par: nenhum par passa do que a ponta menor aguenta
   total = Math.max(0, satura(total * DEMANDA_EXTRA, TETO_PAR * Math.min(a.paxDia * derivaA, b.paxDia * derivaB)))
 
+  const plane = largestPassengerAircraft(from, to, new Date(gameDayDate(day, startYear)).getUTCFullYear())
+  // Sem voo direto possível ainda há viajantes via conexão (SDU–BSB–LIM).
+  // A limitação operacional remove o piso, não o mercado origem/destino.
+  const floor = (plane?.maxSeats ?? 0) * 2
+  const oldFloor = pisoDoPar(a, b)
+  // Amplia toda a curva na proporção do piso, preservando diferenças entre cidades.
+  const scale = Math.max(1, floor / Math.max(PISO_TURBO.y, oldFloor.y + oldFloor.w))
+  total = Math.max(floor, total * scale) * Math.sqrt(cityA.traffic * cityB.traffic) * nearbyHubDemand(state, from, to)
+
   // Mistura de classes: renda e distância empurram para a frente do avião.
-  const premium = Math.min(0.34, 0.03 + 0.13 * Math.max(0, gdp - 0.55) + 0.075 * Math.min(distNm / 4200, 1))
+  const classes = plane ? classesDe(plane) : ['y', 'w', 'c', 'f']
+  const premium = classes.length === 1 ? 0 : Math.min(0.34, 0.03 + 0.13 * Math.max(0, gdp - 0.55) + 0.075 * Math.min(distNm / 4200, 1))
   const domestico = a.cc === b.cc
   const primeiraElegivel =
-    gdp > 0.95 &&
+    classes.includes('f') && gdp > 0.95 &&
     (domestico ? distNm > LIMIAR_DOMESTICO_F_NM : distNm > 2600)
   const fShare = primeiraElegivel ? premium * 0.11 : 0
   // A executiva deixa de empatar exatamente com a premium em todas as rotas
   // curtas. A inclinação aumenta com a duração, sem tirar espaço da econômica.
-  const cShare = premium * (0.54 + 0.14 * Math.min(1, distNm / 2200))
+  const cShare = classes.includes('c') ? premium * (0.54 + 0.14 * Math.min(1, distNm / 2200)) : 0
   const wShare = premium - cShare - fShare
   const pax: Cabins = {
     y: total * (1 - premium),
@@ -342,33 +345,8 @@ export function baseDemand(from: string, to: string, day: number, _dayOfYear: nu
     f: total * fShare,
   }
 
-  /**
-   * O piso, e o piso é do jogo, não do mundo.
-   *
-   * Um par que aceita jato regional nunca vale menos do que uma ida e volta
-   * de E195 por dia; com turboélice, vale uma ida e volta de ATR 42. O total
-   * de `baseDemand` reúne ambos os sentidos. É decisão de projeto do jogo, e
-   * ela **descola o aeroporto pequeno do movimento publicado** — o teto por
-   * par continua valendo para cima, mas para baixo passa a mandar o piso. Sem
-   * esse aviso aqui alguém vai achar daqui a um ano que o modelo gravitacional
-   * regrediu; não regrediu, ele tem um chão por baixo.
-   *
-   * O piso segue a cabine que a aeronave comporta, e é por isso que o do
-   * turboélice não tem econômica premium: turboélice de linha voa em classe
-   * única (ver `classesDe`), e reservar oito assentos de uma classe que não
-   * existe seria demanda que ninguém pode atender.
-   *
-   * Ele fica **fora** do equilíbrio de fluxo de propósito. O `npm run fluxo`
-   * ajusta o modelo gravitacional para a soma de cada aeroporto bater com o
-   * movimento publicado; se o piso entrasse nessa conta, o que ele acrescenta
-   * num par pequeno sairia do fator de todos os outros pares do aeroporto — o
-   * chão de um par viraria desconto no vizinho. Rodar o `fluxo` depois desta
-   * mudança devolve os mesmos 3.087 fatores, byte a byte, e é assim que tem
-   * que ser.
-   */
-  const piso = pisoDoPar(a, b)
-  pax.y = Math.max(pax.y, piso.y)
-  pax.w = Math.max(pax.w, piso.w)
+  // O piso é bidirecional (duas aeronaves de capacidade máxima) e foi
+  // repartido acima pela mistura de renda/distância e pelas classes permitidas.
   // Aplica depois do piso/teto estrutural: aeroportos pequenos também ganham
   // procura nos eventos. Carga e classes sem demanda não ganham turistas.
   const calendar = withCalendar ? routeCalendarEffect(from, to, clock.date) : undefined

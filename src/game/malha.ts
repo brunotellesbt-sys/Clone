@@ -14,6 +14,7 @@
  * Nada de React aqui: é `src/game/`, e a tela só lê o que sai daqui.
  */
 import { AIRPORT_BY_IATA, type Airport } from './data/airports'
+import { connectionPathAllowed } from './connectionGeometry'
 import { distanceNm } from './geo'
 import { hashStr } from './rng'
 import { blockHours } from './economy'
@@ -199,7 +200,7 @@ export function toquesNaBase(s: GameState, base: string): { chegadas: Toque[]; p
  * que chegou, e não adianta conectar para o aeroporto de onde o passageiro
  * acabou de vir — ninguém voa Fortaleza–Rio–Fortaleza.
  */
-export function conexoesNaBase(s: GameState, base: string): Conexao[] {
+export function conexoesNaBase(s: GameState, base: string, includeRejectedPaths = false): Conexao[] {
   const { chegadas, partidas } = toquesNaBase(s, base)
   const out: Conexao[] = []
   for (const de of chegadas) {
@@ -212,6 +213,7 @@ export function conexoesNaBase(s: GameState, base: string): Conexao[] {
       const regra = connectionWindow(de.ponta, base, para.ponta)
       const minimo = regra.min
       if (espera < minimo || espera > regra.max) continue
+      if (!includeRejectedPaths && !connectionPathAllowed(de.ponta, base, para.ponta)) continue
       out.push({ de, para, espera, minimo, parceira: de.parceira ?? para.parceira,
         codeshare: de.codeshare ?? para.codeshare })
     }

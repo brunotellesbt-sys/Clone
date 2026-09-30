@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useGame } from '../store/useGame'
 import { conexoesNaBase } from '../game/malha'
-import { distanceBetween } from '../game/geo'
 import { DESVIO_MAXIMO } from '../game/connections'
+import { connectionPathAllowed } from '../game/connectionGeometry'
 import { CABINS, CABIN_SHORT } from '../game/types'
 import { gameDate, money, num } from '../game/engine'
 import { sumCabins } from '../game/economy'
@@ -45,11 +45,9 @@ export function ConnectionsView() {
    */
   const hubs = hub ? [hub] : state.airline.hubs
   const diagnostico = hubs.map(h => {
-    const pares = conexoesNaBase(state, h)
+    const pares = conexoesNaBase(state, h, true) // apenas diagnóstico; nunca oferta comercial
     const rodeio = pares.filter(c => {
-      const direto = distanceBetween(c.de.ponta, c.para.ponta)
-      return direto > 0 &&
-        (distanceBetween(c.de.ponta, h) + distanceBetween(h, c.para.ponta)) / direto > DESVIO_MAXIMO
+      return !connectionPathAllowed(c.de.ponta, h, c.para.ponta)
     }).length
     return { h, pares: pares.length, rodeio }
   })
@@ -67,8 +65,6 @@ export function ConnectionsView() {
     const grupos = new Map<string, { via: string; de: string; para: string; chega: number; sai: number; espera: number; dias: Set<number> }>()
     for (const h of hubs) for (const c of conexoesNaBase(state, h)) {
       if (c.parceira || c.codeshare || c.de.parceira || c.para.parceira) continue
-      const direto = distanceBetween(c.de.ponta, c.para.ponta)
-      if (!direto || (distanceBetween(c.de.ponta, h) + distanceBetween(h, c.para.ponta)) / direto > DESVIO_MAXIMO) continue
       const chave = `${h}|${c.de.ponta}|${c.para.ponta}|${c.de.local}|${c.para.local}`
       const g = grupos.get(chave) ?? { via: h, de: c.de.ponta, para: c.para.ponta, chega: c.de.local, sai: c.para.local, espera: c.espera, dias: new Set<number>() }
       g.dias.add(Math.floor(c.de.quando / (24 * 60)) % 7)
@@ -121,8 +117,8 @@ export function ConnectionsView() {
               chegada e partida separadas pelo tempo mínimo de conexão. É aqui que marcar um voo resolve.</>
             : rodeio >= pares
               ? <>A regra vê <b>{pares}</b> {pares === 1 ? 'par dos seus voos' : 'pares dos seus voos'} que
-                casam no relógio, e <b>todos rodeiam demais</b>: passar pela base custa mais de
-                {' '}{DESVIO_MAXIMO.toFixed(1)}× o voo direto, e ninguém compra isso.</>
+                casam no relógio, mas <b>nenhum tem um trajeto viável</b>: há desvio excessivo
+                ou a origem e o destino são próximos demais para oferecer conexão.</>
               : <>A regra vê <b>{pares}</b> {pares === 1 ? 'par dos seus voos' : 'pares dos seus voos'} que
                 casam no relógio{rodeio > 0 && <> ({rodeio} {rodeio === 1 ? 'rodeia' : 'rodeiam'} demais)</>}.
                 Os que sobram não venderam no último dia apurado (dia {state.conexoesApuradasEm}): o passageiro

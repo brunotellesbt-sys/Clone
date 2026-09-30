@@ -364,6 +364,10 @@ export interface Competitor {
   name: string
   code: string
   hub: string
+  /** Inclui a base principal. Ausente em saves anteriores. */
+  hubs?: string[]
+  lastExpansionDay?: number
+  growthBase?: { day: number; fleet: number }
   color: string
   cash: number
   reputation: number
@@ -459,6 +463,8 @@ export interface Notice {
 }
 
 export interface GameState {
+  /** Desenvolvimento adicional acumulado pela operação dos hubs, por cidade. */
+  hubDevelopment?: { day: number; cities: Record<string, number>; pending?: Record<string, number> }
   version: number
   seed: number
   day: number

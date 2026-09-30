@@ -26,6 +26,8 @@ jobs:
       - run: npm run rotas
       - run: npm run malha
       - run: npm run ai:foundation
+      - run: npm run economy:hubs
+      - run: npm run economy:regressions
       - run: npm run flights:check
       - run: npm run connections:check
       - run: npm run calendar:check
