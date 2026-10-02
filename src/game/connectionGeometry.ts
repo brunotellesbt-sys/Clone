@@ -17,6 +17,14 @@ export function connectionPathAllowed(from: string, via: string, to: string, dir
     Math.max(first, second) * 1.852 <= 1000 && (first + second) * 1.852 <= 1500 &&
     (first + second - direct) * 1.852 <= 900
   if (regional) return true
+  // Em uma conexão internacional o hub pode ficar fora da linha direta (por
+  // exemplo LIS–GRU–REC), desde que o desvio continue proporcional e não
+  // vire uma volta ao mundo. A regra doméstica abaixo permanece mais rígida.
+  const international = a.cc !== h.cc || h.cc !== b.cc
+  if (international && !directAvailable) {
+    return direct >= ETAPA_MINIMA_CONEXAO &&
+      first + second <= direct * 1.8 && Math.max(first, second) <= direct * 1.55
+  }
   if (direct < ETAPA_MINIMA_CONEXAO) return false
   return first + second <= direct * DESVIO_MAXIMO && Math.max(first, second) <= direct * 1.05
 }
