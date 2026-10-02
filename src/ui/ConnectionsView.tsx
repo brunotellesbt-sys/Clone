@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useGame } from '../store/useGame'
-import { conexoesNaBase } from '../game/malha'
+import { connectionAllowed, conexoesNaBase } from '../game/malha'
 import { DESVIO_MAXIMO } from '../game/connections'
-import { connectionPathAllowed } from '../game/connectionGeometry'
 import { CABINS, CABIN_SHORT } from '../game/types'
 import { gameDate, money, num } from '../game/engine'
 import { sumCabins } from '../game/economy'
@@ -47,7 +46,7 @@ export function ConnectionsView() {
   const diagnostico = hubs.map(h => {
     const pares = conexoesNaBase(state, h, true) // apenas diagnóstico; nunca oferta comercial
     const rodeio = pares.filter(c => {
-      return !connectionPathAllowed(c.de.ponta, h, c.para.ponta)
+      return !connectionAllowed(state,c.de.ponta, h, c.para.ponta)
     }).length
     return { h, pares: pares.length, rodeio }
   })

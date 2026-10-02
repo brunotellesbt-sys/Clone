@@ -7,11 +7,13 @@ import { distanceBetween } from '../src/game/geo'
 import { importSave, exportSave } from '../src/game/save'
 import { CABINS } from '../src/game/types'
 
-const s = newGame({ name: 'Conexões', code: 'CN', hub: 'GRU', seed: 31 })
+// O fixture usa uma malha regional realista para exercitar conexões sem
+// reintroduzir desvios longos que a regra de geometria deve rejeitar.
+const s = newGame({ name: 'Conexões', code: 'CN', hub: 'PVH', seed: 31 })
 s.airline.cash = 5e9
-for (const d of ['REC', 'SSA', 'LIS']) {
-  assert.equal(buyAircraft(s, d === 'LIS' ? 'a359' : 'a320neo', false), null)
-  assert.equal(openRoute(s, 'GRU', d), null)
+for (const d of ['RBR', 'CZS', 'JPR']) {
+  assert.equal(buyAircraft(s, 'e195e2', false), null)
+  assert.equal(openRoute(s, 'PVH', d), null)
   const r = s.airline.routes.at(-1)!
   assert.equal(assignAircraft(s, s.airline.fleet.at(-1)!.id, r.id), null)
   setAllFrequencies(s, r.id, 2)

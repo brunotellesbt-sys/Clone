@@ -2,11 +2,10 @@ import { admittedFlights, rivalFrequency } from './airportInfrastructure'
 import { AIRPORTS, AIRPORT_BY_IATA as AP } from './data/airports'
 import { AIRCRAFT_BY_ID } from './data/aircraft'
 import { baseDemand } from './demand'
-import { connectionPathAllowed } from './connectionGeometry'
 import { addCabins, blockHours, emptyCabins, SELLABLE, sumCabins, ticketRevenue } from './economy'
 import { blocoDe, DIA, escalaDe, naSemana, noDia, partidaUtc } from './escala'
 import { distanceBetween, distanceNm, odKey } from './geo'
-import { conexoesNaBase, type Conexao, type Toque } from './malha'
+import { connectionAllowed, conexoesNaBase, type Conexao, type Toque } from './malha'
 import { CABINS, type Cabins, type ConnectionJourney, type ConnectionLeg, type GameState, type Perna, type Route } from './types'
 
 export interface LocalRouteAllocation { route: Route; voos: Perna[]; seats: Cabins; local: Cabins }
@@ -80,6 +79,9 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
   const legs = new Map(escalaDe(s).filter(p => admittedFlights(s).has(p.id)).map(p => [p.id, p]))
   const routeFor = new Map(s.airline.routes.filter(r => !r.cargo).map(r => [odKey(r.from, r.to), r]))
   const allocations = new Map(locals.map(r => [r.route.id, r]))
+  const fleet=new Map(s.airline.fleet.map(a=>[a.id,a]))
+  const seatsByRoute=new Map(locals.map(r=>[r.route.id,r.voos.reduce((n,p)=>addCabins(n,fleet.get(p.aircraftId)!.seats),emptyCabins())]))
+  const markets=new Map<string,ReturnType<typeof baseDemand>>()
   const ownLeg = (p: Perna, day: number): ConnectionLeg => ({
     id: p.id, day, from: p.from, to: p.to, departure: noDia(partidaUtc(p)),
     number: `${s.airline.code}${String(p.numero ?? 0).padStart(4, '0')}`, own: true, operator: s.airline.name,
@@ -91,15 +93,12 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
     let capacity = partnerSeats ?? emptyCabins(), baseline = emptyCabins()
     if (leg.own) {
       const p = legs.get(leg.id)
-      const ac = p && s.airline.fleet.find(a => a.id === p.aircraftId)
+      const ac = p && fleet.get(p.aircraftId)
       const route = p && routeFor.get(odKey(p.from, p.to))
       if (!p || !ac || !route || ac.groundedUntil > leg.day || p.from !== leg.from || p.to !== leg.to ||
         noDia(partidaUtc(p)) !== leg.departure || Math.floor(partidaUtc(p) / DIA) !== (dow + leg.day - s.day) % 7) return
       const local = allocations.get(route.id)
-      const totalSeats = local?.voos.reduce((n, p) => {
-        const seats = s.airline.fleet.find(a => a.id === p.aircraftId)!.seats
-        return addCabins(n, seats)
-      }, emptyCabins())
+      const totalSeats = local && seatsByRoute.get(route.id)
       capacity = emptyCabins()
       for (const c of CABINS) {
         const share = totalSeats?.[c] ? ac.seats[c] / totalSeats[c] : 0
@@ -127,6 +126,7 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
   // Reservas de ontem são atendidas antes de novas vendas e sobrevivem ao save.
   for (const j of journeys) {
     if (j.cancelled || j.second.day < s.day) continue
+    if(!connectionAllowed(s,j.first.from,j.via,j.second.to)){j.cancelled=true;continue}
     const future = [j.first, j.second].filter(l => l.own && l.day >= s.day)
     if (future.some(l => !manifest(l))) { j.cancelled = true; continue }
     if (future.some(l => CABINS.some(c => {
@@ -186,10 +186,15 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
     if (!first || !second || soldIds.has(`${s.day}:${first.leg.id}>${second.leg.id}`)) continue
     const from = c.de.ponta, to = c.para.ponta
     const directDistance = distanceBetween(from, to)
-    if (!connectionPathAllowed(from, hub, to) || nearbyAirports(from).includes(to)) continue
+    if (!connectionAllowed(s,from, hub, to)) continue
     const d1 = distanceBetween(from, hub), d2 = distanceBetween(hub, to)
-    const detour = (d1 + d2) / directDistance
-    const demand = baseDemand(from, to, s.day, doy, s.startYear, true, s)
+    // Sem direto regional, uma razão enorme entre cidades vizinhas não deve
+    // zerar a venda que a geometria acabou de autorizar. O custo da volta é
+    // medido também em distância absoluta, limitado pela regra regional.
+    const detour = 1 + (d1+d2-directDistance)/Math.max(directDistance,1000/1.852)
+    const marketKey=`${from}>${to}`
+    let demand=markets.get(marketKey)
+    if(!demand){demand=baseDemand(from,to,s.day,doy,s.startYear,true,s);markets.set(marketKey,demand)}
     const r1 = p1 && routeFor.get(odKey(p1.from, p1.to)), r2 = p2 && routeFor.get(odKey(p2.from, p2.to))
     const fare1 = r1 ? (r1.fare.y * 3 + r1.fare.c) / 4 : partner1!.fare
     const fare2 = r2 ? (r2.fare.y * 3 + r2.fare.c) / 4 : partner2!.fare
@@ -200,10 +205,14 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
       Math.min(1.5, Math.min(sumCabins(first.capacity), sumCabins(second.capacity)) / Math.max(60, demand.total / 2))
     // Aeroportos próximos compartilham um orçamento de procura; multiplicar
     // frequências e combinações não pode multiplicar os mesmos viajantes O&D.
-    const key = `${nearbyAirports(from)[0]}>${nearbyAirports(to)[0]}`
+    const marketFrom = nearbyAirports(from)[0], marketTo = nearbyAirports(to)[0]
+    // Em mercados em que as duas pontas apontam para o mesmo aeroporto
+    // representativo (por exemplo, duas cidades regionais próximas), manter
+    // a direção real evita que ida e volta consumam o mesmo orçamento.
+    const key = marketFrom === marketTo && from !== to ? `${from}>${to}` : `${marketFrom}>${marketTo}`
     const group = groups.get(key) ?? { from, to, demand: emptyCabins(), candidates: [] }
     for (const cb of CABINS) group.demand[cb] = Math.max(group.demand[cb], demand.pax[cb] / 2)
-    const ac1 = p1 && s.airline.fleet.find(a => a.id === p1.aircraftId), ac2 = p2 && s.airline.fleet.find(a => a.id === p2.aircraftId)
+    const ac1 = p1 && fleet.get(p1.aircraftId), ac2 = p2 && fleet.get(p2.aircraftId)
     const pitch = { y: 31, w: 38, c: 60, f: 83 }
     for (const cb of CABINS) pitch[cb] = Math.min(ac1 ? ac1.pitch[cb] : pitch[cb], ac2 ? ac2.pitch[cb] : pitch[cb])
     group.candidates.push({ c, first, second, weight, fare, pitch, d1, d2, refFare: demand.refFare, via: hub })

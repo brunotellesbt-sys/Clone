@@ -44,8 +44,8 @@ import {
  * cronômetro correndo — dava para abrir uma rota e perder um mês antes de
  * terminar de ler a tela.
  *
- * As velocidades são múltiplos disto: 25× põe o dia em 2,4 minutos,
- * 50× em 1,2 minuto e 100× em 36 segundos.
+ * As velocidades são múltiplos disto: 75× põe o dia em 48 segundos,
+ * 300× em 12 segundos e 600× em 6 segundos.
  *
  * O mapa segue a **mesma** escala. Ele tinha um laço próprio que rodava o dia
  * em trinta e quatro segundos independente da velocidade, e com isso o avião

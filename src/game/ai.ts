@@ -1,4 +1,4 @@
-import { effectiveAirport, airportSlots, airportUsage, invalidateAirportUsage } from './airportInfrastructure'
+import { effectiveAirport, airportSlots, airportUsage, updateRivalUsage } from './airportInfrastructure'
 import {
   AIRPORTS, AIRPORT_BY_IATA, noToqueDeRecolher, vooPermitido, type Airport,
 } from './data/airports'
@@ -84,10 +84,18 @@ function noAlcance(base: Airport, destino: Airport, alcance: Alcance): boolean {
  */
 const VALIDADE = 730
 const cacheDestinos = new Map<string, { ate: number; lista: { iata: string; score: number }[] }>()
+const infrastructureCache=new WeakMap<GameState,{day:number;data:GameState['airportDevelopment'];signature:string}>()
+function infrastructureSignature(state?:GameState) {
+  if(!state)return ''
+  const cached=infrastructureCache.get(state)
+  if(cached?.day===state.day&&cached.data===state.airportDevelopment)return cached.signature
+  const signature=Object.entries(state.airportDevelopment??{}).filter(([,d])=>d.completed.length).map(([id,d])=>`${id}:${d.runway}:${d.category}`).join('|')
+  infrastructureCache.set(state,{day:state.day,data:state.airportDevelopment,signature});return signature
+}
 
 function candidateDestinations(hub: string, day: number, limit: number, alcance: Alcance = 'int', startYear = 2027, state?: GameState) {
   const base = effectiveAirport(state, hub)
-  const infrastructure = Object.entries(state?.airportDevelopment??{}).filter(([,d])=>d.completed.length).map(([id,d])=>`${id}:${d.runway}:${d.category}`).join('|')
+  const infrastructure = infrastructureSignature(state)
   const cacheKey = `${startYear}:${state?.seed??0}:${hub}:${base.escopo}:${infrastructure}`
   const hit = cacheDestinos.get(cacheKey)
   const completa = hit && day < hit.ate
@@ -415,6 +423,8 @@ function expandCompetitor(comp: Competitor, day: number, rng: Rng, startYear: nu
 /** Decisão semanal: mexe em tarifa, oferta, abre e fecha rota. */
 export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, playerPressure: Record<string, number>, _playerRoutes = 0, startYear = 2027, state?: GameState) {
   for (const comp of comps) {
+    if(state)airportUsage(state)
+    const previousRoutes=comp.routes.map(r=>({from:r.from,to:r.to,freq:r.freq}))
     const before = new Map(comp.routes.map(r=>[r.key,r.freq]))
     for (const r of comp.routes) {
       const pressure = playerPressure[r.key] ?? 0
@@ -451,7 +461,7 @@ export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, play
       // Reverte os aumentos antes de reservar capacidade, em uma única leitura da malha.
       const increases=comp.routes.filter(r=>r.freq>(before.get(r.key)??0)).map(r=>({r,target:r.freq}))
       for(const {r} of increases)r.freq=before.get(r.key)??0
-      invalidateAirportUsage(state)
+      updateRivalUsage(state,previousRoutes,comp.routes)
       const usage=airportUsage(state)
       for(const {r,target} of increases) {
         while(r.freq<target && [r.from,r.to].every(id=>{const a=airportSlots(state,id);return a.capacity-a.rivals-Math.max(a.own,a.reserved)>=2})) {
@@ -460,7 +470,7 @@ export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, play
         }
       }
       comp.routes=comp.routes.filter(r=>r.freq>0)
-      invalidateAirportUsage(state)
+      updateRivalUsage(state,[],[])
     }
     comp.reputation = Math.min(0.95, Math.max(0.3, comp.reputation + between(rng, -0.006, 0.007)))
   }
