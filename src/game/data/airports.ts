@@ -4,7 +4,7 @@
 // e pista firme de pelo menos 4.400 ft — a pista que o ATR 72 pede no catálogo
 // do próprio jogo. O critério é esse e não "aeroporto grande" porque o que
 // interessa é onde a frota do jogo **pode pousar**: a menor aeronave de linha
-// dela define o piso, e a lista fica com 3.086 destinos em 231 países.
+// dela define o piso; o catálogo atual tem 3.088 destinos.
 //
 // Fato e índice de jogo estão misturados de propósito, e a diferença importa:
 //
@@ -33,6 +33,7 @@
 // ajuste de balanceamento, e o dado público não sabe nada sobre isso. Deles só a
 // coordenada e a pista foram corrigidas pelo fato.
 import { AIRPORT_NAMES } from './airportNames'
+import { RUNWAY_CORRECTIONS } from './runwayCorrections'
 import { estimarMovimento, fatorFluxo, MOVIMENTO_ANUAL, movimentoDiario } from './movimento'
 
 export interface Airport {
@@ -225,6 +226,8 @@ export const TETO_ASSENTOS: Record<string, number> = {
   MAO: 550, BEL: 550
 }
 
+// Comprimentos abaixo são a referência legada da simulação. Correções físicas
+// verificadas ficam em RUNWAY_CORRECTIONS, sem recalibrar permissões ou demanda.
 const RAW = `
 HND|Toquio|Japao|JP|35.55|139.79|37.40|1.40|1.50|11024|5|35
 NRT|Narita|Japao|JP|35.77|140.39|37.40|1.30|1.80|13123|5|141
@@ -3725,7 +3728,7 @@ export const AIRPORTS: Airport[] = RAW.split('\n').map((line) => {
     pop: Number(pop),
     gdp: Number(gdp),
     tour: Number(tour),
-    runway: Number(runway),
+    runway: RUNWAY_CORRECTIONS[iata] ? Math.round(RUNWAY_CORRECTIONS[iata].meters / .3048) : Number(runway),
     elev: Number(elev),
     tier: t,
     cont: CONTINENTE[cc] ?? 'AN',
@@ -3740,7 +3743,7 @@ export const AIRPORTS: Airport[] = RAW.split('\n').map((line) => {
     name: `${city} (${iata})`,
     official: AIRPORT_NAMES[iata] ?? `${city} (${iata})`,
     tetoAssentos: TETO_ASSENTOS[iata],
-    pistaOperacional: PISTA_OPERACIONAL[iata],
+    pistaOperacional: PISTA_OPERACIONAL[iata] ?? (RUNWAY_CORRECTIONS[iata] ? Number(runway) : undefined),
   } as Airport
 })
 

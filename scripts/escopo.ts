@@ -362,7 +362,7 @@ console.log('\npar do mesmo sistema aeroportuário\n')
 console.log('\npista real e régua de operação\n')
 {
   const conhecidas: [string, number][] = [
-    ['SDU', 1323], ['CGH', 1940], ['PLU', 2540], ['CWB', 2218], ['JOI', 1640],
+    ['SDU', 1323], ['CGH', 1883], ['PLU', 2364], ['CWB', 2218], ['JOI', 1540],
   ]
   for (const [iata, m] of conhecidas) {
     const real = AIRPORT_BY_IATA[iata].runway * 0.3048
