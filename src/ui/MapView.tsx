@@ -1,3 +1,4 @@
+import { admittedFlights, airportSlots, effectiveAirport } from '../game/airportInfrastructure'
 import { geoEquirectangular, geoPath, geoGraticule10 } from 'd3-geo'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { feature } from 'topojson-client'
@@ -5,7 +6,7 @@ import type { FeatureCollection, Geometry as GeoGeometry } from 'geojson'
 import world from 'world-atlas/countries-110m.json'
 import { AIRPORTS, AIRPORT_BY_IATA, ESCOPO_LABEL, type Airport } from '../game/data/airports'
 import { aircraftOf, dowOf, km, metros, num, typeOf } from '../game/engine'
-import { cityDevelopment, hubExtraSlots, activeHubs, hubGrowthRateMultiplier } from '../game/hubDevelopment'
+import { cityDevelopment, activeHubs, hubGrowthRateMultiplier } from '../game/hubDevelopment'
 import { MS_POR_DIA_NA_TELA } from './relogio'
 import { blocoDe, DIA, DOW_CURTO, escalaDe, hhmm, naSemana, noTempo, partidaUtc, rotaDoPar } from '../game/escala'
 import { distanceBetween, interpolate } from '../game/geo'
@@ -342,6 +343,7 @@ export function MapView({
       a: Airport; b: Airport; fase: number; perna: Perna; bloco: number
     }[] = []
     for (const p of escalaDe(state)) {
+      if (!admittedFlights(state).has(p.id)) continue
       const ac = aircraftOf(state, p.aircraftId)
       if (!ac || ac.groundedUntil > state.day) continue
       const a = AIRPORT_BY_IATA[p.from]
@@ -706,7 +708,7 @@ function CartaoAeroporto({ state, airport, onClose }: {
   const development = cityDevelopment(state, airport.iata)
   const activity = activeHubs(state).get(airport.iata)
   const growthRate = activity ? hubGrowthRateMultiplier(airport.pop, activity.movements, activity.international) : 1
-  const pernas = escalaDe(state).filter(p => p.from === airport.iata || p.to === airport.iata)
+  const pernas = escalaDe(state).filter(p => admittedFlights(state).has(p.id) && (p.from === airport.iata || p.to === airport.iata))
     .map(p => {
       const chegada = p.to === airport.iata
       const tempo = noTempo(state, p)
@@ -725,9 +727,9 @@ function CartaoAeroporto({ state, airport, onClose }: {
       <button className="x" onClick={onClose} title="Fechar">×</button>
     </div>
     <span>{airport.city}, {airport.country}</span>
-    <small className="muted">{ESCOPO_LABEL[airport.escopo]} · {num(airport.paxDia)} passageiros/dia</small>
+    <small className="muted">{ESCOPO_LABEL[effectiveAirport(state, airport.iata).escopo]} · {num(airport.paxDia)} passageiros/dia</small>
     {activity && <small className="good">Desenvolvimento do hub: {growthRate.toFixed(1)}× a taxa local · procura +{((development.traffic - 1) * 100).toFixed(1)}%</small>}
-    {development.traffic > 1 && <small className="muted">Efeito acumulado dos hubs: população +{((development.population - 1) * 100).toFixed(1)}% · poder de compra +{((development.purchasingPower - 1) * 100).toFixed(1)}%{base ? ` · ${hubExtraSlots(state, airport.iata)} slots adicionais para sua base` : ''}</small>}
+    {development.traffic > 1 && <small className="muted">Efeito acumulado dos hubs: população +{((development.population - 1) * 100).toFixed(1)}% · poder de compra +{((development.purchasingPower - 1) * 100).toFixed(1)}%{base ? ` · ${airportSlots(state, airport.iata).free} slots livres para sua base` : ''}</small>}
     <small className="dim">{destinos.size} destinos · {pernas.length} voos seus/semana · {concorrentes.length} rotas de outras companhias</small>
     {/* Partidas e chegadas numa lista só embaralhavam os dois sentidos; o
         menu mostra um de cada vez, como o painel do aeroporto. */}

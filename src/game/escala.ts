@@ -1,3 +1,4 @@
+import { airportSlots, airportUsage, ensureAirports, flightMovements, effectiveAirport, invalidateAirportUsage } from './airportInfrastructure'
 /**
  * A malha: onde cada aeronave está, a cada minuto da semana.
  *
@@ -497,8 +498,8 @@ const novoId = () => `pn${Date.now().toString(36)}${(seqPerna++).toString(36)}`
  */
 export function aeronaveServe(s: GameState, ac: Aircraft, from: string, to: string): string | null {
   const t = fichaDe(ac)
-  const a = AIRPORT_BY_IATA[from]
-  const b = AIRPORT_BY_IATA[to]
+  const a = effectiveAirport(s, from)
+  const b = effectiveAirport(s, to)
   if (!a || !b) return 'Aeroporto desconhecido.'
   const dist = distanceBetween(from, to)
   if (t.range < dist) return `${t.name} não alcança a etapa (limite ${Math.round(t.range * 1.852)} km).`
@@ -597,11 +598,12 @@ export function aeronavesPara(s: GameState, from: string, to: string, dow: numbe
 export function marcarVoo(
   s: GameState, aircraftId: string, from: string, to: string, dow: number, saida: number,
 ): string | null {
+  ensureAirports(s)
   const ac = aeronaveDa(s, aircraftId)
   if (!ac) return 'Aeronave não encontrada.'
   if (from === to) return 'Origem e destino iguais.'
-  const a = AIRPORT_BY_IATA[from]
-  const b = AIRPORT_BY_IATA[to]
+  const a = effectiveAirport(s, from)
+  const b = effectiveAirport(s, to)
   if (!a || !b) return 'Aeroporto desconhecido.'
   const barrado = vooPermitido(a, b)
   if (barrado) return barrado
@@ -620,6 +622,7 @@ export function marcarVoo(
   if (duro) return duro
   const cabe = cabeNaEscala(s, ac.id, from, to, d, hora)
   if (!cabe.ok) return cabe.motivo ?? 'Não cabe na escala da aeronave.'
+  for (const [id, day] of flightMovements(s,{id:'candidate',aircraftId,from,to,dow:d,saida:hora})) if ((airportUsage(s).get(id)?.days[day] ?? 0) + 1 > airportSlots(s, id).ownLimit) return `${id}: sem slots para mais um movimento nesse dia.`
   const numero = numeroLivre(s, from, to, hora)
   if (!numero) return 'Todos os números de voo estão em uso.'
   s.airline.escala = [...escalaDe(s), { id: novoId(), numero, aircraftId, from, to, dow: d, saida: hora }]
@@ -827,6 +830,7 @@ export function montarRotacoes(s: GameState, routeId: string, dow: number, quant
  * fonte só — a escala — e um lugar só que a atualiza.
  */
 export function sincronizarMalha(s: GameState) {
+  invalidateAirportUsage(s)
   const porRota = new Map<string, { freq: number[]; caudas: Set<string> }>()
   for (const r of s.airline.routes) porRota.set(r.id, { freq: [0, 0, 0, 0, 0, 0, 0], caudas: new Set() })
   const rotaDaCauda = new Map<string, Set<string>>()

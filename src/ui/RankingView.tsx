@@ -22,7 +22,7 @@ function FichaDaRival({ id }: { id: string }) {
   const c = state.competitors.find((x) => x.id === id)
   if (!c) return null
   const ano = state.startYear + state.day / 365
-  const frota = frotaDaConcorrente(c, ano)
+  const frota = frotaDaConcorrente(c, ano, state)
   // as maiores primeiro: é onde o dinheiro dela está, e onde doer mais entrar
   const rotas = [...c.routes].sort((x, y) => y.seats * y.freq - x.seats * x.freq)
 

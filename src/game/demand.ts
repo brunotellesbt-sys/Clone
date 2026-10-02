@@ -317,7 +317,7 @@ export function baseDemand(from: string, to: string, day: number, _dayOfYear: nu
   // o acréscimo entra antes do teto do par: nenhum par passa do que a ponta menor aguenta
   total = Math.max(0, satura(total * DEMANDA_EXTRA, TETO_PAR * Math.min(a.paxDia * derivaA, b.paxDia * derivaB)))
 
-  const plane = largestPassengerAircraft(from, to, new Date(gameDayDate(day, startYear)).getUTCFullYear())
+  const plane = largestPassengerAircraft(from, to, new Date(gameDayDate(day, startYear)).getUTCFullYear(), state)
   // Sem voo direto possível ainda há viajantes via conexão (SDU–BSB–LIM).
   // A limitação operacional remove o piso, não o mercado origem/destino.
   const floor = (plane?.maxSeats ?? 0) * 2

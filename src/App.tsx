@@ -1,3 +1,5 @@
+import { HubsView } from './ui/HubsView'
+import { invalidateAirportUsage } from './game/airportInfrastructure'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { invalidateHubActivity } from './game/hubDevelopment'
 import { advanceDay, gameDate, money, netWorth, pct, period } from './game/engine'
@@ -33,6 +35,7 @@ import { downloadFile } from './livery/export'
 const TABS = [
   { id: 'painel', label: 'Painel' },
   { id: 'rotas', label: 'Rotas' },
+  { id: 'hubs', label: 'Hubs' },
   { id: 'conexoes', label: 'Conexões' },
   { id: 'calendario', label: 'Calendário' },
   { id: 'frota', label: 'Frota' },
@@ -70,7 +73,7 @@ export function App() {
     const s = stateRef.current
     if (!s) return null
     const err = fn(s) ?? null
-    invalidateHubActivity(s)
+    invalidateHubActivity(s); invalidateAirportUsage(s)
     if (!err) {
       saveGame(s, getActiveSlot())
     }
@@ -192,6 +195,7 @@ export function App() {
             {tab === 'financas' && <FinanceView />}
             {tab === 'pintura' && <LiveryEditor />}
             {tab === 'ranking' && <RankingView />}
+            {tab === 'hubs' && <HubsView />}
             {tab === 'companhias' && <CompetitorsView />}
           </div>
         </main>

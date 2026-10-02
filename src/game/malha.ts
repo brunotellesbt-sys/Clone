@@ -1,3 +1,4 @@
+import { admittedFlights, rivalFrequency } from './airportInfrastructure'
 /**
  * O que a malha conecta.
  *
@@ -161,6 +162,7 @@ export function toquesNaBase(s: GameState, base: string): { chegadas: Toque[]; p
   const chegadas: Toque[] = []
   const partidas: Toque[] = []
   for (const p of escalaDe(s)) {
+    if (!admittedFlights(s).has(p.id)) continue
     if (p.from !== base && p.to !== base) continue
     const ac = s.airline.fleet.find(a => a.id === p.aircraftId)
     if (!ac || ac.groundedUntil > s.day || rotaDaPerna(s, p)?.cargo) continue
@@ -172,6 +174,7 @@ export function toquesNaBase(s: GameState, base: string): { chegadas: Toque[]; p
     if (!s.airline.acordos?.includes(comp.id) && !s.airline.codeshares?.includes(comp.id)) continue
     const codeshare = s.airline.codeshares?.includes(comp.id) ?? false
     for (const cr of comp.routes) {
+      if (rivalFrequency(s, cr) <= 0) continue
       const p = pontasDaConcorrente(cr, base)
       if (!p) continue
       const fuso = AIRPORT_BY_IATA[base].fuso

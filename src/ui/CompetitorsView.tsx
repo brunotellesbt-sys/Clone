@@ -38,7 +38,7 @@ export function CompetitorsView() {
   const selected = filtered.find(x => x.comp.id === picked)?.comp ?? filtered[0]?.comp
   /** Um modelo aberto por vez: dois abertos viram uma tela de rolagem. */
   const [modelo, setModelo] = useState<string | null>(null)
-  const frota = selected ? frotaDaConcorrente(selected, new Date(gameDayDate(state.day, state.startYear)).getUTCFullYear()) : []
+  const frota = selected ? frotaDaConcorrente(selected, new Date(gameDayDate(state.day, state.startYear)).getUTCFullYear(), state) : []
   const routes = useMemo(() => {
     if (!selected) return []
     const doy = dayOfYear(state)

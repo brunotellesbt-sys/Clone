@@ -1,3 +1,4 @@
+import { admittedFlights } from './airportInfrastructure'
 import { cabinComfort } from './cabin'
 import { SELLABLE, type Carrier } from './economy'
 import { pernasDaRota } from './escala'
@@ -7,7 +8,7 @@ import type { GameState, Route } from './types'
 
 /** Oferta média diária: mesma disputa na receita da IA e no painel. */
 export function playerWeeklyOffer(s: GameState, r: Route): Carrier | null {
-  const flights = pernasDaRota(s, r).flatMap(p => {
+  const flights = pernasDaRota(s, r).filter(p => admittedFlights(s).has(p.id)).flatMap(p => {
     const a = s.airline.fleet.find(x => x.id === p.aircraftId && x.groundedUntil <= s.day)
     return a ? [{ p, a }] : []
   })

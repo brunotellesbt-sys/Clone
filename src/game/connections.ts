@@ -1,3 +1,4 @@
+import { admittedFlights, rivalFrequency } from './airportInfrastructure'
 import { AIRPORTS, AIRPORT_BY_IATA as AP } from './data/airports'
 import { AIRCRAFT_BY_ID } from './data/aircraft'
 import { baseDemand } from './demand'
@@ -76,7 +77,7 @@ export function connectionAttraction(detour: number, wait: number, fareRatio: nu
 /** Apura vendas O&D e reserva os mesmos passageiros em ambos os voos, inclusive amanhã. */
 export function allocateConnections(s: GameState, locals: LocalRouteAllocation[], dow: number, doy: number) {
   const manifests = new Map<string, FlightManifest>()
-  const legs = new Map(escalaDe(s).map(p => [p.id, p]))
+  const legs = new Map(escalaDe(s).filter(p => admittedFlights(s).has(p.id)).map(p => [p.id, p]))
   const routeFor = new Map(s.airline.routes.filter(r => !r.cargo).map(r => [odKey(r.from, r.to), r]))
   const allocations = new Map(locals.map(r => [r.route.id, r]))
   const ownLeg = (p: Perna, day: number): ConnectionLeg => ({
@@ -138,7 +139,7 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
   const competitorsByOd = new Map<string, { seats: number; fare: number; quality: number }[]>()
   for (const comp of s.competitors) for (const r of comp.routes) {
     const list = competitorsByOd.get(r.key) ?? []
-    list.push({ seats: r.seats * r.freq * SELLABLE, fare: r.fare, quality: r.quality })
+    list.push({ seats: r.seats * rivalFrequency(s, r) * SELLABLE, fare: r.fare, quality: r.quality })
     competitorsByOd.set(r.key, list)
   }
   const directCompetition = (from: string, to: string, demand: number) => {
