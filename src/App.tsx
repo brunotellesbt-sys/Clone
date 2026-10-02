@@ -14,6 +14,7 @@ import {
   importSaveFile,
   loadGame,
   saveGame,
+  queueSaveGame,
 } from './game/save'
 import type { SlotSummary } from './game/save'
 import type { GameState } from './game/types'
@@ -49,9 +50,9 @@ const TABS = [
 const SPEEDS = [
   { v: 0, label: '❚❚' },
   { v: 1, label: '1×' },
-  { v: 25, label: '25×' },
-  { v: 50, label: '50×' },
-  { v: 100, label: '100×' },
+  { v: 75, label: '75×' },
+  { v: 300, label: '300×' },
+  { v: 600, label: '600×' },
 ]
 
 export function App() {
@@ -75,7 +76,7 @@ export function App() {
     const err = fn(s) ?? null
     invalidateHubActivity(s); invalidateAirportUsage(s)
     if (!err) {
-      saveGame(s, getActiveSlot())
+      queueSaveGame(s, getActiveSlot())
     }
     force((v) => v + 1)
     return err
@@ -85,15 +86,29 @@ export function App() {
   useEffect(() => {
     if (!state || state.paused || state.speed === 0) return
     const interval = Math.max(16, MS_POR_DIA_NA_TELA / state.speed)
-    const id = setInterval(() => {
+    let id:ReturnType<typeof setTimeout>
+    let disposed=false
+    const tick=() => {
       const s = stateRef.current
-      if (!s || s.paused || s.speed === 0) return
+      if (disposed || !s || s.paused || s.speed === 0) return
+      const started=performance.now()
       advanceDay(s)
-      if (s.day % 30 === 0) saveGame(s, getActiveSlot())
+      if (s.day % 30 === 0) queueSaveGame(s, getActiveSlot())
       force((v) => v + 1)
-    }, interval)
-    return () => clearInterval(id)
+      // Reserva tempo para desenho e entrada mesmo quando um dia custa mais que
+      // o intervalo solicitado. Não acumula ticks atrasados em 600×.
+      id=setTimeout(tick,Math.max(32,interval-(performance.now()-started)))
+    }
+    id=setTimeout(tick,interval)
+    return () => {disposed=true;clearTimeout(id)}
   }, [state, state?.paused, state?.speed])
+
+  useEffect(()=>{
+    const flush=()=>{const s=stateRef.current;if(s)saveGame(s,getActiveSlot())}
+    const error=()=>toast('Não foi possível salvar automaticamente. Exporte seu save pelo menu.','error')
+    window.addEventListener('pagehide',flush);window.addEventListener('game-save-error',error)
+    return()=>{window.removeEventListener('pagehide',flush);window.removeEventListener('game-save-error',error)}
+  },[toast])
 
   // atalhos
   useEffect(() => {

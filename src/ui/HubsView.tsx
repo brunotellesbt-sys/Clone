@@ -24,6 +24,7 @@ export function HubsView() {
     <Card title="Acompanhamento de hubs">
       <label className="field"><span>Hub</span><select value={id} onChange={e=>{setSelected(e.target.value);setConfirm(null);setCompare('previous')}}>{s.airline.hubs.map(h=><option key={h} value={h}>{h} — {AIRPORT_BY_IATA[h].city}</option>)}</select></label>
       <p className="dim">Cada pouso ou decolagem usa um slot. Abrir uma rota não reserva capacidade. Os números de ocupação representam o dia de maior movimento da malha semanal.</p>
+      <p className="dim">Sua reserva inicial cobre a malha existente e mais 10% de folga, entre 6 e 16 movimentos por dia. Um hub novo começa com 24. Slots ociosos do aeroporto só se tornam seus após um ano sem utilização; crescimento e obras também ampliam sua reserva.</p>
       <div className="hub-metrics">
         <div><small>Slots disponíveis para sua malha</small><b>{num(slots.free)}</b></div>
         <div><small>Capacidade por dia</small><b>{num(slots.capacity)}{d?.work&&` / ${num(slots.normal)} sem obra`}</b></div>

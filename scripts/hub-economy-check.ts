@@ -3,6 +3,7 @@ import { newGame } from '../src/game/engine'
 import { baseDemand } from '../src/game/demand'
 import { largestPassengerAircraft } from '../src/game/routeCapacity'
 import { activeHubs, cityDevelopment, competitorHubs, hubExtraSlots, hubGrowthRateMultiplier, invalidateHubActivity, nearbyHubDemand, stepHubDevelopment } from '../src/game/hubDevelopment'
+import { ensureAirports } from '../src/game/airportInfrastructure'
 import { aiFleetHours, stepCompetitors } from '../src/game/ai'
 import { makeRng } from '../src/game/rng'
 import { exportSaveFile, importSaveFile } from '../src/game/save'
@@ -44,6 +45,7 @@ assert.equal(hubExtraSlots(s,'MAO'),0,'hub comprado sem voos próprios não ganh
 const flying=structuredClone(s)
 flying.airline.fleet=[{id:'test',typeId:'e195e2',groundedUntil:0}] as typeof flying.airline.fleet
 flying.airline.escala=[{id:'test-leg',aircraftId:'test',from:'MAO',to:'PVH',dow:0,saida:480}]
+ensureAirports(flying)
 assert(hubExtraSlots(flying,'MAO')>0)
 const loaded=importSaveFile(exportSaveFile(s))!
 assert.deepEqual(loaded.hubDevelopment,s.hubDevelopment)

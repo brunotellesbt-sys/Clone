@@ -1,4 +1,4 @@
-import { admittedFlights, airportSlots, effectiveAirport } from '../game/airportInfrastructure'
+import { admittedFlights, airportSlots, effectiveAirport, airportRevision } from '../game/airportInfrastructure'
 import { geoEquirectangular, geoPath, geoGraticule10 } from 'd3-geo'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { feature } from 'topojson-client'
@@ -9,9 +9,10 @@ import { aircraftOf, dowOf, km, metros, num, typeOf } from '../game/engine'
 import { cityDevelopment, activeHubs, hubGrowthRateMultiplier } from '../game/hubDevelopment'
 import { MS_POR_DIA_NA_TELA } from './relogio'
 import { blocoDe, DIA, DOW_CURTO, escalaDe, hhmm, naSemana, noTempo, partidaUtc, rotaDoPar } from '../game/escala'
-import { distanceBetween, interpolate } from '../game/geo'
+import { distanceBetween } from '../game/geo'
 import { spriteMapa } from '../livery/mapSprites'
-import { flightPose, MAP_MAX_ZOOM, spriteRotation } from './mapGeometry'
+import { MAP_MAX_ZOOM, spriteRotation } from './mapGeometry'
+import { airportFlightPath, airportFlightPose, loadFlightProcedures } from './airportFlightPaths'
 import { SatelliteTiles } from './SatelliteTiles'
 import { MAP_BOUNDS } from './mapTiles'
 import type { Aircraft, GameState, Perna, Route } from '../game/types'
@@ -21,7 +22,7 @@ const H = 520
 const SATELLITE = `${import.meta.env.BASE_URL}nasa-blue-marble.jpg`
 const PLANE_FALLBACK = `${import.meta.env.BASE_URL}assets_icons_png_vertical_plane_icon.png`
 /**
- * Zoom até 72× para separar aeroportos próximos e acompanhar o avião de perto.
+ * Zoom até 288×, com imagens de maior resolução nos níveis de aproximação.
  */
 const K_MAX = MAP_MAX_ZOOM
 /**
@@ -66,6 +67,17 @@ export function MapView({
   const [hover, setHover] = useState<{ iata: string; x: number; y: number } | null>(null)
   const [voo, setVoo] = useState<string | null>(null)
   const [airport, setAirport] = useState<string | null>(null)
+  const [,refreshProcedures]=useState(0)
+  const schedule=useMemo(()=>escalaDe(state).filter(p=>admittedFlights(state).has(p.id)).flatMap(p=>{
+    const ac=aircraftOf(state,p.aircraftId),a=AIRPORT_BY_IATA[p.from],b=AIRPORT_BY_IATA[p.to]
+    if(!ac||!a||!b||ac.groundedUntil>state.day)return []
+    return [{id:p.id,perna:p,ac,a,b,bloco:blocoDe(state,p),r:rotaDoPar(state,p.from,p.to)}]
+  }),[state,state.day,airportRevision(state)])
+  useEffect(()=>{
+    let active=true
+    loadFlightProcedures([...new Set(schedule.flatMap(v=>[v.a.iata,v.b.iata]))]).then(()=>{if(active)refreshProcedures(n=>n+1)})
+    return()=>{active=false}
+  },[schedule])
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [lines, setLines] = useState(() => {
     try {
@@ -300,16 +312,13 @@ export function MapView({
     const a = AIRPORT_BY_IATA[from]
     const b = AIRPORT_BY_IATA[to]
     if (!a || !b) return ''
-    return path({ type: 'LineString', coordinates: [[a.lon, a.lat], [b.lon, b.lat]] }) ?? ''
+    return path({ type: 'LineString', coordinates: airportFlightPath(a,b).points }) ?? ''
   }
 
   /** Pedaço do grande círculo entre duas frações da rota, amostrado. */
   const trecho = (a: Airport, b: Airport, t0: number, t1: number) => {
     if (t1 - t0 < 1e-4) return ''
-    const n = 40
-    const pts: [number, number][] = []
-    for (let i = 0; i <= n; i++) pts.push(interpolate(a, b, t0 + (t1 - t0) * (i / n)))
-    return path({ type: 'LineString', coordinates: pts }) ?? ''
+    return path({ type: 'LineString', coordinates: airportFlightPath(a,b).slice(t0,t1) }) ?? ''
   }
 
   /**
@@ -342,26 +351,20 @@ export function MapView({
       id: string; r: Route | undefined; ac: ReturnType<typeof aircraftOf>
       a: Airport; b: Airport; fase: number; perna: Perna; bloco: number
     }[] = []
-    for (const p of escalaDe(state)) {
-      if (!admittedFlights(state).has(p.id)) continue
-      const ac = aircraftOf(state, p.aircraftId)
-      if (!ac || ac.groundedUntil > state.day) continue
-      const a = AIRPORT_BY_IATA[p.from]
-      const b = AIRPORT_BY_IATA[p.to]
-      if (!a || !b) continue
-      const bloco = blocoDe(state, p)
+    for (const flight of schedule) {
+      const {perna:p,ac,a,b,bloco}=flight
       const decorrido = naSemana(agora - partidaUtc(p))
       if (decorrido >= bloco) continue
       out.push({
         id: p.id, perna: p, bloco, a, b,
-        r: rotaDoPar(state, p.from, p.to),
+        r: flight.r,
         ac,
         fase: bloco > 0 ? decorrido / bloco : 0,
       })
       if (out.length >= 80) break
     }
     return out
-  }, [state, t])
+  }, [state, state.day, schedule, t])
 
   const vooSel = voo ? voos.find((v) => v.id === voo) : null
 
@@ -621,7 +624,7 @@ export function MapView({
           {/* avião por último: desenhado depois do aeroporto, ele fica por cima
               e o clique é dele — antes o marcador do aeroporto de origem roubava */}
           {voos.map(({ id, a, b, fase, ac }) => {
-            const { x, y, angle: ang } = flightPose(projection, a, b, fase, W)
+            const { x, y, angle: ang } = airportFlightPose(projection, a, b, fase)
             const on = voo === id
             const s = (on ? 2.2 : 1.5) * fator
             const sprite = ac ? spriteMapa(ac.typeId, on) : null
@@ -659,6 +662,7 @@ export function MapView({
 
       <div className="map-legend">
         <a href="https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/" target="_blank" rel="noreferrer">Imagem: NASA Earth Observatory / GIBS</a>
+        {' · '}<a href="https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9" target="_blank" rel="noreferrer">Detalhes: Esri, Vantor, Earthstar Geographics / GIS User Community</a>
         {picking ? (
           <span>
             {noDedo ? 'Toque' : 'Clique'} num aeroporto para escolher a base ·{' '}

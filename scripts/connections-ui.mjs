@@ -10,12 +10,12 @@ try {
   await page.goto(process.env.URL ?? 'http://127.0.0.1:5173/', { waitUntil: 'networkidle' })
   const trips = await page.evaluate(async () => {
     const { newGame, buyAircraft, openRoute, assignAircraft, setAllFrequencies, advanceDay } = await import('/src/game/engine.ts')
-    const s = newGame({ name: 'Brasa Airways', code: 'BR', hub: 'GRU', seed: 31 })
+    const s = newGame({ name: 'Brasa Airways', code: 'BR', hub: 'PVH', seed: 31 })
     s.airline.cash = 5e9
     s.airline.hubs.push('SSA')
-    for (const d of ['REC', 'SSA', 'LIS']) {
-      buyAircraft(s, d === 'LIS' ? 'a359' : 'a320neo', false)
-      openRoute(s, 'GRU', d)
+    for (const d of ['RBR', 'CZS', 'JPR']) {
+      buyAircraft(s, 'e195e2', false)
+      openRoute(s, 'PVH', d)
       const r = s.airline.routes.at(-1)
       assignAircraft(s, s.airline.fleet.at(-1).id, r.id)
       setAllFrequencies(s, r.id, 2)
@@ -37,7 +37,7 @@ try {
   assert(trips > 0)
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByRole('button', { name: 'Continuar', exact: true }).first().click()
-  for (const speed of ['1×', '25×', '50×', '100×']) assert.equal(await page.getByRole('button', { name: speed, exact: true }).count(), 1)
+  for (const speed of ['1×', '75×', '300×', '600×']) assert.equal(await page.getByRole('button', { name: speed, exact: true }).count(), 1)
   await page.getByRole('button', { name: 'Conexões', exact: true }).click()
   assert.equal(await page.locator('.connection-sold tbody tr').count(), trips)
   const moneyCells = await page.locator('.connection-sold tbody tr td:nth-child(2)').allTextContents()
@@ -60,10 +60,10 @@ try {
   }
   await page.getByLabel('Hub das conexões').selectOption('SSA')
   assert.equal(await page.locator('.connection-sold tbody tr').count(), 0)
-  await page.getByLabel('Hub das conexões').selectOption('GRU')
-  await page.getByLabel('Buscar conexão').fill('LIS')
+  await page.getByLabel('Hub das conexões').selectOption('PVH')
+  await page.getByLabel('Buscar conexão').fill('CZS')
   const rows = await page.locator('.connection-sold tbody tr').allTextContents()
-  assert(rows.length > 0 && rows.every(r => r.includes('LIS')))
+  assert(rows.length > 0 && rows.every(r => r.includes('CZS')))
   await page.getByRole('button', { name: 'Finanças', exact: true }).click()
   assert(await page.getByLabel('Rota em déficit').count() === 1)
   assert((await page.getByText('Baixa ocupação:', { exact: false }).count()) > 0)

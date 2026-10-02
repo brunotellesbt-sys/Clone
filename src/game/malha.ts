@@ -1,4 +1,4 @@
-import { admittedFlights, rivalFrequency } from './airportInfrastructure'
+import { admittedFlights, rivalFrequency, airportRevision } from './airportInfrastructure'
 /**
  * O que a malha conecta.
  *
@@ -203,11 +203,34 @@ export function toquesNaBase(s: GameState, base: string): { chegadas: Toque[]; p
  * que chegou, e não adianta conectar para o aeroporto de onde o passageiro
  * acabou de vir — ninguém voa Fortaleza–Rio–Fortaleza.
  */
+const marketCache=new WeakMap<GameState,{day:number;revision:number;direct:Set<string>}>()
+export function connectionAllowed(s:GameState,from:string,via:string,to:string) {
+  let market=marketCache.get(s)
+  if(!market||market.day!==s.day||market.revision!==airportRevision(s)) {
+    const direct=new Set<string>(),operating=new Set(s.airline.fleet.filter(a=>a.groundedUntil<=s.day).map(a=>a.id))
+    const passengerRoutes=new Set(s.airline.routes.filter(r=>!r.cargo).flatMap(r=>[`${r.from}>${r.to}`,`${r.to}>${r.from}`]))
+    for(const p of escalaDe(s))if(operating.has(p.aircraftId)&&admittedFlights(s).has(p.id)&&passengerRoutes.has(`${p.from}>${p.to}`))direct.add(`${p.from}>${p.to}`)
+    for(const c of s.competitors)for(const r of c.routes)if(rivalFrequency(s,r)>0){direct.add(`${r.from}>${r.to}`);direct.add(`${r.to}>${r.from}`)}
+    market={day:s.day,revision:airportRevision(s),direct};marketCache.set(s,market)
+  }
+  return connectionPathAllowed(from,via,to,market.direct.has(`${from}>${to}`))
+}
+const connectionsCache=new WeakMap<GameState,{day:number;revision:number;bases:Map<string,Conexao[]>}>()
 export function conexoesNaBase(s: GameState, base: string, includeRejectedPaths = false): Conexao[] {
+  let cache=connectionsCache.get(s)
+  if(!cache||cache.day!==s.day||cache.revision!==airportRevision(s)) {
+    cache={day:s.day,revision:airportRevision(s),bases:new Map()};connectionsCache.set(s,cache)
+  }
+  const cached=cache.bases.get(base)
+  if(cached)return includeRejectedPaths?cached:cached.filter(c=>connectionAllowed(s,c.de.ponta,base,c.para.ponta))
   const { chegadas, partidas } = toquesNaBase(s, base)
+  const sorted=partidas.flatMap(p=>[p,{...p,quando:p.quando+7*DIA}]).sort((a,b)=>a.quando-b.quando)
   const out: Conexao[] = []
   for (const de of chegadas) {
-    for (const para of partidas) {
+    let lo=0,hi=sorted.length
+    while(lo<hi){const mid=(lo+hi)>>>1;if(sorted[mid].quando<de.quando+40)lo=mid+1;else hi=mid}
+    for(let index=lo;index<sorted.length&&sorted[index].quando<=de.quando+ESPERA_MAXIMA;index++) {
+      const para=sorted[index]
       if (de.id === para.id) continue
       if (de.ponta === para.ponta) continue
       // interline dos dois lados seria conexão entre dois voos que não são seus
@@ -216,12 +239,13 @@ export function conexoesNaBase(s: GameState, base: string, includeRejectedPaths 
       const regra = connectionWindow(de.ponta, base, para.ponta)
       const minimo = regra.min
       if (espera < minimo || espera > regra.max) continue
-      if (!includeRejectedPaths && !connectionPathAllowed(de.ponta, base, para.ponta)) continue
-      out.push({ de, para, espera, minimo, parceira: de.parceira ?? para.parceira,
+      out.push({ de, para:{...para,quando:naSemana(para.quando)}, espera, minimo, parceira: de.parceira ?? para.parceira,
         codeshare: de.codeshare ?? para.codeshare })
     }
   }
-  return out.sort((x, y) => x.espera - y.espera)
+  out.sort((x, y) => x.espera - y.espera)
+  cache.bases.set(base,out)
+  return includeRejectedPaths?out:out.filter(c=>connectionAllowed(s,c.de.ponta,base,c.para.ponta))
 }
 
 /**

@@ -10,7 +10,7 @@ try {
     const errors = [], requested = []
     page.on('pageerror', e => errors.push(e.message))
     const live = process.env.LIVE_MAP === '1'
-    await page.route('https://gibs.earthdata.nasa.gov/**', async route => {
+    await page.route(/https:\/\/(gibs.earthdata.nasa.gov|server.arcgisonline.com)\//, async route => {
       requested.push(route.request().url())
       if (live) return route.continue()
       // CI valida geometria/carregamento sem depender da disponibilidade do serviço público.
@@ -26,7 +26,7 @@ try {
     })
     const centerBefore = await airportCenter()
     for (let i = 0; i < 24; i++) await map.getByRole('button', { name: 'Aproximar', exact: true }).click()
-    await page.waitForFunction(() => document.querySelector('.mapwrap svg > g')?.getAttribute('transform')?.includes('scale(72)'))
+    await page.waitForFunction(() => document.querySelector('.mapwrap svg > g')?.getAttribute('transform')?.includes('scale(288)'))
     const centerAfter = await airportCenter()
     assert(Math.abs(centerBefore.x - centerAfter.x) < 1 && Math.abs(centerBefore.y - centerAfter.y) < 1,
       'os botões de zoom mantêm o aeroporto centralizado')
@@ -45,7 +45,7 @@ try {
       await map.locator('.map-satellite-details').evaluate(g => g.style.visibility = '')
     }
     // Uma falha de rede não bloqueia os controles nem cobre o fundo local com ícones quebrados.
-    await page.unroute('https://gibs.earthdata.nasa.gov/**')
+    await page.unroute(/https:\/\/(gibs.earthdata.nasa.gov|server.arcgisonline.com)\//)
     await page.route('https://gibs.earthdata.nasa.gov/**', route => route.abort())
     for (let i = 0; i < 8; i++) await map.getByRole('button', { name: 'Afastar', exact: true }).click()
     await page.waitForFunction(() => [...document.querySelectorAll('.map-satellite-tile')].some(t =>
@@ -55,7 +55,7 @@ try {
     assert.equal(errors.length, 0, errors.join('\n'))
     assert(requested.length > 0)
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
-    console.log(`OK: ${width}px, detalhes carregados no zoom 72×, fundo sem rede, controles e tela intactos.`)
+    console.log(`OK: ${width}px, detalhes carregados no zoom 288×, fundo sem rede, controles e tela intactos.`)
     await page.close()
   }
 } finally { await browser.close() }

@@ -119,7 +119,7 @@ night.airline.escala![0].saida = 22 * 60 + 30 // no Brasil, 01:30 UTC do dia seg
 assert.equal(fracaoNoturna(night, night.airline.routes[0], (dowOf(night) + 1) % 7), 1)
 assert.equal(fracaoNoturna(night, night.airline.routes[0], dowOf(night)), 0)
 
-for (const [oldSpeed, newSpeed] of [[4, 25], [12, 50], [40, 100], [100, 100], [0, 0]]) {
+for (const [oldSpeed, newSpeed] of [[4, 75], [25,75], [12, 300], [50,300], [40, 600], [100, 600], [600,600], [0, 0]]) {
   const save = setup()
   save.speed = oldSpeed
   assert.equal(importSave(exportSave(save))!.speed, newSpeed)

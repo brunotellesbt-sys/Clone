@@ -66,8 +66,8 @@ function migrate(s: GameState): GameState | null {
   s.ledger = s.ledger ?? []
   s.notices = s.notices ?? []
   s.lastShare = s.lastShare ?? {}
-  s.speed = s.speed === 4 ? 25 : s.speed === 12 ? 50 : s.speed === 40 ? 100 :
-    [0, 1, 25, 50, 100].includes(s.speed) ? s.speed : 1
+  s.speed = [4,25].includes(s.speed) ? 75 : [12,50].includes(s.speed) ? 300 : [40,100].includes(s.speed) ? 600 :
+    [0, 1, 75, 300, 600].includes(s.speed) ? s.speed : 1
 
   s.airline.livery = migrateLivery(s.airline.livery)
   s.airline.fleet = s.airline.fleet.flatMap((raw): Aircraft[] => {
@@ -180,11 +180,52 @@ export function getSlotInfo(slot: number): SlotSummary | null {
   }
 }
 
+const saveVersions=new Map<number,number>()
+const pendingSaves=new Map<number,GameState>()
+// A leitura na mesma aba deve enxergar imediatamente o último estado
+// confirmado, mesmo enquanto o worker termina a compressão em segundo plano.
+const latestSaves=new Map<number,GameState>()
+let saveWorker:Worker|undefined, saving=false, saveTimer:ReturnType<typeof setTimeout>|undefined
+function invalidatePendingSave(slot:number) {
+  saveVersions.set(slot,(saveVersions.get(slot)??0)+1);pendingSaves.delete(slot)
+}
+/** Compressão fora da interface; uma única fila coalesce cliques rápidos. */
+export function queueSaveGame(state:GameState,slot=getActiveSlot()) {
+  invalidatePendingSave(slot);pendingSaves.set(slot,state);latestSaves.set(slot,state)
+  if(saveTimer)clearTimeout(saveTimer)
+  saveTimer=setTimeout(pumpSaves,100)
+}
+function pumpSaves() {
+  if(saving||!pendingSaves.size)return
+  const [slot,state]=pendingSaves.entries().next().value!
+  pendingSaves.delete(slot)
+  try {
+    if(!saveWorker) {
+      saveWorker=new Worker(new URL('./saveWorker.ts',import.meta.url),{type:'module'})
+      saveWorker.onmessage=({data})=>{
+        try {
+          if(saveVersions.get(data.slot)===data.version) {
+            localStorage.setItem(SLOT_KEY(data.slot),data.encoded)
+            latestSaves.delete(data.slot)
+          }
+        }
+        catch {window.dispatchEvent(new Event('game-save-error'))}
+        saving=false;pumpSaves()
+      }
+      saveWorker.onerror=()=>{saveWorker?.terminate();saveWorker=undefined;saving=false;window.dispatchEvent(new Event('game-save-error'));pumpSaves()}
+    }
+    saving=true;saveWorker.postMessage({slot,state,version:saveVersions.get(slot)})
+  } catch {saving=false;saveGame(state,slot);pumpSaves()}
+}
+
 export function saveGame(state: GameState, slot = getActiveSlot()) {
+  invalidatePendingSave(slot)
+  latestSaves.set(slot,state)
   migrateOldSaveIfNeeded()
   try {
     localStorage.setItem(SLOT_KEY(slot), encodeStoredSave(state))
     setActiveSlot(slot)
+    latestSaves.delete(slot)
     return true
   } catch {
     return false
@@ -194,6 +235,14 @@ export function saveGame(state: GameState, slot = getActiveSlot()) {
 export function loadGame(slot = getActiveSlot()): GameState | null {
   migrateOldSaveIfNeeded()
   try {
+    const queued=latestSaves.get(slot)
+    if(queued) {
+      const parsed=migrate(structuredClone(queued))
+      if(!parsed) return null
+      parsed.paused=true
+      setActiveSlot(slot)
+      return parsed
+    }
     const raw = localStorage.getItem(SLOT_KEY(slot))
     if (!raw) return null
     const parsed = migrate(decodeStoredSave(raw))
@@ -216,6 +265,8 @@ export function hasSave(slot = getActiveSlot()) {
 }
 
 export function clearSave(slot = getActiveSlot()) {
+  invalidatePendingSave(slot)
+  latestSaves.delete(slot)
   try {
     localStorage.removeItem(SLOT_KEY(slot))
   } catch {
