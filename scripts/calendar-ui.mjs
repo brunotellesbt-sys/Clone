@@ -109,18 +109,24 @@ try {
   assert(await page.getByText(/Férias\/eventos nesta semana: \+100%/).count() > 0)
 
   // Outra data-base do save: reabre no mês atual e renova o limite do próximo ano.
-  await page.evaluate(async () => {
-    const {loadGame,saveGame}=await import('/src/game/save.ts')
-    const s = loadGame(1)
+  // Um contexto novo impede o pagehide da partida anterior de sobrescrever o save de teste.
+  const yearPage = await browser.newPage({ viewport: { width: 1365, height: 915 } })
+  yearPage.on('pageerror', error => errors.push(error.message))
+  await yearPage.goto(process.env.URL ?? 'http://127.0.0.1:5173/', { waitUntil: 'networkidle' })
+  await yearPage.evaluate(async () => {
+    const { newGame } = await import('/src/game/engine.ts')
+    const { saveGame } = await import('/src/game/save.ts')
+    const s = newGame({ name: 'Calendário Airways', code: 'CA', hub: 'BEL', seed: 41 })
     s.startYear = 2028
     s.day = 0
     saveGame(s,1)
   })
-  await page.reload({ waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: 'Continuar', exact: true }).first().click()
-  await page.getByRole('button', { name: 'Calendário', exact: true }).click()
-  assert.equal(await month.inputValue(), String(2028 * 12))
-  assert.equal(await month.locator('option').last().getAttribute('value'), String(2029 * 12 + 11))
+  await yearPage.reload({ waitUntil: 'networkidle' })
+  await yearPage.getByRole('button', { name: 'Continuar', exact: true }).first().click()
+  await yearPage.getByRole('button', { name: 'Calendário', exact: true }).click()
+  const yearMonth = yearPage.getByLabel('Mês e ano do calendário')
+  assert.equal(await yearMonth.inputValue(), String(2028 * 12))
+  assert.equal(await yearMonth.locator('option').last().getAttribute('value'), String(2029 * 12 + 11))
   assert.equal(errors.length, 0, errors.join('\n'))
   console.log('OK: calendário no mês do save, planejamento até dezembro do próximo ano, semanas, fontes, filtros, rotas e telas de 360/412/1365 px.')
 } finally {
