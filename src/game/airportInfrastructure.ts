@@ -5,12 +5,14 @@ import { AIRPORT_BY_IATA, type Airport } from './data/airports'
 import type { GameState, Perna } from './types'
 import { cityDevelopment } from './hubDevelopment'
 import { derivaDoPais } from './data/crescimento'
+import { RUNWAY_CORRECTIONS } from './data/runwayCorrections'
 
 export type WorkKind = 'slots' | 'runway' | 'category'
 export interface HubWeek { day: number; population: number; capacity: number; own: number; rivals: number; passengers: number; connections: number; demands: Record<string, number> }
 export interface AirportWorks { kind: WorkKind; start: number; end: number; contribution: number; automatic: boolean }
 export interface AirportDevelopment {
   hubSince?: number; lastDemand?: number; since: number; lastDay: number; baseCapacity: number; capacity: number; level: number;
+  /** Referência de construção legada em pés; comprimento físico via effectiveAirport. */
   runway: number; category: Airport['escopo']; reserved: number; idle: number[];
   operatingDays: number; passengers: number; connections: number; earned: number;
   government: number; operator: number; work?: AirportWorks; history: HubWeek[];
@@ -42,11 +44,14 @@ export function initialCapacity(s:GameState,id:string) {
   // Migração preserva malha já existente e deixa 25% + 24 movimentos de folga.
   return Math.max(Math.floor(AIRPORT_BY_IATA[id].slots*cityDevelopment(s,id).traffic),Math.ceil(used*1.25)+24)
 }
+/** Base persistida: uma correção cadastral não concede nem desfaz obras. */
+export const infrastructureRunwayBase = (id:string) => RUNWAY_CORRECTIONS[id]?.previousFeet ?? AIRPORT_BY_IATA[id].runway
+export const physicalRunwayLimit = (id:string) => AIRPORT_BY_IATA[id].runway + Math.max(0,14000-infrastructureRunwayBase(id))
 export function effectiveAirport(s:GameState|undefined,id:string):Airport {
   const a=AIRPORT_BY_IATA[id], d=s?.airportDevelopment?.[id]
   if(!a||!d)return a
-  const expanded=d.runway>a.runway
-  return {...a,runway:d.runway,pistaOperacional:expanded?(a.pistaOperacional??a.runway)+(d.runway-a.runway):a.pistaOperacional,
+  const extension=d.runway-infrastructureRunwayBase(id), expanded=extension>0
+  return {...a,runway:a.runway+extension,pistaOperacional:expanded?(a.pistaOperacional??a.runway)+extension:a.pistaOperacional,
     tetoAssentos:expanded&&!restricted.has(id)?undefined:a.tetoAssentos,escopo:d.category,slots:d.capacity,tier:d.level as Airport['tier']}
 }
 export function airportSlots(s:GameState,id:string) {
@@ -69,7 +74,7 @@ export function ensureAirports(s:GameState) {
   const ids=Object.keys(AIRPORT_BY_IATA)
   for(const id of ids)if(!s.airportDevelopment[id]) {
     const a=AIRPORT_BY_IATA[id],capacity=initialCapacity(s,id),own=Math.max(0,...(airportUsage(s).get(id)?.days??[]))
-    s.airportDevelopment[id]={since:s.day,lastDay:s.day,baseCapacity:capacity,capacity,level:a.tier,runway:a.runway,category:a.escopo,
+    s.airportDevelopment[id]={since:s.day,lastDay:s.day,baseCapacity:capacity,capacity,level:a.tier,runway:infrastructureRunwayBase(id),category:a.escopo,
       reserved:s.airline.hubs.includes(id)?Math.min(capacity-(airportUsage(s).get(id)?.rivals??0),own+Math.max(24,Math.ceil(capacity*.1))):0,
       idle:[],operatingDays:0,passengers:0,connections:0,earned:0,government:0,operator:0,history:[],completed:[],lastExpansion:s.day}
   }
@@ -101,7 +106,7 @@ export function workOffer(s:GameState,id:string,kind:WorkKind) {
   else if(d?.work)reason='Uma obra já está em andamento.'
   else if(restricted.has(id)&&kind!=='slots')reason='Aeroporto restrito: pista e categoria não podem ser ampliadas.'
   else if(kind==='slots'&&d&&d.capacity+Math.ceil(d.baseCapacity*(restricted.has(id)?.15:.35))>d.baseCapacity*(restricted.has(id)?1.6:3)*Math.max(1,Math.pow(populationAt(s,id)/(AIRPORT_BY_IATA[id].pop*1e6),.7)))reason='Limite físico local: aguarde crescimento populacional para outro projeto.'
-  else if(kind==='runway'&&a.runway>=14000)reason='Pista no limite do projeto.'
+  else if(kind==='runway'&&(d?.runway??infrastructureRunwayBase(id))>=14000)reason='Pista no limite do projeto.'
   else if(kind==='category'&&a.escopo==='int')reason='Já é internacional.'
   else if(!d||Math.max(d.operator,d.government)<1)reason='Ainda não há interesse aprovado do governo ou da administradora.'
   return {total,contribution:Math.round(total*share),duration:WORK_DAYS[kind],reason,both}

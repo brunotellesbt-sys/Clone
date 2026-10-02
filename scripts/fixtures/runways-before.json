@@ -1,0 +1,168 @@
+{
+  "commit": "a7afed4",
+  "airports": 3088,
+  "variants": 124,
+  "permissions": "278a202ab2ae5abf95945d61c942bbbdedbd650fe186ae500f199a8f9c848a1c",
+  "economy": "ef4dfb6cf90e467a62dc15bfebabd067dd975fd054ace73cc0445caa6d0b97ba",
+  "changed": [
+    {
+      "iata": "CGH",
+      "runway": 6365,
+      "pistaOperacional": 7050,
+      "tetoAssentos": 194,
+      "elev": 2631
+    },
+    {
+      "iata": "PLU",
+      "runway": 8333,
+      "pistaOperacional": 7050,
+      "tetoAssentos": 194,
+      "elev": 2589
+    },
+    {
+      "iata": "SJK",
+      "runway": 8780,
+      "elev": 2120
+    },
+    {
+      "iata": "REC",
+      "runway": 9865,
+      "elev": 33
+    },
+    {
+      "iata": "SSA",
+      "runway": 9859,
+      "elev": 64
+    },
+    {
+      "iata": "KBP",
+      "runway": 10827,
+      "elev": 427
+    },
+    {
+      "iata": "JOI",
+      "runway": 5381,
+      "pistaOperacional": 7050,
+      "tetoAssentos": 194,
+      "elev": 15
+    },
+    {
+      "iata": "MGF",
+      "runway": 7783,
+      "pistaOperacional": 8450,
+      "tetoAssentos": 244,
+      "elev": 1801
+    },
+    {
+      "iata": "THE",
+      "runway": 7218,
+      "pistaOperacional": 8450,
+      "tetoAssentos": 244,
+      "elev": 219
+    },
+    {
+      "iata": "PNZ",
+      "runway": 9055,
+      "elev": 1263
+    },
+    {
+      "iata": "PET",
+      "runway": 6496,
+      "pistaOperacional": 6950,
+      "tetoAssentos": 172,
+      "elev": 59
+    },
+    {
+      "iata": "PQC",
+      "runway": 9843,
+      "elev": 37
+    },
+    {
+      "iata": "UDI",
+      "runway": 6398,
+      "elev": 3094
+    },
+    {
+      "iata": "UNA",
+      "runway": 6234,
+      "pistaOperacional": 7050,
+      "tetoAssentos": 194,
+      "elev": 23
+    },
+    {
+      "iata": "PPB",
+      "runway": 6923,
+      "pistaOperacional": 7050,
+      "tetoAssentos": 194,
+      "elev": 1477
+    },
+    {
+      "iata": "MII",
+      "runway": 4921,
+      "elev": 2134
+    },
+    {
+      "iata": "MVF",
+      "runway": 6562,
+      "pistaOperacional": 7050,
+      "tetoAssentos": 194,
+      "elev": 76
+    },
+    {
+      "iata": "PHB",
+      "runway": 6890,
+      "elev": 23
+    },
+    {
+      "iata": "OPP",
+      "runway": 6102,
+      "pistaOperacional": 4450,
+      "tetoAssentos": 78,
+      "elev": 105
+    },
+    {
+      "iata": "LAJ",
+      "runway": 5020,
+      "elev": 3065
+    },
+    {
+      "iata": "CLV",
+      "runway": 6890,
+      "pistaOperacional": 7050,
+      "tetoAssentos": 194,
+      "elev": 2307
+    },
+    {
+      "iata": "OPS",
+      "runway": 5348,
+      "tetoAssentos": 194,
+      "elev": 1227
+    },
+    {
+      "iata": "AUX",
+      "runway": 5919,
+      "pistaOperacional": 7050,
+      "tetoAssentos": 194,
+      "elev": 771
+    },
+    {
+      "iata": "URG",
+      "runway": 4921,
+      "elev": 256
+    },
+    {
+      "iata": "PMG",
+      "runway": 6562,
+      "pistaOperacional": 7050,
+      "tetoAssentos": 194,
+      "elev": 2156
+    },
+    {
+      "iata": "TFF",
+      "runway": 7218,
+      "pistaOperacional": 7050,
+      "tetoAssentos": 194,
+      "elev": 186
+    }
+  ]
+}

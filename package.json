@@ -35,6 +35,7 @@
     "ai:foundation": "tsx scripts/ai-foundation.ts",
     "hubs:ui": "node scripts/hubs-ui.mjs",
     "hubs:check": "tsx scripts/hubs-infrastructure-check.ts",
+    "runways:check": "tsx scripts/runways-check.ts",
     "economy:hubs": "tsx scripts/hub-economy-check.ts",
     "economy:regressions": "tsx scripts/pr100-regressions.ts",
     "crew:check": "tsx scripts/crew-check.ts",
