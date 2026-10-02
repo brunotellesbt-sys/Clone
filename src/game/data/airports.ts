@@ -3709,7 +3709,8 @@ const FUSO: Record<string, number> = Object.fromEntries(
     }),
 )
 
-const SLOTS_BY_TIER: Record<number, number> = { 1: 90, 2: 200, 3: 420, 4: 780, 5: 1300 }
+/** Referência inicial por nível; a capacidade de cada partida evolui separadamente. */
+export const SLOTS_BY_TIER: Record<number, number> = { 1: 90, 2: 200, 3: 420, 4: 780, 5: 1300 }
 
 export const AIRPORTS: Airport[] = RAW.split('\n').map((line) => {
   const [iata, city, country, cc, lat, lon, pop, gdp, tour, runway, tier, elev] = line.split('|')
