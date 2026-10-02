@@ -3,7 +3,7 @@ import { useGame } from '../store/useGame'
 import { Card } from './components/Bits'
 import { baseDemand } from '../game/demand'
 import { money, num, pct } from '../game/engine'
-import { AIRPORT_BY_IATA, ESCOPO_LABEL } from '../game/data/airports'
+import { AIRPORT_BY_IATA, ESCOPO_LABEL, SLOTS_BY_TIER } from '../game/data/airports'
 import { airportSlots, effectiveAirport, growthProgress, populationAt, startAirportWork, workOffer, WORK_LABEL, type WorkKind } from '../game/airportInfrastructure'
 
 export function HubsView() {
@@ -35,6 +35,12 @@ export function HubsView() {
         <div><small>Pista</small><b>{num(a.runway*.3048)} m</b></div>
       </div>
       {slots.over>0&&<p className="bad">A malha excede a capacidade em {num(slots.over)} movimentos no dia de pico. As escalas das aeronaves que não couberem ficam temporariamente suspensas por inteiro, para evitar aviões voando sem terem chegado à origem. A suspensão dura até você ajustar os horários ou a capacidade ser restaurada; a programação é preservada.</p>}
+    </Card>
+    <Card title="Quantos slots tem cada nível?">
+      <p className="dim">Referência inicial de capacidade do aeroporto inteiro, compartilhada entre todas as companhias. Cada pouso ou decolagem ocupa 1 slot; uma ida e volta usa 2 em cada aeroporto.</p>
+      <div className="rolagem-x"><table aria-label="Referência de slots por nível de infraestrutura"><thead><tr><th>Nível</th><th className="r">Slots/dia iniciais</th></tr></thead><tbody>{Object.entries(SLOTS_BY_TIER).map(([level,capacity])=><tr key={level} className={Number(level)===a.tier?'on':''}><td>Nível {level}{Number(level)===a.tier?' · atual':''}</td><td className="r">{num(capacity)}</td></tr>)}</tbody></table></div>
+      <p><b>{id} hoje:</b> nível {a.tier}, com <b>{num(slots.normal)} slots/dia sem obra</b>, <b>{num(slots.capacity)} disponíveis fisicamente agora</b> e <b>{num(slots.free)} livres para acrescentar à sua malha</b>.</p>
+      <p className="dim">A tabela não é um teto fixo nem uma quantidade garantida de slots livres. Crescimento, obras e a preservação da malha de saves existentes podem alterar a capacidade. Uma obra de slots acrescenta 35% da capacidade-base da partida (15% em SDU, CGH e PLU) e até um nível: não redefine a capacidade para o valor do próximo nível. Durante obras, a capacidade efetiva cai pela metade.</p>
     </Card>
     <div className="grid g2">
       <Card title="Próxima liberação de slots">
