@@ -1,6 +1,7 @@
+import { admittedFlights, airportSlots, airportUsage, effectiveAirport, ensureAirports, finishAirportWorks, invalidateAirportUsage, recordAirportDay, rivalFrequency } from './airportInfrastructure'
 import type { Perna, SeatConfig } from './types'
 import { playerWeeklyOffer } from './playerOffer'
-import { hubExtraSlots, stepHubDevelopment, invalidateHubActivity } from './hubDevelopment'
+import { stepHubDevelopment, invalidateHubActivity } from './hubDevelopment'
 import { custoDeFabrica, normalizeSeats, normalizeSeatPitch, seatChangeCost } from './seatModels'
 import { AIRCRAFT_BY_ID, ehCargueiro, type AircraftType } from './data/aircraft'
 import { SAVE_VERSION } from './save'
@@ -10,7 +11,7 @@ import {
   atratividadeDaRota, atratividadeHorario, fatorConexaoIA, fracaoNoturna, horaDaConcorrente,
 } from './malha'
 import {
-  escalaDe, marcarRotacao, montarRotacoes, pernasDoDia, posicionamentos, removerVoo, rotaDoPar,
+  escalaDe, marcarRotacao, montarRotacoes, posicionamentos, removerVoo, rotaDoPar,
   sincronizarMalha, partidaUtc, DIA, pernasDaRota,
 } from './escala'
 import { BLANK_LIVERY } from '../livery/presets'
@@ -85,7 +86,7 @@ export function newGame(opts: {
   // o ranking de destinos é guardado entre chamadas; partida nova não herda o
   // mundo da anterior, que na tela de fundação muda a cada tecla digitada
   limparCacheDestinos()
-  return {
+  const state: GameState = {
     version: SAVE_VERSION,
     seed,
     day: 0,
@@ -113,6 +114,8 @@ export function newGame(opts: {
     speed: 1,
     tutorialStep: 0,
   }
+  ensureAirports(state)
+  return state
 }
 
 // ---------------------------------------------------------------- utilidades
@@ -141,18 +144,9 @@ export const aircraftOf = (s: GameState, id: string) => s.airline.fleet.find((a)
  * Conta **pernas** — cada partida e cada chegada é um movimento de pista —, e
  * pelo dia de pico, porque slot é dimensionado pelo pior dia, não pela média.
  */
-export function slotsUsed(s: GameState, iata: string): number {
-  const porDia = [0, 0, 0, 0, 0, 0, 0]
-  for (const p of escalaDe(s)) {
-    if (p.from === iata) porDia[p.dow] += 1
-    if (p.to === iata) porDia[p.dow] += 1
-  }
-  return Math.max(...porDia)
-}
-/** Parte da capacidade do aeroporto que já é de outras companhias. */
-export const slotsTaken = (iata: string) => Math.round(AIRPORT_BY_IATA[iata].slots * 0.62)
-export const slotsFree = (s: GameState, iata: string) =>
-  AIRPORT_BY_IATA[iata].slots + hubExtraSlots(s, iata) - slotsTaken(iata) - slotsUsed(s, iata)
+export const slotsUsed = (s: GameState, iata: string) => Math.max(0, ...(airportUsage(s).get(iata)?.days ?? []))
+export const slotsTaken = (s: GameState, iata: string) => airportSlots(s, iata).rivalsOperating
+export const slotsFree = (s: GameState, iata: string) => airportSlots(s, iata).free
 
 export const fleetValue = (s: GameState) =>
   s.airline.fleet.reduce((sum, a) => sum + (a.leased ? 0 : resaleValue(typeOf(a), a.age, a.condition)), 0)
@@ -314,11 +308,11 @@ export function openRoute(s: GameState, from: string, to: string, cargo = false)
   }
   if (s.airline.routes.some((r) => odKey(r.from, r.to) === odKey(from, to)))
     return 'Você já opera esse par.'
-  const barrado = vooPermitido(AIRPORT_BY_IATA[from], AIRPORT_BY_IATA[to])
+  const barrado = vooPermitido(effectiveAirport(s, from), effectiveAirport(s, to))
   if (barrado) return barrado
-  if (slotsFree(s, from) < 2 || slotsFree(s, to) < 2) return 'Sem slots disponíveis em uma das pontas.'
+  // Abrir o mercado não reserva slots: cada voo marcado consome movimentos.
   const cost = routeSlotCost(from, to)
-  if (s.airline.cash < cost) return `Abrir a rota custa ${money(cost)} em slots e taxas.`
+  if (s.airline.cash < cost) return `Abrir a rota custa ${money(cost)} em taxas e estrutura comercial.`
   s.airline.cash -= cost
   const dist = distanceBetween(from, to)
   s.airline.routes.push({
@@ -377,8 +371,8 @@ export function assignAircraft(s: GameState, acId: string, routeId: string): str
   if (cargueiro && !r.cargo) return `${t.name} é cargueiro e só voa em rota de carga.`
   if (!cargueiro && r.cargo) return `${t.name} não tem porta de carga: rota de carga pede cargueiro.`
   if (t.range < r.distance) return `${t.name} não alcança ${km(r.distance)} (limite ${km(t.range)}).`
-  const from = AIRPORT_BY_IATA[r.from]
-  const to = AIRPORT_BY_IATA[r.to]
+  const from = effectiveAirport(s, r.from)
+  const to = effectiveAirport(s, r.to)
   // `motivoDoPar`, não `runway`: o que decide é a pista em que o avião opera de
   // fato, com peso reduzido, corrigida pela elevação de cada ponta — e, onde a
   // pista não é quem manda, o teto de porte do aeroporto.
@@ -423,13 +417,7 @@ export function setFrequency(s: GameState, routeId: string, dow: number, value: 
   const r = routeOf(s, routeId)
   if (!r) return null
   const v = Math.max(0, Math.min(routeCapacityLimit(s, r), Math.round(value)))
-  const atual = Math.floor(pernasDoDia(s, r, dow).length / 2)
-  if (v > atual) {
-    const extra = (v - atual) * 2
-    if (slotsFree(s, r.from) < extra || slotsFree(s, r.to) < extra) {
-      return 'Sem slots para aumentar a frequência.'
-    }
-  }
+  // O agendador valida cada partida e chegada no dia local correto.
   return montarRotacoes(s, routeId, dow, v)
 }
 
@@ -551,6 +539,7 @@ export function addHub(s: GameState, iata: string): string | null {
   if (s.airline.cash < HUB_COST) return `Abrir base em ${iata} custa ${money(HUB_COST)}.`
   s.airline.cash -= HUB_COST
   s.airline.hubs.push(iata)
+  ensureAirports(s)
   notify(s, 'good', `Nova base em ${ap.city} (${iata}).`)
   return null
 }
@@ -688,13 +677,15 @@ interface RouteDay {
  * cancelado, não transferido para outro por mágica.
  */
 function voosDoDia(s: GameState, r: Route, dow: number): Perna[] {
-  return pernasDaRota(s, r).filter(p => Math.floor(partidaUtc(p) / DIA) === dow)
+  return pernasDaRota(s, r).filter(p => admittedFlights(s).has(p.id)).filter(p => Math.floor(partidaUtc(p) / DIA) === dow)
     .filter(p => { const a = aircraftOf(s, p.aircraftId); return !!a && a.groundedUntil <= s.day })
 }
 
 export function advanceDay(s: GameState): GameState {
+  ensureAirports(s)
   if (!s.hubDevelopment?.pending) stepHubDevelopment(s)
   s.day += 1
+  finishAirportWorks(s)
   stepHubDevelopment(s)
   const dow = dowOf(s)
   const doy = dayOfYear(s)
@@ -768,7 +759,8 @@ export function advanceDay(s: GameState): GameState {
 
   // 2) Concorrentes no mesmo par.
   for (const comp of s.competitors) {
-    for (const cr of comp.routes) {
+    for (const rawRoute of comp.routes) {
+      const cr = { ...rawRoute, freq: rivalFrequency(s, rawRoute) }
       const list = carriersByOd.get(cr.key) ?? []
       const premium = 0.12
       list.push({
@@ -955,7 +947,7 @@ export function advanceDay(s: GameState): GameState {
   let ferry = 0
   for (const pos of posicionamentos(s)) {
     const ac = aircraftOf(s, pos.aircraftId)
-    if (!ac || ac.groundedUntil > s.day) continue
+    if (!ac || ac.groundedUntil > s.day || !escalaDe(s).some(p => p.aircraftId === ac.id && admittedFlights(s).has(p.id))) continue
     const dist = distanceBetween(pos.from, pos.to)
     const t = typeOf(ac)
     if (t.range < dist) continue
@@ -1033,6 +1025,7 @@ export function advanceDay(s: GameState): GameState {
   if (s.day % 7 === 0) {
     stepCompetitors(s.competitors, s.day, rng, pressure, s.airline.routes.length, s.startYear, s)
     invalidateHubActivity(s)
+    invalidateAirportUsage(s)
     sincronizarNumerosCodeshare(s)
     /**
      * E, muito de vez em quando, alguém funda uma companhia.
@@ -1051,6 +1044,14 @@ export function advanceDay(s: GameState): GameState {
     computeCompetitorRevenue(s, doy)
   }
 
+  const weekly = gameDate(s).getUTCDay() === 1
+  const hubDemands: Record<string, Record<string, number>> = {}
+  if (weekly) for (const h of s.airline.hubs) {
+    hubDemands[h] = {}
+    for (const r of s.airline.routes) if (!r.cargo && (r.from === h || r.to === h))
+      hubDemands[h][r.id] = baseDemand(r.from, r.to, s.day, doy, s.startYear, true, s).total
+  }
+  recordAirportDay(s, hubDemands, weekly)
   s.ledger.push(today)
   if (s.ledger.length > LEDGER_KEEP) s.ledger.shift()
 
@@ -1079,7 +1080,7 @@ export function computeCompetitorRevenue(s: GameState, doy: number) {
   for (const comp of s.competitors) {
     for (const r of comp.routes) {
       const list = byOd.get(r.key) ?? []
-      list.push({ comp, route: r })
+      list.push({ comp, route: {...r, freq: rivalFrequency(s, r)} })
       byOd.set(r.key, list)
     }
   }

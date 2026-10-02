@@ -1,3 +1,5 @@
+import LZString from 'lz-string'
+import { effectiveAirport, ensureAirports } from './airportInfrastructure'
 import { migrateLivery } from '../livery/presets'
 import { completarNumeros, migrarEscala, sincronizarMalha } from './escala'
 import { AIRCRAFT_BY_ID, ehCargueiro } from './data/aircraft'
@@ -6,6 +8,14 @@ import { clampPitch, defaultCabin, normalizarCabine } from './cabin'
 import { engineIdFor } from './spec'
 import type { Aircraft, GameState } from './types'
 
+/** Compactação só no armazenamento interno; exportação continua JSON completo. */
+export const encodeStoredSave = (s: GameState) => {
+  const json=JSON.stringify(s)
+  return json.length>1_000_000?'LZ1:'+LZString.compressToUTF16(json):json
+}
+export const decodeStoredSave = (raw: string): GameState => JSON.parse(
+  raw.startsWith('LZ1:')?LZString.decompressFromUTF16(raw.slice(4)):raw,
+)
 export const SAVE_VERSION = 2
 export const AVAILABLE_SLOTS = [1, 2, 3] as const
 
@@ -36,7 +46,7 @@ function migrate(s: GameState): GameState | null {
    */
   s.airline.routes = (s.airline.routes ?? []).filter(
     (r) => AIRPORT_BY_IATA[r.from] && AIRPORT_BY_IATA[r.to] &&
-      !vooPermitido(AIRPORT_BY_IATA[r.from], AIRPORT_BY_IATA[r.to]),
+      !vooPermitido(effectiveAirport(s, r.from), effectiveAirport(s, r.to)),
   )
   s.airline.loans = s.airline.loans ?? []
   s.airline.codeshareNumbers ??= {}
@@ -48,8 +58,8 @@ function migrate(s: GameState): GameState | null {
    */
   for (const c of s.competitors) {
     c.routes = (c.routes ?? []).filter((r) => {
-      const a = AIRPORT_BY_IATA[r.from]
-      const b = AIRPORT_BY_IATA[r.to]
+      const a = effectiveAirport(s, r.from)
+      const b = effectiveAirport(s, r.to)
       return a && b && !vooPermitido(a, b)
     })
   }
@@ -83,6 +93,7 @@ function migrate(s: GameState): GameState | null {
   sincronizarMalha(s)
 
   s.version = SAVE_VERSION
+  ensureAirports(s)
   return s
 }
 
@@ -154,7 +165,7 @@ export function getSlotInfo(slot: number): SlotSummary | null {
   try {
     const raw = localStorage.getItem(SLOT_KEY(slot))
     if (!raw) return null
-    const parsed = migrate(JSON.parse(raw) as GameState)
+    const parsed = migrate(decodeStoredSave(raw))
     if (!parsed || !parsed.airline) return null
     return {
       slot,
@@ -172,7 +183,7 @@ export function getSlotInfo(slot: number): SlotSummary | null {
 export function saveGame(state: GameState, slot = getActiveSlot()) {
   migrateOldSaveIfNeeded()
   try {
-    localStorage.setItem(SLOT_KEY(slot), JSON.stringify(state))
+    localStorage.setItem(SLOT_KEY(slot), encodeStoredSave(state))
     setActiveSlot(slot)
     return true
   } catch {
@@ -185,7 +196,7 @@ export function loadGame(slot = getActiveSlot()): GameState | null {
   try {
     const raw = localStorage.getItem(SLOT_KEY(slot))
     if (!raw) return null
-    const parsed = migrate(JSON.parse(raw) as GameState)
+    const parsed = migrate(decodeStoredSave(raw))
     if (!parsed) return null
     parsed.paused = true
     setActiveSlot(slot)

@@ -795,3 +795,10 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
   .ranking-detail table.compacta th, .ranking-detail table.compacta td { display: table-cell; }
   .ranking-detail table.compacta th:first-child, .ranking-detail table.compacta td:first-child { width: auto; max-width: none; }
 }
+.hubs-panel { gap: 14px; }
+.hub-metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+.hub-metrics > div { display:grid; gap:5px; padding:12px; border:1px solid var(--line); border-radius:10px; min-width:0; overflow-wrap:anywhere; }
+.hub-metrics small { color:var(--ink-3); }
+.hub-projects { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.hub-projects section { padding:12px; border:1px solid var(--line); border-radius:10px; }
+@media(max-width:760px) { .hubs-panel .g2,.hub-projects { grid-template-columns:minmax(0,1fr); } .hub-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } .hubs-panel td { white-space:normal; } }

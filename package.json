@@ -33,6 +33,8 @@
     "aircraft2d:ui": "node scripts/aircraft2d-ui.mjs",
     "cabin:selected": "node scripts/cabin-selected-ui.mjs",
     "ai:foundation": "tsx scripts/ai-foundation.ts",
+    "hubs:ui": "node scripts/hubs-ui.mjs",
+    "hubs:check": "tsx scripts/hubs-infrastructure-check.ts",
     "economy:hubs": "tsx scripts/hub-economy-check.ts",
     "economy:regressions": "tsx scripts/pr100-regressions.ts",
     "crew:check": "tsx scripts/crew-check.ts",
@@ -49,6 +51,7 @@
   },
   "dependencies": {
     "d3-geo": "^3.1.1",
+    "lz-string": "^1.5.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "topojson-client": "^3.1.0",

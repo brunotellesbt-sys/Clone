@@ -1,3 +1,4 @@
+import { effectiveAirport } from '../game/airportInfrastructure'
 import { useEffect, useMemo, useState } from 'react'
 import { AIRCRAFT_BY_ID, acLabel, ehCargueiro, type AircraftType } from '../game/data/aircraft'
 import {
@@ -370,8 +371,8 @@ function OpenRouteModal({ origem, onOrigem, onClose, onOpened }: {
       for (const r of c.routes) rivais.set(r.key, (rivais.get(r.key) ?? 0) + 1)
     }
     const busca = q.trim().toLowerCase()
-    const base = AIRPORT_BY_IATA[hub]
-    return AIRPORTS.filter((a) => a.iata !== hub && !open.has(odKey(hub, a.iata)))
+    const base = effectiveAirport(state, hub)
+    return AIRPORTS.map(a => effectiveAirport(state, a.iata)).filter((a) => a.iata !== hub && !open.has(odKey(hub, a.iata)))
       // O filtro de texto vem antes das contas: medir demanda de três mil
       // destinos a cada tecla é trabalho jogado fora quando o jogador já disse
       // o que procura.
@@ -410,7 +411,7 @@ function OpenRouteModal({ origem, onOrigem, onClose, onOpened }: {
    * ele nunca vai poder marcar naquele par.
    */
   const porteAte = (destino: Airport) => {
-    const b = AIRPORT_BY_IATA[hub]
+    const b = effectiveAirport(state, hub)
     const ano = state.startYear + state.day / 365
     return Object.values(AIRCRAFT_BY_ID)
       .filter((t) => ehCargueiro(t) === carga && ano >= t.since &&
@@ -423,7 +424,7 @@ function OpenRouteModal({ origem, onOrigem, onClose, onOpened }: {
     ? Object.values(AIRCRAFT_BY_ID).filter(
         (t) => ehCargueiro(t) === carga &&
           t.range >= chosen.dist &&
-          pistaServe(t, AIRPORT_BY_IATA[hub], chosen.a) &&
+          pistaServe(t, effectiveAirport(state, hub), chosen.a) &&
           state.startYear + state.day / 365 >= t.since,
       )
     : []
@@ -576,7 +577,7 @@ function OpenRouteModal({ origem, onOrigem, onClose, onOpened }: {
                 </div>
                 <div className="row" style={{ justifyContent: 'space-between' }}>
                   <span className="muted">Escopo</span>
-                  <b>{ESCOPO_LABEL[AIRPORT_BY_IATA[hub].escopo]} → {ESCOPO_LABEL[chosen.a.escopo]}</b>
+                  <b>{ESCOPO_LABEL[effectiveAirport(state, hub).escopo]} → {ESCOPO_LABEL[chosen.a.escopo]}</b>
                 </div>
               </div>
               {best.length === 0 ? (

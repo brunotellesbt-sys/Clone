@@ -463,6 +463,7 @@ export interface Notice {
 }
 
 export interface GameState {
+  airportDevelopment?: Record<string, import('./airportInfrastructure').AirportDevelopment>
   /** Desenvolvimento adicional acumulado pela operação dos hubs, por cidade. */
   hubDevelopment?: { day: number; cities: Record<string, number>; pending?: Record<string, number> }
   version: number

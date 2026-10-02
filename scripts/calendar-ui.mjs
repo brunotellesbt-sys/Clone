@@ -10,12 +10,13 @@ try {
   await page.goto(process.env.URL ?? 'http://127.0.0.1:5173/', { waitUntil: 'networkidle' })
   await page.evaluate(async () => {
     const { newGame, openRoute } = await import('/src/game/engine.ts')
+    const {saveGame}=await import('/src/game/save.ts')
     const s = newGame({ name: 'Calendário Airways', code: 'CA', hub: 'BEL', seed: 41 })
     s.day = 172 // 22/06/2027; não usa a data real do navegador.
     s.airline.cash = 1e9
     openRoute(s, 'BEL', 'PIN')
     s.paused = true
-    localStorage.setItem('skyline-tycoon:save:1', JSON.stringify(s))
+    saveGame(s,1)
   })
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByRole('button', { name: 'Continuar', exact: true }).first().click()
@@ -108,11 +109,12 @@ try {
   assert(await page.getByText(/Férias\/eventos nesta semana: \+100%/).count() > 0)
 
   // Outra data-base do save: reabre no mês atual e renova o limite do próximo ano.
-  await page.evaluate(() => {
-    const s = JSON.parse(localStorage.getItem('skyline-tycoon:save:1'))
+  await page.evaluate(async () => {
+    const {loadGame,saveGame}=await import('/src/game/save.ts')
+    const s = loadGame(1)
     s.startYear = 2028
     s.day = 0
-    localStorage.setItem('skyline-tycoon:save:1', JSON.stringify(s))
+    saveGame(s,1)
   })
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByRole('button', { name: 'Continuar', exact: true }).first().click()

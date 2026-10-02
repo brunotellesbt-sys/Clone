@@ -1,3 +1,4 @@
+import { admittedFlights, rivalFrequency } from './airportInfrastructure'
 import { AIRPORT_BY_IATA, type Airport } from './data/airports'
 import { crescimentoDe } from './data/crescimento'
 import { distanceBetween } from './geo'
@@ -26,15 +27,15 @@ export function activeHubs(s: GameState) {
   const own = new Set(s.airline.hubs)
   const operating = new Set(s.airline.fleet.filter(a => a.groundedUntil <= s.day).map(a => a.id))
   for (const leg of s.airline.escala ?? []) {
-    if (!operating.has(leg.aircraftId)) continue
+    if (!operating.has(leg.aircraftId) || !admittedFlights(s).has(leg.id)) continue
     if (own.has(leg.from)) add(leg.from, leg.to, 1 / 7, true)
     if (own.has(leg.to)) add(leg.to, leg.from, 1 / 7, true)
   }
   for (const comp of s.competitors) {
     const bases = new Set(competitorHubs(comp))
     for (const route of comp.routes) {
-      if (bases.has(route.from)) add(route.from, route.to, route.freq * 2)
-      if (bases.has(route.to)) add(route.to, route.from, route.freq * 2)
+      if (bases.has(route.from)) add(route.from, route.to, rivalFrequency(s, route) * 2)
+      if (bases.has(route.to)) add(route.to, route.from, rivalFrequency(s, route) * 2)
     }
   }
   cache.set(s, { day: s.day, hubs })

@@ -1,3 +1,4 @@
+import LZString from 'lz-string'
 import { browserPath, artifact, comRelogio } from './browser.mjs'
 import { chromium } from 'playwright'
 import { createServer } from 'node:http'
@@ -82,12 +83,9 @@ await page.getByRole('button', { name: 'Ranking' }).click()
 await page.waitForTimeout(400)
 await page.screenshot({ path: artifact('shot-9-ranking.png') })
 
-const summary = await page.evaluate(() => {
-  const raw = localStorage.getItem('skyline-tycoon:save:1') ?? localStorage.getItem('skyline-tycoon:save:0')
-  if (!raw) return 'sem save'
-  const s = JSON.parse(raw)
-  return `dia ${s.day}, caixa ${Math.round(s.airline.cash / 1e6)}M, frota ${s.airline.fleet.length}, rotas ${s.airline.routes.length}`
-})
+const rawSave = await page.evaluate(() => localStorage.getItem('skyline-tycoon:save:1') ?? localStorage.getItem('skyline-tycoon:save:0'))
+const saved = rawSave ? JSON.parse(rawSave.startsWith('LZ1:') ? LZString.decompressFromUTF16(rawSave.slice(4)) : rawSave) : null
+const summary = saved ? `dia ${saved.day}, caixa ${Math.round(saved.airline.cash / 1e6)}M, frota ${saved.airline.fleet.length}, rotas ${saved.airline.routes.length}` : 'sem save'
 console.log('estado:', summary)
 console.log('erros de console:', errors.length ? errors.slice(0, 10) : 'nenhum')
 await browser.close()

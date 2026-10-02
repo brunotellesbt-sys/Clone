@@ -40,7 +40,7 @@ try {
   await page.getByRole('button', { name: 'Importar partida', exact: true }).click()
   await page.getByRole('button', { name: 'Confirmar', exact: true }).click()
   assert((await page.locator('.brand').textContent()).includes('Partida corrigida'))
-  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('skyline-tycoon:save:1')).day), 45)
+  assert.equal(await page.evaluate(async () => { const {loadGame}=await import('/src/game/save.ts');return loadGame(1).day }), 45)
   await page.locator('button[title="Jogo"]').click()
   await select.setInputFiles({ name: 'invalido.json', mimeType: 'application/json', buffer: Buffer.from('{erro') })
   await page.getByText('Arquivo de save inválido ou incompatível.').waitFor()
