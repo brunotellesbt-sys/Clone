@@ -13,9 +13,11 @@ export function connectionPathAllowed(from: string, via: string, to: string, str
   const direct = distanceBetween(from, to)
   const first = distanceBetween(from, via), second = distanceBetween(via, to)
   // Alimentação regional sem direto: limita o desvio absoluto, não só a razão
-  // entre cidades próximas. Não estende essa exceção a grandes desvios nacionais.
+  // entre cidades próximas. Cada trecho pode ter até 1.000 km; não aplica um
+  // segundo teto menor à soma, que excluía CAW–BSB–VDC antes de comparar ofertas.
+  // A distância adicional ainda limita a volta; malha.ts verifica alternativas.
   const regional = !strictOnly && a.cc === h.cc && h.cc === b.cc &&
-    Math.max(first, second) * 1.852 <= 1000 && (first + second) * 1.852 <= 1500 &&
+    Math.max(first, second) * 1.852 <= 1000 &&
     (first + second - direct) * 1.852 <= 1100
   if (regional) return true
   // Em uma conexão internacional o hub pode ficar fora da linha direta (por

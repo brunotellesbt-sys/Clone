@@ -14,7 +14,7 @@ const raw=readFileSync(file,'utf8'),parsed=importSaveFile(raw)
 assert(parsed,'Save inválido')
 const s:GameState=parsed
 const initialDay=s.day,offered=s.airline.hubs.reduce((n,h)=>n+conexoesNaBase(s,h).length,0)
-const targets=['GIG-SSA-CKS','RBR-PVH-CZS','CZS-PVH-RBR','CGH-BSB-BEL','VIX-SDU-CGH']
+const targets=['GIG-SSA-CKS','RBR-PVH-CZS','CZS-PVH-RBR','CGH-BSB-BEL','VIX-SDU-CGH','VDC-BSB-CAW']
 const totals=Object.fromEntries(targets.map(key=>[key,0]))
 const times:number[]=[]
 for(let i=0;i<7;i++){
