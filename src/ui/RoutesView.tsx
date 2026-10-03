@@ -314,7 +314,9 @@ function Porte({ lista, carga, de, para }: {
             </div>
           ))}
           <p className="muted">
-            {gargalo.tetoAssentos !== undefined
+            {gargalo.iata==='PAV' && gargalo.tetoAssentos!==undefined
+              ? 'PAV recebe aeronaves de até 78 lugares e tem exceções para A319neo e 737 MAX 7/8/9/10.'
+              : gargalo.tetoAssentos !== undefined
               ? `${gargalo.iata} recebe até ${gargalo.tetoAssentos} lugares — teto do aeroporto, não da pista.`
               : `${gargalo.iata} tem ${num(gargalo.runway)} ft de pista a ${num(gargalo.elev)} ft.`}
             {' '}Acima disso a aeronave não sai de uma das duas pontas.

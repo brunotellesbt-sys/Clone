@@ -36,6 +36,7 @@ jobs:
       - run: npm run calendar:check
       - run: npm run save:file:check
       - run: npm run map:geometry
+      - run: npx tsx scripts/airport-paths-check.ts
       - run: npm run map:tiles
       - run: npx tsx scripts/cargo-check.ts
       - run: npm run sim -- GRU 1460

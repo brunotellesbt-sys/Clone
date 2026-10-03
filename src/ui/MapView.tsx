@@ -11,8 +11,8 @@ import { MS_POR_DIA_NA_TELA } from './relogio'
 import { blocoDe, DIA, DOW_CURTO, escalaDe, hhmm, naSemana, noTempo, partidaUtc, rotaDoPar } from '../game/escala'
 import { distanceBetween } from '../game/geo'
 import { spriteMapa } from '../livery/mapSprites'
-import { MAP_MAX_ZOOM, spriteRotation } from './mapGeometry'
-import { airportFlightPath, airportFlightPose, loadFlightProcedures } from './airportFlightPaths'
+import { MAP_MIN_ZOOM, MAP_MAX_ZOOM, spriteRotation } from './mapGeometry'
+import { airportFlightPath, airportFlightPose, airportMapPoint, loadFlightProcedures } from './airportFlightPaths'
 import { SatelliteTiles } from './SatelliteTiles'
 import { MAP_BOUNDS } from './mapTiles'
 import type { Aircraft, GameState, Perna, Route } from '../game/types'
@@ -22,7 +22,7 @@ const H = 520
 const SATELLITE = `${import.meta.env.BASE_URL}nasa-blue-marble.jpg`
 const PLANE_FALLBACK = `${import.meta.env.BASE_URL}assets_icons_png_vertical_plane_icon.png`
 /**
- * Zoom até 288×, com imagens de maior resolução nos níveis de aproximação.
+ * Zoom até 1152×, com imagens de maior resolução nos níveis de aproximação.
  */
 const K_MAX = MAP_MAX_ZOOM
 /**
@@ -31,6 +31,13 @@ const K_MAX = MAP_MAX_ZOOM
  * cobrindo a cidade inteira — o zoom serve para separar, não para engordar.
  */
 const K_DESENHO = 9
+/** Respeita as margens do viewBox em telas altas, inclusive na pinça. */
+function screenPoint(svg:SVGSVGElement,x:number,y:number):[number,number] {
+  const matrix=svg.getScreenCTM()
+  if(!matrix)return [0,0]
+  const point=new DOMPoint(x,y).matrixTransform(matrix.inverse())
+  return [point.x,point.y]
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const land = feature(world as any, (world as any).objects.countries) as unknown as FeatureCollection<GeoGeometry>
@@ -52,11 +59,11 @@ interface Props {
 
 /** Mantém o mundo preenchendo o quadro: arrastar não deixa o mapa sair da tela. */
 function limitar(k: number, x: number, y: number) {
-  const kk = Math.min(K_MAX, Math.max(1, k))
+  const kk = Math.min(K_MAX, Math.max(MAP_MIN_ZOOM, k))
   return {
     k: kk,
-    x: Math.min(0, Math.max(W - W * kk, x)),
-    y: Math.min(0, Math.max(H - H * kk, y)),
+    x: kk<1?(W-W*kk)/2:Math.min(0, Math.max(W - W * kk, x)),
+    y: kk<1?(H-H*kk)/2:Math.min(0, Math.max(H - H * kk, y)),
   }
 }
 
@@ -73,11 +80,6 @@ export function MapView({
     if(!ac||!a||!b||ac.groundedUntil>state.day)return []
     return [{id:p.id,perna:p,ac,a,b,bloco:blocoDe(state,p),r:rotaDoPar(state,p.from,p.to)}]
   }),[state,state.day,airportRevision(state)])
-  useEffect(()=>{
-    let active=true
-    loadFlightProcedures([...new Set(schedule.flatMap(v=>[v.a.iata,v.b.iata]))]).then(()=>{if(active)refreshProcedures(n=>n+1)})
-    return()=>{active=false}
-  },[schedule])
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [lines, setLines] = useState(() => {
     try {
@@ -91,6 +93,13 @@ export function MapView({
     setLines(next)
     try { localStorage.setItem('skyline-map-lines', JSON.stringify(next)) } catch { /* preferência só nesta sessão */ }
   }
+  useEffect(()=>{
+    let active=true
+    const ids=[...state.airline.hubs,...state.airline.routes.flatMap(r=>[r.from,r.to]),...schedule.flatMap(v=>[v.a.iata,v.b.iata]),...(focus?[focus]:[]),...(selected?[selected]:[])]
+    if(showCompetitors&&lines.rivals)ids.push(...state.competitors.flatMap(c=>c.routes.slice(0,10).flatMap(r=>[r.from,r.to])))
+    loadFlightProcedures(ids).then(()=>{if(active)refreshProcedures(n=>n+1)})
+    return()=>{active=false}
+  },[schedule,focus,selected,showCompetitors,lines.rivals])
   /**
    * O relógio da tela, de 0 a 1 no dia. Começa às 8h e não à meia-noite: agora
    * que o avião no mapa é uma perna de verdade da escala, a madrugada está
@@ -171,7 +180,7 @@ export function MapView({
   }
   const zoomCentro = (factor: number) => {
     const current = vista.current
-    const k = Math.min(K_MAX, Math.max(1, current.k * factor))
+    const k = Math.min(K_MAX, Math.max(MAP_MIN_ZOOM, current.k * factor))
     aplicar(limitar(k, W / 2 - (W / 2 - current.x) * k / current.k,
       H / 2 - (H / 2 - current.y) * k / current.k))
   }
@@ -180,11 +189,11 @@ export function MapView({
     () => geoEquirectangular().fitExtent([[0, 10], [W, H - 10]], { type: 'Sphere' }).precision(0.2 / view.k),
     [view.k],
   )
-  const path = useMemo(() => geoPath(projection), [projection])
-  const project = (lon: number, lat: number) => projection([lon, lat]) ?? [0, 0]
+  const path = useMemo(() => geoPath(projection).digits(6), [projection])
 
-  const landPath = useMemo(() => path(land) ?? '', [path])
+  const landPath = useMemo(() => view.k>8?'':path(land) ?? '', [path,view.k])
   const gratPath = useMemo(() => path(geoGraticule10()) ?? '', [path])
+  const drawnPaths=useMemo(()=>new WeakMap<ReturnType<typeof airportFlightPath>,string>(),[path])
 
   /**
    * Animação das aeronaves — e ela respeita a pausa.
@@ -225,15 +234,16 @@ export function MapView({
     return () => cancelAnimationFrame(raf)
   }, [state.paused, state.speed])
 
-  // centraliza numa base ao trocar de foco
+  const focusPoint=focus&&AIRPORT_BY_IATA[focus]?airportMapPoint(AIRPORT_BY_IATA[focus]):null
+  // Centraliza também quando chegam as coordenadas precisas da pista.
   useEffect(() => {
     if (!focus || !AIRPORT_BY_IATA[focus]) return
     const ap = AIRPORT_BY_IATA[focus]
-    const [px, py] = project(ap.lon, ap.lat)
+    const [px, py] = projection(airportMapPoint(ap))!
     const k = 2.1
     aplicar(limitar(k, W / 2 - px * k, H / 2 - py * k))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focus])
+  }, [focus,focusPoint?.[0],focusPoint?.[1]])
 
   /**
    * A roda entra por ouvinte nativo, não pelo `onWheel` do React.
@@ -249,10 +259,9 @@ export function MapView({
       e.preventDefault()
       const r = svg.getBoundingClientRect()
       if (!r.width || !r.height) return
-      const mx = ((e.clientX - r.left) / r.width) * W
-      const my = ((e.clientY - r.top) / r.height) * H
+      const [mx,my]=screenPoint(svg,e.clientX,e.clientY)
       const v = vista.current
-      const k = Math.min(K_MAX, Math.max(1, v.k * (e.deltaY < 0 ? 1.18 : 1 / 1.18)))
+      const k = Math.min(K_MAX, Math.max(MAP_MIN_ZOOM, v.k * Math.exp(-Math.max(-120,Math.min(120,e.deltaY))*.002)))
       const s = k / v.k
       aplicar(limitar(k, mx - (mx - v.x) * s, my - (my - v.y) * s))
     }
@@ -304,7 +313,7 @@ export function MapView({
     y0: -view.y / view.k - folgaY,
     y1: (H - view.y) / view.k + folgaY,
   }
-  const compRoutes = showCompetitors
+  const compRoutes = showCompetitors && lines.rivals
     ? state.competitors.flatMap((c) => c.routes.slice(0, 10).map((r) => ({ ...r, color: c.color })))
     : []
 
@@ -312,13 +321,17 @@ export function MapView({
     const a = AIRPORT_BY_IATA[from]
     const b = AIRPORT_BY_IATA[to]
     if (!a || !b) return ''
-    return path({ type: 'LineString', coordinates: airportFlightPath(a,b).points }) ?? ''
+    const geometry=airportFlightPath(a,b,t*DIA,t*DIA)
+    let drawn=drawnPaths.get(geometry)
+    if(drawn===undefined){drawn=path({ type: 'LineString', coordinates: geometry.points }) ?? '';drawnPaths.set(geometry,drawn)}
+    return drawn
   }
 
   /** Pedaço do grande círculo entre duas frações da rota, amostrado. */
   const trecho = (a: Airport, b: Airport, t0: number, t1: number) => {
     if (t1 - t0 < 1e-4) return ''
-    return path({ type: 'LineString', coordinates: airportFlightPath(a,b).slice(t0,t1) }) ?? ''
+    const departure=vooSel?partidaUtc(vooSel.perna):0
+    return path({ type: 'LineString', coordinates: airportFlightPath(a,b,departure,departure+(vooSel?.bloco??0)).slice(t0,t1) }) ?? ''
   }
 
   /**
@@ -447,8 +460,7 @@ export function MapView({
     const r = svg.getBoundingClientRect()
     if (!r.width || !r.height) return
     /** De pixel da tela para unidade do `viewBox`. */
-    const paraVb = (cx: number, cy: number): [number, number] =>
-      [((cx - r.left) / r.width) * W, ((cy - r.top) / r.height) * H]
+    const paraVb = (cx: number, cy: number): [number, number] => screenPoint(svg,cx,cy)
 
     if (g.tipo === 'pinca') {
       const [a, b] = doisDedos()
@@ -464,7 +476,7 @@ export function MapView({
        * ponto de ancoragem também anda, e é isso que deixa a pinça aproximar e
        * arrastar no mesmo gesto, como qualquer mapa de celular faz.
        */
-      const k = Math.min(K_MAX, Math.max(1, g.k * (dist / g.dist)))
+      const k = Math.min(K_MAX, Math.max(MAP_MIN_ZOOM, g.k * (dist / g.dist)))
       const [mx0, my0] = paraVb(g.mx, g.my)
       const [mx1, my1] = paraVb((a.x + b.x) / 2, (a.y + b.y) / 2)
       const px = (mx0 - g.vx) / g.k
@@ -499,8 +511,9 @@ export function MapView({
      * barreira de erro. Com o zoom isso nunca aconteceu porque a roda não
      * depende de referência nenhuma, que é exatamente o que o relato dizia.
      */
-    const x = g.vx + dx * (W / r.width)
-    const y = g.vy + dy * (H / r.height)
+    const [startX,startY]=paraVb(g.px,g.py),[endX,endY]=paraVb(e.clientX,e.clientY)
+    const x = g.vx + endX-startX
+    const y = g.vy + endY-startY
     aplicar(limitar(vista.current.k, x, y))
   }
 
@@ -586,7 +599,7 @@ export function MapView({
             const isSel = selected === a.iata
             const served = servidos.has(a.iata)
             if (!isHub && !served && a.tier < degrauMin) return null
-            const [px, py] = project(a.lon, a.lat)
+            const [px, py] = projection(airportMapPoint(a))!
             if (px < visivel.x0 || px > visivel.x1 || py < visivel.y0 || py > visivel.y1) return null
             return (
               <g key={a.iata}>
@@ -623,8 +636,9 @@ export function MapView({
           })}
           {/* avião por último: desenhado depois do aeroporto, ele fica por cima
               e o clique é dele — antes o marcador do aeroporto de origem roubava */}
-          {voos.map(({ id, a, b, fase, ac }) => {
-            const { x, y, angle: ang } = airportFlightPose(projection, a, b, fase)
+          {voos.map(({ id, a, b, fase, ac, perna, bloco }) => {
+            const departure=partidaUtc(perna)
+            const { x, y, angle: ang } = airportFlightPose(projection, a, b, fase,departure,departure+bloco)
             const on = voo === id
             const s = (on ? 2.2 : 1.5) * fator
             const sprite = ac ? spriteMapa(ac.typeId, on) : null

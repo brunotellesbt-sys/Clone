@@ -7,7 +7,7 @@ export const MAP_BOUNDS: MapBounds = { left: 0, top: 0, right: 1000, bottom: 520
 export interface SatelliteTile { key: string; url: string; x: number; y: number; size: number; level: number }
 export function satelliteTiles(view: MapViewport, pixelScale: number, bounds: MapBounds = MAP_BOUNDS): SatelliteTile[] {
   if (view.k < 2) return []
-  const level = Math.max(0, Math.min(11, Math.ceil(Math.log2(800 * view.k * pixelScale / 512))))
+  const level = Math.max(0, Math.min(13, Math.ceil(Math.log2(800 * view.k * pixelScale / 512))))
   const size = 800 / 2 ** level
   const columns = Math.ceil(1000 / size), rows = Math.ceil(500 / size)
   const left = Math.max(0, Math.floor((bounds.left - view.x) / view.k / size) - 1)
