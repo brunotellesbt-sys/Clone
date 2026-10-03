@@ -7,8 +7,34 @@ import { baseDemand } from '../src/game/demand'
 import { sumCabins } from '../src/game/economy'
 import { odKey } from '../src/game/geo'
 import { fracaoNoturna } from '../src/game/malha'
+import { connectionAllowed } from '../src/game/malha'
 import { exportSave, importSave } from '../src/game/save'
 import type { GameState } from '../src/game/types'
+import { connectionPathAllowed } from '../src/game/connectionGeometry'
+
+// GIG–SSA–CKS é uma conexão doméstica válida: não há GIG–CKS direto e o
+// desvio é 1,357×, dentro do limite de 1,45×. Se o trecho direto surgir, a
+// conexão deixa de ser ofertada.
+assert(connectionPathAllowed('GIG','SSA','CKS'))
+assert(!connectionPathAllowed('GIG','SSA','CKS',true))
+assert(!connectionPathAllowed('GIG','FOR','CGH'))
+
+// Se existir um caminho claramente melhor por outro hub, a alternativa mais
+// longa não aparece. O cenário usa GRU–SDU–GYN e GRU–BSB–GYN: BSB é o caminho
+// menor e a conexão via SDU é descartada.
+const alternatives = newGame({ name: 'Caminhos', code: 'CP', hub: 'GRU', seed: 12, densidade: 'enxuta' })
+alternatives.competitors = []
+alternatives.airline.cash = 1e10
+alternatives.airline.hubs.push('SDU', 'BSB')
+for (const [index, [from, to]] of [['GRU', 'SDU'], ['SDU', 'GYN'], ['GRU', 'BSB'], ['BSB', 'GYN']].entries()) {
+  assert.equal(openRoute(alternatives, from, to), null)
+  assert.equal(buyAircraft(alternatives, 'a320neo', false), null)
+  const ac = alternatives.airline.fleet.at(-1)!
+  ac.base = from
+  assert.equal(marcarVoo(alternatives, ac.id, from, to, dowOf(alternatives), 480 + index * 120), null)
+}
+assert.equal(connectionAllowed(alternatives, 'GRU', 'SDU', 'GYN'), false)
+assert.equal(connectionAllowed(alternatives, 'GRU', 'BSB', 'GYN'), true)
 
 const room = (local: number, booked = 0) => connectionRoom({
   capacity: { y: 100, w: 0, c: 0, f: 0 },

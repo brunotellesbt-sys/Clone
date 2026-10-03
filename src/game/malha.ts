@@ -203,7 +203,7 @@ export function toquesNaBase(s: GameState, base: string): { chegadas: Toque[]; p
  * que chegou, e não adianta conectar para o aeroporto de onde o passageiro
  * acabou de vir — ninguém voa Fortaleza–Rio–Fortaleza.
  */
-const marketCache=new WeakMap<GameState,{day:number;revision:number;direct:Set<string>}>()
+const marketCache=new WeakMap<GameState,{day:number;revision:number;direct:Set<string>;bestAlternative:Map<string,number>}>()
 export function connectionAllowed(s:GameState,from:string,via:string,to:string) {
   let market=marketCache.get(s)
   if(!market||market.day!==s.day||market.revision!==airportRevision(s)) {
@@ -211,9 +211,43 @@ export function connectionAllowed(s:GameState,from:string,via:string,to:string) 
     const passengerRoutes=new Set(s.airline.routes.filter(r=>!r.cargo).flatMap(r=>[`${r.from}>${r.to}`,`${r.to}>${r.from}`]))
     for(const p of escalaDe(s))if(operating.has(p.aircraftId)&&admittedFlights(s).has(p.id)&&passengerRoutes.has(`${p.from}>${p.to}`))direct.add(`${p.from}>${p.to}`)
     for(const c of s.competitors)for(const r of c.routes)if(rivalFrequency(s,r)>0){direct.add(`${r.from}>${r.to}`);direct.add(`${r.to}>${r.from}`)}
-    market={day:s.day,revision:airportRevision(s),direct};marketCache.set(s,market)
+    // Pré-calcula o melhor caminho de duas pernas por um hub para cada par
+    // O&D. A consulta acontece muitas vezes durante a venda e a tela; deixar
+    // este cruzamento dentro de cada chamada deixava saves grandes lentos.
+    const byFrom=new Map<string,string[]>(),byTo=new Map<string,string[]>()
+    const add=(map:Map<string,string[]>,key:string,value:string)=>{
+      const values=map.get(key)
+      if(values) values.push(value)
+      else map.set(key,[value])
+    }
+    for(const key of direct) {
+      const [a,b]=key.split('>')
+      add(byFrom,a,b)
+      add(byTo,b,a)
+    }
+    const bestAlternative=new Map<string,number>()
+    for(const hub of s.airline.hubs) {
+      for(const from of byTo.get(hub)??[]) for(const to of byFrom.get(hub)??[]) {
+        if(from===to||!connectionPathAllowed(from,hub,to,false)) continue
+        const a=AIRPORT_BY_IATA[from],b=AIRPORT_BY_IATA[to],h=AIRPORT_BY_IATA[hub]
+        if(!a||!b||!h) continue
+        const distance=distanceNm(a,h)+distanceNm(h,b),key=`${from}>${to}`
+        if(distance < (bestAlternative.get(key)??Infinity)) bestAlternative.set(key,distance)
+      }
+    }
+    market={day:s.day,revision:airportRevision(s),direct,bestAlternative};marketCache.set(s,market)
   }
-  return connectionPathAllowed(from,via,to,market.direct.has(`${from}>${to}`))
+  const directAvailable=market.direct.has(`${from}>${to}`)
+  if (!connectionPathAllowed(from,via,to,directAvailable)) return false
+
+  // Uma conexão só deve sobreviver se for a melhor forma disponível. Se a
+  // mesma origem e destino já podem ser feitos por outro hub da companhia em
+  // dois voos diretos, com um caminho substancialmente menor, não oferecemos a
+  // alternativa torta (por exemplo FLN–BSB–POA quando FLN–GRU–POA existe).
+  const viaDistance=distanceNm(AIRPORT_BY_IATA[from],AIRPORT_BY_IATA[via])+
+    distanceNm(AIRPORT_BY_IATA[via],AIRPORT_BY_IATA[to])
+  const alternativeDistance=market.bestAlternative.get(`${from}>${to}`)
+  return alternativeDistance===undefined || alternativeDistance >= viaDistance * .9
 }
 const connectionsCache=new WeakMap<GameState,{day:number;revision:number;bases:Map<string,Conexao[]>}>()
 export function conexoesNaBase(s: GameState, base: string, includeRejectedPaths = false): Conexao[] {
