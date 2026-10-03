@@ -5,7 +5,8 @@ import {AIRPORTS, AIRPORT_BY_IATA} from '../src/game/data/airports'
 import {RUNWAY_CORRECTIONS} from '../src/game/data/runwayCorrections'
 import {AIRCRAFT_ALL} from '../src/game/data/aircraft'
 import {aeroportoServe, motivoDoPar, withEngine} from '../src/game/spec'
-import {newGame} from '../src/game/engine'
+import {newGame, buyAircraft} from '../src/game/engine'
+import {aeronaveServe} from '../src/game/escala'
 import {effectiveAirport, ensureAirports, finishAirportWorks, startAirportWork, workOffer} from '../src/game/airportInfrastructure'
 import {exportSaveFile, importSaveFile} from '../src/game/save'
 
@@ -19,7 +20,7 @@ assert.equal(variants.length,before.variants)
 assert.equal(hash(AIRPORTS.map(a=>[a.iata,...variants.map(t=>aeroportoServe(t,a.iata==='PAV'?{...a,iata:undefined}:a))])),before.permissions,'demais permissões intactas, incluindo carga e motores')
 for(const t of variants) {
   const pav=AIRPORT_BY_IATA.PAV
-  const exception=['a319neo','b37m','b38m','b39m','b310m'].includes(t.id)
+  const exception=(t.maxSeats>78&&t.maxSeats<=160)||['b37m','b38m','b39m','b310m'].includes(t.id)
   assert.equal(aeroportoServe(t,pav),exception||aeroportoServe(t,{...pav,iata:undefined}),`PAV/${t.id}`)
   if(exception)assert.equal(motivoDoPar(t,pav,AIRPORT_BY_IATA.GRU),null,'exceção vale também ao programar a rota')
 }
@@ -27,6 +28,19 @@ assert.equal(hash(AIRPORTS.map(a=>[a.iata,a.paxDia,a.slots,a.tier,a.escopo,a.pop
 const s=newGame({name:'Pistas',code:'PT',hub:'PVH',seed:8,densidade:'enxuta'})
 s.airline.cash=100e9
 ensureAirports(s)
+// Mesma validação usada na seleção de aeronaves, incluindo aeroporto efetivo
+// de saves com infraestrutura e todos os motores dos modelos afetados.
+assert.equal(buyAircraft(s,'a319neo',false),null)
+const sample=s.airline.fleet.at(-1)!
+for(const t of variants.filter(t=>['e195e2','e195','a319','a319neo','b37m','b38m','b39m','b310m','a320neo','a320','a321neo'].includes(t.id))) {
+  for(const engineId of t.engines) {
+    const ac={...sample,typeId:t.id,engineId}
+    const allowed=!['a320neo','a320','a321neo'].includes(t.id)
+    for(const [from,to] of [['SSA','PAV'],['PAV','SSA']]) {
+      assert.equal(aeronaveServe(s,ac,from,to)===null,allowed,`${t.id}/${engineId}: seleção ${from}–${to}`)
+    }
+  }
+}
 const restricted=new Set(['SDU','CGH','PLU'])
 for(const old of before.changed) {
   const id=old.iata,a=AIRPORT_BY_IATA[id],d=s.airportDevelopment![id],correction=RUNWAY_CORRECTIONS[id]
