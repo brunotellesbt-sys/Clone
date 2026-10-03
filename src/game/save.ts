@@ -1,4 +1,5 @@
 import LZString from 'lz-string'
+import {rebalanceCompetitorHubs} from './ai'
 import { effectiveAirport, ensureAirports } from './airportInfrastructure'
 import { migrateLivery } from '../livery/presets'
 import { completarNumeros, migrarEscala, sincronizarMalha } from './escala'
@@ -94,6 +95,7 @@ function migrate(s: GameState): GameState | null {
 
   s.version = SAVE_VERSION
   ensureAirports(s)
+  rebalanceCompetitorHubs(s)
   return s
 }
 

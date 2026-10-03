@@ -1,32 +1,29 @@
-# Nitidez do mapa ao aproximar
+# Zoom e alinhamento visual
 
-O mapa mantém o zoom até 72× e passa a carregar detalhes por região e escala. Antes, o mesmo JPEG global era ampliado em todos os níveis. Agora o fundo local permanece disponível e os blocos NASA GIBS Blue Marble, com relevo e batimetria, entram conforme o zoom e a densidade da tela. Os botões +/− também preservam a região no centro; antes alteravam a escala mantendo a translação, deslocando o local escolhido.
+O gesto e os botões atualizam imediatamente a transformação do mapa, entre 0,75× e 1152×. Não existe mais debounce para escolher as imagens do novo nível. O próximo nível central é antecipado; até 128 blocos permanecem montados e as imagens mais detalhadas ficam por cima das anteriores. Voltar a uma região ainda no cache não apaga os detalhes já carregados. Não há animação de opacidade ou filtro de desfoque.
 
-## Fonte e alinhamento
+Uma região inédita ainda depende da rede e da disponibilidade da fonte. Enquanto carrega, o melhor bloco disponível permanece visível. O fundo local também permite usar os controles sem internet. O cache é limitado para não manter o planeta inteiro decodificado no celular.
 
-- Serviço: [NASA GIBS WMTS](https://nasa-gibs.github.io/gibs-api-docs/access-basics/), camada `BlueMarble_ShadedRelief_Bathymetry`, grade geográfica `500m` em EPSG:4326/CRS84.
-- Blocos de 512 px, níveis 0–7; o último corresponde a um mosaico global de 81.920 × 40.960 pixels. A seleção busca resolução suficiente para a tela até o limite da fonte, considerando densidade de até 2× para limitar tráfego no celular.
-- A origem da grade é −180°/90°. Cada nível reduz pela metade a extensão de 288° do nível zero. O cálculo usa a mesma projeção equiretangular dos aeroportos e trajetos.
-- O mapa é uma composição diurna estática de observações de satélite, não uma imagem ao vivo nem um mapa de ruas. A resolução nominal de aproximadamente 500 m ainda impõe um limite ao detalhe disponível.
-- Referência da imagem: [NASA Blue Marble: Next Generation](https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-topography-bathymetry/).
+A fila permite seis downloads simultâneos, prioriza os blocos da tela e cancela pedidos intermediários que perderam relevância. A antecipação só ocupa os lugares restantes da fila. Um pedido sem resposta por 15 segundos falha sem prender os demais.
 
-## Carregamento e celular
+Os blocos são desenhados na extensão geográfica exata, sem esticar a imagem em um pixel para esconder juntas. NASA GIBS Blue Marble fornece os níveis gerais; os níveis próximos usam Esri World Imagery exportado em EPSG:4326. As coordenadas, imagens e trajetórias usam a mesma projeção equiretangular. Referências: [NASA GIBS](https://nasa-gibs.github.io/gibs-api-docs/access-basics/) e [Esri Export Map](https://developers.arcgis.com/rest/services-reference/enterprise/export-map/).
 
-Só a região visível e uma margem de um bloco são solicitadas. Os gestos aguardam 120 ms sem alteração para solicitar o novo conjunto, evitando baixar cada nível intermediário. A área extra visível no SVG vertical do celular também entra no cálculo. Os limites vetoriais simplificados deixam de ser desenhados acima de 8× para não deslocar visualmente a costa detalhada.
+## Posições e cabeceiras
 
-Os detalhes exigem internet. Se o serviço falhar, o JPEG local continua visível; imagens com erro ficam transparentes, sem ícones quebrados nem bloqueio dos controles. As imagens não capturam cliques de aeroportos ou aeronaves. A atribuição NASA aparece tanto na seleção de base como no painel.
+`airportCoordinates.json` contém 3.087 posições de aeródromos, obtidas no [OurAirports](https://ourairports.com/data/) em 03/10/2026, para substituir coordenadas arredondadas quando não existe pista no catálogo visual. Os dados são abertos; não foram todos conferidos individualmente contra levantamento oficial.
+
+`verifiedRunways.json` usa as coordenadas THR publicadas pelo DECEA, AD 2.12, para SDU/SBRJ, GIG/SBGL, CGH/SBSP, GRU/SBGR, BSB/SBBR, PVH/SBPV e MAO/SBEG. Exemplo de [carta de referência SDU](https://aisweb.decea.mil.br/eaip/20-2026_2026_10_01/eAIP/AD%202%20SBRJ-pt-BR.html). A mesma edição foi consultada para os outros seis códigos ICAO. As cabeceiras deslocadas podem tornar a distância entre THRs menor que o comprimento físico total.
+
+As correções oficiais prevalecem desde o primeiro quadro e também depois do carregamento dos procedimentos. A saída prolonga o eixo por 1,5 km; a final de pouso entra alinhada ao eixo a 3 km da cabeceira. Os procedimentos intermediários continuam vindos dos arquivos já existentes. O marcador fica no meio da pista principal e diminui no zoom próximo para não encobri-la. Onde não há geometria de pista, o trajeto usa a posição precisa do aeródromo, sem inventar uma cabeceira.
+
+Estas alterações são visuais: não mudam alcance, restrições de aeronaves, distâncias econômicas, comprimentos operacionais ou slots.
+
+Importador: `npx tsx scripts/import-map-coordinates.ts airports.csv official-runways.json`. O segundo arquivo mapeia IATA para registros `{id,lat,lon,length}`, com coordenadas compactas DMS e comprimento em metros, transcritos de AD 2.12. Os resultados são versionados; o jogo não consulta as fontes cadastrais durante a execução.
 
 ## Verificação
 
-- `npm run map:tiles`: cobertura e alinhamento em vários níveis, densidades, linha de data, polos e tela vertical.
-- `npm run map:tiles:ui`: zoom 72× centralizado, carregamento, falha real de requisição, fundo local e ausência de transbordamento em 360 e 1365 px. Usa imagens locais nas respostas simuladas para que o CI não dependa da NASA.
-- `LIVE_MAP=1 npm run map:tiles:ui`: mesma verificação com o serviço real, gerando comparação antes/depois em `.qa`.
-- `npm run map:geometry` e `npm run mapa`: alinhamento de trajetos, orientação dos aviões, arrasto, seleção de base, voo, painel de aeroporto e configurações de linhas.
-
-Capturas verificadas com o serviço real, na mesma região e zoom:
-
-| Fundo anterior ampliado | Detalhes por escala |
-| --- | --- |
-| ![Antes](images/mapa-zoom-antes.png) | ![Depois](images/mapa-zoom-depois.png) |
-
-[Mapa no celular](images/mapa-zoom-mobile.png)
+- `map:tiles`: cobertura e alinhamento da grade, polos, linha de data e tela vertical.
+- `map:tiles:ui`: controles, cache montado, retorno ao mesmo zoom, falha de rede e limite de nós em 360/1365 px.
+- `LIVE_MAP=1 npm run map:tiles:ui`: inspeção com imagens reais em vez das respostas locais do CI.
+- `airport-paths-check.ts`: coordenadas oficiais, cabeceiras, prolongamento dos eixos e inversões visuais.
+- `map:geometry`: posição e orientação das aeronaves sobre a mesma curva desenhada.

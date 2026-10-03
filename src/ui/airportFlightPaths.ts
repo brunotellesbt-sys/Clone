@@ -1,6 +1,8 @@
 import {geoDistance,geoInterpolate,type GeoProjection} from 'd3-geo'
 import type {Airport} from '../game/data/airports'
 import runwayHeads from './data/runwayHeads.json'
+import airportCoordinates from './data/airportCoordinates.json'
+import verifiedRunways from './data/verifiedRunways.json'
 type Point=[number,number]
 interface Procedure {kind:string;name:string;c?:Point[];r?:Record<string,Point[]>;t?:Record<string,Point[]>}
 export interface AirportProcedures {
@@ -9,7 +11,12 @@ export interface AirportProcedures {
 }
 const loaded=new Map<string,AirportProcedures>(),requests=new Map<string,Promise<void>>()
 const heads=runwayHeads as unknown as Record<string,AirportProcedures['runways'][number]>
-const airportData=(id:string)=>loaded.get(id)??(heads[id]?{runways:[heads[id]],configs:[],procedures:[]}:undefined)
+const verified=verifiedRunways as unknown as Record<string,AirportProcedures['runways']>
+const coordinates=airportCoordinates as unknown as Record<string,Point>
+const airportData=(id:string)=>{
+  const data=loaded.get(id)??(heads[id]?{runways:[heads[id]],configs:[],procedures:[]}:undefined)
+  return verified[id]?{configs:[],procedures:[],...data,runways:verified[id]}:data
+}
 let revision=0
 export function loadFlightProcedures(ids:string[]) {
   return Promise.all([...new Set(ids.map(id=>id[0]))].map(prefix=>{
@@ -28,15 +35,25 @@ export function visualRunwayReverse(iata:string,localMinutes:number) {
   return Boolean((seed%2)^Number(phase>=420+seed%90)^Number(phase>=960+seed%90))
 }
 const mainRunway=(data:AirportProcedures|undefined)=>data?.runways.reduce<AirportProcedures['runways'][number]|undefined>((best,r)=>!best||r[6]>best[6]?r:best,undefined)
+const mapPoints=new Map<string,Point>()
+let pointsRevision=-1
 export function airportMapPoint(a:Airport):Point {
+  if(pointsRevision!==revision){mapPoints.clear();pointsRevision=revision}
+  const cached=mapPoints.get(a.iata);if(cached)return cached
   const r=mainRunway(airportData(a.iata))
-  return r?geoInterpolate([r[3],r[2]],[r[5],r[4]])(.5) as Point:[a.lon,a.lat]
+  const point:Point=r?geoInterpolate([r[3],r[2]],[r[5],r[4]])(.5) as Point:coordinates[a.iata]??[a.lon,a.lat]
+  mapPoints.set(a.iata,point);return point
 }
 function terminal(data:AirportProcedures|undefined,other:Point,departure:boolean,reverse=false):Point[] {
   if(!data?.runways.length)return []
   const runway=mainRunway(data)!,id=runway[reverse?1:0]
   const start:Point=reverse?[runway[5],runway[4]]:[runway[3],runway[2]]
   const end:Point=reverse?[runway[3],runway[2]]:[runway[5],runway[4]]
+  const runwayLength=Math.max(1e-9,geoDistance(start,end))
+  // A curva do procedimento termina antes da final. Completa a aproximação e
+  // a saída no prolongamento do eixo, sem ligar um waypoint lateral à cabeceira.
+  const final=geoInterpolate(end,start)(1+3000/6371000/runwayLength) as Point
+  const climb=geoInterpolate(start,end)(1+1500/6371000/runwayLength) as Point
   const options:Point[][]=[]
   for(const p of data.procedures) {
     if(p.kind!==(departure?'SID':'APP'))continue
@@ -44,16 +61,16 @@ function terminal(data:AirportProcedures|undefined,other:Point,departure:boolean
     if(!departure&&!p.name.includes(id)&&!p.r?.[id])continue
     const core=[...(p.r?.[id]??[]),...(p.c??[])].map(swap)
     for(const transition of [[],...Object.values(p.t??{})]) {
-      const points=departure?[start,end,...core,...transition.map(swap)]:[...transition.map(swap),...core,start,end]
+      const points=departure?[start,end,climb,...core,...transition.map(swap)]:[...transition.map(swap),...core,final,start,end]
       options.push(points.filter((point,i)=>!i||geoDistance(points[i-1],point)>1e-8))
     }
   }
   options.sort((a,b)=>length(a)+geoDistance(departure?a.at(-1)!:a[0],other)-length(b)-geoDistance(departure?b.at(-1)!:b[0],other))
-  return options[0]??[start,end]
+  return options[0]??(departure?[start,end,climb]:[final,start,end])
 }
 export function buildFlightPath(a:Airport,b:Airport,from?:AirportProcedures,to?:AirportProcedures,reverseFrom=false,reverseTo=false) {
   const departure=terminal(from,[b.lon,b.lat],true,reverseFrom),arrival=terminal(to,[a.lon,a.lat],false,reverseTo)
-  const points:Point[]=[...(departure.length?departure:[[a.lon,a.lat] as Point]),...(arrival.length?arrival:[[b.lon,b.lat] as Point])]
+  const points:Point[]=[...(departure.length?departure:[airportMapPoint(a)]),...(arrival.length?arrival:[airportMapPoint(b)])]
   const distances=[0];const curves:ReturnType<typeof geoInterpolate>[]=[]
   for(let i=1;i<points.length;i++){distances.push(distances[i-1]+geoDistance(points[i-1],points[i]));curves.push(geoInterpolate(points[i-1],points[i]))}
   const total=distances.at(-1)!

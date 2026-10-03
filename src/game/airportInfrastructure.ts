@@ -12,7 +12,7 @@ export interface HubWeek { day: number; population: number; capacity: number; ow
 export interface AirportWorks { kind: WorkKind; start: number; end: number; contribution: number; automatic: boolean }
 export interface AirportDevelopment {
   slotPolicy?: number;
-  hubSince?: number; lastDemand?: number; since: number; lastDay: number; baseCapacity: number; capacity: number; level: number;
+  hubSince?: number; baseSince?: number; personalSlots?: number; lastDemand?: number; since: number; lastDay: number; baseCapacity: number; capacity: number; level: number;
   /** Referência de construção legada em pés; comprimento físico via effectiveAirport. */
   runway: number; category: Airport['escopo']; reserved: number; idle: number[];
   operatingDays: number; passengers: number; connections: number; earned: number;
@@ -82,6 +82,14 @@ export function airportSlots(s:GameState,id:string) {
 }
 /** Reserva inicial: malha existente + 10%, entre 6 e 16 movimentos por dia. */
 export const hubSlotMargin=(own:number)=>own===0?24:Math.max(6,Math.min(16,Math.ceil(own*.1)))
+/** Bases operacionais sem contrato de hub: 12 movimentos no pico, três destinos. */
+export function largeBases(s:GameState) {
+ const routes=new Map<string,Set<string>>()
+ for(const p of s.airline.escala??[])for(const [id,dest] of [[p.from,p.to],[p.to,p.from]]){
+   if(!routes.has(id))routes.set(id,new Set());routes.get(id)!.add(dest)
+ }
+ return [...routes].filter(([id,dest])=>!s.airline.hubs.includes(id)&&dest.size>=3&&Math.max(0,...(airportUsage(s).get(id)?.days??[]))>=12).map(([id])=>id)
+}
 export function populationAt(s:GameState,id:string) {
   const a=AIRPORT_BY_IATA[id]
   return a.pop*1e6*Math.pow(derivaDoPais(a.cc,s.day),.55)*cityDevelopment(s,id).population
@@ -111,6 +119,18 @@ export function ensureAirports(s:GameState) {
       d.reserved=Math.max(d.reserved,Math.min(d.capacity,own+hubSlotMargin(own)))
     }
   }
+  s.hubInvestments??=Object.fromEntries(s.airline.hubs.map((id,i)=>[id,i===0?0:20e6]))
+  // Benefício pedido para a operação existente em CGH, não para toda partida nova.
+  if(!s.cghExtraSlotsGranted&&(s.airline.escala??[]).some(p=>p.from==='CGH'||p.to==='CGH')){
+    const d=s.airportDevelopment.CGH,before=airportSlots(s,'CGH')
+    d.capacity+=41;d.personalSlots=(d.personalSlots??0)+41
+    d.reserved=Math.max(d.reserved,before.own)+41
+    s.cghExtraSlotsGranted=true;migrated=true
+  }
+  for(const id of largeBases(s)) {
+    const d=s.airportDevelopment[id]
+    if(d.baseSince===undefined){d.baseSince=s.day;d.idle=[]}
+  }
   if(migrated)invalidateAirportUsage(s)
 }
 export function growthProgress(s:GameState,id:string) {
@@ -119,7 +139,8 @@ export function growthProgress(s:GameState,id:string) {
   const capacity=d?.capacity??initialCapacity(s,id),base=d?.baseCapacity??capacity,level=d?.level??a.tier
   const populationLimit=Math.floor(base*(1+.25*level)*Math.max(1,Math.pow(pop,.7)))
   const increment=Math.max(2,Math.ceil(base*.025)), earned=d?.earned??0
-  return {populationLimit,increment,daysNeeded:180*(earned+1),paxNeeded:base*100*(earned+1),demandNeeded:base*20,
+  const delay=s.airline.hubs.includes(id)?1:1.2
+  return {populationLimit,increment,daysNeeded:Math.ceil(180*(earned+1)*delay),paxNeeded:Math.ceil(base*100*(earned+1)*delay),demandNeeded:base*20,
     canGrow:capacity+increment<=populationLimit}
 }
 export function workOffer(s:GameState,id:string,kind:WorkKind) {
@@ -209,6 +230,7 @@ function airportDailyTraffic(s:GameState) {
 }
 export function recordAirportDay(s:GameState,demands:Record<string,Record<string,number>>,weekly:boolean) {
   ensureAirports(s)
+  const bases=new Set([...s.airline.hubs,...largeBases(s)])
   const trafficByAirport=airportDailyTraffic(s)
   for(const [id,d] of Object.entries(s.airportDevelopment!)) {
     if(!airportUsage(s).has(id)&&!s.airline.hubs.includes(id)&&!d.work)continue
@@ -217,16 +239,17 @@ export function recordAirportDay(s:GameState,demands:Record<string,Record<string
     const a=AIRPORT_BY_IATA[id],use=airportSlots(s,id),traffic=trafficByAirport.get(id)??{passengers:0,connections:0,longDirect:0,flights:0}
     if(traffic.flights>0)d.operatingDays++
     d.passengers+=traffic.passengers;d.connections+=traffic.connections
-    if(s.airline.hubs.includes(id)) {
+    if(bases.has(id)) {
       // Cada faixa livre deve permanecer disponível por 365 observações diárias.
-      d.idle.push(Math.max(0,use.capacity-use.own-use.rivals));if(d.idle.length>365)d.idle.shift()
-      if(d.idle.length===365)d.reserved=Math.min(use.normal,Math.max(d.reserved,use.own+Math.min(...d.idle)))
-    } else {d.idle=[];d.reserved=0}
+      const days=s.airline.hubs.includes(id)?365:438
+      d.idle.push(Math.max(0,use.capacity-use.own-use.rivals));if(d.idle.length>days)d.idle.shift()
+      if(d.idle.length===days)d.reserved=Math.min(use.normal,Math.max(d.reserved,use.own+Math.min(...d.idle)))
+    } else {d.idle=[];d.reserved=Math.max(d.personalSlots??0,d.reserved)}
     if(!weekly)continue
     d.lastDemand=s.airline.routes.filter(r=>r.aircraftIds.length>0&&(r.from===id||r.to===id)).reduce((n,r)=>n+(demands[id]?.[r.id]??0),0)
     const progress=growthProgress(s,id)
     if(!d.work&&progress.canGrow&&d.operatingDays>=progress.daysNeeded&&
-      d.passengers+d.connections*3>=progress.paxNeeded&&(d.lastDemand??0)>=progress.demandNeeded) {d.capacity+=progress.increment;if(s.airline.hubs.includes(id))d.reserved+=progress.increment;d.earned++}
+      d.passengers+d.connections*3>=progress.paxNeeded&&(d.lastDemand??0)>=progress.demandNeeded) {d.capacity+=progress.increment;if(bases.has(id))d.reserved=Math.max(d.reserved,use.ownLimit)+progress.increment;d.earned++}
     const popGrowth=populationAt(s,id)/(a.pop*1e6)-1
     const load=(use.own+use.rivals)/Math.max(1,use.normal)
     const connectionRatio=traffic.connections/Math.max(1,traffic.passengers)
@@ -246,7 +269,7 @@ export function recordAirportDay(s:GameState,demands:Record<string,Record<string
       s.notices.push({day:s.day,kind:'info',text:`${id}: governo e administradora iniciaram ${WORK_LABEL[kind].toLowerCase()}; slots pela metade durante a obra.`})
       }
     }
-    if(s.airline.hubs.includes(id)) {
+    if(bases.has(id)) {
       const routes=s.airline.routes.filter(r=>r.from===id||r.to===id)
       const passengers=routes.reduce((n,r)=>n+r.history.filter(h=>h.day>s.day-7).reduce((v,h)=>v+sum(h.pax),0),0)
       const connections=(s.connectionJourneys??[]).filter(j=>!j.cancelled&&j.via===id&&j.second.day>s.day-7&&j.second.day<=s.day).reduce((n,j)=>n+sum(j.pax),0)

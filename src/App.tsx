@@ -37,6 +37,7 @@ const TABS = [
   { id: 'painel', label: 'Painel' },
   { id: 'rotas', label: 'Rotas' },
   { id: 'hubs', label: 'Hubs' },
+  { id: 'bases', label: 'Bases grandes' },
   { id: 'conexoes', label: 'Conexões' },
   { id: 'calendario', label: 'Calendário' },
   { id: 'frota', label: 'Frota' },
@@ -211,6 +212,7 @@ export function App() {
             {tab === 'pintura' && <LiveryEditor />}
             {tab === 'ranking' && <RankingView />}
             {tab === 'hubs' && <HubsView />}
+            {tab === 'bases' && <HubsView bases />}
             {tab === 'companhias' && <CompetitorsView />}
           </div>
         </main>

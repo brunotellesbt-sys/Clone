@@ -2,16 +2,24 @@ import { useState } from 'react'
 import { useGame } from '../store/useGame'
 import { Card } from './components/Bits'
 import { baseDemand } from '../game/demand'
-import { money, num, pct } from '../game/engine'
+import { money, num, pct, closeHub } from '../game/engine'
+import {hubCompanies,hubCompanyLimit} from '../game/hubAccess'
 import { AIRPORT_BY_IATA, ESCOPO_LABEL, SLOTS_BY_TIER } from '../game/data/airports'
-import { airportSlots, physicalRunwayLimit, effectiveAirport, growthProgress, populationAt, startAirportWork, workOffer, WORK_LABEL, type WorkKind } from '../game/airportInfrastructure'
+import { airportSlots, largeBases, physicalRunwayLimit, effectiveAirport, growthProgress, populationAt, startAirportWork, workOffer, WORK_LABEL, type WorkKind } from '../game/airportInfrastructure'
 
-export function HubsView() {
+function Progress({label,value,total}:{label:string;value:number;total:number}){
+ const ratio=Math.max(0,Math.min(1,value/Math.max(1,total)))
+ return <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',margin:'10px 0'}}><span style={{flex:'1 1 180px'}}>{label}: <b>{num(value)} / {num(total)}</b></span><progress aria-label={label} value={ratio} max={1} style={{width:90,height:8,accentColor:'#3ddc97'}}/><small>{Math.floor(ratio*100)}%</small></div>
+}
+export function HubsView({bases=false}:{bases?:boolean}) {
   const {state:s,act,toast}=useGame()
   const [selected,setSelected]=useState(s.airline.hubs[0])
+  const [closing,setClosing]=useState(false)
   const [confirm,setConfirm]=useState<WorkKind|null>(null)
   const [compare,setCompare]=useState('previous')
-  const id=s.airline.hubs.includes(selected)?selected:s.airline.hubs[0]
+  const options=bases?largeBases(s):s.airline.hubs
+  const id=options.includes(selected)?selected:options[0]
+  if(!id)return <Card title="Bases grandes"><p>Aeroportos sem hub com pelo menos 12 pousos/decolagens no dia de pico e três destinos operados aparecem aqui. A progressão de slots leva 20% mais tempo que em um hub.</p></Card>
   const a=effectiveAirport(s,id),d=s.airportDevelopment?.[id],slots=airportSlots(s,id),progress=growthProgress(s,id)
   const weeks=d?.history??[],last=weeks.at(-1),previous=weeks.at(-2)
   const comparison=compare==='previous'?previous:weeks.find(w=>String(w.day)===compare)
@@ -21,10 +29,13 @@ export function HubsView() {
   const remainingTraffic=Math.max(0,progress.paxNeeded-(d?.passengers??0)-3*(d?.connections??0))
   const delta=(v:number,old:number|undefined)=>old===undefined?'Primeira medição':`${v-old>=0?'+':''}${num(v-old)}`
   return <div className="grid hubs-panel">
-    <Card title="Acompanhamento de hubs">
-      <label className="field"><span>Hub</span><select value={id} onChange={e=>{setSelected(e.target.value);setConfirm(null);setCompare('previous')}}>{s.airline.hubs.map(h=><option key={h} value={h}>{h} — {AIRPORT_BY_IATA[h].city}</option>)}</select></label>
+    <Card title={bases?'Acompanhamento de bases grandes':'Acompanhamento de hubs'}>
+      <label className="field"><span>{bases?'Base grande':'Hub'}</span><select value={id} onChange={e=>{setSelected(e.target.value);setConfirm(null);setClosing(false);setCompare('previous')}}>{options.map(h=><option key={h} value={h}>{h} — {AIRPORT_BY_IATA[h].city}</option>)}</select></label>
+      <p>Companhias com hub neste aeroporto: <b>{hubCompanies(s,id)} / {hubCompanyLimit(s,id)}</b>. Nível 5: até 4; nível 4: até 3; níveis 1–3: até 2. Operar voos sem hub não ocupa uma dessas vagas.</p>
+      {bases&&<p className="dim">Base grande: pelo menos 12 movimentos no dia de pico e três destinos. Crescimento e redistribuição de ociosidade funcionam como nos hubs, com prazo e pontos de tráfego 20% maiores. Nenhuma taxa de abertura.</p>}
+      {id==='CGH'&&s.cghExtraSlotsGranted&&!!d?.personalSlots&&<p className="good">Concessão única: +{d.personalSlots} slots/dia exclusivos para sua companhia, sem precisar abrir hub.</p>}
       <p className="dim">Cada pouso ou decolagem usa um slot. Abrir uma rota não reserva capacidade. Os números de ocupação representam o dia de maior movimento da malha semanal.</p>
-      <p className="dim">Sua reserva inicial cobre a malha existente e mais 10% de folga, entre 6 e 16 movimentos por dia. Um hub novo começa com 24. Slots ociosos do aeroporto só se tornam seus após um ano sem utilização; crescimento e obras também ampliam sua reserva.</p>
+      {!bases&&<p className="dim">Sua reserva inicial cobre a malha existente e mais 10% de folga, entre 6 e 16 movimentos por dia. Um hub novo começa com 24. Slots ociosos do aeroporto só se tornam seus após um ano sem utilização; crescimento e obras também ampliam sua reserva.</p>}
       <div className="hub-metrics">
         <div><small>Slots disponíveis para sua malha</small><b>{num(slots.free)}</b></div>
         <div><small>Capacidade por dia</small><b>{num(slots.capacity)}{d?.work&&` / ${num(slots.normal)} sem obra`}</b></div>
@@ -47,10 +58,15 @@ export function HubsView() {
       <Card title="Próxima liberação de slots">
         <p>Próximo lote: <b>+{progress.increment} slots/dia</b>. Limite atual de população e infraestrutura: <b>{num(progress.populationLimit)}</b>.</p>
         <p>Faltam <b>{remainingDays} dias operando</b> e <b>{num(remainingTraffic)} pontos de tráfego</b>. Cada passageiro transportado soma 1; cada conexão atendida soma mais 3.</p>
+        <Progress label="Dias com operação" value={d?.operatingDays??0} total={progress.daysNeeded}/>
+        <Progress label="Pontos de tráfego" value={(d?.passengers??0)+3*(d?.connections??0)} total={progress.paxNeeded}/>
+        <Progress label="Demanda diária das rotas" value={d?.lastDemand??0} total={progress.demandNeeded}/>
+        <p>O lote será liberado na primeira revisão semanal em que <b>as três barras estiverem completas</b>, houver espaço no limite populacional e não houver obra. As revisões acontecem às segundas-feiras do jogo. A demanda pode variar e voltar a ficar abaixo do requisito.</p>
         <p className="dim">Demanda nas rotas operadas: {num(d?.lastDemand??0)} / {num(progress.demandNeeded)} passageiros por dia. Os critérios são cumulativos e precisam ser atendidos juntos. Não há data garantida sem conhecer a malha futura. Eventos e procura semanal continuam variáveis.</p>
         {!progress.canGrow&&<p className="bad">O próximo lote depende de crescimento populacional ou ampliação da infraestrutura.</p>}
         <p>Tráfego acumulado desde o início do acompanhamento: {num(d?.passengers??0)} passageiros · {num(d?.connections??0)} conexões · {d?.operatingDays??0} dias de operação.</p>
-        <p>Redistribuição de slots ociosos: {Math.max(0,365-(d?.idle.length??0))} dias até a primeira avaliação anual. Só entram os movimentos que ficaram livres para todas as companhias durante os 365 dias. A transferência reserva capacidade existente; não cria slots.</p>
+        <Progress label="Dias observando slots ociosos" value={d?.idle.length??0} total={bases?438:365}/>
+        <p>Redistribuição: faltam {Math.max(0,(bases?438:365)-(d?.idle.length??0))} dias de observação. Só entram slots livres para todas as companhias durante todo o período de {bases?438:365} dias. A transferência reserva capacidade existente; não cria slots.</p>
       </Card>
       <Card title="Movimento e variações semanais">
         <div className="rolagem-x"><table><thead><tr><th>Semana registrada em</th><th>Passageiros</th><th>Conexões</th><th>População</th><th>Slots/dia</th></tr></thead><tbody>{[...weeks].reverse().slice(0,12).map(w=><tr key={w.day}><td>{weekLabel(w.day)}</td><td>{num(w.passengers)}</td><td>{num(w.connections)}</td><td>{num(w.population)}</td><td>{w.capacity}</td></tr>)}</tbody></table></div>
@@ -58,12 +74,19 @@ export function HubsView() {
         <p className="dim">Passageiros e conexões desta tabela são da sua companhia. Passageiros contam movimentos de chegada e saída; a conexão é contada uma vez no hub de transferência.</p>
       </Card>
     </div>
-    <Card title="Demanda semanal nas rotas do hub">
+    <Card title={bases?'Demanda semanal nas rotas da base':'Demanda semanal nas rotas do hub'}>
       <label className="field"><span>Comparar demanda atual com</span><select value={compare} onChange={e=>setCompare(e.target.value)}><option value="previous">Semana anterior</option>{[...weeks].reverse().map(w=><option key={w.day} value={String(w.day)}>{weekLabel(w.day)}</option>)}</select></label>
       <div className="scroll"><table><thead><tr><th>Rota</th><th>Demanda/dia agora</th><th>Semana selecionada</th><th>Variação</th></tr></thead><tbody>{routes.map(r=>{const current=baseDemand(r.from,r.to,s.day,0,s.startYear,true,s).total;const old=comparison?.demands[r.id];return <tr key={r.id}><td>{r.from} → {r.to}</td><td>{num(current)}</td><td>{old===undefined?'—':num(old)}</td><td>{old?`${pct(current/old-1,1)} (${delta(current,old)})`:'Sem comparação'}</td></tr>})}</tbody></table></div>
       <p className="dim">Demanda soma ida e volta; não é a quantidade efetivamente transportada. O histórico mantém eventos, férias e crescimento da simulação.</p>
     </Card>
-    <Card title="Obras e negociação">
+    {!bases&&<Card title="Encerrar contrato de hub">
+      <p>Reembolso: <b>{money(s.hubInvestments?.[id]??0)}</b>. Devolve o investimento de abertura; o hub inicial gratuito não gera reembolso. Voos e aeronaves continuam operando. A reserva excedente de hub é liberada; uma base grande continua acumulando progresso mais lentamente.</p>
+      <button className="btn" disabled={s.airline.hubs.length<=1||!!d?.work} onClick={()=>setClosing(true)}>Fechar hub</button>
+      {s.airline.hubs.length<=1&&<p className="dim">É necessário manter pelo menos um hub principal.</p>}
+      {d?.work&&<p className="dim">O contrato pode ser encerrado após a conclusão da obra.</p>}
+      {closing&&<div><p>Encerrar {id} e receber {money(s.hubInvestments?.[id]??0)}?</p><button className="btn primary" onClick={()=>{const err=act(state=>closeHub(state,id));if(err)toast(err,'error');setClosing(false)}}>Confirmar fechamento</button> <button className="btn" onClick={()=>setClosing(false)}>Cancelar</button></div>}
+    </Card>}
+    {!bases&&<Card title="Obras e negociação">
       <div className="hub-metrics"><div><small>Interesse da administradora</small><b>{pct(d?.operator??0)}</b></div><div><small>Interesse do governo</small><b>{pct(d?.government??0)}</b></div></div>
       <p className="dim">A administradora prioriza ocupação e conexões. O governo exige crescimento populacional expressivo e valoriza ligações diretas longas. 100% significa interesse aprovado. Ambos aprovados iniciam uma obra pública automaticamente; um aprovado permite negociar seu aporte. Esse processo demora anos e pode recuar se a viabilidade cair.</p>
       {d?.work?<p className="alerta">{WORK_LABEL[d.work.kind]} em andamento: faltam <b>{Math.max(0,d.work.end-s.day)} dias</b>. Slots reduzidos de {slots.normal} para {slots.capacity}. {d.work.automatic?'Iniciativa conjunta pública, sem aporte seu.':`Seu aporte: ${money(d.work.contribution)}.`}</p>:<div className="hub-projects">{(['slots','runway','category'] as WorkKind[]).map(kind=>{const offer=workOffer(s,id,kind);return <section key={kind}>
@@ -74,6 +97,6 @@ export function HubsView() {
       </section>})}</div>}
       {confirm&&!d?.work&&<div className="card"><p>Confirmar {WORK_LABEL[confirm].toLowerCase()} por {money(workOffer(s,id,confirm).contribution)}? Durante {workOffer(s,id,confirm).duration} dias a capacidade cai de {slots.normal} para {Math.floor(slots.normal/2)} movimentos/dia. Isso pode suspender voos. O aporte não é reembolsável.</p><button className="btn primary" onClick={()=>{const err=act(state=>startAirportWork(state,id,confirm));if(err)toast(err,'error');setConfirm(null)}}>Pagar e iniciar obra</button> <button className="btn" onClick={()=>setConfirm(null)}>Cancelar</button></div>}
       {!!d?.completed.length&&<p>Obras concluídas: {d.completed.map(w=>`${WORK_LABEL[w.kind]} (dia ${w.end})`).join(' · ')}.</p>}
-    </Card>
+    </Card>}
   </div>
 }

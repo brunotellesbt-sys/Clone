@@ -1,4 +1,5 @@
-import { effectiveAirport, airportSlots, airportUsage, updateRivalUsage } from './airportInfrastructure'
+import { effectiveAirport, airportSlots, airportUsage, updateRivalUsage, invalidateAirportUsage } from './airportInfrastructure'
+import {hubCompanyLimit,hubHasRoom} from './hubAccess'
 import {
   AIRPORTS, AIRPORT_BY_IATA, noToqueDeRecolher, vooPermitido, type Airport,
 } from './data/airports'
@@ -14,7 +15,7 @@ import { distanceBetween, odKey } from './geo'
 import {
   batizar, caixaInicial, MERCADOS, PAISES_COM_AVIACAO, quantasCompanhias, vagasDoMundo,
 } from './mundo'
-import { between, chance, hashStr, type Rng } from './rng'
+import { between, chance, hashStr, makeRng, type Rng } from './rng'
 import type { Competitor, Densidade, GameState } from './types'
 
 /**
@@ -368,7 +369,7 @@ function expandCompetitor(comp: Competitor, day: number, rng: Rng, startYear: nu
     const primary = AIRPORT_BY_IATA[comp.hub]
     const cities = new Set(comp.hubs.map(h => AIRPORT_BY_IATA[h].city))
     const served = new Set(comp.routes.flatMap(r => [r.from, r.to]))
-    const next = AIRPORTS.filter(a => a.cc === primary.cc && served.has(a.iata) && !cities.has(a.city))
+    const next = AIRPORTS.filter(a => a.cc === primary.cc && served.has(a.iata) && !cities.has(a.city)&&(!state||hubHasRoom(state,a.iata,comp.id)))
       .sort((a, b) => b.paxDia - a.paxDia)[0]
     if (next) {
       comp.hubs.push(next.iata)
@@ -420,8 +421,54 @@ function expandCompetitor(comp: Competitor, day: number, rng: Rng, startYear: nu
   limitarPelaFrota(comp, false)
 }
 
+/** Migra excesso de ocupantes sem expulsar hubs do jogador. Reconstrói as
+ * rotas das bases transferidas usando capacidade e alcance das aeronaves. */
+export function rebalanceCompetitorHubs(s:GameState,force=false) {
+  if(s.hubAccessVersion===1&&!force)return
+  const occupied=new Map(s.airline.hubs.map(h=>[h,1])),rng=makeRng(s.seed+9217)
+  let moved=0
+  // Companhias com maior operação conservam a prioridade em caso de excesso.
+  for(const c of [...s.competitors].sort((a,b)=>b.fleetSize-a.fleetSize||a.id.localeCompare(b.id))){
+    const old=competitorHubs(c),next:string[]=[],changes=new Map<string,string>()
+    for(const h of old){
+      let chosen=h
+      if((occupied.get(h)??0)>=hubCompanyLimit(s,h)){
+        const origin=AIRPORT_BY_IATA[h]
+        const candidates=AIRPORTS.filter(a=>!next.includes(a.iata)&&!old.includes(a.iata)&&(occupied.get(a.iata)??0)<hubCompanyLimit(s,a.iata))
+          .sort((a,b)=>Number(b.cc===origin.cc)-Number(a.cc===origin.cc)||
+            (b.paxDia/(1+distanceBetween(h,b.iata)/500))-(a.paxDia/(1+distanceBetween(h,a.iata)/500)))
+        const available=candidates.find(a=>c.routes.some(r=>{
+          const dest=r.from===h?r.to:r.to===h?r.from:r.to
+          return dest!==a.iata&&largestPassengerAircraft(a.iata,dest,s.startYear+Math.floor(s.day/365),s)
+        }))??candidates[0]
+        if(!available)continue
+        chosen=available.iata;changes.set(h,chosen);moved++
+      }
+      next.push(chosen);occupied.set(chosen,(occupied.get(chosen)??0)+1)
+    }
+    if(!next.length)throw new Error(`Nenhuma base disponível para ${c.id}`)
+    c.hub=changes.get(c.hub)??(next.includes(c.hub)?c.hub:next[0]);c.hubs=next
+    if(changes.size){
+      const affected=c.routes.filter(r=>changes.has(r.from)||changes.has(r.to))
+      c.routes=c.routes.filter(r=>!affected.includes(r))
+      for(const r of affected){
+        const from=changes.get(r.from)??r.from,to=changes.get(r.to)??r.to
+        if(from===to||c.routes.some(x=>x.key===odKey(from,to)))continue
+        if(vooPermitido(effectiveAirport(s,from),effectiveAirport(s,to)))continue
+        const n=c.routes.length
+        addAiRoute(c,to,rng,s.day,s.startYear,from,s,false)
+        if(c.routes.length>n){const replacement=c.routes.at(-1)!;replacement.freq=r.freq;replacement.hora=r.hora;replacement.fare=r.fare}
+      }
+      limitarPelaFrota(c,false)
+    }
+  }
+  s.hubAccessVersion=1
+  if(moved){invalidateAirportUsage(s);invalidateHubActivity(s);s.notices.push({day:s.day,kind:'info',text:`${moved} bases de concorrentes foram transferidas para respeitar os limites de companhias por hub.`})}
+}
+
 /** Decisão semanal: mexe em tarifa, oferta, abre e fecha rota. */
 export function stepCompetitors(comps: Competitor[], day: number, rng: Rng, playerPressure: Record<string, number>, _playerRoutes = 0, startYear = 2027, state?: GameState) {
+  if(state)rebalanceCompetitorHubs(state,true)
   for (const comp of comps) {
     if(state)airportUsage(state)
     const previousRoutes=comp.routes.map(r=>({from:r.from,to:r.to,freq:r.freq}))
