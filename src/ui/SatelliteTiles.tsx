@@ -1,45 +1,76 @@
-import { memo, useEffect, useId, useMemo, useState } from 'react'
+import { memo, useId, useLayoutEffect, useMemo, useState } from 'react'
 import { satelliteTiles, type MapBounds, type MapViewport, type SatelliteTile } from './mapTiles'
 
-const loadedImages=new Set<string>()
-function Tile({ tile,active }: { tile: SatelliteTile;active:boolean }) {
-  const [status, setStatus] = useState(loadedImages.has(tile.key)?'loaded':'loading')
-  // Um pixel da imagem evita frestas escuras do antialiasing entre blocos adjacentes.
-  const size = tile.size * (1 + 1 / 512)
-  return <image className="map-satellite-tile" data-active={active} data-level={tile.level} data-status={status} href={tile.url}
-    x={tile.x} y={tile.y} width={size} height={size} preserveAspectRatio="none"
-    opacity={status === 'loaded' ? 1 : 0} onLoad={() => {loadedImages.add(tile.key);if(loadedImages.size>512)loadedImages.delete(loadedImages.values().next().value!);setStatus('loaded')}} onError={() => setStatus('error')} />
+type Entry={tile:SatelliteTile;status:'loading'|'loaded'|'error';image?:HTMLImageElement;timer?:ReturnType<typeof setTimeout>}
+/** Fila por viewport: seis downloads, prioridade ao que está na tela, sem
+ * acumular níveis intermediários de uma pinça. Mantém até 128 imagens prontas. */
+class TileCache {
+  entries=new Map<string,Entry>()
+  desired:string[]=[]
+  busy=new Set<string>()
+  constructor(private changed:()=>void){}
+  update(tiles:SatelliteTile[]){
+    this.desired=[...new Set(tiles.map(t=>t.key))].slice(0,128)
+    const wanted=new Set(this.desired)
+    for(const [key,e] of this.entries)if(e.status==='loading'&&!wanted.has(key)){
+      this.cancel(key,e);this.entries.delete(key)
+    }
+    for(const tile of tiles)if(wanted.has(tile.key)){
+      const e=this.entries.get(tile.key)??{tile,status:'loading' as const}
+      this.entries.delete(tile.key);this.entries.set(tile.key,e)
+    }
+    for(const [key,e] of this.entries){
+      if(this.entries.size<=128)break
+      if(!wanted.has(key)){this.cancel(key,e);this.entries.delete(key)}
+    }
+    this.pump();this.changed()
+  }
+  private cancel(key:string,e:Entry){
+    clearTimeout(e.timer)
+    if(e.status==='loading'&&e.image){e.image.onload=null;e.image.onerror=null;e.image.src=''}
+    this.busy.delete(key)
+  }
+  private pump(){
+    for(const key of this.desired){
+      if(this.busy.size>=6)break
+      const e=this.entries.get(key)
+      if(!e||e.status!=='loading'||this.busy.has(key))continue
+      this.busy.add(key)
+      const img=new Image();e.image=img
+      const done=(status:'loaded'|'error')=>{
+        if(this.entries.get(key)!==e||e.status!=='loading')return
+        clearTimeout(e.timer)
+        if(status==='error'){img.onload=null;img.onerror=null;img.src=''}
+        e.status=status;this.busy.delete(key);this.changed();this.pump()
+      }
+      img.onload=()=>{img.decode().then(()=>done('loaded'),()=>done('loaded'))}
+      img.onerror=()=>done('error')
+      e.timer=setTimeout(()=>done('error'),15000)
+      img.src=e.tile.url
+    }
+  }
+  dispose(){for(const [key,e] of this.entries)this.cancel(key,e);this.entries.clear();this.desired=[]}
 }
 
 export const SatelliteTiles = memo(function SatelliteTiles({ view, pixelScale, bounds }: {
   view: MapViewport; pixelScale: number; bounds: MapBounds
 }) {
   const clip = useId().replace(/:/g, '')
-  const [stableView, setStableView] = useState(view)
-  // Evita baixar vários níveis intermediários durante pinça/roda; o fundo local continua visível.
-  useEffect(() => {
-    const timer = window.setTimeout(() => setStableView(view), 60)
-    return () => window.clearTimeout(timer)
-  }, [view])
-  const tiles = useMemo(() => satelliteTiles(stableView, pixelScale, bounds), [stableView, pixelScale, bounds])
-  const [retained,setRetained]=useState<SatelliteTile[]>([])
-  useEffect(()=>{
-    setRetained(old=>{
-      const combined=new Map(old.map(tile=>[tile.key,tile]))
-      for(const tile of tiles){combined.delete(tile.key);combined.set(tile.key,tile)}
-      return [...combined.values()].slice(-64)
-    })
-  },[tiles])
-  const current=new Set(tiles.map(tile=>tile.key))
-  // Mantém o detalhe anterior enquanto o novo chega. Limite fixo de nós e
-  // mosaicos fora da janela não são desenhados durante a animação dos voos.
-  const display=[...new Map([...retained,...tiles].map(tile=>[tile.key,tile])).values()]
-    .filter(tile=>current.has(tile.key)||(loadedImages.has(tile.key)&&
-      tile.x*view.k+view.x<=bounds.right&&(tile.x+tile.size)*view.k+view.x>=bounds.left&&
-      tile.y*view.k+view.y<=bounds.bottom&&(tile.y+tile.size)*view.k+view.y>=bounds.top))
-    .sort((a,b)=>a.level-b.level)
+  const [,refresh]=useState(0)
+  const [cache]=useState(()=>new TileCache(()=>refresh(n=>n+1)))
+  const tiles = useMemo(() => satelliteTiles(view, pixelScale, bounds), [view, pixelScale, bounds])
+  // Antecipação central sem bloquear os blocos da posição atual.
+  const ahead = useMemo(() => {
+    const k=Math.min(1152,view.k*1.8),cx=500,cy=260
+    return satelliteTiles({k,x:cx-(cx-view.x)*k/view.k,y:cy-(cy-view.y)*k/view.k},pixelScale,bounds)
+  },[view,pixelScale,bounds])
+  useLayoutEffect(()=>{cache.update([...tiles,...ahead])},[cache,tiles,ahead])
+  useLayoutEffect(()=>()=>cache.dispose(),[cache])
+  const current=new Set(tiles.map(t=>t.key))
+  const display=[...cache.entries.values()].sort((a,b)=>a.tile.level-b.tile.level)
   return <g className="map-satellite-details" pointerEvents="none" clipPath={`url(#${clip})`}>
     <defs><clipPath id={clip}><rect x="0" y="10" width="1000" height="500" /></clipPath></defs>
-    {display.map(tile => <Tile key={tile.key} tile={tile} active={current.has(tile.key)} />)}
+    {display.map(({tile,status})=><image key={tile.key} className="map-satellite-tile" data-active={current.has(tile.key)} data-level={tile.level} data-status={status}
+      href={status==='loaded'?tile.url:undefined} x={tile.x} y={tile.y} width={tile.size} height={tile.size} preserveAspectRatio="none" opacity={status==='loaded'?1:0}/>) }
   </g>
 })

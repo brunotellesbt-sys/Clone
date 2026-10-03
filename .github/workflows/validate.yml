@@ -28,6 +28,7 @@ jobs:
       - run: npm run ai:foundation
       - run: npm run economy:hubs
       - run: npm run hubs:check
+      - run: npx tsx scripts/hub-access-check.ts
       - run: npm run runways:check
       - run: npm run economy:regressions
       - run: npm run crew:check
@@ -56,3 +57,4 @@ jobs:
           npm run map:tiles:ui
           npm run save:file:ui
           npm run hubs:ui
+          node scripts/hub-bases-ui.mjs

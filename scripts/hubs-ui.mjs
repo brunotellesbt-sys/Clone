@@ -28,6 +28,7 @@ try {
   await page.getByRole('button',{name:'Revisar aporte'}).first().click()
   await page.getByRole('button',{name:'Pagar e iniciar obra'}).click()
   await page.getByText(/em andamento: faltam/).waitFor()
+  await page.waitForFunction(async()=>{const {loadGame}=await import('/src/game/save.ts');return loadGame(1)?.airportDevelopment?.PVH?.work?.kind==='slots'})
   const saved=await page.evaluate(async()=>{const {loadGame}=await import('/src/game/save.ts');return loadGame(1)})
   assert.equal(saved.airportDevelopment.PVH.work.kind,'slots')
   assert(saved.airline.cash<10e9)

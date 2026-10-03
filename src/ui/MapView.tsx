@@ -400,7 +400,7 @@ export function MapView({
    * parar de crescer no zoom fundo.
    */
   const fator = Math.sqrt(Math.min(view.k, K_DESENHO)) / view.k
-  const dotR = (tier: number) => (1.4 + tier * 0.62) * fator
+  const dotR = (tier: number) => (1.4 + tier * 0.62) * fator * (view.k>256?.35:1)
   const stroke = (w: number) => w * fator
 
   /** Os dois primeiros dedos, na ordem em que encostaram. */

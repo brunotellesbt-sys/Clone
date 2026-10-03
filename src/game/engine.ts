@@ -1,4 +1,5 @@
-import { admittedFlights, airportSlots, airportUsage, effectiveAirport, ensureAirports, finishAirportWorks, invalidateAirportUsage, recordAirportDay, rivalFrequency } from './airportInfrastructure'
+import { admittedFlights, airportSlots, airportUsage, effectiveAirport, ensureAirports, finishAirportWorks, invalidateAirportUsage, recordAirportDay, rivalFrequency, largeBases } from './airportInfrastructure'
+import {hubHasRoom,hubCompanyLimit} from './hubAccess'
 import type { Perna, SeatConfig } from './types'
 import { playerWeeklyOffer } from './playerOffer'
 import { stepHubDevelopment, invalidateHubActivity } from './hubDevelopment'
@@ -27,7 +28,7 @@ import {
 } from './economy'
 import { distanceBetween, odKey } from './geo'
 import {
-  createCompetitors, DENSIDADE_PADRAO, fundarCompanhia, limparCacheDestinos, stepCompetitors,
+  createCompetitors, DENSIDADE_PADRAO, fundarCompanhia, limparCacheDestinos, stepCompetitors, rebalanceCompetitorHubs,
 } from './ai'
 import { between, chance, hashStr, makeRng, type Rng } from './rng'
 import {
@@ -88,6 +89,7 @@ export function newGame(opts: {
   limparCacheDestinos()
   const state: GameState = {
     version: SAVE_VERSION,
+    cghExtraSlotsGranted: true,
     seed,
     day: 0,
     startYear: 2027,
@@ -115,6 +117,7 @@ export function newGame(opts: {
     tutorialStep: 0,
   }
   ensureAirports(state)
+  rebalanceCompetitorHubs(state)
   return state
 }
 
@@ -533,6 +536,7 @@ export const HUB_COST = 20e6
 
 export function addHub(s: GameState, iata: string): string | null {
   if (s.airline.hubs.includes(iata)) return 'Já é uma base sua.'
+  if(!hubHasRoom(s,iata))return `Limite de ${hubCompanyLimit(s,iata)} companhias com hub neste aeroporto atingido.`
   const ap = AIRPORT_BY_IATA[iata]
   if (s.airline.reputation < 0.45 + 0.05 * ap.tier)
     return 'Reputação insuficiente para negociar espaço nesse aeroporto.'
@@ -540,7 +544,25 @@ export function addHub(s: GameState, iata: string): string | null {
   s.airline.cash -= HUB_COST
   s.airline.hubs.push(iata)
   ensureAirports(s)
+  s.hubInvestments![iata]=HUB_COST
   notify(s, 'good', `Nova base em ${ap.city} (${iata}).`)
+  return null
+}
+
+export function closeHub(s:GameState,id:string):string|null {
+  if(!s.airline.hubs.includes(id))return 'Este aeroporto não é seu hub.'
+  if(s.airline.hubs.length<=1)return 'Mantenha ao menos um hub principal.'
+  ensureAirports(s)
+  if(s.airportDevelopment?.[id].work)return 'Aguarde a conclusão da obra antes de encerrar o contrato.'
+  const refund=s.hubInvestments?.[id]??0
+  s.airline.cash+=refund
+  s.airline.hubs=s.airline.hubs.filter(h=>h!==id)
+  delete s.hubInvestments![id]
+  const d=s.airportDevelopment![id],use=airportSlots(s,id)
+  d.hubSince=undefined;d.baseSince=s.day;d.idle=[]
+  d.reserved=Math.min(d.capacity,use.own+(d.personalSlots??0))
+  invalidateAirportUsage(s);invalidateHubActivity(s)
+  notify(s,'info',`${id}: hub encerrado; reembolso de ${money(refund)}. Voos e aeronaves preservados.`)
   return null
 }
 
@@ -1037,6 +1059,7 @@ export function advanceDay(s: GameState): GameState {
     const nova = fundarCompanhia(s.competitors, s.day, rng, s.airline.hubs, (s.fundadas ??= {}), s.startYear)
     if (nova) {
       s.competitors.push(nova)
+      rebalanceCompetitorHubs(s,true)
       notify(s, 'info',
         `${nova.name} recebeu certificado de operador em ${AIRPORT_BY_IATA[nova.hub]?.city ?? nova.hub} ` +
         `e estreia com ${nova.routes.length} ${nova.routes.length === 1 ? 'rota' : 'rotas'}.`)
@@ -1046,7 +1069,7 @@ export function advanceDay(s: GameState): GameState {
 
   const weekly = gameDate(s).getUTCDay() === 1
   const hubDemands: Record<string, Record<string, number>> = {}
-  if (weekly) for (const h of s.airline.hubs) {
+  if (weekly) for (const h of [...s.airline.hubs,...largeBases(s)]) {
     hubDemands[h] = {}
     for (const r of s.airline.routes) if (!r.cargo && (r.from === h || r.to === h))
       hubDemands[h][r.id] = baseDemand(r.from, r.to, s.day, doy, s.startYear, true, s).total

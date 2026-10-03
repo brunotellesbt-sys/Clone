@@ -2,6 +2,16 @@
 
 Regras de simulação (custos e prazos são parâmetros de jogo, não orçamentos reais).
 
+## Ocupantes, bases grandes e encerramento
+
+Hubs de nível 5 aceitam até quatro companhias; nível 4, até três; níveis 1–3, até duas. Inclui o jogador e hubs principais/secundários da IA. Operar voos sem contrato de hub não consome vaga. Na migração, preservam-se os hubs do jogador e priorizam-se as rivais com maior frota; excedentes procuram outra base, preferindo o mesmo país. As rotas afetadas são reconstruídas, com aeronave apta e dentro do orçamento de horas da frota. A expansão futura respeita vagas disponíveis.
+
+O menu **Bases grandes** acompanha aeroportos sem hub com pelo menos 12 movimentos no dia de pico e três destinos programados. Recebem reserva dos lotes de crescimento e ociosidade com critérios iguais aos hubs, mas exigem 20% mais dias e pontos de tráfego: primeiro lote em 216 dias operados em vez de 180, e redistribuição após 438 dias observados em vez de 365. As barras mostram dias, pontos, demanda e observação de ociosidade. As três primeiras devem estar completas na mesma revisão semanal, com limite populacional disponível e sem obra.
+
+Uma concessão única para saves existentes que operam CGH acrescenta 41 movimentos à capacidade local e protege esses 41 para a companhia do jogador. Não exige hub, não é concedida à IA e não se repete ao reimportar/reabrir. Partidas novas não recebem esse benefício de migração. O indicador persistido é `cghExtraSlotsGranted`.
+
+Fechar um hub devolve seu investimento de abertura registrado, normalmente $20 milhões. A base inicial gratuita tem reembolso zero; saves antigos consideram a primeira base gratuita e as demais adquiridas pelo preço vigente. É necessário manter ao menos um hub; uma obra ativa impede o encerramento. Rotas e aeronaves permanecem, mas a reserva excedente do contrato é liberada e a observação de ociosidade recomeça. Aportes em obras não são reembolsados. Uma base com operação suficiente segue no menu de bases grandes.
+
 ## Capacidade e migração
 
 Referências iniciais de slots por dia, compartilhados por todas as companhias:

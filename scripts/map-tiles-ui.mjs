@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import { chromium } from 'playwright'
 import { artifact, browserPath } from './browser.mjs'
 
@@ -8,13 +7,19 @@ try {
   for (const width of [1365, 360]) {
     const page = await browser.newPage({ viewport: { width, height: 915 }, deviceScaleFactor: width === 360 ? 2 : 1 })
     const errors = [], requested = []
+    const fixture=Buffer.from(await page.evaluate(()=>{
+      const canvas=document.createElement('canvas');canvas.width=canvas.height=512
+      const ctx=canvas.getContext('2d');ctx.fillStyle='#274d38';ctx.fillRect(0,0,512,512)
+      ctx.strokeStyle='#73977c';for(let x=0;x<512;x+=32){ctx.strokeRect(x,0,1,512);ctx.strokeRect(0,x,512,1)}
+      return canvas.toDataURL('image/png').split(',')[1]
+    }),'base64')
     page.on('pageerror', e => errors.push(e.message))
     const live = process.env.LIVE_MAP === '1'
     await page.route(/https:\/\/(gibs.earthdata.nasa.gov|server.arcgisonline.com)\//, async route => {
       requested.push(route.request().url())
       if (live) return route.continue()
       // CI valida geometria/carregamento sem depender da disponibilidade do serviço público.
-      return route.fulfill({ contentType: 'image/jpeg', body: readFileSync('public/nasa-blue-marble.jpg') })
+      return route.fulfill({ contentType: 'image/png', body: fixture })
     })
     await page.goto(process.env.URL ?? 'http://127.0.0.1:5173/', { waitUntil: 'networkidle' })
     await page.getByPlaceholder(/sigla, cidade/).fill('SDU')
@@ -39,6 +44,13 @@ try {
       level: Number(t.dataset.level), x: Number(t.getAttribute('x')), y: Number(t.getAttribute('y')),
     })))
     assert(details.length <= 128 && details.every(t => t.level >= 6), 'zoom profundo usa mosaico de alta resolução')
+    // Aproximar de novo usa os mesmos nós já carregados, sem apagá-los para
+    // trocar por um fundo ampliado enquanto outra imagem chega.
+    const sharpKeys=await map.locator('.map-satellite-tile[data-active="true"]').evaluateAll(ts=>ts.map(t=>t.getAttribute('href')))
+    await map.getByRole('button',{name:'Afastar',exact:true}).click()
+    await map.getByRole('button',{name:'Aproximar',exact:true}).click()
+    assert(await map.locator('.map-satellite-tile').evaluateAll((ts,keys)=>keys.every(key=>ts.some(t=>t.getAttribute('href')===key&&t.getAttribute('opacity')==='1')),sharpKeys),'detalhe carregado continua nítido ao voltar ao mesmo zoom')
+    assert(await map.locator('.map-satellite-tile').count()<=128,'cache visual limitado')
     if (live) {
       await map.screenshot({ path: artifact(`mapa-nitido-${width}.png`) })
       await map.locator('.map-satellite-details').evaluate(g => g.style.visibility = 'hidden')
