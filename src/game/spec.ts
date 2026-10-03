@@ -86,7 +86,8 @@ export interface Portao {
 /** A régua de operação: a herdada onde existe, a pista onde não existe. */
 const reguaDe = (ap: Portao) => ap.pistaOperacional ?? ap.runway
 const excecaoPav = (t: AircraftType, ap: Portao) => ap.iata === 'PAV' &&
-  ['a319neo', 'b37m', 'b38m', 'b39m', 'b310m'].includes(t.id)
+  (t.maxSeats > 78 && t.maxSeats <= AIRCRAFT_BY_ID.a319neo.maxSeats ||
+    ['b37m', 'b38m', 'b39m', 'b310m'].includes(t.id))
 
 /**
  * O aeroporto recebe este tipo?
