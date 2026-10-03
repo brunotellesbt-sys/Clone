@@ -17,4 +17,5 @@ export function flightPose(project: GeoProjection, a: Airport, b: Airport, phase
 
 /** Sprites do APK têm nariz para baixo; o ícone de contingência aponta para cima. */
 export const spriteRotation = (original: boolean) => original ? -90 : 90
-export const MAP_MAX_ZOOM = 288
+export const MAP_MIN_ZOOM = .75
+export const MAP_MAX_ZOOM = 1152

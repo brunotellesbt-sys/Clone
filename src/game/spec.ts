@@ -68,6 +68,7 @@ export const pistaExigida = (t: AircraftType, ap: { elev: number }) =>
 
 /** O que um aeroporto precisa oferecer para receber o tipo. */
 export interface Portao {
+  iata?: string
   elev: number
   /** A pista do aeroporto, em pés. É fato, e é o que a tela mostra. */
   runway: number
@@ -84,6 +85,8 @@ export interface Portao {
 
 /** A régua de operação: a herdada onde existe, a pista onde não existe. */
 const reguaDe = (ap: Portao) => ap.pistaOperacional ?? ap.runway
+const excecaoPav = (t: AircraftType, ap: Portao) => ap.iata === 'PAV' &&
+  ['a319neo', 'b37m', 'b38m', 'b39m', 'b310m'].includes(t.id)
 
 /**
  * O aeroporto recebe este tipo?
@@ -99,6 +102,7 @@ const reguaDe = (ap: Portao) => ap.pistaOperacional ?? ap.runway
  * existe.
  */
 export const aeroportoServe = (t: AircraftType, ap: Portao) => {
+  if (excecaoPav(t, ap)) return true
   if (ap.tetoAssentos !== undefined) {
     return t.maxSeats <= ap.tetoAssentos
   }
@@ -118,6 +122,7 @@ export const pistaServe = (t: AircraftType, a: Portao, b: Portao) =>
  */
 export function motivoDoPar(t: AircraftType, a: Portao, b: Portao): string | null {
   for (const ap of [a, b]) {
+    if (excecaoPav(t, ap)) continue
     if (ap.tetoAssentos !== undefined) {
       if (t.maxSeats > ap.tetoAssentos) {
         return `Aeronave grande demais para uma das pontas (teto de ${ap.tetoAssentos} assentos).`

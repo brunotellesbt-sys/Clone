@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto'
 import {AIRPORTS, AIRPORT_BY_IATA} from '../src/game/data/airports'
 import {RUNWAY_CORRECTIONS} from '../src/game/data/runwayCorrections'
 import {AIRCRAFT_ALL} from '../src/game/data/aircraft'
-import {aeroportoServe, withEngine} from '../src/game/spec'
+import {aeroportoServe, motivoDoPar, withEngine} from '../src/game/spec'
 import {newGame} from '../src/game/engine'
 import {effectiveAirport, ensureAirports, finishAirportWorks, startAirportWork, workOffer} from '../src/game/airportInfrastructure'
 import {exportSaveFile, importSaveFile} from '../src/game/save'
@@ -14,7 +14,15 @@ const hash=(x:unknown)=>createHash('sha256').update(JSON.stringify(x)).digest('h
 const variants=AIRCRAFT_ALL.flatMap(t=>t.engines.map(e=>withEngine(t,e)))
 assert.equal(AIRPORTS.length,before.airports)
 assert.equal(variants.length,before.variants)
-assert.equal(hash(AIRPORTS.map(a=>[a.iata,...variants.map(t=>aeroportoServe(t,a))])),before.permissions,'nenhuma permissão muda, incluindo carga e motores')
+// A única alteração posterior autorizada é a exceção de PAV. Mantém o
+// contrato anterior para todos os aeroportos e verifica a exceção à parte.
+assert.equal(hash(AIRPORTS.map(a=>[a.iata,...variants.map(t=>aeroportoServe(t,a.iata==='PAV'?{...a,iata:undefined}:a))])),before.permissions,'demais permissões intactas, incluindo carga e motores')
+for(const t of variants) {
+  const pav=AIRPORT_BY_IATA.PAV
+  const exception=['a319neo','b37m','b38m','b39m','b310m'].includes(t.id)
+  assert.equal(aeroportoServe(t,pav),exception||aeroportoServe(t,{...pav,iata:undefined}),`PAV/${t.id}`)
+  if(exception)assert.equal(motivoDoPar(t,pav,AIRPORT_BY_IATA.GRU),null,'exceção vale também ao programar a rota')
+}
 assert.equal(hash(AIRPORTS.map(a=>[a.iata,a.paxDia,a.slots,a.tier,a.escopo,a.pop,a.gdp,a.tour,a.elev,a.tetoAssentos])),before.economy,'demanda e demais índices intactos')
 const s=newGame({name:'Pistas',code:'PT',hub:'PVH',seed:8,densidade:'enxuta'})
 s.airline.cash=100e9
