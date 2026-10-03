@@ -1,11 +1,13 @@
 import { admittedFlights, rivalFrequency } from './airportInfrastructure'
+import {allocateSharedSeats} from './connectionSeats'
+import {connectionPathAllowed} from './connectionGeometry'
 import { AIRPORTS, AIRPORT_BY_IATA as AP } from './data/airports'
 import { AIRCRAFT_BY_ID } from './data/aircraft'
 import { baseDemand } from './demand'
 import { addCabins, blockHours, emptyCabins, SELLABLE, sumCabins, ticketRevenue } from './economy'
 import { blocoDe, DIA, escalaDe, naSemana, noDia, partidaUtc } from './escala'
 import { distanceBetween, distanceNm, odKey } from './geo'
-import { connectionAllowed, conexoesNaBase, type Conexao, type Toque } from './malha'
+import { conexoesNaBase, type Conexao, type Toque } from './malha'
 import { CABINS, type Cabins, type ConnectionJourney, type ConnectionLeg, type GameState, type Perna, type Route } from './types'
 
 export interface LocalRouteAllocation { route: Route; voos: Perna[]; seats: Cabins; local: Cabins }
@@ -126,7 +128,8 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
   // Reservas de ontem são atendidas antes de novas vendas e sobrevivem ao save.
   for (const j of journeys) {
     if (j.cancelled || j.second.day < s.day) continue
-    if(!connectionAllowed(s,j.first.from,j.via,j.second.to)){j.cancelled=true;continue}
+    // Uma alternativa comercial nova não cancela um bilhete já vendido.
+    if(!connectionPathAllowed(j.first.from,j.via,j.second.to)){j.cancelled=true;continue}
     const future = [j.first, j.second].filter(l => l.own && l.day >= s.day)
     if (future.some(l => !manifest(l))) { j.cancelled = true; continue }
     if (future.some(l => CABINS.some(c => {
@@ -186,7 +189,6 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
     if (!first || !second || soldIds.has(`${s.day}:${first.leg.id}>${second.leg.id}`)) continue
     const from = c.de.ponta, to = c.para.ponta
     const directDistance = distanceBetween(from, to)
-    if (!connectionAllowed(s,from, hub, to)) continue
     const d1 = distanceBetween(from, hub), d2 = distanceBetween(hub, to)
     // Sem direto regional, uma razão enorme entre cidades vizinhas não deve
     // zerar a venda que a geometria acabou de autorizar. O custo da volta é
@@ -218,7 +220,9 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
     group.candidates.push({ c, first, second, weight, fare, pitch, d1, d2, refFare: demand.refFare, via: hub })
     groups.set(key, group)
   }
-  for (const [, g] of [...groups].sort(([a], [b]) => a.localeCompare(b))) {
+  const proposals:{id:string;market:string;c:Candidate;wanted:Cabins;discount:number}[]=[]
+  const marketLimits=new Map<string,Cabins>()
+  for (const [market, g] of groups) {
     const directWeight = directCompetition(g.from, g.to, sumCabins(g.demand))
     const desconto = 1 - DESCONTO_CONEXAO * Math.min(1, directWeight)
     const denominator = .35 + directWeight + g.candidates.reduce((n, c) => n + c.weight, 0)
@@ -234,24 +238,30 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
       origins.includes(j.first.from) && destinations.includes(j.second.to)) {
       for (const cb of CABINS) available[cb] = Math.max(0, available[cb] - j.pax[cb])
     }
-    for (const c of g.candidates.sort((a, b) => b.weight - a.weight || a.first.leg.id.localeCompare(b.first.leg.id))) {
-      const pax = emptyCabins()
-      for (const cb of CABINS) {
-        // Se ainda havia assentos vazios, a conexão apenas os ocupa. Só um
-        // voo que já sairia cheio desloca locais, limitado a 40% da classe.
-        pax[cb] = Math.floor(Math.min(available[cb], g.demand[cb] * c.weight / denominator,
-          connectionRoom(c.first, cb), connectionRoom(c.second, cb)))
-        available[cb] -= pax[cb]
-      }
-      if (!sumCabins(pax)) continue
-      const cobra = c.fare * desconto
+    marketLimits.set(market,available)
+    for (const c of g.candidates) {
+      const wanted=emptyCabins()
+      for(const cb of CABINS)wanted[cb]=g.demand[cb]*c.weight/denominator
+      proposals.push({id:`${s.day}:${c.first.leg.id}>${c.second.leg.id}`,market,c,wanted,discount:desconto})
+    }
+  }
+  const bookings=new Map<string,Cabins>()
+  for(const cb of CABINS){
+    const allocation=allocateSharedSeats(proposals.map(p=>({id:p.id,market:p.market,first:flightKey(p.c.first.leg),second:flightKey(p.c.second.leg),wanted:p.wanted[cb]})),
+      new Map([...marketLimits].map(([key,value])=>[key,value[cb]])),
+      new Map([...manifests].map(([key,m])=>[key,connectionRoom(m,cb)])))
+    for(const [id,n] of allocation){const pax=bookings.get(id)??emptyCabins();pax[cb]=n;bookings.set(id,pax)}
+  }
+  for(const {id,c,discount} of proposals){
+      const pax=bookings.get(id)??emptyCabins()
+      if(!sumCabins(pax))continue
+      const cobra = c.fare * discount
       const price = ticketRevenue(pax, { y: cobra, w: cobra, c: cobra, f: cobra }, c.refFare, c.pitch)
-      const journey: ConnectionJourney = { id: `${s.day}:${c.first.leg.id}>${c.second.leg.id}`, via: c.via,
+      const journey: ConnectionJourney = { id, via: c.via,
         first: c.first.leg, second: c.second.leg, wait: c.c.espera, pax,
         firstRevenue: price * c.d1 / (c.d1 + c.d2), secondRevenue: price * c.d2 / (c.d1 + c.d2) }
       journeys.push(journey)
       apply(journey, false); apply(journey, true)
-    }
   }
   s.connectionJourneys = journeys
   s.conexoesApuradasEm = s.day

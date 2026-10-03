@@ -14,7 +14,7 @@ import { admittedFlights, rivalFrequency, airportRevision } from './airportInfra
  *
  * Nada de React aqui: é `src/game/`, e a tela só lê o que sai daqui.
  */
-import { AIRPORT_BY_IATA, type Airport } from './data/airports'
+import { AIRPORTS, AIRPORT_BY_IATA, mesmoSistemaAeroportuario, type Airport } from './data/airports'
 import { connectionPathAllowed } from './connectionGeometry'
 import { distanceNm } from './geo'
 import { hashStr } from './rng'
@@ -203,51 +203,70 @@ export function toquesNaBase(s: GameState, base: string): { chegadas: Toque[]; p
  * que chegou, e não adianta conectar para o aeroporto de onde o passageiro
  * acabou de vir — ninguém voa Fortaleza–Rio–Fortaleza.
  */
-const marketCache=new WeakMap<GameState,{day:number;revision:number;direct:Set<string>;bestAlternative:Map<string,number>}>()
-export function connectionAllowed(s:GameState,from:string,via:string,to:string) {
+interface TravelOption { departure:number; duration:number; distance:number; via?:string }
+const cityKeys=new Map<string,string>()
+function cityKey(id:string) {
+  let key=cityKeys.get(id)
+  if(!key){key=AIRPORTS.filter(a=>a.iata===id||mesmoSistemaAeroportuario(AIRPORT_BY_IATA[id],a)).map(a=>a.iata).sort()[0];cityKeys.set(id,key)}
+  return key
+}
+const marketKey=(from:string,to:string)=>`${cityKey(from)}>${cityKey(to)}`
+const marketCache=new WeakMap<GameState,{day:number;revision:number;options:Map<string,TravelOption[]>;timings:Map<string,PernaNoTempo>}>()
+export function connectionAllowed(s:GameState,from:string,via:string,to:string,candidate?:Conexao) {
+  // Caminhos naturalmente alinhados continuam competindo com diretos por
+  // preço e horário. Só os desvios excepcionais precisam justificar a volta.
+  if(connectionPathAllowed(from,via,to,true)) return true
+  if(!connectionPathAllowed(from,via,to,false)) return false
   let market=marketCache.get(s)
   if(!market||market.day!==s.day||market.revision!==airportRevision(s)) {
-    const direct=new Set<string>(),operating=new Set(s.airline.fleet.filter(a=>a.groundedUntil<=s.day).map(a=>a.id))
+    const options=new Map<string,TravelOption[]>(),timings=new Map<string,PernaNoTempo>()
+    const operating=new Set(s.airline.fleet.filter(a=>a.groundedUntil<=s.day).map(a=>a.id))
     const passengerRoutes=new Set(s.airline.routes.filter(r=>!r.cargo).flatMap(r=>[`${r.from}>${r.to}`,`${r.to}>${r.from}`]))
-    for(const p of escalaDe(s))if(operating.has(p.aircraftId)&&admittedFlights(s).has(p.id)&&passengerRoutes.has(`${p.from}>${p.to}`))direct.add(`${p.from}>${p.to}`)
-    for(const c of s.competitors)for(const r of c.routes)if(rivalFrequency(s,r)>0){direct.add(`${r.from}>${r.to}`);direct.add(`${r.to}>${r.from}`)}
-    // Pré-calcula o melhor caminho de duas pernas por um hub para cada par
-    // O&D. A consulta acontece muitas vezes durante a venda e a tela; deixar
-    // este cruzamento dentro de cada chamada deixava saves grandes lentos.
-    const byFrom=new Map<string,string[]>(),byTo=new Map<string,string[]>()
-    const add=(map:Map<string,string[]>,key:string,value:string)=>{
-      const values=map.get(key)
-      if(values) values.push(value)
-      else map.set(key,[value])
+    const add=(from:string,to:string,option:TravelOption)=>{
+      const key=marketKey(from,to),list=options.get(key)??[]
+      list.push(option);options.set(key,list)
     }
-    for(const key of direct) {
-      const [a,b]=key.split('>')
-      add(byFrom,a,b)
-      add(byTo,b,a)
+    for(const p of escalaDe(s))if(operating.has(p.aircraftId)&&admittedFlights(s).has(p.id)&&passengerRoutes.has(`${p.from}>${p.to}`)){
+      const t=noTempo(s,p);timings.set(p.id,t)
+      add(p.from,p.to,{departure:t.partida,duration:t.bloco,distance:distanceNm(AIRPORT_BY_IATA[p.from],AIRPORT_BY_IATA[p.to])})
     }
-    const bestAlternative=new Map<string,number>()
+    // Apenas pares com horários compatíveis, de voos próprios. Não junta duas
+    // concorrentes independentes para inventar um bilhete alternativo.
     for(const hub of s.airline.hubs) {
-      for(const from of byTo.get(hub)??[]) for(const to of byFrom.get(hub)??[]) {
-        if(from===to||!connectionPathAllowed(from,hub,to,false)) continue
-        const a=AIRPORT_BY_IATA[from],b=AIRPORT_BY_IATA[to],h=AIRPORT_BY_IATA[hub]
-        if(!a||!b||!h) continue
-        const distance=distanceNm(a,h)+distanceNm(h,b),key=`${from}>${to}`
-        if(distance < (bestAlternative.get(key)??Infinity)) bestAlternative.set(key,distance)
+      for(const c of conexoesNaBase(s,hub,true)){
+        const first=timings.get(c.de.id),second=timings.get(c.para.id)
+        if(!first||!second||!connectionPathAllowed(c.de.ponta,hub,c.para.ponta,false))continue
+        add(c.de.ponta,c.para.ponta,{via:hub,departure:first.partida,duration:first.bloco+c.espera+second.bloco,
+          distance:distanceNm(AIRPORT_BY_IATA[c.de.ponta],AIRPORT_BY_IATA[hub])+distanceNm(AIRPORT_BY_IATA[hub],AIRPORT_BY_IATA[c.para.ponta])})
       }
     }
-    market={day:s.day,revision:airportRevision(s),direct,bestAlternative};marketCache.set(s,market)
+    // A IA oferece diretos, com o horário representativo usado no resto do
+    // jogo; seus trechos não são combinados com os de outra companhia.
+    for(const comp of s.competitors)for(const r of comp.routes)if(rivalFrequency(s,r)>0){
+      const a=AIRPORT_BY_IATA[r.from],b=AIRPORT_BY_IATA[r.to]
+      const distance=distanceNm(a,b),type=distance>3000?AIRCRAFT_BY_ID.b789:AIRCRAFT_BY_ID.a320
+      const duration=Math.round(blockHours(type,distance)*60),hour=horaDaConcorrente(r)-a.fuso
+      for(let day=0;day<7;day++){
+        add(r.from,r.to,{departure:naSemana(day*DIA+hour),duration,distance})
+        add(r.to,r.from,{departure:naSemana(day*DIA+hour+duration+type.turn),duration,distance})
+      }
+    }
+    market={day:s.day,revision:airportRevision(s),options,timings};marketCache.set(s,market)
   }
-  const directAvailable=market.direct.has(`${from}>${to}`)
-  if (!connectionPathAllowed(from,via,to,directAvailable)) return false
-
-  // Uma conexão só deve sobreviver se for a melhor forma disponível. Se a
-  // mesma origem e destino já podem ser feitos por outro hub da companhia em
-  // dois voos diretos, com um caminho substancialmente menor, não oferecemos a
-  // alternativa torta (por exemplo FLN–BSB–POA quando FLN–GRU–POA existe).
-  const viaDistance=distanceNm(AIRPORT_BY_IATA[from],AIRPORT_BY_IATA[via])+
-    distanceNm(AIRPORT_BY_IATA[via],AIRPORT_BY_IATA[to])
-  const alternativeDistance=market.bestAlternative.get(`${from}>${to}`)
-  return alternativeDistance===undefined || alternativeDistance >= viaDistance * .9
+  const candidates=candidate?[candidate]:conexoesNaBase(s,via,true).filter(c=>c.de.ponta===from&&c.para.ponta===to)
+  const distance=distanceNm(AIRPORT_BY_IATA[from],AIRPORT_BY_IATA[via])+distanceNm(AIRPORT_BY_IATA[via],AIRPORT_BY_IATA[to])
+  // Sem horários ainda, informa somente se o caminho é plausível.
+  if(!candidates.length)return true
+  return candidates.some(c=>{
+    const first=market!.timings.get(c.de.id),second=market!.timings.get(c.para.id)
+    if(!first||!second)return true
+    const duration=first.bloco+c.espera+second.bloco
+    return !(market!.options.get(marketKey(from,to))??[]).some(alt=>{
+      if(alt.via===via||alt.distance>=distance*.8)return false
+      const delta=naSemana(alt.departure-first.partida+7*DIA/2)-7*DIA/2
+      return Math.abs(delta)<=180 && delta+alt.duration<=duration-60
+    })
+  })
 }
 const connectionsCache=new WeakMap<GameState,{day:number;revision:number;bases:Map<string,Conexao[]>}>()
 export function conexoesNaBase(s: GameState, base: string, includeRejectedPaths = false): Conexao[] {
@@ -256,7 +275,7 @@ export function conexoesNaBase(s: GameState, base: string, includeRejectedPaths 
     cache={day:s.day,revision:airportRevision(s),bases:new Map()};connectionsCache.set(s,cache)
   }
   const cached=cache.bases.get(base)
-  if(cached)return includeRejectedPaths?cached:cached.filter(c=>connectionAllowed(s,c.de.ponta,base,c.para.ponta))
+  if(cached)return includeRejectedPaths?cached:cached.filter(c=>connectionAllowed(s,c.de.ponta,base,c.para.ponta,c))
   const { chegadas, partidas } = toquesNaBase(s, base)
   const sorted=partidas.flatMap(p=>[p,{...p,quando:p.quando+7*DIA}]).sort((a,b)=>a.quando-b.quando)
   const out: Conexao[] = []
@@ -279,7 +298,7 @@ export function conexoesNaBase(s: GameState, base: string, includeRejectedPaths 
   }
   out.sort((x, y) => x.espera - y.espera)
   cache.bases.set(base,out)
-  return includeRejectedPaths?out:out.filter(c=>connectionAllowed(s,c.de.ponta,base,c.para.ponta))
+  return includeRejectedPaths?out:out.filter(c=>connectionAllowed(s,c.de.ponta,base,c.para.ponta,c))
 }
 
 /**
@@ -291,8 +310,8 @@ export function conexoesNaBase(s: GameState, base: string, includeRejectedPaths 
 export const DESCONTO_INTERLINE = 0.45
 
 /** As conexões que alimentam ou são alimentadas por uma rota, em cada base. */
-export function conexoesDaRota(s: GameState, r: Route) {
-  const base = s.airline.hubs.includes(r.from) ? r.from : s.airline.hubs.includes(r.to) ? r.to : r.from
+export function conexoesDaRota(s: GameState, r: Route, hub?: string) {
+  const base = hub ?? (s.airline.hubs.includes(r.from) ? r.from : s.airline.hubs.includes(r.to) ? r.to : r.from)
   const todas = conexoesNaBase(s, base)
   return {
     base,

@@ -28,7 +28,7 @@ for(const [a,h,b] of [['RBR','PVH','CZS'],['OAL','PVH','JPR']])for(const [from,t
   assert.equal(airportSlots(s,h).free,6,'migração retira apenas folga inicial')
   assert.equal(d.capacity,90,'capacidade física não muda')
   const old=[...airportUsage(s)].map(([id,v])=>[id,v.rivals])
-  const rival={from,to,freq:1};s.competitors=[{routes:[rival]} as any]
+  const rival={from,to,freq:1,hora:8*60,key:odKey(from,to)};s.competitors=[{routes:[rival]} as any]
   updateRivalUsage(s,[],[rival]);assert(!connectionAllowed(s,from,h,to),'direto ativo remove exceção regional')
   const incremental=[...airportUsage(s)].map(([id,v])=>[id,v.rivals]).sort()
   invalidateAirportUsage(s);assert.deepEqual([...airportUsage(s)].map(([id,v])=>[id,v.rivals]).sort(),incremental,'atualização parcial equivale ao cálculo completo')

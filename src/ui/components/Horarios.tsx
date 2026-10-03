@@ -31,7 +31,8 @@ export function Horarios({ route }: { route: Route }) {
     .map((p) => noTempo(state, p))
     .sort((a, b) => a.perna.dow - b.perna.dow || a.perna.saida - b.perna.saida)
   const desequilibrada = saldoDiferenteDaRota(state, route)
-  const { base, entrando, saindo } = conexoesDaRota(state, route)
+  const hubsDaRota = [...new Set([route.from, route.to])].filter(base => state.airline.hubs.includes(base))
+  const conexoesPorHub = (hubsDaRota.length ? hubsDaRota : [route.from]).map(base => conexoesDaRota(state, route, base))
   const colados = voosColados(state, route)
   const rivais = state.competitors.flatMap((c) =>
     c.routes.filter((r) => r.key === odKey(route.from, route.to))
@@ -129,7 +130,7 @@ export function Horarios({ route }: { route: Route }) {
           </p>
         )}
 
-        <div className="grid g2" style={{ gap: 12, marginTop: 12 }}>
+        {conexoesPorHub.map(({ base, entrando, saindo }) => <div key={base} className="grid g2" style={{ gap: 12, marginTop: 12 }}>
           <ListaConexao
             titulo={`Chegam em ${base} e embarcam nesta rota`}
             vazio="Nenhum voo seu chega a tempo de alimentar esta rota."
@@ -137,12 +138,12 @@ export function Horarios({ route }: { route: Route }) {
             outraPonta={(c) => c.de.ponta}
           />
           <ListaConexao
-            titulo="Chegam nesta rota e seguem viagem"
+            titulo={`Chegam nesta rota e seguem viagem em ${base}`}
             vazio="Os voos desta rota não alcançam nenhuma partida sua."
             conexoes={saindo}
             outraPonta={(c) => c.para.ponta}
           />
-        </div>
+        </div>)}
 
         {rivais.length > 0 && (
           <div style={{ marginTop: 12 }}>
