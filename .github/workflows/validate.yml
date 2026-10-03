@@ -33,6 +33,8 @@ jobs:
       - run: npm run crew:check
       - run: npm run flights:check
       - run: npm run connections:check
+      - run: npx tsx scripts/connection-offer-check.ts
+      - run: npx tsx scripts/regional-connections-check.ts
       - run: npm run calendar:check
       - run: npm run save:file:check
       - run: npm run map:geometry

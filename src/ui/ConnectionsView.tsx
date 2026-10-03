@@ -46,7 +46,7 @@ export function ConnectionsView() {
   const diagnostico = hubs.map(h => {
     const pares = conexoesNaBase(state, h, true) // apenas diagnóstico; nunca oferta comercial
     const rodeio = pares.filter(c => {
-      return !connectionAllowed(state,c.de.ponta, h, c.para.ponta)
+      return !connectionAllowed(state,c.de.ponta, h, c.para.ponta,c)
     }).length
     return { h, pares: pares.length, rodeio }
   })
@@ -117,12 +117,12 @@ export function ConnectionsView() {
             : rodeio >= pares
               ? <>A regra vê <b>{pares}</b> {pares === 1 ? 'par dos seus voos' : 'pares dos seus voos'} que
                 casam no relógio, mas <b>nenhum tem um trajeto viável</b>: há desvio excessivo
-                ou a origem e o destino são próximos demais para oferecer conexão.</>
+                ou existe uma alternativa muito melhor com horário compatível.</>
               : <>A regra vê <b>{pares}</b> {pares === 1 ? 'par dos seus voos' : 'pares dos seus voos'} que
                 casam no relógio{rodeio > 0 && <> ({rodeio} {rodeio === 1 ? 'rodeia' : 'rodeiam'} demais)</>}.
                 Os que sobram não venderam no último dia apurado (dia {state.conexoesApuradasEm}): o passageiro
                 preferiu um voo direto — inclusive o seu, se você voa o mesmo par sem escala —, ou o avião já saiu
-                cheio de gente local, e conexão só ocupa lugar vago.</>}
+                sem espaço para novas conexões. Classes cheias têm teto de 40% para conexões; classes com vagas usam essa sobra.</>}
         </p>
       )}
     </Card>
@@ -136,7 +136,7 @@ export function ConnectionsView() {
           <td className="r">{hm(g.chega)} → {hm(g.sai)}<br /><small className="muted">espera {Math.floor(g.espera / 60)}h{String(g.espera % 60).padStart(2, '0')}</small></td>
         </tr>)}</tbody>
       </table></div> : <Empty>Nenhum par dos seus voos casa no relógio sem rodear demais neste filtro.</Empty>}
-      <p className="muted" style={{ fontSize: 12 }}>O que a sua escala oferece hoje, pelas regras de conexão: tempo mínimo e máximo de espera e desvio de até {DESVIO_MAXIMO.toFixed(1)}× o voo direto. Não depende de o dia virar — os itinerários vendidos, abaixo, sim.</p>
+      <p className="muted" style={{ fontSize: 12 }}>Horários compatíveis e trajetos proporcionais (referência doméstica: {DESVIO_MAXIMO.toFixed(2)}× a distância direta). Conexões regionais e internacionais admitem desvios adicionais quando não há opção muito melhor no mesmo horário. Voos diretos disputam passageiros com conexões alinhadas, sem apagá-las. A malha aparece imediatamente; as vendas são apuradas quando o dia vira.</p>
     </Card>
     <Card title="Itinerários vendidos" className="connection-sold" right={<label className="field" style={{ marginBottom: 0 }}><span>Ordenar resultado</span>
       <select aria-label="Ordenar resultado das conexões" value={resultOrder} onChange={e => setResultOrder(e.target.value as 'best' | 'worst')}>

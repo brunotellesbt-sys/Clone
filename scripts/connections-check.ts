@@ -13,15 +13,14 @@ import type { GameState } from '../src/game/types'
 import { connectionPathAllowed } from '../src/game/connectionGeometry'
 
 // GIG–SSA–CKS é uma conexão doméstica válida: não há GIG–CKS direto e o
-// desvio é 1,357×, dentro do limite de 1,45×. Se o trecho direto surgir, a
-// conexão deixa de ser ofertada.
+// desvio é 1,357×, dentro do limite de 1,45×. Um direto compete por preço e
+// horário, sem apagar automaticamente uma conexão alinhada.
 assert(connectionPathAllowed('GIG','SSA','CKS'))
-assert(!connectionPathAllowed('GIG','SSA','CKS',true))
+assert(connectionPathAllowed('GIG','SSA','CKS',true))
 assert(!connectionPathAllowed('GIG','FOR','CGH'))
 
-// Se existir um caminho claramente melhor por outro hub, a alternativa mais
-// longa não aparece. O cenário usa GRU–SDU–GYN e GRU–BSB–GYN: BSB é o caminho
-// menor e a conexão via SDU é descartada.
+// Um caminho menor por BSB, mas que sai quatro horas depois, não elimina a
+// alternativa por SDU: os passageiros não estão na mesma janela de partida.
 const alternatives = newGame({ name: 'Caminhos', code: 'CP', hub: 'GRU', seed: 12, densidade: 'enxuta' })
 alternatives.competitors = []
 alternatives.airline.cash = 1e10
@@ -33,7 +32,7 @@ for (const [index, [from, to]] of [['GRU', 'SDU'], ['SDU', 'GYN'], ['GRU', 'BSB'
   ac.base = from
   assert.equal(marcarVoo(alternatives, ac.id, from, to, dowOf(alternatives), 480 + index * 120), null)
 }
-assert.equal(connectionAllowed(alternatives, 'GRU', 'SDU', 'GYN'), false)
+assert.equal(connectionAllowed(alternatives, 'GRU', 'SDU', 'GYN'), true,'caminho menor sai quatro horas depois; não é alternativa no mesmo horário')
 assert.equal(connectionAllowed(alternatives, 'GRU', 'BSB', 'GYN'), true)
 
 const room = (local: number, booked = 0) => connectionRoom({
