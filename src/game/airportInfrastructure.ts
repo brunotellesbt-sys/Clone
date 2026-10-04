@@ -34,7 +34,11 @@ export function updateRivalUsage(s:GameState, before:{from:string;to:string;freq
     let u=usage.get(id);if(!u){u={days:Array(7).fill(0),rivals:0};usage.set(id,u)}
     u.rivals=Math.max(0,u.rivals+sign*r.freq*2)
   }
-  revisions.set(s,airportRevision(s)+1);admittedCache.delete(s);rivalCache.delete(s)
+  revisions.set(s,airportRevision(s)+1);rivalCache.delete(s)
+  // Mudanças de concorrentes distantes não alteram a admissão da frota própria.
+  // Compara os limites efetivos antes de repetir toda a escala por aeronave.
+  const limits=admittedLimits.get(s)
+  if(!limits||[...limits].some(([id,limit])=>airportSlots(s,id).ownLimit!==limit))admittedCache.delete(s)
 }
 export function flightMovements(s:GameState,p:Perna):[string,number][] {
   const ac=s.airline.fleet.find(a=>a.id===p.aircraftId)
@@ -82,13 +86,13 @@ export function airportSlots(s:GameState,id:string) {
 }
 /** Reserva inicial: malha existente + 10%, entre 6 e 16 movimentos por dia. */
 export const hubSlotMargin=(own:number)=>own===0?24:Math.max(6,Math.min(16,Math.ceil(own*.1)))
-/** Volume da própria malha, incluindo pontes aéreas para um único destino. */
+/** Bases sem hub: ao menos 30 movimentos próprios no pico, mesmo com um destino. */
 export function largeOperations(s:GameState) {
  return [...airportUsage(s)].map(([id,u])=>({id,movements:Math.max(0,...u.days)}))
-   .filter(a=>a.movements>=12).sort((a,b)=>b.movements-a.movements||a.id.localeCompare(b.id))
+   .filter(a=>a.movements>=30&&!s.airline.hubs.includes(a.id)).sort((a,b)=>b.movements-a.movements||a.id.localeCompare(b.id))
 }
 /** Hubs já têm acompanhamento próprio; não recebem a progressão de base também. */
-export const largeBases=(s:GameState)=>largeOperations(s).filter(a=>!s.airline.hubs.includes(a.id)).map(a=>a.id)
+export const largeBases=(s:GameState)=>largeOperations(s).map(a=>a.id)
 export function populationAt(s:GameState,id:string) {
   const a=AIRPORT_BY_IATA[id]
   return a.pop*1e6*Math.pow(derivaDoPais(a.cc,s.day),.55)*cityDevelopment(s,id).population
@@ -179,19 +183,22 @@ export function finishAirportWorks(s:GameState) {
 }
 /** Admissão por movimentos: não apaga a malha quando há interdição temporária. */
 const admittedCache=new WeakMap<GameState,Set<string>>()
+const admittedLimits=new WeakMap<GameState,Map<string,number>>()
 export function admittedFlights(s:GameState) {
   const cached=admittedCache.get(s);if(cached)return cached
   const counts=new Map<string,number[]>(),accepted=new Set<string>()
   const schedules=new Map<string,Perna[]>()
+  const limits=new Map<string,number>()
+  const limit=(id:string)=>{let n=limits.get(id);if(n===undefined){n=airportSlots(s,id).ownLimit;limits.set(id,n)}return n}
   for(const p of s.airline.escala??[]){const list=schedules.get(p.aircraftId)??[];list.push(p);schedules.set(p.aircraftId,list)}
   for(const legs of schedules.values()) {
     const required=new Map<string,number[]>()
     for(const p of legs)for(const [id,dow] of flightMovements(s,p)){const days=required.get(id)??Array(7).fill(0);days[dow]++;required.set(id,days)}
-    if([...required].some(([id,days])=>days.some((n,dow)=>n+(counts.get(id)?.[dow]??0)>airportSlots(s,id).ownLimit)))continue
+    if([...required].some(([id,days])=>days.some((n,dow)=>n+(counts.get(id)?.[dow]??0)>limit(id))))continue
     for(const [id,days] of required){const total=counts.get(id)??Array(7).fill(0);days.forEach((n,i)=>total[i]+=n);counts.set(id,total)}
     for(const p of legs)accepted.add(p.id)
   }
-  admittedCache.set(s,accepted);return accepted
+  admittedLimits.set(s,limits);admittedCache.set(s,accepted);return accepted
 }
 const rivalCache=new WeakMap<GameState,Map<object,number>>()
 export function rivalFrequency(s:GameState,r:{from:string;to:string;freq:number}) {

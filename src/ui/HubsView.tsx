@@ -20,7 +20,7 @@ export function HubsView({bases=false}:{bases?:boolean}) {
   const operations=bases?largeOperations(s):[]
   const options=bases?operations.map(a=>a.id):s.airline.hubs
   const id=options.includes(selected)?selected:options[0]
-  if(!id)return <Card title="Bases grandes"><p>Aeroportos com pelo menos 12 pousos/decolagens da sua companhia no dia de pico aparecem aqui, mesmo com um único destino. Seis idas e voltas no mesmo dia já contam como 12 movimentos em cada ponta. Sem contrato de hub, a progressão de slots leva 20% mais tempo.</p></Card>
+  if(!id)return <Card title="Bases grandes"><p>Aeroportos sem hub com pelo menos 30 pousos/decolagens da sua companhia no dia de pico aparecem aqui, mesmo com um único destino. Quinze idas e voltas no mesmo dia já contam como 30 movimentos em cada ponta. Sem contrato de hub, a progressão de slots leva 20% mais tempo.</p></Card>
   const isHub=s.airline.hubs.includes(id),idleDays=isHub?365:438
   const a=effectiveAirport(s,id),d=s.airportDevelopment?.[id],slots=airportSlots(s,id),progress=growthProgress(s,id)
   const weeks=d?.history??[],last=weeks.at(-1),previous=weeks.at(-2)
@@ -32,10 +32,10 @@ export function HubsView({bases=false}:{bases?:boolean}) {
   const delta=(v:number,old:number|undefined)=>old===undefined?'Primeira medição':`${v-old>=0?'+':''}${num(v-old)}`
   return <div className="grid hubs-panel">
     <Card title={bases?'Acompanhamento de bases grandes':'Acompanhamento de hubs'}>
-      {bases&&<div aria-label="Suas bases por movimento" style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16}}>{operations.map(a=><button key={a.id} className={`btn${a.id===id?' primary':''}`} aria-pressed={a.id===id} onClick={()=>{setSelected(a.id);setConfirm(null);setClosing(false);setCompare('previous')}}>{a.id} · {a.movements} mov./dia{s.airline.hubs.includes(a.id)?' · hub':''}</button>)}</div>}
+      {bases&&<div aria-label="Suas bases por movimento" style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16}}>{operations.map(a=><button key={a.id} className={`btn${a.id===id?' primary':''}`} aria-pressed={a.id===id} onClick={()=>{setSelected(a.id);setConfirm(null);setClosing(false);setCompare('previous')}}>{a.id} · {a.movements} mov./dia</button>)}</div>}
       <label className="field"><span>{bases?'Base grande':'Hub'}</span><select value={id} onChange={e=>{setSelected(e.target.value);setConfirm(null);setClosing(false);setCompare('previous')}}>{options.map(h=><option key={h} value={h}>{h} — {AIRPORT_BY_IATA[h].city}</option>)}</select></label>
       <p>Companhias com hub neste aeroporto: <b>{hubCompanies(s,id)} / {hubCompanyLimit(s,id)}</b>. Nível 5: até 4; nível 4: até 3; níveis 1–3: até 2. Operar voos sem hub não ocupa uma dessas vagas.</p>
-      {bases&&<p className="dim">Base grande: pelo menos 12 pousos/decolagens seus no dia de pico, mesmo com um único destino. A lista inclui hubs e bases sem contrato, ordenados por movimento. {isHub?'Este aeroporto já é seu hub e mantém os prazos normais.':'Sem hub: prazo e pontos de tráfego 20% maiores para crescimento; observação de slots ociosos por 438 dias. Nenhuma taxa de abertura.'}</p>}
+      {bases&&<p className="dim">Base grande: aeroporto sem hub com pelo menos 30 pousos/decolagens seus no dia de pico, mesmo com um único destino. Hubs aparecem somente na aba Hubs. Prazo e pontos de tráfego 20% maiores para crescimento; observação de slots ociosos por 438 dias. Nenhuma taxa de abertura.</p>}
       {id==='CGH'&&s.cghExtraSlotsGranted&&!!d?.personalSlots&&<p className="good">Concessão única: +{d.personalSlots} slots/dia exclusivos para sua companhia, sem precisar abrir hub.</p>}
       <p className="dim">Cada pouso ou decolagem usa um slot. Abrir uma rota não reserva capacidade. Os números de ocupação representam o dia de maior movimento da malha semanal.</p>
       {!bases&&<p className="dim">Sua reserva inicial cobre a malha existente e mais 10% de folga, entre 6 e 16 movimentos por dia. Um hub novo começa com 24. Slots ociosos do aeroporto só se tornam seus após um ano sem utilização; crescimento e obras também ampliam sua reserva.</p>}

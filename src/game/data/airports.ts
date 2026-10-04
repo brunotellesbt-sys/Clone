@@ -3988,6 +3988,23 @@ export function mesmoSistemaAeroportuario(a: Airport, b: Airport): boolean {
     kmEntre(a, b) <= MESMA_CIDADE_KM
 }
 
+// O catálogo geográfico é estático. Busca por cidade/grupo evita comparar cada
+// aeroporto com o mundo inteiro ao indexar as alternativas de conexão.
+const airportsByCity=new Map<string,Airport[]>()
+for(const a of AIRPORTS){
+  const key=`${a.cc}:${a.city.toLowerCase()}`,list=airportsByCity.get(key)??[]
+  list.push(a);airportsByCity.set(key,list)
+}
+const systemMembers=new Map<string,readonly Airport[]>()
+export function sameSystemAirports(iata:string):readonly Airport[] {
+  const cached=systemMembers.get(iata);if(cached)return cached
+  const a=AIRPORT_BY_IATA[iata],group=SISTEMA_DE.get(iata)
+  const candidates=new Set([a,...(airportsByCity.get(`${a.cc}:${a.city.toLowerCase()}`)??[]),
+    ...(group===undefined?[]:SISTEMAS[group].map(id=>AIRPORT_BY_IATA[id]).filter(Boolean))])
+  const result=[...candidates].filter(b=>b.iata===iata||mesmoSistemaAeroportuario(a,b))
+  systemMembers.set(iata,result);return result
+}
+
 export function vooPermitido(a: Airport, b: Airport): string | null {
   if (mesmoSistemaAeroportuario(a, b)) {
     return `${a.iata} e ${b.iata} servem a mesma cidade, a ${Math.round(kmEntre(a, b))} km um do outro: não há voo entre eles.`
