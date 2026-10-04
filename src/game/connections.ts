@@ -222,6 +222,10 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
   }
   const proposals:{id:string;market:string;c:Candidate;wanted:Cabins;discount:number}[]=[]
   const marketLimits=new Map<string,Cabins>()
+  // Só reservas de hoje podem consumir o mercado de hoje; não percorre os
+  // 14 dias de histórico novamente para cada par de aeroportos.
+  const todaysJourneys=journeys.filter(j=>!j.cancelled&&j.first.day===s.day)
+  const todaysManifests=[...manifests.values()].filter(m=>m.leg.day===s.day&&m.leg.own)
   for (const [market, g] of groups) {
     const directWeight = directCompetition(g.from, g.to, sumCabins(g.demand))
     const desconto = 1 - DESCONTO_CONEXAO * Math.min(1, directWeight)
@@ -230,12 +234,10 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
     // O viajante que já comprou um direto nosso não pode ser vendido outra
     // vez pela conexão. A procura é direcional e compartilhada entre hubs.
     const origins = nearbyAirports(g.from), destinations = nearbyAirports(g.to)
-    for (const m of manifests.values()) if (m.leg.day === s.day && m.leg.own &&
-      origins.includes(m.leg.from) && destinations.includes(m.leg.to)) {
+    for (const m of todaysManifests) if (origins.includes(m.leg.from) && destinations.includes(m.leg.to)) {
       for (const cb of CABINS) available[cb] = Math.max(0, available[cb] - m.baseline[cb])
     }
-    for (const j of journeys) if (!j.cancelled && j.first.day === s.day &&
-      origins.includes(j.first.from) && destinations.includes(j.second.to)) {
+    for (const j of todaysJourneys) if (origins.includes(j.first.from) && destinations.includes(j.second.to)) {
       for (const cb of CABINS) available[cb] = Math.max(0, available[cb] - j.pax[cb])
     }
     marketLimits.set(market,available)

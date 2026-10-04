@@ -8,25 +8,26 @@ try{
  await page.goto(process.env.URL??'http://127.0.0.1:5173/',{waitUntil:'networkidle'})
  await page.evaluate(async()=>{
   const {newGame,addHub,openRoute,buyAircraft,assignAircraft,setAllFrequencies}=await import('/src/game/engine.ts')
-  const {invalidateAirportUsage,ensureAirports}=await import('/src/game/airportInfrastructure.ts')
+  const {invalidateAirportUsage,ensureAirports,airportSlots}=await import('/src/game/airportInfrastructure.ts')
   const {saveGame}=await import('/src/game/save.ts')
   const s=newGame({name:'Bases',code:'BS',hub:'GRU',seed:7,densidade:'enxuta'})
   s.competitors=[];invalidateAirportUsage(s);s.airline.cash=1e10;s.airline.reputation=1
   if(addHub(s,'CGH'))throw new Error('hub')
-  for(const id of ['SSA','SDU','BSB']){
+  delete s.cghExtraSlotsGranted
+  for(const id of ['SDU','GIG','VIX','CWB','FLN']){
    openRoute(s,'CGH',id);buyAircraft(s,'e195e2',false)
    const r=s.airline.routes.at(-1),a=s.airline.fleet.at(-1)
-   a.base='CGH';assignAircraft(s,a.id,r.id);setAllFrequencies(s,r.id,2)
+   a.base='CGH';assignAircraft(s,a.id,r.id);ensureAirports(s);setAllFrequencies(s,r.id,3)
   }
-  delete s.cghExtraSlotsGranted;ensureAirports(s)
+  ensureAirports(s)
+  if(airportSlots(s,'CGH').own<30)throw new Error(`Fixture com apenas ${airportSlots(s,'CGH').own} movimentos`)
   saveGame(s,1)
  })
  await page.reload({waitUntil:'networkidle'})
  await page.getByRole('button',{name:'Continuar',exact:true}).first().click()
  await page.getByRole('button',{name:'Bases grandes',exact:true}).click()
- await page.getByRole('button',{name:/^CGH · \d+ mov\.\/dia · hub$/}).click()
- assert(await page.getByText(/Este aeroporto já é seu hub e mantém os prazos normais/).isVisible())
- assert(await page.getByText(/período de 365 dias/).isVisible())
+ assert.equal(await page.getByRole('button',{name:/^CGH ·/}).count(),0)
+ assert.equal(await page.locator('.hubs-panel option[value=CGH]').count(),0)
  await page.getByRole('button',{name:'Hubs',exact:true}).click()
  await page.locator('.hubs-panel select').first().selectOption('CGH')
  assert.equal(await page.getByRole('progressbar').count(),4)

@@ -27,7 +27,7 @@ assert.equal(closeHub(s,'CGH'),null);assert.equal(s.airline.cash,cash+HUB_COST)
 assert(closeHub(s,'CGH'));assert.equal(s.airline.cash,cash+HUB_COST,'não reembolsa duas vezes')
 assert(closeHub(s,'GRU'),'não fecha o último hub')
 // Cria apenas movimentos de fixture para verificar reserva, migração e progressão.
-s.airline.escala=Array.from({length:12},(_,i)=>({id:`l${i}`,aircraftId:'fixture',from:'CGH',to:['GRU','BSB','SSA'][i%3],dow:0,saida:480+i*10}))
+s.airline.escala=Array.from({length:30},(_,i)=>({id:`l${i}`,aircraftId:'fixture',from:'CGH',to:['GRU','BSB','SSA'][i%3],dow:0,saida:480+i*10}))
 invalidateAirportUsage(s);delete s.cghExtraSlotsGranted
 const before=airportSlots(s,'CGH');ensureAirports(s);const after=airportSlots(s,'CGH')
 assert.equal(after.capacity,before.capacity+41);assert.equal(after.ownLimit,before.ownLimit+41)
@@ -38,16 +38,16 @@ const base=growthProgress(s,'CGH');s.airline.hubs.push('CGH');const hub=growthPr
 assert.equal(base.daysNeeded,Math.ceil(hub.daysNeeded*1.2));assert.equal(base.paxNeeded,Math.ceil(hub.paxNeeded*1.2))
 const reserved=s.airportDevelopment!.CGH.reserved;s.day++;recordAirportDay(s,{},false)
 assert(s.airportDevelopment!.CGH.reserved>=reserved,'passar o dia conserva concessão pessoal')
-// Uma ponte aérea basta: seis chegadas e seis saídas, mesmo com só um destino.
-s.airline.escala=Array.from({length:12},(_,i)=>({id:`shuttle${i}`,aircraftId:'fixture',from:i%2?'CGH':'SDU',to:i%2?'SDU':'CGH',dow:0,saida:480+i*20}))
+// Uma ponte aérea basta: quinze chegadas e quinze saídas, mesmo com só um destino.
+s.airline.escala=Array.from({length:30},(_,i)=>({id:`shuttle${i}`,aircraftId:'fixture',from:i%2?'CGH':'SDU',to:i%2?'SDU':'CGH',dow:0,saida:480+i*20}))
 invalidateAirportUsage(s)
 assert(largeBases(s).includes('CGH'),'ponte aérea para um único destino é base grande')
-assert.equal(largeOperations(s).find(a=>a.id==='CGH')?.movements,12)
+assert.equal(largeOperations(s).find(a=>a.id==='CGH')?.movements,30)
 s.airline.hubs.push('CGH')
-assert(largeOperations(s).some(a=>a.id==='CGH'),'hub movimentado aparece no painel também')
+assert(!largeOperations(s).some(a=>a.id==='CGH'),'hub não aparece na lista de bases grandes')
 assert(!largeBases(s).includes('CGH'),'hub não recebe progressão de base em duplicidade')
 s.airline.hubs.pop();s.airline.escala.pop();invalidateAirportUsage(s)
-assert(!largeBases(s).includes('CGH'),'11 movimentos não atingem o mínimo')
+assert(!largeBases(s).includes('CGH'),'29 movimentos não atingem o mínimo')
 // Teste adicional opcional: migração somente em memória do save do usuário.
 if(process.argv[2]){
  const raw=readFileSync(process.argv[2],'utf8'),loaded=importSaveFile(raw) as GameState

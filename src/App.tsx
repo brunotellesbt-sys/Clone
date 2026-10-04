@@ -2,7 +2,8 @@ import { HubsView } from './ui/HubsView'
 import { invalidateAirportUsage } from './game/airportInfrastructure'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { invalidateHubActivity } from './game/hubDevelopment'
-import { advanceDay, gameDate, money, netWorth, pct, period } from './game/engine'
+import { gameDate, money, netWorth, pct, period } from './game/engine'
+import {DaySimulation} from './game/daySimulation'
 import { MS_POR_DIA_NA_TELA } from './ui/relogio'
 import {
   AVAILABLE_SLOTS,
@@ -63,6 +64,7 @@ export function App() {
   const [toasts, setToasts] = useState<{ id: number; msg: string; kind: string }[]>([])
   const [menu, setMenu] = useState(false)
   const stateRef = useRef<GameState | null>(null)
+  const mutationRevision=useRef(0)
   stateRef.current = state
 
   const toast = useCallback((msg: string, kind: 'info' | 'error' = 'info') => {
@@ -74,6 +76,7 @@ export function App() {
   const act = useCallback((fn: (s: GameState) => string | null | void) => {
     const s = stateRef.current
     if (!s) return null
+    mutationRevision.current++
     const err = fn(s) ?? null
     invalidateHubActivity(s); invalidateAirportUsage(s)
     if (!err) {
@@ -83,26 +86,49 @@ export function App() {
     return err
   }, [])
 
+  // Pausa/velocidade não mudam oferta de voos nem capacidade aeroportuária.
+  const playback=useCallback((speed:number,paused:boolean)=>{
+    const s=stateRef.current;if(!s)return
+    mutationRevision.current++;s.speed=speed;s.paused=paused
+    queueSaveGame(s,getActiveSlot());force(v=>v+1)
+  },[])
+
   // laço do jogo
   useEffect(() => {
     if (!state || state.paused || state.speed === 0) return
     const interval = Math.max(16, MS_POR_DIA_NA_TELA / state.speed)
     let id:ReturnType<typeof setTimeout>
     let disposed=false
-    const tick=() => {
+    const simulation=new DaySimulation()
+    const tick=async() => {
       const s = stateRef.current
       if (disposed || !s || s.paused || s.speed === 0) return
       const started=performance.now()
-      advanceDay(s)
-      if (s.day % 30 === 0) queueSaveGame(s, getActiveSlot())
-      force((v) => v + 1)
+      const revision=mutationRevision.current
+      try {
+        const next=await simulation.advance(s)
+        if(disposed)return
+        // Um clique pode alterar a companhia enquanto o worker calcula. Nesse
+        // caso descarta a cópia antiga, preservando integralmente a ação.
+        if(revision===mutationRevision.current){
+          stateRef.current=next;setState(next)
+          if(next.day%30===0)queueSaveGame(next,getActiveSlot())
+        }
+      }catch(error){
+        if(disposed)return
+        if(revision===mutationRevision.current){
+          s.paused=true;force(v=>v+1)
+          toast(`A simulação foi pausada: ${error instanceof Error?error.message:String(error)}`,'error')
+          return
+        }
+      }
       // Reserva tempo para desenho e entrada mesmo quando um dia custa mais que
       // o intervalo solicitado. Não acumula ticks atrasados em 600×.
       id=setTimeout(tick,Math.max(32,interval-(performance.now()-started)))
     }
     id=setTimeout(tick,interval)
-    return () => {disposed=true;clearTimeout(id)}
-  }, [state, state?.paused, state?.speed])
+    return () => {disposed=true;clearTimeout(id);simulation.dispose()}
+  }, [!!state, state?.paused, state?.speed,toast])
 
   useEffect(()=>{
     const flush=()=>{const s=stateRef.current;if(s)saveGame(s,getActiveSlot())}
@@ -115,19 +141,20 @@ export function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.tagName?.match(/INPUT|SELECT|TEXTAREA/)) return
-      if (e.code === 'Space') { e.preventDefault(); act((s) => { s.paused = !s.paused }) }
-      if (e.key >= '1' && e.key <= '4') act((s) => { s.speed = SPEEDS[+e.key].v; s.paused = false })
+      const s=stateRef.current;if(!s)return
+      if (e.code === 'Space') { e.preventDefault(); playback(s.speed,!s.paused) }
+      if (e.key >= '1' && e.key <= '4') playback(SPEEDS[+e.key].v,false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [act])
+  }, [playback])
 
   const ctx = useMemo(
     () => ({
       state: state as GameState,
       act,
-      replace: (s: GameState) => setState(s),
-      reset: () => { clearSave(getActiveSlot()); setState(null) },
+      replace: (s: GameState) => {mutationRevision.current++;setState(s)},
+      reset: () => { mutationRevision.current++;clearSave(getActiveSlot());setState(null) },
       toast,
     }),
     [state, act, toast],
@@ -179,7 +206,7 @@ export function App() {
               <button
                 key={s.v}
                 className={(s.v === 0 ? state.paused : !state.paused && state.speed === s.v) ? 'on' : ''}
-                onClick={() => act((g) => { if (s.v === 0) g.paused = true; else { g.paused = false; g.speed = s.v } })}
+                onClick={() => playback(s.v===0?state.speed:s.v,s.v===0)}
                 title={s.v === 0 ? 'Pausar (espaço)' : `${s.v}× mais rápido`}
               >
                 {s.label}

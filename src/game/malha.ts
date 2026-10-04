@@ -14,7 +14,7 @@ import { admittedFlights, rivalFrequency, airportRevision } from './airportInfra
  *
  * Nada de React aqui: é `src/game/`, e a tela só lê o que sai daqui.
  */
-import { AIRPORTS, AIRPORT_BY_IATA, mesmoSistemaAeroportuario, type Airport } from './data/airports'
+import { AIRPORT_BY_IATA, sameSystemAirports, type Airport } from './data/airports'
 import { connectionPathAllowed } from './connectionGeometry'
 import { distanceNm } from './geo'
 import { hashStr } from './rng'
@@ -207,7 +207,7 @@ interface TravelOption { departure:number; duration:number; distance:number; via
 const cityKeys=new Map<string,string>()
 function cityKey(id:string) {
   let key=cityKeys.get(id)
-  if(!key){key=AIRPORTS.filter(a=>a.iata===id||mesmoSistemaAeroportuario(AIRPORT_BY_IATA[id],a)).map(a=>a.iata).sort()[0];cityKeys.set(id,key)}
+  if(!key){key=sameSystemAirports(id).map(a=>a.iata).sort()[0];cityKeys.set(id,key)}
   return key
 }
 const marketKey=(from:string,to:string)=>`${cityKey(from)}>${cityKey(to)}`
@@ -268,14 +268,20 @@ export function connectionAllowed(s:GameState,from:string,via:string,to:string,c
     })
   })
 }
-const connectionsCache=new WeakMap<GameState,{day:number;revision:number;bases:Map<string,Conexao[]>}>()
+const connectionsCache=new WeakMap<GameState,{day:number;revision:number;bases:Map<string,Conexao[]>;allowed:Map<string,Conexao[]>}>()
 export function conexoesNaBase(s: GameState, base: string, includeRejectedPaths = false): Conexao[] {
   let cache=connectionsCache.get(s)
   if(!cache||cache.day!==s.day||cache.revision!==airportRevision(s)) {
-    cache={day:s.day,revision:airportRevision(s),bases:new Map()};connectionsCache.set(s,cache)
+    cache={day:s.day,revision:airportRevision(s),bases:new Map(),allowed:new Map()};connectionsCache.set(s,cache)
+  }
+  const valid=cache.allowed.get(base)
+  if(!includeRejectedPaths&&valid)return valid
+  const filterAllowed=(list:Conexao[])=>{
+    const result=list.filter(c=>connectionAllowed(s,c.de.ponta,base,c.para.ponta,c))
+    cache.allowed.set(base,result);return result
   }
   const cached=cache.bases.get(base)
-  if(cached)return includeRejectedPaths?cached:cached.filter(c=>connectionAllowed(s,c.de.ponta,base,c.para.ponta,c))
+  if(cached)return includeRejectedPaths?cached:filterAllowed(cached)
   const { chegadas, partidas } = toquesNaBase(s, base)
   const sorted=partidas.flatMap(p=>[p,{...p,quando:p.quando+7*DIA}]).sort((a,b)=>a.quando-b.quando)
   const out: Conexao[] = []
@@ -298,7 +304,7 @@ export function conexoesNaBase(s: GameState, base: string, includeRejectedPaths 
   }
   out.sort((x, y) => x.espera - y.espera)
   cache.bases.set(base,out)
-  return includeRejectedPaths?out:out.filter(c=>connectionAllowed(s,c.de.ponta,base,c.para.ponta,c))
+  return includeRejectedPaths?out:filterAllowed(out)
 }
 
 /**
