@@ -12,7 +12,7 @@ import { blocoDe, DIA, DOW_CURTO, escalaDe, hhmm, naSemana, noTempo, partidaUtc,
 import { distanceBetween } from '../game/geo'
 import { spriteMapa } from '../livery/mapSprites'
 import { MAP_MIN_ZOOM, MAP_MAX_ZOOM, spriteRotation } from './mapGeometry'
-import { airportFlightPath, airportFlightPose, airportMapPoint, loadFlightProcedures } from './airportFlightPaths'
+import { airportFlightPath, airportFlightPose, airportMapPoint, airportNetworkPoints, airportRunwayPoints, loadFlightProcedures } from './airportFlightPaths'
 import { SatelliteTiles } from './SatelliteTiles'
 import { MAP_BOUNDS } from './mapTiles'
 import type { Aircraft, GameState, Perna, Route } from '../game/types'
@@ -74,7 +74,7 @@ export function MapView({
   const [hover, setHover] = useState<{ iata: string; x: number; y: number } | null>(null)
   const [voo, setVoo] = useState<string | null>(null)
   const [airport, setAirport] = useState<string | null>(null)
-  const [,refreshProcedures]=useState(0)
+  const [procedureRevision,refreshProcedures]=useState(0)
   const schedule=useMemo(()=>escalaDe(state).filter(p=>admittedFlights(state).has(p.id)).flatMap(p=>{
     const ac=aircraftOf(state,p.aircraftId),a=AIRPORT_BY_IATA[p.from],b=AIRPORT_BY_IATA[p.to]
     if(!ac||!a||!b||ac.groundedUntil>state.day)return []
@@ -192,8 +192,8 @@ export function MapView({
   const path = useMemo(() => geoPath(projection).digits(6), [projection])
 
   const landPath = useMemo(() => view.k>8?'':path(land) ?? '', [path,view.k])
-  const gratPath = useMemo(() => path(geoGraticule10()) ?? '', [path])
-  const drawnPaths=useMemo(()=>new WeakMap<ReturnType<typeof airportFlightPath>,string>(),[path])
+  const gratPath = useMemo(() => view.k>8?'':path(geoGraticule10()) ?? '', [path,view.k])
+  const drawnPaths=useMemo(()=>new Map<string,string>(),[path,procedureRevision])
 
   /**
    * Animação das aeronaves — e ela respeita a pausa.
@@ -321,9 +321,9 @@ export function MapView({
     const a = AIRPORT_BY_IATA[from]
     const b = AIRPORT_BY_IATA[to]
     if (!a || !b) return ''
-    const geometry=airportFlightPath(a,b,t*DIA,t*DIA)
-    let drawn=drawnPaths.get(geometry)
-    if(drawn===undefined){drawn=path({ type: 'LineString', coordinates: geometry.points }) ?? '';drawnPaths.set(geometry,drawn)}
+    const key=`${from}:${to}`
+    let drawn=drawnPaths.get(key)
+    if(drawn===undefined){drawn=path({ type: 'LineString', coordinates: airportNetworkPoints(a,b) }) ?? '';drawnPaths.set(key,drawn)}
     return drawn
   }
 
@@ -400,7 +400,8 @@ export function MapView({
    * parar de crescer no zoom fundo.
    */
   const fator = Math.sqrt(Math.min(view.k, K_DESENHO)) / view.k
-  const dotR = (tier: number) => (1.4 + tier * 0.62) * fator * (view.k>256?.35:1)
+  // Redução contínua: cruzar 256× não faz marcador e rótulo saltarem de tamanho.
+  const dotR = (tier: number) => (1.4 + tier * 0.62) * fator * Math.max(.35,Math.min(1,32/view.k)**.5)
   const stroke = (w: number) => w * fator
 
   /** Os dois primeiros dedos, na ordem em que encostaram. */
@@ -574,7 +575,7 @@ export function MapView({
             const prof = r.history.length ? r.history[r.history.length - 1].profit : 0
             const color = r.history.length === 0 ? '#64748b' : prof >= 0 ? '#3ddc97' : '#ff7a8a'
             return (
-              <path className="map-own-route" key={r.id} d={arc(r.from, r.to)} fill="none" stroke={color}
+              <path className="map-own-route" data-from={r.from} data-to={r.to} key={r.id} d={arc(r.from, r.to)} fill="none" stroke={color}
                 strokeOpacity={voo ? 0.18 : 0.8}
                 strokeWidth={stroke(1.5)} strokeLinecap="round" />
             )
@@ -603,6 +604,7 @@ export function MapView({
             if (px < visivel.x0 || px > visivel.x1 || py < visivel.y0 || py > visivel.y1) return null
             return (
               <g key={a.iata}>
+                {view.k>=128&&<path className="map-runway" data-airport={a.iata} d={path({type:'LineString',coordinates:airportRunwayPoints(a)})??''} fill="none" stroke="#f1f5f9" strokeOpacity={.7} strokeWidth={stroke(2)} pointerEvents="none"/>}
                 {isSel && (
                   <circle cx={px} cy={py} r={dotR(a.tier) * 3.2} fill="none"
                     stroke="#ffc266" strokeOpacity={0.7} strokeWidth={stroke(1.1)} style={{ pointerEvents: 'none' }} />
@@ -643,7 +645,7 @@ export function MapView({
             const s = (on ? 2.2 : 1.5) * fator
             const sprite = ac ? spriteMapa(ac.typeId, on) : null
             return (
-              <g key={`p${id}`} transform={`translate(${x},${y}) rotate(${ang}) scale(${s})`}
+              <g key={`p${id}`} data-flight-id={id} transform={`translate(${x},${y}) rotate(${ang}) scale(${s})`}
                 style={{ cursor: 'pointer' }}
                 onClick={(e) => { e.stopPropagation(); if (!andou.current) setVoo(on ? null : id) }}>
                 {/* alvo de clique folgado: a seta tem 8 px de ponta a ponta */}
@@ -671,6 +673,7 @@ export function MapView({
         <label><input type="checkbox" checked={lines.own} onChange={e => toggleLine('own', e.target.checked)} /> Minhas rotas</label>
         <label><input type="checkbox" checked={lines.rivals} onChange={e => toggleLine('rivals', e.target.checked)} /> Rotas de outras companhias</label>
         <label><input type="checkbox" checked={lines.trail} onChange={e => toggleLine('trail', e.target.checked)} /> Trajeto do avião selecionado</label>
+        <small className="muted">As linhas da malha ligam os aeroportos. Toque no avião para ver seu percurso, incluindo saída e aproximação pela pista.</small>
         <small className="muted">Zoom até {K_MAX}×</small>
       </div>}
 

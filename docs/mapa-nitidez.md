@@ -18,6 +18,12 @@ As correções oficiais prevalecem desde o primeiro quadro e também depois do c
 
 Estas alterações são visuais: não mudam alcance, restrições de aeronaves, distâncias econômicas, comprimentos operacionais ou slots.
 
+## Linhas da malha e percurso do avião
+
+A visão geral liga os pontos dos aeroportos por arcos geográficos. Antes desenhava SID/APP em todas as rotas simultaneamente, escolhendo cabeceiras pelo horário atual em vez do horário do voo. Isso criava leques em fixes afastados (inclusive no mar), que pareciam aeroportos deslocados, e linhas diferentes do percurso do avião.
+
+Ao selecionar um avião, a linha da respectiva rota dá lugar ao seu percurso efetivo: saída pela cabeceira, procedimentos intermediários e aproximação até a pista. Avião e rastro compartilham a mesma geometria e os horários de partida e chegada. O eixo da pista aparece no zoom próximo (128× ou mais), e os marcadores diminuem continuamente, sem o salto de tamanho que existia em 256×. A grade mundial deixa de ser calculada no zoom próximo.
+
 Importador: `npx tsx scripts/import-map-coordinates.ts airports.csv official-runways.json`. O segundo arquivo mapeia IATA para registros `{id,lat,lon,length}`, com coordenadas compactas DMS e comprimento em metros, transcritos de AD 2.12. Os resultados são versionados; o jogo não consulta as fontes cadastrais durante a execução.
 
 ## Verificação
@@ -27,3 +33,4 @@ Importador: `npx tsx scripts/import-map-coordinates.ts airports.csv official-run
 - `LIVE_MAP=1 npm run map:tiles:ui`: inspeção com imagens reais em vez das respostas locais do CI.
 - `airport-paths-check.ts`: coordenadas oficiais, cabeceiras, prolongamento dos eixos e inversões visuais.
 - `map:geometry`: posição e orientação das aeronaves sobre a mesma curva desenhada.
+- `node scripts/map-routes-ui.mjs`: malha com voos, procedimentos carregados, extremos das linhas a menos de 0,15 pixel dos aeroportos em três níveis de zoom, posições inicial/final do avião e rastro nas cabeceiras, celular e desktop.
