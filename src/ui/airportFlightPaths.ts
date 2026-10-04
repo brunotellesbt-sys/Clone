@@ -44,6 +44,15 @@ export function airportMapPoint(a:Airport):Point {
   const point:Point=r?geoInterpolate([r[3],r[2]],[r[5],r[4]])(.5) as Point:coordinates[a.iata]??[a.lon,a.lat]
   mapPoints.set(a.iata,point);return point
 }
+/** A malha liga aeroportos. Procedimentos de voo pertencem ao avião selecionado,
+ * não a todas as rotas simultaneamente (o que criava leques em fixes no mar). */
+export function airportNetworkPoints(a:Airport,b:Airport):Point[] {
+  return [airportMapPoint(a),airportMapPoint(b)]
+}
+export function airportRunwayPoints(a:Airport):Point[] {
+  const r=mainRunway(airportData(a.iata))
+  return r?[[r[3],r[2]],[r[5],r[4]]]:[]
+}
 function terminal(data:AirportProcedures|undefined,other:Point,departure:boolean,reverse=false):Point[] {
   if(!data?.runways.length)return []
   const runway=mainRunway(data)!,id=runway[reverse?1:0]

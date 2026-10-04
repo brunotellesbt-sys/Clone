@@ -82,14 +82,13 @@ export function airportSlots(s:GameState,id:string) {
 }
 /** Reserva inicial: malha existente + 10%, entre 6 e 16 movimentos por dia. */
 export const hubSlotMargin=(own:number)=>own===0?24:Math.max(6,Math.min(16,Math.ceil(own*.1)))
-/** Bases operacionais sem contrato de hub: 12 movimentos no pico, três destinos. */
-export function largeBases(s:GameState) {
- const routes=new Map<string,Set<string>>()
- for(const p of s.airline.escala??[])for(const [id,dest] of [[p.from,p.to],[p.to,p.from]]){
-   if(!routes.has(id))routes.set(id,new Set());routes.get(id)!.add(dest)
- }
- return [...routes].filter(([id,dest])=>!s.airline.hubs.includes(id)&&dest.size>=3&&Math.max(0,...(airportUsage(s).get(id)?.days??[]))>=12).map(([id])=>id)
+/** Volume da própria malha, incluindo pontes aéreas para um único destino. */
+export function largeOperations(s:GameState) {
+ return [...airportUsage(s)].map(([id,u])=>({id,movements:Math.max(0,...u.days)}))
+   .filter(a=>a.movements>=12).sort((a,b)=>b.movements-a.movements||a.id.localeCompare(b.id))
 }
+/** Hubs já têm acompanhamento próprio; não recebem a progressão de base também. */
+export const largeBases=(s:GameState)=>largeOperations(s).filter(a=>!s.airline.hubs.includes(a.id)).map(a=>a.id)
 export function populationAt(s:GameState,id:string) {
   const a=AIRPORT_BY_IATA[id]
   return a.pop*1e6*Math.pow(derivaDoPais(a.cc,s.day),.55)*cityDevelopment(s,id).population

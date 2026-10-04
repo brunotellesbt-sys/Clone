@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs'
 import {newGame,addHub,closeHub,HUB_COST} from '../src/game/engine'
 import {hubCompanies,hubCompanyLimit} from '../src/game/hubAccess'
 import {rebalanceCompetitorHubs} from '../src/game/ai'
-import {ensureAirports,airportSlots,largeBases,growthProgress,invalidateAirportUsage,recordAirportDay} from '../src/game/airportInfrastructure'
+import {ensureAirports,airportSlots,largeBases,largeOperations,growthProgress,invalidateAirportUsage,recordAirportDay} from '../src/game/airportInfrastructure'
 import {importSaveFile,exportSaveFile} from '../src/game/save'
 import {AIRPORT_BY_IATA as AP} from '../src/game/data/airports'
 import type {GameState} from '../src/game/types'
@@ -38,6 +38,16 @@ const base=growthProgress(s,'CGH');s.airline.hubs.push('CGH');const hub=growthPr
 assert.equal(base.daysNeeded,Math.ceil(hub.daysNeeded*1.2));assert.equal(base.paxNeeded,Math.ceil(hub.paxNeeded*1.2))
 const reserved=s.airportDevelopment!.CGH.reserved;s.day++;recordAirportDay(s,{},false)
 assert(s.airportDevelopment!.CGH.reserved>=reserved,'passar o dia conserva concessão pessoal')
+// Uma ponte aérea basta: seis chegadas e seis saídas, mesmo com só um destino.
+s.airline.escala=Array.from({length:12},(_,i)=>({id:`shuttle${i}`,aircraftId:'fixture',from:i%2?'CGH':'SDU',to:i%2?'SDU':'CGH',dow:0,saida:480+i*20}))
+invalidateAirportUsage(s)
+assert(largeBases(s).includes('CGH'),'ponte aérea para um único destino é base grande')
+assert.equal(largeOperations(s).find(a=>a.id==='CGH')?.movements,12)
+s.airline.hubs.push('CGH')
+assert(largeOperations(s).some(a=>a.id==='CGH'),'hub movimentado aparece no painel também')
+assert(!largeBases(s).includes('CGH'),'hub não recebe progressão de base em duplicidade')
+s.airline.hubs.pop();s.airline.escala.pop();invalidateAirportUsage(s)
+assert(!largeBases(s).includes('CGH'),'11 movimentos não atingem o mínimo')
 // Teste adicional opcional: migração somente em memória do save do usuário.
 if(process.argv[2]){
  const raw=readFileSync(process.argv[2],'utf8'),loaded=importSaveFile(raw) as GameState

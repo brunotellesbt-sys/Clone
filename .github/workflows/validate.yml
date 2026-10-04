@@ -55,6 +55,7 @@ jobs:
           done
           npm run calendar:ui
           npm run map:tiles:ui
+          node scripts/map-routes-ui.mjs
           npm run save:file:ui
           npm run hubs:ui
           node scripts/hub-bases-ui.mjs
