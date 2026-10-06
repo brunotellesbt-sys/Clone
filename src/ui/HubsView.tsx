@@ -61,6 +61,7 @@ export function HubsView({bases=false}:{bases?:boolean}) {
       <Card title="Próxima liberação de slots">
         <p>Próximo lote: <b>+{progress.increment} slots/dia</b>. Limite atual de população e infraestrutura: <b>{num(progress.populationLimit)}</b>.</p>
         <p>Faltam <b>{remainingDays} dias operando</b> e <b>{num(remainingTraffic)} pontos de tráfego</b>. Cada passageiro transportado soma 1; cada conexão atendida soma mais 3.</p>
+        <p className="dim">Tempo-base por lote: 90 dias de operação em hub ou 108 dias em base grande. Tráfego, demanda e limite de infraestrutura também precisam atingir os requisitos.</p>
         <Progress label="Dias com operação" value={d?.operatingDays??0} total={progress.daysNeeded}/>
         <Progress label="Pontos de tráfego" value={(d?.passengers??0)+3*(d?.connections??0)} total={progress.paxNeeded}/>
         <Progress label="Demanda diária das rotas" value={d?.lastDemand??0} total={progress.demandNeeded}/>
@@ -90,8 +91,8 @@ export function HubsView({bases=false}:{bases?:boolean}) {
       {closing&&<div><p>Encerrar {id} e receber {money(s.hubInvestments?.[id]??0)}?</p><button className="btn primary" onClick={()=>{const err=act(state=>closeHub(state,id));if(err)toast(err,'error');setClosing(false)}}>Confirmar fechamento</button> <button className="btn" onClick={()=>setClosing(false)}>Cancelar</button></div>}
     </Card>}
     {!bases&&<Card title="Obras e negociação">
-      <div className="hub-metrics"><div><small>Interesse da administradora</small><b>{pct(d?.operator??0)}</b></div><div><small>Interesse do governo</small><b>{pct(d?.government??0)}</b></div></div>
-      <p className="dim">A administradora prioriza ocupação e conexões. O governo exige crescimento populacional expressivo e valoriza ligações diretas longas. 100% significa interesse aprovado. Ambos aprovados iniciam uma obra pública automaticamente; um aprovado permite negociar seu aporte. Esse processo demora anos e pode recuar se a viabilidade cair.</p>
+      <div className="hub-metrics"><div><small>Interesse da administradora</small><b>{pct(d?.operator??0,2)}</b></div><div><small>Interesse do governo</small><b>{pct(d?.government??0,2)}</b></div></div>
+      <p className="dim">O interesse é revisto semanalmente desde o início da operação, considerando a semana inteira. A administradora prioriza ocupação, movimento e conexões. O governo prioriza crescimento populacional e ligações diretas longas. Uma boa operação começa com avanço pequeno; o ritmo aumenta quando esses indicadores melhoram, e pode recuar se a operação desaparecer. 100% significa interesse aprovado. Ambos aprovados iniciam uma obra pública automaticamente; um aprovado permite negociar seu aporte.</p>
       {d?.work?<p className="alerta">{WORK_LABEL[d.work.kind]} em andamento: faltam <b>{Math.max(0,d.work.end-s.day)} dias</b>. Slots reduzidos de {slots.normal} para {slots.capacity}. {d.work.automatic?'Iniciativa conjunta pública, sem aporte seu.':`Seu aporte: ${money(d.work.contribution)}.`}</p>:<div className="hub-projects">{(['slots','runway','category'] as WorkKind[]).map(kind=>{const offer=workOffer(s,id,kind);return <section key={kind}>
         <h4>{WORK_LABEL[kind]}</h4><p>{kind==='slots'?`+${Math.ceil((d?.baseCapacity??slots.normal)*(['SDU','CGH','PLU'].includes(id)?.15:.35))} slots/dia e até um nível de infraestrutura`:kind==='runway'?`Até +610 m de pista, limite físico de ${num(physicalRunwayLimit(id)*.3048)} m`:a.escopo==='dom'?'Doméstico → regional':a.escopo==='reg'?'Regional → internacional':'Categoria máxima'}</p>
         <p>Prazo: {kind==='slots'?'1 ano':kind==='runway'?'2 anos':'2 anos e meio'}. Custo total: {money(offer.total)}. Seu aporte: <b>{money(offer.contribution)}</b>.</p>

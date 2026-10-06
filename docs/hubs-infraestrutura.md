@@ -8,7 +8,7 @@ Hubs de nível 5 aceitam até quatro companhias; nível 4, até três; níveis 1
 
 O menu **Bases grandes** lista aeroportos sem contrato de hub com pelo menos 30 movimentos da própria companhia no dia de pico, em ordem de movimento, excluindo todos os hubs, que aparecem somente na aba Hubs. Não exige quantidade mínima de destinos: quinze idas e voltas no mesmo dia para um único destino bastam. Cada chegada e saída é contada no seu dia local, como na ocupação de slots. Os botões mostram o aeroporto e a contagem diretamente, além do seletor.
 
-Bases sem contrato de hub recebem reserva dos lotes de crescimento e ociosidade com critérios iguais aos hubs, mas exigem 20% mais dias e pontos de tráfego: primeiro lote em 216 dias operados em vez de 180, e redistribuição após 438 dias observados em vez de 365. Hubs mantêm seu acompanhamento separado, sem bônus duplicado. As barras mostram dias, pontos, demanda e observação de ociosidade. As três primeiras devem estar completas na mesma revisão semanal, com limite populacional disponível e sem obra.
+Bases sem contrato de hub recebem reserva dos lotes de crescimento e ociosidade com critérios iguais aos hubs, mas exigem 20% mais dias e pontos de tráfego: primeiro lote em 108 dias operados em vez de 90, e redistribuição após 438 dias observados em vez de 365. Hubs mantêm seu acompanhamento separado, sem bônus duplicado. As barras mostram dias, pontos, demanda e observação de ociosidade. As três primeiras devem estar completas na mesma revisão semanal, com limite populacional disponível e sem obra.
 
 Uma concessão única para saves existentes que operam CGH acrescenta 41 movimentos à capacidade local e protege esses 41 para a companhia do jogador. Não exige hub, não é concedida à IA e não se repete ao reimportar/reabrir. Partidas novas não recebem esse benefício de migração. O indicador persistido é `cghExtraSlotsGranted`.
 
@@ -42,7 +42,7 @@ O painel registra segundas-feiras e guarda até 104 semanas, com população, ca
 
 A população efetiva mantém a tendência/ciclo do país e o desenvolvimento dos hubs. Eventos, férias e variações semanais de demanda continuam ativos. Um lote natural libera 2,5% da capacidade-base (mínimo 2 movimentos), exigindo simultaneamente:
 
-- 180 dias adicionais de operação por lote;
+- 90 dias adicionais de operação por lote em hubs (108 em bases grandes), metade do prazo anterior;
 - tráfego acumulado de 100 vezes a capacidade-base por lote (passageiro = 1 ponto; conexão acrescenta 3);
 - procura nas rotas efetivamente programadas de pelo menos 20 vezes a capacidade-base por dia;
 - espaço no teto definido por população e nível de infraestrutura.
@@ -51,9 +51,11 @@ A tela informa o que falta em cada critério; não promete uma data baseada numa
 
 ## Interesse e financiamento
 
-A administradora precisa de ocupação acima de 72% e tráfego relevante. Conexões aceleram sua maturação. O governo exige população efetiva pelo menos 30% acima da base e ocupação acima de 50%; passageiros locais em rotas acima de 1.500 milhas náuticas aceleram seu interesse. Transferências não dão esse bônus ao governo.
+A administradora avalia ocupação, volume de passageiros/oferta das rivais e conexões. O governo avalia ocupação, crescimento populacional e passageiros locais em rotas acima de 1.500 milhas náuticas. Transferências não dão esse bônus ao governo. Os antigos limites rígidos de 72%/50% de ocupação e 30% de crescimento agora são referências graduais: uma operação menor já pode gerar avanço pequeno.
 
-Há um ano inicial de observação após cada expansão. O interesse amadurece em anos: aproximadamente 10–20 anos elegíveis para a administradora e 7,5–15 para o governo. Perda de viabilidade reduz os índices. Não existe aprovação garantida em determinada data. Ambos com 100% iniciam automaticamente uma obra sem cobrar a companhia. Um aprovado permite aporte de 35% (administradora) ou 45% (governo); o restante vem do parceiro. É possível revisar e cancelar antes de pagar.
+O interesse é revisto semanalmente desde a primeira operação, sem bloqueio de 365 dias. A média de passageiros/conexões/diretos considera os sete dias, inclusive quando não há voo na segunda-feira. Os componentes iniciais chegam a 3,5 pontos percentuais por ano; o governo geralmente avança menos, pois o crescimento populacional começa pequeno. Sinais de pressão elevada, mais passageiros e crescimento maior acrescentam progresso. Os mesmos indicadores mantêm a mesma taxa nos anos seguintes: não há aceleração automática por idade. Ausência de operação pode reduzir 1 ponto percentual por ano. A tela usa duas casas decimais.
+
+Não existe aprovação garantida em determinada data, nem crédito retroativo de interesse. Obras em andamento não acumulam novo interesse; ao concluí-las, ele recomeça sem um ano de bloqueio. Ambos com 100% iniciam automaticamente uma obra sem cobrar a companhia. Um aprovado permite aporte de 35% (administradora) ou 45% (governo); o restante vem do parceiro. É possível revisar e cancelar antes de pagar. A observação de slots ociosos continua em 365 dias para hubs e 438 para bases grandes.
 
 ## Obras
 

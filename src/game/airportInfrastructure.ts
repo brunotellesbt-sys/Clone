@@ -143,7 +143,7 @@ export function growthProgress(s:GameState,id:string) {
   const populationLimit=Math.floor(base*(1+.25*level)*Math.max(1,Math.pow(pop,.7)))
   const increment=Math.max(2,Math.ceil(base*.025)), earned=d?.earned??0
   const delay=s.airline.hubs.includes(id)?1:1.2
-  return {populationLimit,increment,daysNeeded:Math.ceil(180*(earned+1)*delay),paxNeeded:Math.ceil(base*100*(earned+1)*delay),demandNeeded:base*20,
+  return {populationLimit,increment,daysNeeded:Math.ceil(90*(earned+1)*delay),paxNeeded:Math.ceil(base*100*(earned+1)*delay),demandNeeded:base*20,
     canGrow:capacity+increment<=populationLimit}
 }
 export function workOffer(s:GameState,id:string,kind:WorkKind) {
@@ -227,17 +227,32 @@ export function rivalFrequency(s:GameState,r:{from:string;to:string;freq:number}
   return result.get(r)??0
 }
 
-function airportDailyTraffic(s:GameState) {
+/** Taxas anuais graduais. O tempo sozinho não aumenta a velocidade de aprovação. */
+export function infrastructureInterestRates(load:number,popGrowth:number,passengers:number,connections:number,longDirect:number,rivals:number) {
+  const unit=(n:number)=>Math.max(0,Math.min(1,n))
+  // A oferta das rivais também é relevante, sem inventar passageiros transportados.
+  const activity=unit(passengers/400+rivals/100)
+  if(activity===0)return {operator:-.01,government:-.01}
+  const connectionSignal=unit(connections/Math.max(1,passengers)*3)
+  const directSignal=unit(longDirect/Math.max(1,passengers))
+  const operator=.035*unit(load/.72)*activity*(.65+.35*connectionSignal)+
+    .05*unit((load-.72)/.28)*unit((passengers-400)/1600)*unit((popGrowth-.15)/.5)
+  const government=.035*unit(load/.5)*activity*(.2+.6*unit(popGrowth/.3)+.2*directSignal)+
+    .05*unit((popGrowth-.3)/.7)*unit((load-.5)/.5)
+  return {operator,government}
+}
+function airportDailyTraffic(s:GameState,days=1) {
   const map=new Map<string,{passengers:number;connections:number;longDirect:number;flights:number}>()
   const get=(id:string)=>{let v=map.get(id);if(!v){v={passengers:0,connections:0,longDirect:0,flights:0};map.set(id,v)}return v}
-  for(const r of s.airline.routes){const h=r.history.at(-1);if(h?.day===s.day)for(const id of [r.from,r.to]){const v=get(id);v.flights+=h.flights*2;if(!r.cargo)v.passengers+=sum(h.pax);if(r.distance>1500)v.longDirect+=sum(h.localPax??h.pax)}}
-  for(const j of s.connectionJourneys??[])if(!j.cancelled&&j.second.day===s.day)get(j.via).connections+=sum(j.pax)
+  for(const r of s.airline.routes)for(const h of r.history.slice(-days))if(h.day>s.day-days&&h.day<=s.day)for(const id of [r.from,r.to]){const v=get(id);v.flights+=h.flights*2/days;if(!r.cargo)v.passengers+=sum(h.pax)/days;if(r.distance>1500)v.longDirect+=sum(h.localPax??h.pax)/days}
+  for(const j of s.connectionJourneys??[])if(!j.cancelled&&j.second.day>s.day-days&&j.second.day<=s.day)get(j.via).connections+=sum(j.pax)/days
   return map
 }
 export function recordAirportDay(s:GameState,demands:Record<string,Record<string,number>>,weekly:boolean) {
   ensureAirports(s)
   const bases=new Set([...s.airline.hubs,...largeBases(s)])
   const trafficByAirport=airportDailyTraffic(s)
+  const weeklyTraffic=weekly?airportDailyTraffic(s,7):undefined
   for(const [id,d] of Object.entries(s.airportDevelopment!)) {
     if(!airportUsage(s).has(id)&&!s.airline.hubs.includes(id)&&!d.work)continue
     if(d.lastDay>=s.day)continue
@@ -258,14 +273,13 @@ export function recordAirportDay(s:GameState,demands:Record<string,Record<string
       d.passengers+d.connections*3>=progress.paxNeeded&&(d.lastDemand??0)>=progress.demandNeeded) {d.capacity+=progress.increment;if(bases.has(id))d.reserved=Math.max(d.reserved,use.ownLimit)+progress.increment;d.earned++}
     const popGrowth=populationAt(s,id)/(a.pop*1e6)-1
     const load=(use.own+use.rivals)/Math.max(1,use.normal)
-    const connectionRatio=traffic.connections/Math.max(1,traffic.passengers)
-    // Interesses amadurecem lentamente, com pesos diferentes e limite de população.
-    const operatorReady=load>.72&&(traffic.passengers>200||use.rivals>50)
-    const governmentReady=popGrowth>.3&&load>.5
-    if(s.day-d.lastExpansion>365) {
-      d.operator=Math.min(1,d.operator+(operatorReady?(1+Math.min(1,connectionRatio*3))/1040:-.002))
-      d.government=Math.min(1,d.government+(governmentReady?(1+Math.min(1,traffic.longDirect/Math.max(1,traffic.passengers)))/780:-.002))
-      d.operator=Math.max(0,d.operator);d.government=Math.max(0,d.government)
+    const observed=weeklyTraffic?.get(id)??{passengers:0,connections:0,longDirect:0}
+    const interest=infrastructureInterestRates(load,popGrowth,observed.passengers,observed.connections,observed.longDirect,use.rivals)
+    // Mede a semana completa, mesmo sem voo na segunda. Não existe ano de
+    // bloqueio; progresso adicional depende de indicadores melhores.
+    if(!d.work&&!(d.operator>=1&&d.government>=1)) {
+      d.operator=Math.max(0,Math.min(1,d.operator+interest.operator*7/365))
+      d.government=Math.max(0,Math.min(1,d.government+interest.government*7/365))
     }
     if(!d.work&&d.operator>=1&&d.government>=1) {
       const kind:WorkKind=!restricted.has(id)&&d.category!=='int'&&popGrowth>1?'category':!restricted.has(id)&&d.runway<10000&&popGrowth>.75?'runway':'slots'

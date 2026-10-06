@@ -10,12 +10,14 @@ try {
     const {newGame,openRoute}=await import('/src/game/engine.ts')
     const {saveGame}=await import('/src/game/save.ts')
     const s=newGame({name:'Infraestrutura',code:'IH',hub:'PVH',seed:4,densidade:'enxuta'})
-    s.speed=0;s.airline.cash=10e9;openRoute(s,'PVH','MAO');s.airportDevelopment.PVH.operator=1
+    s.speed=0;s.airline.cash=10e9;openRoute(s,'PVH','MAO');s.airportDevelopment.PVH.operator=1;s.airportDevelopment.PVH.government=.0002
     if(!saveGame(s,1))throw new Error('Falha ao gravar fixture')
   })
   await page.reload({waitUntil:'networkidle'})
   await page.getByRole('button',{name:'Continuar',exact:true}).first().click()
   await page.locator('.nav button').filter({hasText:'Hubs'}).click()
+  await page.getByText('0.02%',{exact:true}).waitFor()
+  assert(await page.getByText(/90 dias de operação em hub ou 108 dias em base grande/).isVisible())
   for(const width of [360,390,430,1280]){
     await page.setViewportSize({width,height:900})
     assert(await page.getByText('Acompanhamento de hubs',{exact:true}).isVisible())
