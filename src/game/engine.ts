@@ -1,4 +1,4 @@
-import { admittedFlights, airportSlots, airportUsage, effectiveAirport, ensureAirports, finishAirportWorks, invalidateAirportUsage, recordAirportDay, rivalFrequency, largeBases } from './airportInfrastructure'
+import { admittedFlights, airportSlots, airportUsage, effectiveAirport, ensureAirports, finishAirportWorks, invalidateAirportUsage, recordAirportDay, rivalFrequency, largeBases, routeEntryAccess, reserveRouteEntry } from './airportInfrastructure'
 import {hubHasRoom,hubCompanyLimit} from './hubAccess'
 import type { Perna, SeatConfig } from './types'
 import { playerWeeklyOffer } from './playerOffer'
@@ -313,9 +313,14 @@ export function openRoute(s: GameState, from: string, to: string, cargo = false)
     return 'Você já opera esse par.'
   const barrado = vooPermitido(effectiveAirport(s, from), effectiveAirport(s, to))
   if (barrado) return barrado
-  // Abrir o mercado não reserva slots: cada voo marcado consome movimentos.
+  ensureAirports(s)
+  // Valida as duas pontas antes de cobrar. Uma estação nova pode obter o
+  // direito inicial de dois movimentos; não aumenta a capacidade física.
+  for(const id of [from,to])if(routeEntryAccess(s,id).blocked)
+    return `${id}: não há 2 slots/dia disponíveis para iniciar uma ida e volta. Escolha outro aeroporto ou aguarde liberação de capacidade.`
   const cost = routeSlotCost(from, to)
   if (s.airline.cash < cost) return `Abrir a rota custa ${money(cost)} em taxas e estrutura comercial.`
+  for(const id of [from,to])reserveRouteEntry(s,id)
   s.airline.cash -= cost
   const dist = distanceBetween(from, to)
   s.airline.routes.push({

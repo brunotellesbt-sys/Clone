@@ -1,4 +1,4 @@
-import { effectiveAirport } from '../game/airportInfrastructure'
+import { effectiveAirport,routeEntryAccess } from '../game/airportInfrastructure'
 import { useEffect, useMemo, useState } from 'react'
 import { AIRCRAFT_BY_ID, acLabel, ehCargueiro, type AircraftType } from '../game/data/aircraft'
 import {
@@ -12,7 +12,7 @@ import { compararPorOrdenacao, ORDENACOES_ROTAS, type OrdenacaoRotas } from '../
 import { aeroportoServe, pistaServe } from '../game/spec'
 import {
   closeRoute, dayOfYear, estimateRoute, km, money, num, openRoute, pct,
-  routeEconomics, routeSlotCost, setFare, slotsFree,
+  routeEconomics, routeSlotCost, setFare,
 } from '../game/engine'
 import { CABIN_LABEL, CABINS, CABIN_SHORT, type Route } from '../game/types'
 import { useGame } from '../store/useGame'
@@ -120,6 +120,8 @@ export function RoutesView() {
 
 function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }) {
   const { state, act } = useGame()
+  const [editingPrices,setEditingPrices]=useState(false)
+  useEffect(()=>setEditingPrices(false),[route.id])
   const desequilibrada = saldoDiferenteDaRota(state, route)
   const e = routeEconomics(state, route)
   const hist = route.history.map((h) => h.profit)
@@ -194,6 +196,8 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
         */}
 
       <Card title="Tarifas">
+        <button className="btn sm" aria-expanded={editingPrices} onClick={()=>setEditingPrices(v=>!v)}>{editingPrices?'Fechar edição de preços':'Editar preços'}</button>
+        {editingPrices&&<div style={{marginTop:12}}>
         {CABINS.filter((c) =>
           e.cargo ? c === 'y' : (c !== 'f' || e.demand.pax.f > 0 || e.atendidoDiaCabine.f > 0 || e.restanteDiaCabine.f > 0))
           .map((c) => {
@@ -237,6 +241,7 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
             o resto da companhia — caixa, custo, frota — segue em dólar.</>
           )}
         </p>
+        </div>}
       </Card>
 
       <button className="btn danger" onClick={() => { act((s) => closeRoute(s, route.id)); onClosed() }}>
@@ -463,7 +468,7 @@ function OpenRouteModal({ origem, onOrigem, onClose, onOpened }: {
           const teto = Math.max(
             1,
             Math.min(
-              Math.floor(Math.min(slotsFree(state, hub), slotsFree(state, chosen.a.iata)) / 2),
+              Math.floor(Math.min(routeEntryAccess(state, hub).available, routeEntryAccess(state, chosen.a.iata).available) / 2),
               cheio * 3,
             ),
           )
@@ -574,9 +579,12 @@ function OpenRouteModal({ origem, onOrigem, onClose, onOpened }: {
                   <span className="muted">Custo de abertura</span><b>{money(routeSlotCost(hub, chosen.a.iata))}</b>
                 </div>
                 <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <span className="muted">Slots livres</span>
-                  <b>{slotsFree(state, hub)} / {slotsFree(state, chosen.a.iata)}</b>
+                  <span className="muted">{hub}: slots disponíveis ao abrir</span>
+                  <b>{routeEntryAccess(state,hub).available}</b>
                 </div>
+                <div className="row" style={{ justifyContent: 'space-between' }}><span className="muted">{chosen.a.iata}: slots disponíveis ao abrir</span><b>{routeEntryAccess(state,chosen.a.iata).available}</b></div>
+                <p className="muted">Uma ida e volta diária usa 2 slots em cada ponta. Estação nova tem reserva inicial de 2 movimentos dentro da capacidade existente; ela é compartilhada por todas as rotas. Frequências adicionais dependem da disponibilidade.</p>
+                {[hub,chosen.a.iata].some(id=>routeEntryAccess(state,id).blocked)&&<p className="bad">Sem capacidade mínima nas duas pontas. A abertura não será cobrada.</p>}
                 <div className="row" style={{ justifyContent: 'space-between' }}>
                   <span className="muted">Escopo</span>
                   <b>{ESCOPO_LABEL[effectiveAirport(state, hub).escopo]} → {ESCOPO_LABEL[chosen.a.escopo]}</b>
@@ -607,6 +615,7 @@ function OpenRouteModal({ origem, onOrigem, onClose, onOpened }: {
               <button
                 className="btn primary"
                 style={{ width: '100%', marginTop: 12 }}
+                disabled={[hub,chosen.a.iata].some(id=>routeEntryAccess(state,id).blocked)}
                 onClick={() => {
                   let novoId: string | null = null
                   const err = act((s) => {

@@ -11,7 +11,7 @@ export type WorkKind = 'slots' | 'runway' | 'category'
 export interface HubWeek { day: number; population: number; capacity: number; own: number; rivals: number; passengers: number; connections: number; demands: Record<string, number> }
 export interface AirportWorks { kind: WorkKind; start: number; end: number; contribution: number; automatic: boolean }
 export interface AirportDevelopment {
-  slotPolicy?: number;
+  slotPolicy?: number; entryAccess?: boolean;
   hubSince?: number; baseSince?: number; personalSlots?: number; lastDemand?: number; since: number; lastDay: number; baseCapacity: number; capacity: number; level: number;
   /** Referência de construção legada em pés; comprimento físico via effectiveAirport. */
   runway: number; category: Airport['escopo']; reserved: number; idle: number[];
@@ -69,7 +69,7 @@ export function effectiveAirport(s:GameState|undefined,id:string):Airport {
   const extension=d.runway-infrastructureRunwayBase(id), expanded=extension>0
   if(!extension&&d.category===a.escopo&&d.capacity===a.slots&&d.level===a.tier)return a
   return {...a,runway:a.runway+extension,pistaOperacional:expanded?(a.pistaOperacional??a.runway)+extension:a.pistaOperacional,
-    tetoAssentos:expanded&&!restricted.has(id)?undefined:a.tetoAssentos,escopo:d.category,slots:d.capacity,tier:d.level as Airport['tier']}
+    tetoAssentos:expanded&&!restricted.has(id)?undefined:a.tetoAssentos,escopo:a.escopo==='int'?'int':d.category,slots:d.capacity,tier:d.level as Airport['tier']}
 }
 export function airportSlots(s:GameState,id:string) {
   const d=s.airportDevelopment?.[id],u=airportUsage(s).get(id)
@@ -86,6 +86,21 @@ export function airportSlots(s:GameState,id:string) {
 }
 /** Reserva inicial: malha existente + 10%, entre 6 e 16 movimentos por dia. */
 export const hubSlotMargin=(own:number)=>own===0?24:Math.max(6,Math.min(16,Math.ceil(own*.1)))
+/** Direito inicial compartilhado pela estação: não cresce a cada rota aberta. */
+export function routeEntryAccess(s:GameState,id:string) {
+ const slots=airportSlots(s,id),d=s.airportDevelopment?.[id]
+ const eligible=!s.airline.hubs.includes(id)&&!d?.entryAccess&&!d?.work&&slots.own===0
+ const grant=eligible?Math.max(0,Math.min(2,slots.capacity)-slots.reserved):0
+ const available=Math.max(slots.free,eligible?Math.min(2,slots.capacity):0)
+ return {grant,available,blocked:available<2}
+}
+export function reserveRouteEntry(s:GameState,id:string) {
+ const d=s.airportDevelopment![id],access=routeEntryAccess(s,id)
+ if(access.blocked)return
+ if(access.grant)d.reserved+=access.grant
+ d.entryAccess=true
+ invalidateAirportUsage(s)
+}
 /** Bases sem hub: ao menos 30 movimentos próprios no pico, mesmo com um destino. */
 export function largeOperations(s:GameState) {
  return [...airportUsage(s)].map(([id,u])=>({id,movements:Math.max(0,...u.days)}))
@@ -106,6 +121,9 @@ export function ensureAirports(s:GameState) {
     s.airportDevelopment[id]={since:s.day,lastDay:s.day,baseCapacity:capacity,capacity,level:a.tier,runway:infrastructureRunwayBase(id),category:a.escopo,
       slotPolicy:2,reserved:s.airline.hubs.includes(id)?Math.min(capacity,own+hubSlotMargin(own)):0,
       idle:[],operatingDays:0,passengers:0,connections:0,earned:0,government:0,operator:0,history:[],completed:[],lastExpansion:s.day}
+  }
+  for(const id of ids)if(AIRPORT_BY_IATA[id].escopo==='int'&&s.airportDevelopment[id].category!=='int') {
+    s.airportDevelopment[id].category='int'
   }
   for(const id of s.airline.hubs) {
     const d=s.airportDevelopment[id]
@@ -133,6 +151,12 @@ export function ensureAirports(s:GameState) {
   for(const id of largeBases(s)) {
     const d=s.airportDevelopment[id]
     if(d.baseSince===undefined){d.baseSince=s.day;d.idle=[]}
+  }
+  // Corrige destinos de rotas já pagas que ainda não têm operação. A reserva
+  // é de dois movimentos por estação, nunca dois novos slots por rota.
+  for(const id of new Set(s.airline.routes.flatMap(r=>[r.from,r.to]))) {
+    const d=s.airportDevelopment[id]
+    if(!d.entryAccess&&!s.airline.hubs.includes(id)&&!routeEntryAccess(s,id).blocked)reserveRouteEntry(s,id)
   }
   if(migrated)invalidateAirportUsage(s)
 }

@@ -37,7 +37,7 @@ export function HubsView({bases=false}:{bases?:boolean}) {
       <p>Companhias com hub neste aeroporto: <b>{hubCompanies(s,id)} / {hubCompanyLimit(s,id)}</b>. Nível 5: até 4; nível 4: até 3; níveis 1–3: até 2. Operar voos sem hub não ocupa uma dessas vagas.</p>
       {bases&&<p className="dim">Base grande: aeroporto sem hub com pelo menos 30 pousos/decolagens seus no dia de pico, mesmo com um único destino. Hubs aparecem somente na aba Hubs. Prazo e pontos de tráfego 20% maiores para crescimento; observação de slots ociosos por 438 dias. Nenhuma taxa de abertura.</p>}
       {id==='CGH'&&s.cghExtraSlotsGranted&&!!d?.personalSlots&&<p className="good">Concessão única: +{d.personalSlots} slots/dia exclusivos para sua companhia, sem precisar abrir hub.</p>}
-      <p className="dim">Cada pouso ou decolagem usa um slot. Abrir uma rota não reserva capacidade. Os números de ocupação representam o dia de maior movimento da malha semanal.</p>
+      <p className="dim">Cada pouso ou decolagem usa um slot. Uma estação nova pode receber reserva inicial de 2 movimentos; novas rotas não multiplicam esse direito. Os números de ocupação representam o dia de maior movimento da malha semanal.</p>
       {!bases&&<p className="dim">Sua reserva inicial cobre a malha existente e mais 10% de folga, entre 6 e 16 movimentos por dia. Um hub novo começa com 24. Slots ociosos do aeroporto só se tornam seus após um ano sem utilização; crescimento e obras também ampliam sua reserva.</p>}
       <div className="hub-metrics">
         <div><small>Slots disponíveis para sua malha</small><b>{num(slots.free)}</b></div>
