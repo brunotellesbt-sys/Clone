@@ -10,6 +10,10 @@ Antes, abrir uma rota cobrava taxas comerciais sem verificar ou proteger capacid
 
 Uma estação nova sem movimentos próprios pode obter reserva inicial de dois movimentos dentro da capacidade física existente. Essa reserva é compartilhada por todas as rotas do jogador no aeroporto e identificada por `entryAccess`, não se renova ao fechar e reabrir uma rota. A IA usa o restante da capacidade. Um movimento é um pouso ou uma decolagem: dois permitem uma ida e volta diária. Frequências extras dependem de espaço adicional e a escala continua respeitando horários e dias locais.
 
+A compra escolhe primeiro a operadora com mais slots vagos; sem sobra, escolhe a maior operação. Como os saves antigos não tinham títulos individuais de slots, a cota de referência inicial é dividida entre as operadoras locais, considerando uso programado e sobra física. A transferência registra a companhia escolhida e reduz o limite de sua oferta, preservando as demais dentro da capacidade global. 25% da taxa de abertura por ponta com cessão é repassada à cedente, sem cobrança adicional ao jogador. A migração de rotas já pagas não cobra novamente.
+
+Depois da entrada, o limite próprio da estação é sua reserva; não absorve automaticamente toda vaga nova da IA. O aumento depende de crescimento, obras ou redistribuição anual (365 dias em hub e 438 dias em estação sem hub), sem compras sucessivas pela abertura de outras rotas. Operações já existentes preservam seus movimentos na migração.
+
 A abertura valida pelo menos dois slots disponíveis em cada ponta, incluindo a reserva inicial quando elegível. Se não couber, devolve o motivo antes de cobrar a taxa. Obras continuam reduzindo capacidade e podem inviabilizar temporariamente voos. Não há expansão automática de capacidade. Rotas antigas já pagas, ainda sem operação em destinos elegíveis, recebem a mesma proteção uma única vez ao carregar.
 
 A tela de abrir rota identifica a disponibilidade por código de aeroporto e explica a reserva. A abertura permanece sem programar voos automaticamente. Os direitos iniciais não alteram os prazos de crescimento ou ociosidade.

@@ -21,6 +21,8 @@ assert.equal(d.capacity,10,'não cria capacidade física')
 assert.equal(d.reserved,2,'reserva inicial da estação')
 assert.equal(airportSlots(s,'ANF').free,2)
 assert.equal(rivalFrequency(s,s.competitors[0].routes[0]),4,'IA respeita capacidade compartilhada')
+assert.equal(d.entryTransfer?.companyId,s.competitors[0].id)
+assert.equal(d.entryTransfer?.source,'operation')
 const capacity=d.capacity,reserved=d.reserved
 ensureAirports(s);ensureAirports(s)
 assert.equal(d.reserved,reserved,'não concede novamente')
@@ -49,4 +51,19 @@ failed.airportDevelopment!.ANF.work={kind:'slots',start:0,end:365,contribution:0
 failed.competitors=[{...rival,hub:'ANF',hubs:['ANF'],routes:[{key:'ANF>SCL',from:'ANF',to:'SCL',freq:5,seats:140,fare:1,quality:1}]}]
 invalidateAirportUsage(failed)
 assert(routeEntryAccess(failed,'ANF').blocked,'não promete reserva cheia durante redução por obra')
+const idle=newGame({name:'Cessão',code:'CS',hub:'GRU',seed:18,densidade:'enxuta'})
+idle.airline.cash=1e10;idle.competitors=[{...rival,id:'less',hub:'ANF',routes:[{key:'ANF>SCL',from:'ANF',to:'SCL',freq:2,seats:140,fare:1,quality:1}]},{...rival,id:'more',hub:'ANF',routes:[{key:'ANF>LIM',from:'ANF',to:'LIM',freq:6,seats:140,fare:1,quality:1}]}]
+idle.airportDevelopment!.ANF.capacity=16;idle.airportDevelopment!.ANF.reserved=0;invalidateAirportUsage(idle)
+assert.equal(openRoute(idle,'GRU','ANF'),null)
+assert.equal(idle.airportDevelopment!.ANF.entryTransfer?.companyId,'more','sem vagas compra da maior operadora')
+assert.equal(rivalFrequency(idle,idle.competitors[0].routes[0]),2,'rival não escolhida preserva operação')
+assert.equal(rivalFrequency(idle,idle.competitors[1].routes[0]),5)
+assert.equal(airportSlots(idle,'ANF').ownLimit,2,'não ganha toda sobra pública além dos dois slots comprados')
+const vacant=structuredClone(idle)
+vacant.airline.routes=[];vacant.airportDevelopment!.ANF.capacity=24;vacant.airportDevelopment!.ANF.reserved=0
+delete vacant.airportDevelopment!.ANF.entryAccess;delete vacant.airportDevelopment!.ANF.entryTransfer;invalidateAirportUsage(vacant)
+assert.equal(openRoute(vacant,'GRU','ANF'),null)
+const purchased=((state:typeof vacant)=>state.airportDevelopment!.ANF.entryTransfer)(vacant)
+assert.equal(purchased?.companyId,'less','prioriza companhia com mais sobra na cota')
+assert.equal(purchased?.source,'idle')
 console.log(`OK: categorias solicitadas e ${AIRPORTS.filter(airportAcceptsWidebody).length} aeroportos aptos a widebodies; entrada ANF, limite físico, migração, rivais e persistência.`)

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { AIRPORT_BY_IATA } from '../../game/data/airports'
 import {
-  aeronavesPara, DOW_CURTO, hhmm, lerHora, marcarVoo, pernasDe, blocoDe, fichaDe,
+  aeronavesPara, DOW_CURTO, hhmm, lerHora, marcarLoteVoos, desfazerUltimoLote, pernasDe, blocoDe, fichaDe,
 } from '../../game/escala'
 import { acLabel } from '../../game/data/aircraft'
 import { sumCabins } from '../../game/economy'
@@ -85,11 +85,8 @@ export function NovoVoo({ route }: { route: Route }) {
     const recusas: string[] = []
     let feitos = 0
     act((s) => {
-      for (const d of [...dias].sort((x, y) => x - y)) {
-        const err = marcarVoo(s, acId, from, to, d, minutos)
-        if (err) recusas.push(`${DOW_CURTO[d]}: ${err}`)
-        else feitos++
-      }
+      const result=marcarLoteVoos(s,acId,from,to,dias,minutos)
+      feitos=result.created;recusas.push(...result.errors)
       return null
     })
     if (feitos === 0) return toast(recusas[0] ?? 'Nenhum dia pôde ser marcado.', 'error')
@@ -127,6 +124,11 @@ export function NovoVoo({ route }: { route: Route }) {
           <span>Parte às</span>
           <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
         </label>
+        <button className="btn sm" style={{marginLeft:'auto'}} disabled={!state.lastCreatedFlights?.length} onClick={()=>{
+          const n=state.lastCreatedFlights?.length??0
+          const error=act(desfazerUltimoLote)
+          if(error)toast(error,'error');else toast(`Último movimento desfeito: ${n} ${n===1?'voo removido':'voos removidos'} da escala.`)
+        }}>Desfazer último movimento{state.lastCreatedFlights?.length?` (${state.lastCreatedFlights.length})`:''}</button>
       </div>
 
       {/* Os sete dias como botão, e não lista suspensa: com lista, escolher

@@ -1,5 +1,6 @@
 import { admittedFlights, airportSlots, airportUsage, effectiveAirport, ensureAirports, finishAirportWorks, invalidateAirportUsage, recordAirportDay, rivalFrequency, largeBases, routeEntryAccess, reserveRouteEntry } from './airportInfrastructure'
 import {hubHasRoom,hubCompanyLimit} from './hubAccess'
+import {inspectionBeforeFlights} from './groundInspection'
 import type { Perna, SeatConfig } from './types'
 import { playerWeeklyOffer } from './playerOffer'
 import { stepHubDevelopment, invalidateHubActivity } from './hubDevelopment'
@@ -320,7 +321,7 @@ export function openRoute(s: GameState, from: string, to: string, cargo = false)
     return `${id}: não há 2 slots/dia disponíveis para iniciar uma ida e volta. Escolha outro aeroporto ou aguarde liberação de capacidade.`
   const cost = routeSlotCost(from, to)
   if (s.airline.cash < cost) return `Abrir a rota custa ${money(cost)} em taxas e estrutura comercial.`
-  for(const id of [from,to])reserveRouteEntry(s,id)
+  for(const id of [from,to])reserveRouteEntry(s,id,cost*.25)
   s.airline.cash -= cost
   const dist = distanceBetween(from, to)
   s.airline.routes.push({
@@ -724,7 +725,8 @@ export function advanceDay(s: GameState): GameState {
   // 1) O que a companhia coloca no ar hoje.
   const perRoute: RouteDay[] = []
   const carriersByOd = new Map<string, Carrier[]>()
-  const perCargo: { route: Route; flights: number; tons: number; pernas: Aircraft[] }[] = []
+  const perCargo: { route: Route; flights: number; tons: number; pernas: Aircraft[];voos:Perna[] }[] = []
+  const inspections=inspectionBeforeFlights(s)
   const playerQuality = (0.72 + 0.55 * s.airline.reputation) * (1 + Math.min(0.12, s.airline.marketing / 2.4e6))
 
   for (const r of s.airline.routes) {
@@ -739,7 +741,7 @@ export function advanceDay(s: GameState): GameState {
     if (r.cargo) {
       let tons = 0
       for (const ac of pernas) tons += (typeOf(ac).payload ?? 0) * CARGO_SELLABLE
-      if (tons > 0) perCargo.push({ route: r, flights, tons, pernas })
+      if (tons > 0) perCargo.push({ route: r, flights, tons, pernas,voos })
       continue
     }
 
@@ -870,7 +872,7 @@ export function advanceDay(s: GameState): GameState {
       }
       ac.hours += c.blockH
       ac.cycles += 1
-      ac.condition = Math.max(0, ac.condition - (0.00028 + c.blockH * 0.00013))
+      ac.condition = Math.max(0, ac.condition - (0.00028 + c.blockH * 0.00013)*(1-(inspections.get(rd.voos[i].id)?.benefit??0)))
     }
 
     const dayRes: DayResult = {
@@ -929,7 +931,7 @@ export function advanceDay(s: GameState): GameState {
     let cost = 0
     const costBreakdown = blankCosts()
     const noturnoC = fracaoNoturna(s, r, dow)
-    for (const ac of cd.pernas) {
+    for (const [i,ac] of cd.pernas.entries()) {
       const t = typeOf(ac)
       // Sem passageiro não há comissaria nem comissário: os dois entram zerados.
       const c = flightCost(t, r.distance, r.from, r.to, s.fuelPrice, ac.age, 0, 0, 0, noturnoC)
@@ -938,7 +940,7 @@ export function advanceDay(s: GameState): GameState {
       for (const category of costCategories) costBreakdown[category] += c[category] * c.total / raw
       ac.hours += c.blockH
       ac.cycles += 1
-      ac.condition = Math.max(0, ac.condition - (0.00028 + c.blockH * 0.00013))
+      ac.condition = Math.max(0, ac.condition - (0.00028 + c.blockH * 0.00013)*(1-(inspections.get(cd.voos[i].id)?.benefit??0)))
     }
 
     const dayRes: DayResult = {
