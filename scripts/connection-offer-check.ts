@@ -28,6 +28,11 @@ for(let seed=1;seed<=100;seed++){
 
 const s=newGame({name:'Oferta',code:'OF',hub:'PVH',seed:7,densidade:'enxuta'})
 s.competitors=[];s.airline.cash=1e10;s.airline.hubs.push('MAO','RBR');s.airline.escala=[]
+// Há dois caminhos de teste chegando a cada destino: os direitos adicionais
+// fazem parte da fixture, sem ampliar o limite inicial de estações no jogo.
+ensureAirports(s)
+for(const id of ['CZS','GYN'])s.airportDevelopment![id].reserved=4
+invalidateAirportUsage(s)
 const add=(from:string,to:string,departure:number)=>{
  if(!s.airline.routes.some(r=>[r.from,r.to].includes(from)&&[r.from,r.to].includes(to)))assert.equal(openRoute(s,from,to),null)
  assert.equal(buyAircraft(s,'e195e2',false),null)

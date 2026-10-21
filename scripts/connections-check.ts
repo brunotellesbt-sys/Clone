@@ -11,6 +11,7 @@ import { connectionAllowed } from '../src/game/malha'
 import { exportSave, importSave } from '../src/game/save'
 import type { GameState } from '../src/game/types'
 import { connectionPathAllowed } from '../src/game/connectionGeometry'
+import {ensureAirports,invalidateAirportUsage} from '../src/game/airportInfrastructure'
 
 // GIG–SSA–CKS é uma conexão doméstica válida: não há GIG–CKS direto e o
 // desvio é 1,357×, dentro do limite de 1,45×. Um direto compete por preço e
@@ -25,6 +26,11 @@ const alternatives = newGame({ name: 'Caminhos', code: 'CP', hub: 'GRU', seed: 1
 alternatives.competitors = []
 alternatives.airline.cash = 1e10
 alternatives.airline.hubs.push('SDU', 'BSB')
+ensureAirports(alternatives)
+// Duas alternativas chegando a GYN: o teste de escolha de conexão precisa
+// de direitos além dos dois slots iniciais da estação.
+alternatives.airportDevelopment!.GYN.reserved=4
+invalidateAirportUsage(alternatives)
 for (const [index, [from, to]] of [['GRU', 'SDU'], ['SDU', 'GYN'], ['GRU', 'BSB'], ['BSB', 'GYN']].entries()) {
   assert.equal(openRoute(alternatives, from, to), null)
   assert.equal(buyAircraft(alternatives, 'a320neo', false), null)
