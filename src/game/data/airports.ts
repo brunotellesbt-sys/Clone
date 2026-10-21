@@ -1,3 +1,11 @@
+import {AIRCRAFT_BY_ID} from './aircraft'
+import {aeroportoServe,withEngine,type Portao} from '../spec'
+
+// Regra de categoria do jogo: aptidão a widebody autoriza longo curso.
+const widebodyVariants=Object.values(AIRCRAFT_BY_ID).filter(t=>t.family==='widebody')
+  .flatMap(t=>t.engines.map(e=>withEngine(t,e)))
+export const airportAcceptsWidebody=(ap:Portao)=>widebodyVariants.some(t=>aeroportoServe(t,ap))
+
 // Aeroportos.
 //
 // Entra aqui todo aeroporto com serviço aéreo regular, sigla IATA de três letras
@@ -3495,8 +3503,10 @@ const ESCOPO_A_MAO: Record<string, Escopo> = {
    * enxergam o terceiro é o caso clássico de exceção à mão.
    */
   CFB: 'int',
-  // Fronteira seca: internacional de verdade, mas só com o vizinho.
-  IGU: 'reg', // Foz do Iguaçu
+  IGU: 'int', // Categoria internacional solicitada para o jogo.
+  MAO:'int',FLN:'int',POA:'int',REC:'int',NAT:'int',CWB:'int',SSA:'int',
+  CNF:'int',BEL:'int',VCP:'int',PNZ:'int',MCZ:'int',SLZ:'int',THE:'int',
+  // Demais exceções de fronteira regional que não recebem widebodies.
   TBT: 'reg', // Tabatinga, na tríplice fronteira com Colômbia e Peru
   URG: 'reg', // Uruguaiana, colado na Argentina
 }
@@ -3718,7 +3728,7 @@ export const SLOTS_BY_TIER: Record<number, number> = { 1: 90, 2: 200, 3: 420, 4:
 export const AIRPORTS: Airport[] = RAW.split('\n').map((line) => {
   const [iata, city, country, cc, lat, lon, pop, gdp, tour, runway, tier, elev] = line.split('|')
   const t = Number(tier) as Airport['tier']
-  return {
+  const airport = {
     iata,
     city,
     country,
@@ -3745,6 +3755,8 @@ export const AIRPORTS: Airport[] = RAW.split('\n').map((line) => {
     tetoAssentos: TETO_ASSENTOS[iata],
     pistaOperacional: PISTA_OPERACIONAL[iata] ?? (RUNWAY_CORRECTIONS[iata] ? Number(runway) : undefined),
   } as Airport
+  if(airportAcceptsWidebody(airport))airport.escopo='int'
+  return airport
 })
 
 /**

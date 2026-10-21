@@ -11,6 +11,7 @@
  * avião só sai de onde ele está. Metade das conferências abaixo existe para isso.
  */
 import { AIRPORT_BY_IATA as AP, noToqueDeRecolher, vooPermitido } from '../src/game/data/airports'
+import {airportSlots,invalidateAirportUsage} from '../src/game/airportInfrastructure'
 import { AIRCRAFT, AIRCRAFT_BY_ID } from '../src/game/data/aircraft'
 import { blockHours } from '../src/game/economy'
 import { frotaDaConcorrente, modeloDaRota } from '../src/game/ai'
@@ -181,6 +182,13 @@ conferir(conexoes.every((c) => c.de.ponta !== c.para.ponta), 'ninguém conecta p
    * passa sem medir nada — é verde falso.
    */
   const rLis = s.airline.routes.find((r) => r.to === 'LIS')!
+  // O cenário mede imigração, não compra de slots. A escala automática já
+  // utiliza a reserva inicial de REC: prepara direitos para o voo adicional.
+  for(const id of ['GRU','REC']){
+    const d=s.airportDevelopment![id]
+    d.reserved=Math.min(d.capacity,Math.max(d.reserved,airportSlots(s,id).own)+2)
+  }
+  invalidateAirportUsage(s)
   // uma cauda de reserva: as três da malha acima estão todas no ar às 06h, e
   // sem avião livre o par nem chega a existir para ser medido
   buyAircraft(s, 'a320neo', false)

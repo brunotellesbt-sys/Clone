@@ -21,7 +21,7 @@ const ESPERADO: [string, Escopo, string][] = [
   ['CGH', 'dom', 'Congonhas perdeu a alfândega para Guarulhos em 1985'],
   ['SDU', 'dom', 'Santos Dumont não opera com aeroporto internacional'],
   ['AEP', 'reg', 'Aeroparque: cabotagem mais regional'],
-  ['IGU', 'reg', 'Foz do Iguaçu: internacional de fronteira'],
+  ['IGU', 'int', 'Foz do Iguaçu: categoria internacional no jogo'],
   // O nome da OurAirports é "Cabo Frio Airport", sem a palavra que o escopo
   // procura — e por isso ele saía doméstico. É Internacional de Cabo Frio,
   // com alfândega, linha da Aerolíneas de Buenos Aires e 747 já recebido.
@@ -49,7 +49,7 @@ const PARES: [string, string, boolean, string][] = [
   ['AEP', 'GRU', true, 'Aeroparque–São Paulo: regional dentro da América do Sul'],
   ['AEP', 'SCL', true, 'Aeroparque–Santiago: regional'],
   ['AEP', 'MIA', false, 'Aeroparque não sai da América do Sul'],
-  ['IGU', 'LIS', false, 'Foz do Iguaçu não atravessa o Atlântico'],
+  ['IGU', 'LIS', true, 'Foz do Iguaçu autoriza longo curso no jogo'],
   ['GRU', 'LHR', true, 'internacional com internacional'],
   ['GRU', 'MIA', true, 'internacional com internacional'],
 ]

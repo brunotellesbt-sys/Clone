@@ -11,7 +11,8 @@ export type WorkKind = 'slots' | 'runway' | 'category'
 export interface HubWeek { day: number; population: number; capacity: number; own: number; rivals: number; passengers: number; connections: number; demands: Record<string, number> }
 export interface AirportWorks { kind: WorkKind; start: number; end: number; contribution: number; automatic: boolean }
 export interface AirportDevelopment {
-  slotPolicy?: number;
+  slotPolicy?: number; entryAccess?: boolean;
+  entryTransfer?: {companyId:string;allowance:number;source:'idle'|'operation';price?:number};
   hubSince?: number; baseSince?: number; personalSlots?: number; lastDemand?: number; since: number; lastDay: number; baseCapacity: number; capacity: number; level: number;
   /** Referência de construção legada em pés; comprimento físico via effectiveAirport. */
   runway: number; category: Airport['escopo']; reserved: number; idle: number[];
@@ -69,7 +70,7 @@ export function effectiveAirport(s:GameState|undefined,id:string):Airport {
   const extension=d.runway-infrastructureRunwayBase(id), expanded=extension>0
   if(!extension&&d.category===a.escopo&&d.capacity===a.slots&&d.level===a.tier)return a
   return {...a,runway:a.runway+extension,pistaOperacional:expanded?(a.pistaOperacional??a.runway)+extension:a.pistaOperacional,
-    tetoAssentos:expanded&&!restricted.has(id)?undefined:a.tetoAssentos,escopo:d.category,slots:d.capacity,tier:d.level as Airport['tier']}
+    tetoAssentos:expanded&&!restricted.has(id)?undefined:a.tetoAssentos,escopo:a.escopo==='int'?'int':d.category,slots:d.capacity,tier:d.level as Airport['tier']}
 }
 export function airportSlots(s:GameState,id:string) {
   const d=s.airportDevelopment?.[id],u=airportUsage(s).get(id)
@@ -81,11 +82,38 @@ export function airportSlots(s:GameState,id:string) {
   const reserved=Math.min(capacity,Math.floor(allocation*(d?.work?.5:1)))
   const rivalLimit=Math.max(0,capacity-reserved)
   const rivalsOperating=Math.min(rivals,rivalLimit)
-  const ownLimit=isHub?reserved:Math.max(reserved,capacity-rivalsOperating)
+  const ownLimit=isHub||d?.entryAccess?reserved:Math.max(reserved,capacity-rivalsOperating)
   return {normal,capacity,own,rivals,rivalsOperating,reserved,ownLimit,free:Math.max(0,ownLimit-own),over:Math.max(0,own-ownLimit)}
 }
 /** Reserva inicial: malha existente + 10%, entre 6 e 16 movimentos por dia. */
 export const hubSlotMargin=(own:number)=>own===0?24:Math.max(6,Math.min(16,Math.ceil(own*.1)))
+/** Direito inicial compartilhado pela estação: não cresce a cada rota aberta. */
+export function routeEntryAccess(s:GameState,id:string) {
+ const slots=airportSlots(s,id),d=s.airportDevelopment?.[id]
+ const eligible=!s.airline.hubs.includes(id)&&!d?.entryAccess&&!d?.work&&slots.own===0
+ const grant=eligible?Math.max(0,Math.min(2,slots.capacity)-slots.reserved):0
+ const available=Math.max(slots.free,eligible?Math.min(2,slots.capacity):0)
+ return {grant,available,blocked:available<2}
+}
+export function reserveRouteEntry(s:GameState,id:string,price=0) {
+ const d=s.airportDevelopment![id],access=routeEntryAccess(s,id)
+ if(access.blocked)return
+ if(access.grant){
+   const companies=s.competitors.map(c=>({c,used:c.routes.filter(r=>r.from===id||r.to===id).reduce((n,r)=>n+r.freq*2,0)}))
+     .filter(x=>x.used>0||x.c.hub===id||x.c.hubs?.includes(id))
+   const capacity=airportSlots(s,id).capacity
+   const spare=Math.max(0,capacity-companies.reduce((n,x)=>n+x.used,0))
+   // O catálogo legado não tem títulos individuais: a cota de referência é
+   // dividida entre as operadoras, e a sobra física limita o que está vago.
+   const candidates=companies.map((x,i)=>({...x,idle:Math.min(spare,Math.max(0,Math.floor(capacity/companies.length)+(i<capacity%companies.length?1:0)-x.used))}))
+     .sort((a,b)=>b.idle-a.idle||b.used-a.used||a.c.id.localeCompare(b.c.id))
+   const donor=candidates[0]
+   if(donor){d.entryTransfer={companyId:donor.c.id,allowance:Math.max(0,donor.used+donor.idle-2),source:donor.idle>0?'idle':'operation',price};donor.c.cash+=price}
+   d.reserved+=access.grant
+ }
+ d.entryAccess=true
+ invalidateAirportUsage(s)
+}
 /** Bases sem hub: ao menos 30 movimentos próprios no pico, mesmo com um destino. */
 export function largeOperations(s:GameState) {
  return [...airportUsage(s)].map(([id,u])=>({id,movements:Math.max(0,...u.days)}))
@@ -106,6 +134,9 @@ export function ensureAirports(s:GameState) {
     s.airportDevelopment[id]={since:s.day,lastDay:s.day,baseCapacity:capacity,capacity,level:a.tier,runway:infrastructureRunwayBase(id),category:a.escopo,
       slotPolicy:2,reserved:s.airline.hubs.includes(id)?Math.min(capacity,own+hubSlotMargin(own)):0,
       idle:[],operatingDays:0,passengers:0,connections:0,earned:0,government:0,operator:0,history:[],completed:[],lastExpansion:s.day}
+  }
+  for(const id of ids)if(AIRPORT_BY_IATA[id].escopo==='int'&&s.airportDevelopment[id].category!=='int') {
+    s.airportDevelopment[id].category='int'
   }
   for(const id of s.airline.hubs) {
     const d=s.airportDevelopment[id]
@@ -133,6 +164,14 @@ export function ensureAirports(s:GameState) {
   for(const id of largeBases(s)) {
     const d=s.airportDevelopment[id]
     if(d.baseSince===undefined){d.baseSince=s.day;d.idle=[]}
+  }
+  // Corrige destinos de rotas já pagas que ainda não têm operação. A reserva
+  // é de dois movimentos por estação, nunca dois novos slots por rota.
+  for(const id of new Set(s.airline.routes.flatMap(r=>[r.from,r.to]))) {
+    const d=s.airportDevelopment[id]
+    const own=airportSlots(s,id).own
+    if(own>0&&!d.entryAccess&&!s.airline.hubs.includes(id)){d.reserved=Math.max(d.reserved,own);d.entryAccess=true;invalidateAirportUsage(s)}
+    if(!d.entryAccess&&!s.airline.hubs.includes(id)&&!routeEntryAccess(s,id).blocked)reserveRouteEntry(s,id)
   }
   if(migrated)invalidateAirportUsage(s)
 }
@@ -206,18 +245,27 @@ export function rivalFrequency(s:GameState,r:{from:string;to:string;freq:number}
   if(!result) {
     result=new Map<object,number>()
     const routes=s.competitors.flatMap(c=>c.routes)
+    const ceilings=new Map(routes.map(r=>[r,r.freq]))
+    for(const [id,d] of Object.entries(s.airportDevelopment??{}))if(d.entryTransfer){
+      const c=s.competitors.find(c=>c.id===d.entryTransfer!.companyId)
+      let left=d.entryTransfer.allowance
+      for(const route of c?.routes??[])if(route.from===id||route.to===id){
+        const freq=Math.min(ceilings.get(route)??0,Math.floor(left/2))
+        ceilings.set(route,freq);left-=freq*2
+      }
+    }
     const budgets=new Map<string,number>()
     for(const id of airportUsage(s).keys()) {
       const a=airportSlots(s,id)
       budgets.set(id,Math.max(0,a.capacity-Math.max(a.reserved,Math.min(a.own,a.ownLimit))))
     }
-    const constrained=[...airportUsage(s)].some(([id,u])=>u.rivals>(budgets.get(id)??0))
+    const constrained=routes.some(r=>ceilings.get(r)!<r.freq)||[...airportUsage(s)].some(([id,u])=>u.rivals>(budgets.get(id)??0))
     if(!constrained)for(const route of routes)result.set(route,route.freq)
     else {
       // Rodadas de rotações inteiras, nas duas pontas, com prioridade diária rotativa.
       const offset=s.day%Math.max(1,routes.length),ordered=[...routes.slice(offset),...routes.slice(0,offset)]
       for(let round=0;round<Math.max(0,...routes.map(x=>x.freq));round++)for(const route of ordered) {
-        if(round>=route.freq||[route.from,route.to].some(id=>(budgets.get(id)??0)<2))continue
+        if(round>=(ceilings.get(route)??0)||[route.from,route.to].some(id=>(budgets.get(id)??0)<2))continue
         result.set(route,(result.get(route)??0)+1)
         for(const id of [route.from,route.to])budgets.set(id,budgets.get(id)!-2)
       }
@@ -260,7 +308,7 @@ export function recordAirportDay(s:GameState,demands:Record<string,Record<string
     const a=AIRPORT_BY_IATA[id],use=airportSlots(s,id),traffic=trafficByAirport.get(id)??{passengers:0,connections:0,longDirect:0,flights:0}
     if(traffic.flights>0)d.operatingDays++
     d.passengers+=traffic.passengers;d.connections+=traffic.connections
-    if(bases.has(id)) {
+    if(bases.has(id)||d.entryAccess) {
       // Cada faixa livre deve permanecer disponível por 365 observações diárias.
       const days=s.airline.hubs.includes(id)?365:438
       d.idle.push(Math.max(0,use.capacity-use.own-use.rivals));if(d.idle.length>days)d.idle.shift()
@@ -270,7 +318,7 @@ export function recordAirportDay(s:GameState,demands:Record<string,Record<string
     d.lastDemand=s.airline.routes.filter(r=>r.aircraftIds.length>0&&(r.from===id||r.to===id)).reduce((n,r)=>n+(demands[id]?.[r.id]??0),0)
     const progress=growthProgress(s,id)
     if(!d.work&&progress.canGrow&&d.operatingDays>=progress.daysNeeded&&
-      d.passengers+d.connections*3>=progress.paxNeeded&&(d.lastDemand??0)>=progress.demandNeeded) {d.capacity+=progress.increment;if(bases.has(id))d.reserved=Math.max(d.reserved,use.ownLimit)+progress.increment;d.earned++}
+      d.passengers+d.connections*3>=progress.paxNeeded&&(d.lastDemand??0)>=progress.demandNeeded) {d.capacity+=progress.increment;if(bases.has(id)||d.entryAccess)d.reserved=Math.max(d.reserved,use.ownLimit)+progress.increment;d.earned++}
     const popGrowth=populationAt(s,id)/(a.pop*1e6)-1
     const load=(use.own+use.rivals)/Math.max(1,use.normal)
     const observed=weeklyTraffic?.get(id)??{passengers:0,connections:0,longDirect:0}

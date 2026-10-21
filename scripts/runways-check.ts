@@ -24,7 +24,9 @@ for(const t of variants) {
   assert.equal(aeroportoServe(t,pav),exception||aeroportoServe(t,{...pav,iata:undefined}),`PAV/${t.id}`)
   if(exception)assert.equal(motivoDoPar(t,pav,AIRPORT_BY_IATA.GRU),null,'exceção vale também ao programar a rota')
 }
-assert.equal(hash(AIRPORTS.map(a=>[a.iata,a.paxDia,a.slots,a.tier,a.escopo,a.pop,a.gdp,a.tour,a.elev,a.tetoAssentos])),before.economy,'demanda e demais índices intactos')
+// Categoria internacional foi revisada posteriormente por regra de widebody;
+// airport-entry-check cobre o escopo. Os demais índices continuam congelados.
+assert.equal(hash(AIRPORTS.map(a=>[a.iata,a.paxDia,a.slots,a.tier,a.pop,a.gdp,a.tour,a.elev,a.tetoAssentos])),before.economyWithoutScope,'demanda e demais índices intactos')
 const s=newGame({name:'Pistas',code:'PT',hub:'PVH',seed:8,densidade:'enxuta'})
 s.airline.cash=100e9
 ensureAirports(s)

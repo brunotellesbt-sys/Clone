@@ -6,6 +6,7 @@ import { connectionResult, deficitRoutes } from '../src/game/financeDiagnostics'
 import { distanceBetween } from '../src/game/geo'
 import { importSave, exportSave } from '../src/game/save'
 import { CABINS } from '../src/game/types'
+import {invalidateAirportUsage} from '../src/game/airportInfrastructure'
 
 // O fixture usa uma malha regional realista para exercitar conexões sem
 // reintroduzir desvios longos que a regra de geometria deve rejeitar.
@@ -14,9 +15,14 @@ s.airline.cash = 5e9
 for (const d of ['RBR', 'CZS', 'JPR']) {
   assert.equal(buyAircraft(s, 'e195e2', false), null)
   assert.equal(openRoute(s, 'PVH', d), null)
+  // O cenário apura duas rotações diárias e suas conexões. Prepara quatro
+  // direitos de movimento no destino, além dos dois da compra inicial.
+  s.airportDevelopment![d].reserved=4
+  invalidateAirportUsage(s)
   const r = s.airline.routes.at(-1)!
   assert.equal(assignAircraft(s, s.airline.fleet.at(-1)!.id, r.id), null)
   setAllFrequencies(s, r.id, 2)
+  assert.equal(pernasDaRota(s,r).length,28,'fixture exige duas idas e duas voltas em cada dia da semana')
   r.fare = { y: 1.9, w: 1.9, c: 1.9, f: 1.9 }
 }
 for (let day = 0; day < 7; day++) {

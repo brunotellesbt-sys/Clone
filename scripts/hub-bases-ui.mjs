@@ -7,7 +7,7 @@ try{
  page.on('pageerror',e=>errors.push(e.message))
  await page.goto(process.env.URL??'http://127.0.0.1:5173/',{waitUntil:'networkidle'})
  await page.evaluate(async()=>{
-  const {newGame,addHub,openRoute,buyAircraft,assignAircraft,setAllFrequencies}=await import('/src/game/engine.ts')
+  const {newGame,addHub,openRoute,buyAircraft,assignAircraft,setFrequency}=await import('/src/game/engine.ts')
   const {invalidateAirportUsage,ensureAirports,airportSlots}=await import('/src/game/airportInfrastructure.ts')
   const {saveGame}=await import('/src/game/save.ts')
   const s=newGame({name:'Bases',code:'BS',hub:'GRU',seed:7,densidade:'enxuta'})
@@ -15,9 +15,24 @@ try{
   if(addHub(s,'CGH'))throw new Error('hub')
   delete s.cghExtraSlotsGranted
   for(const id of ['SDU','GIG','VIX','CWB','FLN']){
-   openRoute(s,'CGH',id);buyAircraft(s,'e195e2',false)
+   const routeError=openRoute(s,'CGH',id)
+   if(routeError)throw new Error(`Rota CGH–${id}: ${routeError}`)
+   const purchaseError=buyAircraft(s,'e195e2',false)
+   if(purchaseError)throw new Error(`Compra para CGH–${id}: ${purchaseError}`)
+   // Operação estabelecida: três idas e voltas exigem seis direitos no destino.
+   // Os dois movimentos da entrada inicial continuam sendo a regra do jogo.
+   s.airportDevelopment[id].reserved=6
+   invalidateAirportUsage(s)
    const r=s.airline.routes.at(-1),a=s.airline.fleet.at(-1)
-   a.base='CGH';assignAircraft(s,a.id,r.id);ensureAirports(s);setAllFrequencies(s,r.id,3)
+   a.base='CGH'
+   const assignmentError=assignAircraft(s,a.id,r.id)
+   if(assignmentError)throw new Error(`Alocação CGH–${id}: ${assignmentError}`)
+   ensureAirports(s)
+   for(let day=0;day<7;day++){
+    const error=setFrequency(s,r.id,day,3)
+    if(error)throw new Error(`Escala CGH–${id}, dia ${day}: ${error}`)
+    if(r.freq[day]!==3)throw new Error(`CGH–${id}, dia ${day}: ${r.freq[day]} rotações; esperado 3`)
+   }
   }
   ensureAirports(s)
   if(airportSlots(s,'CGH').own<30)throw new Error(`Fixture com apenas ${airportSlots(s,'CGH').own} movimentos`)

@@ -21,6 +21,7 @@ import { AircraftArt } from '../livery/AircraftArt'
 import { Bar, Card, Empty, Modal } from './components/Bits'
 import { Grade } from './components/Grade'
 import { pernasDe, quebrasDe } from '../game/escala'
+import {inspectionSummary} from '../game/groundInspection'
 
 export function FleetView() {
   const { state, act, toast } = useGame()
@@ -136,6 +137,7 @@ export function FleetView() {
 
             <Card title="Escala da semana">
               <Grade ac={sel} />
+              {(()=>{const summary=inspectionSummary(state,sel.id);return <p className="muted" style={{fontSize:12}}>Inspeções em solo: {summary.stops} paradas de pelo menos 2h na semana · redução média do desgaste por voo: {pct(summary.averageReduction,1)}. Benefício inicial de 5%, +2,5 pontos a cada 30 min completos, limitado a 65%. A manutenção pesada continua necessária.</p>})()}
               <label className="field" style={{ marginTop: 12 }}>
                 <span>Dedicar a uma rota — monta ida e volta nos sete dias</span>
                 <select

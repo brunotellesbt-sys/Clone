@@ -387,7 +387,7 @@ export function cabeNaEscala(
     if (dentro(partida) || dentro(chegada) || adianteNaSemana(partida, p.partida) < bloco) {
       return {
         ok: false,
-        motivo: `${ac.reg} está no ar: ${p.perna.from}–${p.perna.to} sai ${DOW_CURTO[p.perna.dow]} ${hhmm(p.perna.saida)}.`,
+        motivo: `${ac.reg} está no ar: ${p.perna.from}–${p.perna.to} sai ${DOW_CURTO[p.perna.dow]} ${hhmm(p.perna.saida)} e pousa em ${p.perna.to} ${DOW_CURTO[p.dowChegada]} ${hhmm(p.chegadaLocal)} (horário local).`,
       }
     }
   }
@@ -633,6 +633,32 @@ export function marcarVoo(
 export function removerVoo(s: GameState, pernaId: string) {
   s.airline.escala = escalaDe(s).filter((p) => p.id !== pernaId)
   sincronizarMalha(s)
+}
+
+/** Um clique pode marcar um dia ou a semana; só as pernas aceitas fazem parte do lote. */
+export function marcarLoteVoos(s:GameState,aircraftId:string,from:string,to:string,days:number[],departure:number) {
+  const created:Perna[]=[],errors:string[]=[]
+  for(const dow of [...new Set(days)].sort((a,b)=>a-b)) {
+    const error=marcarVoo(s,aircraftId,from,to,dow,departure)
+    if(error)errors.push(`${DOW_CURTO[dow]}: ${error}`)
+    else created.push({...escalaDe(s).at(-1)!})
+  }
+  if(created.length)s.lastCreatedFlights=created
+  return {created:created.length,errors}
+}
+export function desfazerUltimoLote(s:GameState):string|null {
+  const batch=s.lastCreatedFlights
+  if(!batch?.length)return 'Nenhum movimento criado para desfazer.'
+  const ids=new Set(batch.map(p=>p.id)),current=new Map(escalaDe(s).map(p=>[p.id,p]))
+  for(const original of batch){
+    const now=current.get(original.id)
+    if(now&&(['aircraftId','from','to','dow','saida','numero'] as const).some(key=>now[key]!==original[key]))
+      return 'Um voo do último movimento foi alterado depois da marcação. Confira a escala antes de removê-lo.'
+  }
+  s.airline.escala=escalaDe(s).filter(p=>!ids.has(p.id))
+  s.lastCreatedFlights=undefined
+  sincronizarMalha(s)
+  return null
 }
 
 /**

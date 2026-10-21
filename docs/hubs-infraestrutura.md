@@ -28,7 +28,7 @@ Referências iniciais de slots por dia, compartilhados por todas as companhias:
 
 São valores de partida, não tetos fixos nem slots livres garantidos. O nível e a capacidade evoluem separadamente: uma obra de slots acrescenta 35% da capacidade-base (15% nos aeroportos restritos), em vez de substituir a capacidade pelo número do próximo nível. Exemplo: um aeroporto comum com base e capacidade de 90 passa a 122 após essa obra e pode chegar ao nível 2; não salta automaticamente para 200. O painel distingue referência, capacidade normal, capacidade temporária durante obras e folga para a companhia.
 
-Cada partida e chegada usa um movimento no aeroporto, no respectivo dia local. O painel mostra o pico semanal. Abrir uma rota só paga sua estrutura comercial; a capacidade é validada ao marcar cada voo. Acabou a ocupação fictícia fixa de 62% por rivais.
+Cada partida e chegada usa um movimento no aeroporto, no respectivo dia local. O painel mostra o pico semanal. A abertura valida espaço inicial para uma ida e volta em cada ponta antes de cobrar a estrutura comercial. Uma estação nova sem voos pode receber reserva única de dois movimentos dentro da capacidade existente; ela é compartilhada entre rotas. Cada voo marcado continua passando pela validação de capacidade. Acabou a ocupação fictícia fixa de 62% por rivais.
 
 A capacidade inicial é o maior entre a capacidade anterior (incluindo o crescimento acumulado) e 125% dos movimentos programados, mais 24. É calculada uma vez e persistida. Isso preserva saves existentes com folga, sem criar capacidade toda vez que novos voos são acrescentados. O catálogo inicial já contém os cinco níveis de infraestrutura.
 
