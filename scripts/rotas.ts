@@ -1,7 +1,7 @@
 import { baseDemand } from '../src/game/demand'
 import { newGame, openRoute, routeEconomics, sugerirTarifasParaCobertura } from '../src/game/engine'
 import { compararPorOrdenacao } from '../src/game/routeOrdering'
-import { saldoDiferenteDaRota } from '../src/game/escala'
+import { saldoDiferenteDaRota, segmentosFaltantesDaRota } from '../src/game/escala'
 import { largestPassengerAircraft } from '../src/game/routeCapacity'
 import type { Cabins, DayResult } from '../src/game/types'
 
@@ -161,6 +161,18 @@ conferir(baseDemand('GRU', 'REC', 3650, 180).total !== baseDemand('GRU', 'REC', 
   check(2, 0, true)
   check(3, 3, false)
   check(2, 2, false)
+
+  // Teste de segmentosFaltantesDaRota
+  s.airline.escala = [
+    { id: 'i1', aircraftId: 'a1', from: 'SSA', to: 'AJU', dow: 1, saida: 480 },
+    { id: 'i2', aircraftId: 'a1', from: 'SSA', to: 'AJU', dow: 1, saida: 600 },
+    { id: 'v1', aircraftId: 'a1', from: 'AJU', to: 'SSA', dow: 1, saida: 720 },
+    { id: 'v2', aircraftId: 'a1', from: 'AJU', to: 'SSA', dow: 3, saida: 800 },
+  ]
+  const faltantes = segmentosFaltantesDaRota(s, r)
+  conferir(faltantes.length === 2, 'segmentosFaltantesDaRota identifica 2 dias com desequilíbrio')
+  conferir(faltantes[0].dow === 1 && faltantes[0].from === 'AJU' && faltantes[0].to === 'SSA' && faltantes[0].count === 1, 'dia 1 (Seg) falta 1 AJU -> SSA')
+  conferir(faltantes[1].dow === 3 && faltantes[1].from === 'SSA' && faltantes[1].to === 'AJU' && faltantes[1].count === 1, 'dia 3 (Qua) falta 1 SSA -> AJU')
 }
 
 console.log(falhas ? `\n${falhas} falha(s)` : '\ntudo certo')
