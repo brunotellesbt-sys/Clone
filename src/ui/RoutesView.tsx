@@ -583,7 +583,7 @@ function OpenRouteModal({ origem, onOrigem, onClose, onOpened }: {
                   <b>{routeEntryAccess(state,hub).available}</b>
                 </div>
                 <div className="row" style={{ justifyContent: 'space-between' }}><span className="muted">{chosen.a.iata}: slots disponíveis ao abrir</span><b>{routeEntryAccess(state,chosen.a.iata).available}</b></div>
-                <p className="muted">Uma ida e volta diária usa 2 slots em cada ponta. Estação nova tem reserva inicial de 2 movimentos dentro da capacidade existente; ela é compartilhada por todas as rotas. Frequências adicionais dependem da disponibilidade.</p>
+                <p className="muted">Uma ida e volta diária usa 2 slots em cada ponta. A capacidade livre continua disponível como antes. Só quando falta espaço na estação nova, a abertura obtém até 2 movimentos de outra companhia: primeiro os ociosos; sem ociosos, os da maior operação. A cessão não limita frequências futuras a 2 slots.</p>
                 {[hub,chosen.a.iata].some(id=>routeEntryAccess(state,id).blocked)&&<p className="bad">Sem capacidade mínima nas duas pontas. A abertura não será cobrada.</p>}
                 <div className="row" style={{ justifyContent: 'space-between' }}>
                   <span className="muted">Escopo</span>

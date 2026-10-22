@@ -35,7 +35,8 @@ assert.equal(restored.airportDevelopment!.ANF.reserved,2)
 delete d.entryAccess;d.reserved=0
 s.airportDevelopment!.MAO.category='reg';s.airportDevelopment!.IGU.category='reg'
 ensureAirports(s)
-assert.equal(d.reserved,2,'corrige rota antiga ainda sem operação')
+assert.equal(d.reserved,0,'carregar rota antiga não compra slots retroativamente')
+assert.equal(d.entryAccess,undefined,'carregar não marca estação antiga como nova entrada')
 assert.equal(effectiveAirport(s,'MAO').escopo,'int')
 assert.equal(s.airportDevelopment!.IGU.category,'int')
 const failed=newGame({name:'Lotado',code:'LT',hub:'GRU',seed:18,densidade:'enxuta'})
@@ -59,7 +60,7 @@ assert.equal(idle.airportDevelopment!.ANF.entryTransfer?.companyId,'less','com s
 assert.equal(idle.airportDevelopment!.ANF.entryTransfer?.source,'idle')
 assert.equal(rivalFrequency(idle,idle.competitors[0].routes[0]),2)
 assert.equal(rivalFrequency(idle,idle.competitors[1].routes[0]),5)
-assert.equal(airportSlots(idle,'ANF').ownLimit,2,'não ganha toda sobra pública além dos dois slots comprados')
+assert.equal(airportSlots(idle,'ANF').ownLimit,2,'aeroporto lotado deixa os dois movimentos cedidos disponíveis')
 
 // Teste quando NENHUMA empresa tem slots ociosos (ambas operando no ou acima do limite da cota):
 const noIdle = newGame({name:'SemOcioso',code:'SO',hub:'GRU',seed:18,densidade:'enxuta'})
@@ -80,6 +81,9 @@ delete vacant.airportDevelopment!.ANF.entryAccess;delete vacant.airportDevelopme
 assert.equal(openRoute(vacant,'GRU','ANF'),null)
 const purchased = vacant.airportDevelopment!.ANF.entryTransfer as { companyId?: string; source?: string } | undefined
 assert.equal(purchased, undefined, 'aeroporto com vagas livres não faz transferência forçada de slots')
+assert.equal(vacant.airportDevelopment!.ANF.reserved,0,'capacidade livre não gera reserva artificial')
+assert.equal(vacant.airportDevelopment!.ANF.entryAccess,undefined)
+assert.equal(airportSlots(vacant,'ANF').ownLimit,8,'mantém toda a capacidade livre do PR #113')
 
 // Teste do aeroporto 100% lotado com slots ociosos de outra empresa:
 const idleComp = structuredClone(idle)
