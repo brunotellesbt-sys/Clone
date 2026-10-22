@@ -211,7 +211,7 @@ await page.getByRole('button', { name: 'Fechar', exact: true }).first().click()
 assert.equal(await page.getByText('Abrir nova rota', { exact: true }).count(), 0, 'o X fecha o modal')
 
 // ------------------------------------------------------------ cada tela
-for (const nome of ['Painel', 'Rotas', 'Conexões', 'Calendário', 'Frota', 'Mercado', 'Finanças', 'Pintura', 'Ranking', 'Companhias']) {
+for (const nome of ['Painel', 'Rotas', 'Conexões', 'Calendário', 'Frota', 'Mercado', 'Finanças', 'Manutenção', 'Ranking', 'Companhias']) {
   await aba(nome)
   await medir(nome)
   await page.screenshot({ path: artifact(`mobile-tela-${nome.toLowerCase()}.png`), fullPage: true })
@@ -227,7 +227,7 @@ for (const nome of ['Painel', 'Rotas', 'Conexões', 'Calendário', 'Frota', 'Mer
  * aparecem com algo selecionado. Tela que não é aberta não é medida, e tela que
  * não é medida é onde o defeito mora.
  */
-await aba('Pintura')
+await aba('Manutenção')
 /*
  * As seções da pintura dependem do modelo: com arte 2D o jogo mostra o editor
  * 2D (quatro abas), e sem ela o vetorial (seis seções). Mede as que existirem —

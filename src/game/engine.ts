@@ -1,6 +1,7 @@
 import { admittedFlights, airportSlots, airportUsage, effectiveAirport, ensureAirports, finishAirportWorks, invalidateAirportUsage, recordAirportDay, rivalFrequency, largeBases, routeEntryAccess, reserveRouteEntry } from './airportInfrastructure'
 import {hubHasRoom,hubCompanyLimit} from './hubAccess'
 import {inspectionBeforeFlights} from './groundInspection'
+import { getSubstituteMap, getEffectiveAircraft } from './reserve'
 import type { Perna, SeatConfig } from './types'
 import { playerWeeklyOffer } from './playerOffer'
 import { stepHubDevelopment, invalidateHubActivity } from './hubDevelopment'
@@ -704,9 +705,12 @@ interface RouteDay {
  * que é o que acontece de verdade quando um avião fica em hangar: o voo é
  * cancelado, não transferido para outro por mágica.
  */
-function voosDoDia(s: GameState, r: Route, dow: number): Perna[] {
+function voosDoDia(s: GameState, r: Route, dow: number, substituteMap: Map<string, Aircraft>): Perna[] {
   return pernasDaRota(s, r).filter(p => admittedFlights(s).has(p.id)).filter(p => Math.floor(partidaUtc(p) / DIA) === dow)
-    .filter(p => { const a = aircraftOf(s, p.aircraftId); return !!a && a.groundedUntil <= s.day })
+    .filter(p => {
+      const a = getEffectiveAircraft(s, p.aircraftId, substituteMap, s.day)
+      return !!a && a.groundedUntil <= s.day
+    })
 }
 
 export function advanceDay(s: GameState): GameState {
@@ -723,6 +727,7 @@ export function advanceDay(s: GameState): GameState {
   s.fuelPrice = Math.max(0.42, Math.min(1.6, s.fuelPrice + (0.82 - s.fuelPrice) * 0.006 + between(rng, -0.018, 0.018)))
 
   // 1) O que a companhia coloca no ar hoje.
+  const substituteMap = getSubstituteMap(s, s.day)
   const perRoute: RouteDay[] = []
   const carriersByOd = new Map<string, Carrier[]>()
   const perCargo: { route: Route; flights: number; tons: number; pernas: Aircraft[];voos:Perna[] }[] = []
@@ -731,8 +736,8 @@ export function advanceDay(s: GameState): GameState {
 
   for (const r of s.airline.routes) {
     // Uma cauda por perna marcada: a escala é que diz quem voa o quê hoje.
-    const voos = voosDoDia(s, r, dow)
-    const pernas = voos.map(p => aircraftOf(s, p.aircraftId)!)
+    const voos = voosDoDia(s, r, dow, substituteMap)
+    const pernas = voos.map(p => getEffectiveAircraft(s, p.aircraftId, substituteMap, s.day)!)
     if (pernas.length === 0) continue
     // Duas pernas fazem uma rotação, que é como a oferta sempre foi medida.
     const flights = pernas.length / 2

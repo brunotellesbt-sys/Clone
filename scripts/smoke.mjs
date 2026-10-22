@@ -70,8 +70,8 @@ await page.getByRole('button', { name: 'Painel' }).click()
 await page.waitForTimeout(700)
 await page.screenshot({ path: artifact('shot-6-rodando.png') })
 
-// pintura
-await page.getByRole('button', { name: 'Pintura' }).click()
+// manutenção
+await page.getByRole('button', { name: 'Manutenção' }).click()
 await page.waitForTimeout(500)
 await page.screenshot({ path: artifact('shot-7-pintura.png') })
 
