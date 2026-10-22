@@ -19,3 +19,5 @@ sam2ckpt/
 
 # capturas locais de QA
 .qa/
+
+*.log
