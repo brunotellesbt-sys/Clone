@@ -8,13 +8,17 @@ O cadastro internacional prevalece sobre uma categoria antiga inferior gravada n
 
 Antes, abrir uma rota cobrava taxas comerciais sem verificar ou proteger capacidade nas duas pontas. O hub usava sua reserva; destinos sem hub dependiam da sobra após a oferta das rivais, podendo aparecer com zero movimentos disponíveis mesmo após a abertura.
 
-Uma estação nova sem movimentos próprios pode obter reserva inicial de dois movimentos dentro da capacidade física existente. Essa reserva é compartilhada por todas as rotas do jogador no aeroporto e identificada por `entryAccess`, não se renova ao fechar e reabrir uma rota. A IA usa o restante da capacidade. Um movimento é um pouso ou uma decolagem: dois permitem uma ida e volta diária. Frequências extras dependem de espaço adicional e a escala continua respeitando horários e dias locais.
+O cálculo normal de disponibilidade permanece como no PR #113: estações sem hub podem usar a capacidade compartilhada livre, além de suas reservas. Abrir uma rota onde há pelo menos dois movimentos disponíveis não compra slots de outra companhia nem cria uma reserva artificial. Um movimento é um pouso ou uma decolagem.
+
+Somente na abertura de uma rota para uma estação nova sem espaço para a primeira ida e volta pode haver cessão de até dois movimentos dentro da capacidade física existente. A compra prioriza dois slots ociosos de outra companhia; sem eles, usa a companhia com mais movimentos programados. A cessão é compartilhada pelas rotas na estação e não se repete ao fechar e reabrir.
 
 A compra escolhe primeiro a operadora com mais slots vagos; sem sobra, escolhe a maior operação. Como os saves antigos não tinham títulos individuais de slots, a cota de referência inicial é dividida entre as operadoras locais, considerando uso programado e sobra física. A transferência registra a companhia escolhida e reduz o limite de sua oferta, preservando as demais dentro da capacidade global. 25% da taxa de abertura por ponta com cessão é repassada à cedente, sem cobrança adicional ao jogador. A migração de rotas já pagas não cobra novamente.
 
-Depois da entrada, o limite próprio da estação é sua reserva; não absorve automaticamente toda vaga nova da IA. O aumento depende de crescimento, obras ou redistribuição anual (365 dias em hub e 438 dias em estação sem hub), sem compras sucessivas pela abertura de outras rotas. Operações já existentes preservam seus movimentos na migração.
+O marcador `entryAccess` registra a cessão; não limita a estação à reserva. Capacidade compartilhada que estiver livre continua utilizável, inclusive depois de uma cessão. Hubs conservam suas regras de reserva; crescimento, obras e redistribuição anual mantêm seus critérios e prazos.
 
-A abertura valida pelo menos dois slots disponíveis em cada ponta, incluindo a reserva inicial quando elegível. Se não couber, devolve o motivo antes de cobrar a taxa. Obras continuam reduzindo capacidade e podem inviabilizar temporariamente voos. Não há expansão automática de capacidade. Rotas antigas já pagas, ainda sem operação em destinos elegíveis, recebem a mesma proteção uma única vez ao carregar.
+A abertura valida pelo menos dois slots disponíveis em cada ponta, incluindo a cessão quando elegível. Se não couber, devolve o motivo antes de cobrar a taxa. Obras continuam reduzindo capacidade e podem inviabilizar temporariamente voos. Não há expansão automática de capacidade. Carregar um save não compra nem transfere slots retroativamente.
+
+Saves afetados pelo limite geral de dois movimentos recuperam a disponibilidade normal ao carregar na versão corrigida. O cálculo ignora o marcador antigo como teto, sem apagar voos, alterar a frota, cobrar novamente ou remover reservas já adquiridas.
 
 A tela de abrir rota identifica a disponibilidade por código de aeroporto e explica a reserva. A abertura permanece sem programar voos automaticamente. Os direitos iniciais não alteram os prazos de crescimento ou ociosidade.
 

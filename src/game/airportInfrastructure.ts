@@ -82,7 +82,9 @@ export function airportSlots(s:GameState,id:string) {
   const reserved=Math.min(capacity,Math.floor(allocation*(d?.work?.5:1)))
   const rivalLimit=Math.max(0,capacity-reserved)
   const rivalsOperating=Math.min(rivals,rivalLimit)
-  const ownLimit=isHub||d?.entryAccess?reserved:Math.max(reserved,capacity-rivalsOperating)
+  // Como no PR #113: estações sem hub também usam a capacidade compartilhada
+  // livre. O recibo de uma cessão não transforma a reserva em teto permanente.
+  const ownLimit=isHub?reserved:Math.max(reserved,capacity-rivalsOperating)
   return {normal,capacity,own,rivals,rivalsOperating,reserved,ownLimit,free:Math.max(0,ownLimit-own),over:Math.max(0,own-ownLimit)}
 }
 /** Reserva inicial: malha existente + 10%, entre 6 e 16 movimentos por dia. */
@@ -90,14 +92,14 @@ export const hubSlotMargin=(own:number)=>own===0?24:Math.max(6,Math.min(16,Math.
 /** Direito inicial compartilhado pela estação: não cresce a cada rota aberta. */
 export function routeEntryAccess(s:GameState,id:string) {
  const slots=airportSlots(s,id),d=s.airportDevelopment?.[id]
- const eligible=!s.airline.hubs.includes(id)&&!d?.entryAccess&&!d?.work&&slots.own===0
+ const eligible=slots.free<2&&!s.airline.hubs.includes(id)&&!d?.entryAccess&&!d?.work&&slots.own===0
  const grant=eligible?Math.max(0,Math.min(2,slots.capacity)-slots.reserved):0
  const available=Math.max(slots.free,eligible?Math.min(2,slots.capacity):0)
  return {grant,available,blocked:available<2}
 }
 export function reserveRouteEntry(s:GameState,id:string,price=0) {
  const d=s.airportDevelopment![id],access=routeEntryAccess(s,id)
- if(access.blocked)return
+ if(access.blocked||!access.grant)return
  if(access.grant){
    const companies=s.competitors.map(c=>({c,used:c.routes.filter(r=>r.from===id||r.to===id).reduce((n,r)=>n+r.freq*2,0)}))
      .filter(x=>x.used>0||x.c.hub===id||x.c.hubs?.includes(id))
@@ -177,14 +179,8 @@ export function ensureAirports(s:GameState) {
     const d=s.airportDevelopment[id]
     if(d.baseSince===undefined){d.baseSince=s.day;d.idle=[]}
   }
-  // Corrige destinos de rotas já pagas que ainda não têm operação. A reserva
-  // é de dois movimentos por estação, nunca dois novos slots por rota.
-  for(const id of new Set(s.airline.routes.flatMap(r=>[r.from,r.to]))) {
-    const d=s.airportDevelopment[id]
-    const own=airportSlots(s,id).own
-    if(own>0&&!d.entryAccess&&!s.airline.hubs.includes(id)){d.reserved=Math.max(d.reserved,own);d.entryAccess=true;invalidateAirportUsage(s)}
-    if(!d.entryAccess&&!s.airline.hubs.includes(id)&&!routeEntryAccess(s,id).blocked)reserveRouteEntry(s,id)
-  }
+  // A cessão excepcional acontece somente na abertura da rota. Carregar um
+  // save não compra direitos nem limita estações antigas a dois movimentos.
   if(migrated)invalidateAirportUsage(s)
 }
 export function growthProgress(s:GameState,id:string) {
