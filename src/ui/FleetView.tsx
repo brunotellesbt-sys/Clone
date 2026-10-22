@@ -75,6 +75,8 @@ export function FleetView() {
                       <td>
                         {grounded ? (
                           <span className="chip bad">hangar</span>
+                        ) : a.isReserve ? (
+                          <span className="chip info">reserva</span>
                         ) : voos === 0 ? (
                           <span className="muted">parado</span>
                         ) : (

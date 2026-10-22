@@ -9,6 +9,7 @@ import { blocoDe, DIA, escalaDe, naSemana, noDia, partidaUtc } from './escala'
 import { distanceBetween, distanceNm, odKey } from './geo'
 import { conexoesNaBase, type Conexao, type Toque } from './malha'
 import { CABINS, type Cabins, type ConnectionJourney, type ConnectionLeg, type GameState, type Perna, type Route } from './types'
+import { getEffectiveAircraft } from './reserve'
 
 export interface LocalRouteAllocation { route: Route; voos: Perna[]; seats: Cabins; local: Cabins }
 export interface FlightManifest {
@@ -95,7 +96,7 @@ export function allocateConnections(s: GameState, locals: LocalRouteAllocation[]
     let capacity = partnerSeats ?? emptyCabins(), baseline = emptyCabins()
     if (leg.own) {
       const p = legs.get(leg.id)
-      const ac = p && fleet.get(p.aircraftId)
+      const ac = p && getEffectiveAircraft(s, p.aircraftId, undefined, leg.day)
       const route = p && routeFor.get(odKey(p.from, p.to))
       if (!p || !ac || !route || ac.groundedUntil > leg.day || p.from !== leg.from || p.to !== leg.to ||
         noDia(partidaUtc(p)) !== leg.departure || Math.floor(partidaUtc(p) / DIA) !== (dow + leg.day - s.day) % 7) return

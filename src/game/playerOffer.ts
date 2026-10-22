@@ -5,12 +5,14 @@ import { pernasDaRota } from './escala'
 import { atratividadeHorario } from './malha'
 import { specOf } from './spec'
 import type { GameState, Route } from './types'
+import { getEffectiveAircraft, getSubstituteMap } from './reserve'
 
 /** Oferta média diária: mesma disputa na receita da IA e no painel. */
 export function playerWeeklyOffer(s: GameState, r: Route): Carrier | null {
+  const substituteMap = getSubstituteMap(s, s.day)
   const flights = pernasDaRota(s, r).filter(p => admittedFlights(s).has(p.id)).flatMap(p => {
-    const a = s.airline.fleet.find(x => x.id === p.aircraftId && x.groundedUntil <= s.day)
-    return a ? [{ p, a }] : []
+    const a = getEffectiveAircraft(s, p.aircraftId, substituteMap, s.day)
+    return a && a.groundedUntil <= s.day ? [{ p, a }] : []
   })
   if (!flights.length) return null
   const seats = { y: 0, w: 0, c: 0, f: 0 }

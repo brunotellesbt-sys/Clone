@@ -26,7 +26,7 @@ import { ConnectionsView } from './ui/ConnectionsView'
 import { CalendarView } from './ui/CalendarView'
 import { FinanceView } from './ui/FinanceView'
 import { FleetView } from './ui/FleetView'
-import { LiveryEditor } from './ui/LiveryEditor'
+import { MaintenanceView } from './ui/MaintenanceView'
 import { MarketView } from './ui/MarketView'
 import { NewGame } from './ui/NewGame'
 import { RankingView } from './ui/RankingView'
@@ -44,7 +44,7 @@ const TABS = [
   { id: 'frota', label: 'Frota' },
   { id: 'mercado', label: 'Mercado' },
   { id: 'financas', label: 'Finanças' },
-  { id: 'pintura', label: 'Pintura' },
+  { id: 'pintura', label: 'Manutenção' },
   { id: 'ranking', label: 'Ranking' },
   { id: 'companhias', label: 'Companhias' },
 ]
@@ -236,7 +236,7 @@ export function App() {
             {tab === 'frota' && <FleetView />}
             {tab === 'mercado' && <MarketView />}
             {tab === 'financas' && <FinanceView />}
-            {tab === 'pintura' && <LiveryEditor />}
+            {(tab === 'pintura' || tab === 'manutencao') && <MaintenanceView />}
             {tab === 'ranking' && <RankingView />}
             {tab === 'hubs' && <HubsView />}
             {tab === 'bases' && <HubsView bases />}

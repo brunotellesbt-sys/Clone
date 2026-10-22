@@ -228,6 +228,8 @@ export interface Aircraft {
   value: number
   /** Dias parados por manutenção pesada. */
   groundedUntil: number
+  /** Se a aeronave está alocada como reserva de manutenção. */
+  isReserve?: boolean
 }
 
 export interface DayResult {
