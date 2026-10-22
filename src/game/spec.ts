@@ -85,6 +85,11 @@ export interface Portao {
 
 /** A régua de operação: a herdada onde existe, a pista onde não existe. */
 const reguaDe = (ap: Portao) => ap.pistaOperacional ?? ap.runway
+// A321-253N/CS-TSG em Praia: operação fornecida pelo usuário e identificação
+// da variante na frota oficial da SATA. A régua genérica barra esse caso real.
+// A exceção é local: não alonga a pista, não libera LR/XLR e respeita teto de porte.
+const excecaoPraia = (t: AircraftType, ap: Portao) =>
+  ap.iata === 'RAI' && t.id === 'a321neo' && reguaDe(ap) >= 6890
 const excecaoPav = (t: AircraftType, ap: Portao) => ap.iata === 'PAV' &&
   (t.maxSeats > 78 && t.maxSeats <= AIRCRAFT_BY_ID.a319neo.maxSeats ||
     ['b37m', 'b38m', 'b39m', 'b310m'].includes(t.id))
@@ -107,7 +112,7 @@ export const aeroportoServe = (t: AircraftType, ap: Portao) => {
   if (ap.tetoAssentos !== undefined) {
     return t.maxSeats <= ap.tetoAssentos
   }
-  return pistaExigida(t, ap) <= reguaDe(ap)
+  return excecaoPraia(t, ap) || pistaExigida(t, ap) <= reguaDe(ap)
 }
 
 /** A aeronave opera entre os dois aeroportos? Pista e porte — alcance é outra conta. */
@@ -128,7 +133,7 @@ export function motivoDoPar(t: AircraftType, a: Portao, b: Portao): string | nul
       if (t.maxSeats > ap.tetoAssentos) {
         return `Aeronave grande demais para uma das pontas (teto de ${ap.tetoAssentos} assentos).`
       }
-    } else if (pistaExigida(t, ap) > reguaDe(ap)) {
+    } else if (!excecaoPraia(t, ap) && pistaExigida(t, ap) > reguaDe(ap)) {
       return 'Pista curta demais em uma das pontas.'
     }
   }

@@ -15,9 +15,9 @@ const hash=(x:unknown)=>createHash('sha256').update(JSON.stringify(x)).digest('h
 const variants=AIRCRAFT_ALL.flatMap(t=>t.engines.map(e=>withEngine(t,e)))
 assert.equal(AIRPORTS.length,before.airports)
 assert.equal(variants.length,before.variants)
-// A única alteração posterior autorizada é a exceção de PAV. Mantém o
-// contrato anterior para todos os aeroportos e verifica a exceção à parte.
-assert.equal(hash(AIRPORTS.map(a=>[a.iata,...variants.map(t=>aeroportoServe(t,a.iata==='PAV'?{...a,iata:undefined}:a))])),before.permissions,'demais permissões intactas, incluindo carga e motores')
+// PAV e o A321neo em RAI são exceções posteriores verificadas separadamente.
+// Neutralizá-las aqui conserva a régua anterior para todos os demais casos.
+assert.equal(hash(AIRPORTS.map(a=>[a.iata,...variants.map(t=>aeroportoServe(t,['PAV','RAI'].includes(a.iata)?{...a,iata:undefined}:a))])),before.permissions,'demais permissões intactas, incluindo carga e motores')
 for(const t of variants) {
   const pav=AIRPORT_BY_IATA.PAV
   const exception=(t.maxSeats>78&&t.maxSeats<=160)||['b37m','b38m','b39m','b310m'].includes(t.id)

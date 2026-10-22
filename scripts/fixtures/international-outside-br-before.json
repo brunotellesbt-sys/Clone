@@ -1,0 +1,1157 @@
+{
+  "airports": 3088,
+  "variants": 124,
+  "brazilCount": 119,
+  "brazil": "16a92e8ae1285448500e5d93c1456d275f43ffc504a0cc2c463d5ccbddd57a1f",
+  "brazilPermissions": "44af22dad26f6d2cf032b9aed9f7a2cf4116497ae591aa161a5da170168215b2",
+  "withoutScope": "a6d19a4a43008f3c17966be11b48158389581e4a2b9564e16ec950f78f0169c5",
+  "unchangedScopes": "0406bfbeaf6311bc2a2f3b88224c2b3ceae9ffc752a56b3178e4615049bcaefd",
+  "permissions": "202c46063b77f3ff1e6bc5b5791bb8b43c8c22e3742e484c3d9c433b0a7cd8d1",
+  "changed": [
+    {
+      "iata": "MDW",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "FTW",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "BDO",
+      "country": "ID",
+      "before": "reg"
+    },
+    {
+      "iata": "JBQ",
+      "country": "DO",
+      "before": "reg"
+    },
+    {
+      "iata": "YKF",
+      "country": "CA",
+      "before": "reg"
+    },
+    {
+      "iata": "CIA",
+      "country": "IT",
+      "before": "reg"
+    },
+    {
+      "iata": "CUF",
+      "country": "IT",
+      "before": "reg"
+    },
+    {
+      "iata": "KMS",
+      "country": "GH",
+      "before": "reg"
+    },
+    {
+      "iata": "GUA",
+      "country": "GT",
+      "before": "reg"
+    },
+    {
+      "iata": "PSD",
+      "country": "EG",
+      "before": "reg"
+    },
+    {
+      "iata": "CWL",
+      "country": "GB",
+      "before": "reg"
+    },
+    {
+      "iata": "MKZ",
+      "country": "MY",
+      "before": "reg"
+    },
+    {
+      "iata": "YYJ",
+      "country": "CA",
+      "before": "reg"
+    },
+    {
+      "iata": "SAH",
+      "country": "YE",
+      "before": "reg"
+    },
+    {
+      "iata": "TRZ",
+      "country": "IN",
+      "before": "reg"
+    },
+    {
+      "iata": "CGY",
+      "country": "PH",
+      "before": "reg"
+    },
+    {
+      "iata": "ENU",
+      "country": "NG",
+      "before": "reg"
+    },
+    {
+      "iata": "LPB",
+      "country": "BO",
+      "before": "reg"
+    },
+    {
+      "iata": "MXZ",
+      "country": "CN",
+      "before": "reg"
+    },
+    {
+      "iata": "TAI",
+      "country": "YE",
+      "before": "reg"
+    },
+    {
+      "iata": "CJS",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "LXA",
+      "country": "CN",
+      "before": "reg"
+    },
+    {
+      "iata": "TNJ",
+      "country": "ID",
+      "before": "reg"
+    },
+    {
+      "iata": "PAC",
+      "country": "PA",
+      "before": "reg"
+    },
+    {
+      "iata": "AWA",
+      "country": "ET",
+      "before": "reg"
+    },
+    {
+      "iata": "PLZ",
+      "country": "ZA",
+      "before": "reg"
+    },
+    {
+      "iata": "AAP",
+      "country": "ID",
+      "before": "reg"
+    },
+    {
+      "iata": "TRC",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "PKU",
+      "country": "ID",
+      "before": "reg"
+    },
+    {
+      "iata": "SYQ",
+      "country": "CR",
+      "before": "reg"
+    },
+    {
+      "iata": "VOZ",
+      "country": "RU",
+      "before": "reg"
+    },
+    {
+      "iata": "CUC",
+      "country": "CO",
+      "before": "reg"
+    },
+    {
+      "iata": "AGU",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "PZO",
+      "country": "VE",
+      "before": "reg"
+    },
+    {
+      "iata": "BLZ",
+      "country": "MW",
+      "before": "reg"
+    },
+    {
+      "iata": "SLP",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "PHH",
+      "country": "NP",
+      "before": "reg"
+    },
+    {
+      "iata": "LUM",
+      "country": "CN",
+      "before": "reg"
+    },
+    {
+      "iata": "TGZ",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "EXT",
+      "country": "GB",
+      "before": "reg"
+    },
+    {
+      "iata": "CUU",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "BFN",
+      "country": "ZA",
+      "before": "reg"
+    },
+    {
+      "iata": "UPN",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "BLI",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "CUL",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "HMO",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "REX",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "VSA",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "MUN",
+      "country": "VE",
+      "before": "reg"
+    },
+    {
+      "iata": "AYJ",
+      "country": "IN",
+      "before": "reg"
+    },
+    {
+      "iata": "JGN",
+      "country": "CN",
+      "before": "reg"
+    },
+    {
+      "iata": "MAM",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "DIR",
+      "country": "ET",
+      "before": "reg"
+    },
+    {
+      "iata": "MTT",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "MDQ",
+      "country": "AR",
+      "before": "reg"
+    },
+    {
+      "iata": "PNK",
+      "country": "ID",
+      "before": "reg"
+    },
+    {
+      "iata": "BUQ",
+      "country": "ZW",
+      "before": "reg"
+    },
+    {
+      "iata": "LJG",
+      "country": "CN",
+      "before": "reg"
+    },
+    {
+      "iata": "AHB",
+      "country": "SA",
+      "before": "reg"
+    },
+    {
+      "iata": "JIJ",
+      "country": "ET",
+      "before": "reg"
+    },
+    {
+      "iata": "IAS",
+      "country": "RO",
+      "before": "reg"
+    },
+    {
+      "iata": "YXE",
+      "country": "CA",
+      "before": "reg"
+    },
+    {
+      "iata": "CLQ",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "DGO",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "ZCL",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "CEN",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "CUZ",
+      "country": "PE",
+      "before": "reg"
+    },
+    {
+      "iata": "PEG",
+      "country": "IT",
+      "before": "reg"
+    },
+    {
+      "iata": "TML",
+      "country": "GH",
+      "before": "reg"
+    },
+    {
+      "iata": "PTG",
+      "country": "ZA",
+      "before": "reg"
+    },
+    {
+      "iata": "PNS",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "WLG",
+      "country": "NZ",
+      "before": "reg"
+    },
+    {
+      "iata": "CRP",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "OAX",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "ROC",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "KLO",
+      "country": "PH",
+      "before": "reg"
+    },
+    {
+      "iata": "PEV",
+      "country": "HU",
+      "before": "reg"
+    },
+    {
+      "iata": "PWM",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "SCV",
+      "country": "RO",
+      "before": "reg"
+    },
+    {
+      "iata": "GOM",
+      "country": "CD",
+      "before": "reg"
+    },
+    {
+      "iata": "JAF",
+      "country": "LK",
+      "before": "reg"
+    },
+    {
+      "iata": "TZL",
+      "country": "BA",
+      "before": "reg"
+    },
+    {
+      "iata": "UKK",
+      "country": "KZ",
+      "before": "reg"
+    },
+    {
+      "iata": "KQT",
+      "country": "TJ",
+      "before": "reg"
+    },
+    {
+      "iata": "JHG",
+      "country": "CN",
+      "before": "reg"
+    },
+    {
+      "iata": "PLQ",
+      "country": "LT",
+      "before": "reg"
+    },
+    {
+      "iata": "DIL",
+      "country": "TL",
+      "before": "reg"
+    },
+    {
+      "iata": "ABZ",
+      "country": "GB",
+      "before": "reg"
+    },
+    {
+      "iata": "ORU",
+      "country": "BO",
+      "before": "reg"
+    },
+    {
+      "iata": "RTB",
+      "country": "HN",
+      "before": "reg"
+    },
+    {
+      "iata": "SRE",
+      "country": "BO",
+      "before": "reg"
+    },
+    {
+      "iata": "OGG",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "XBJ",
+      "country": "IR",
+      "before": "reg"
+    },
+    {
+      "iata": "HIR",
+      "country": "SB",
+      "before": "reg"
+    },
+    {
+      "iata": "SUV",
+      "country": "FJ",
+      "before": "reg"
+    },
+    {
+      "iata": "NOS",
+      "country": "MG",
+      "before": "reg"
+    },
+    {
+      "iata": "PBH",
+      "country": "BT",
+      "before": "reg"
+    },
+    {
+      "iata": "POG",
+      "country": "GA",
+      "before": "reg"
+    },
+    {
+      "iata": "RAI",
+      "country": "CV",
+      "before": "reg"
+    },
+    {
+      "iata": "DZA",
+      "country": "YT",
+      "before": "reg"
+    },
+    {
+      "iata": "ENO",
+      "country": "PY",
+      "before": "reg"
+    },
+    {
+      "iata": "PKZ",
+      "country": "LA",
+      "before": "reg"
+    },
+    {
+      "iata": "SXM",
+      "country": "SX",
+      "before": "reg"
+    },
+    {
+      "iata": "MUB",
+      "country": "BW",
+      "before": "reg"
+    },
+    {
+      "iata": "VXE",
+      "country": "CV",
+      "before": "reg"
+    },
+    {
+      "iata": "ADZ",
+      "country": "CO",
+      "before": "reg"
+    },
+    {
+      "iata": "LPQ",
+      "country": "LA",
+      "before": "reg"
+    },
+    {
+      "iata": "CFU",
+      "country": "GR",
+      "before": "reg"
+    },
+    {
+      "iata": "USM",
+      "country": "TH",
+      "before": "reg"
+    },
+    {
+      "iata": "BBK",
+      "country": "BW",
+      "before": "reg"
+    },
+    {
+      "iata": "BME",
+      "country": "AU",
+      "before": "reg"
+    },
+    {
+      "iata": "CXI",
+      "country": "KI",
+      "before": "reg"
+    },
+    {
+      "iata": "EIS",
+      "country": "VG",
+      "before": "reg"
+    },
+    {
+      "iata": "GOH",
+      "country": "GL",
+      "before": "reg"
+    },
+    {
+      "iata": "JTR",
+      "country": "GR",
+      "before": "reg"
+    },
+    {
+      "iata": "KGS",
+      "country": "GR",
+      "before": "reg"
+    },
+    {
+      "iata": "KSA",
+      "country": "FM",
+      "before": "reg"
+    },
+    {
+      "iata": "LTO",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "MFU",
+      "country": "ZM",
+      "before": "reg"
+    },
+    {
+      "iata": "RAR",
+      "country": "CK",
+      "before": "reg"
+    },
+    {
+      "iata": "ROP",
+      "country": "MP",
+      "before": "reg"
+    },
+    {
+      "iata": "ROR",
+      "country": "PW",
+      "before": "reg"
+    },
+    {
+      "iata": "SKB",
+      "country": "KN",
+      "before": "reg"
+    },
+    {
+      "iata": "TKK",
+      "country": "FM",
+      "before": "reg"
+    },
+    {
+      "iata": "TRW",
+      "country": "KI",
+      "before": "reg"
+    },
+    {
+      "iata": "VAV",
+      "country": "TO",
+      "before": "reg"
+    },
+    {
+      "iata": "YAP",
+      "country": "FM",
+      "before": "reg"
+    },
+    {
+      "iata": "SNA",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "HSG",
+      "country": "JP",
+      "before": "reg"
+    },
+    {
+      "iata": "ANR",
+      "country": "BE",
+      "before": "reg"
+    },
+    {
+      "iata": "JOG",
+      "country": "ID",
+      "before": "reg"
+    },
+    {
+      "iata": "BCD",
+      "country": "PH",
+      "before": "reg"
+    },
+    {
+      "iata": "RML",
+      "country": "LK",
+      "before": "reg"
+    },
+    {
+      "iata": "SMR",
+      "country": "CO",
+      "before": "reg"
+    },
+    {
+      "iata": "PEI",
+      "country": "CO",
+      "before": "reg"
+    },
+    {
+      "iata": "MME",
+      "country": "GB",
+      "before": "reg"
+    },
+    {
+      "iata": "ILS",
+      "country": "SV",
+      "before": "reg"
+    },
+    {
+      "iata": "OCJ",
+      "country": "JM",
+      "before": "reg"
+    },
+    {
+      "iata": "PSE",
+      "country": "PR",
+      "before": "reg"
+    },
+    {
+      "iata": "XPL",
+      "country": "HN",
+      "before": "reg"
+    },
+    {
+      "iata": "SVZ",
+      "country": "VE",
+      "before": "reg"
+    },
+    {
+      "iata": "AQP",
+      "country": "PE",
+      "before": "reg"
+    },
+    {
+      "iata": "FNT",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "ABE",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "MFE",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "SDD",
+      "country": "AO",
+      "before": "reg"
+    },
+    {
+      "iata": "ASM",
+      "country": "ER",
+      "before": "reg"
+    },
+    {
+      "iata": "TGM",
+      "country": "RO",
+      "before": "reg"
+    },
+    {
+      "iata": "CLJ",
+      "country": "RO",
+      "before": "reg"
+    },
+    {
+      "iata": "TAP",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "NLD",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "ARW",
+      "country": "RO",
+      "before": "reg"
+    },
+    {
+      "iata": "BRO",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "ATW",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "BAY",
+      "country": "RO",
+      "before": "reg"
+    },
+    {
+      "iata": "CSW",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "TUA",
+      "country": "EC",
+      "before": "reg"
+    },
+    {
+      "iata": "LMM",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "CVM",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "TCQ",
+      "country": "PE",
+      "before": "reg"
+    },
+    {
+      "iata": "TRK",
+      "country": "ID",
+      "before": "reg"
+    },
+    {
+      "iata": "YQR",
+      "country": "CA",
+      "before": "reg"
+    },
+    {
+      "iata": "MBS",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "ORK",
+      "country": "IE",
+      "before": "reg"
+    },
+    {
+      "iata": "BTC",
+      "country": "LK",
+      "before": "reg"
+    },
+    {
+      "iata": "HLZ",
+      "country": "NZ",
+      "before": "reg"
+    },
+    {
+      "iata": "ZLO",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "BRC",
+      "country": "AR",
+      "before": "reg"
+    },
+    {
+      "iata": "KHT",
+      "country": "AF",
+      "before": "reg"
+    },
+    {
+      "iata": "PDS",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "CME",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "AZO",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "AVP",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "CTM",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "PDP",
+      "country": "UY",
+      "before": "reg"
+    },
+    {
+      "iata": "GYM",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "MAK",
+      "country": "SS",
+      "before": "reg"
+    },
+    {
+      "iata": "DUD",
+      "country": "NZ",
+      "before": "reg"
+    },
+    {
+      "iata": "GAQ",
+      "country": "ML",
+      "before": "reg"
+    },
+    {
+      "iata": "RHD",
+      "country": "AR",
+      "before": "reg"
+    },
+    {
+      "iata": "LRU",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "MKQ",
+      "country": "ID",
+      "before": "reg"
+    },
+    {
+      "iata": "YQT",
+      "country": "CA",
+      "before": "reg"
+    },
+    {
+      "iata": "IKG",
+      "country": "KG",
+      "before": "reg"
+    },
+    {
+      "iata": "LIO",
+      "country": "CR",
+      "before": "reg"
+    },
+    {
+      "iata": "LET",
+      "country": "CO",
+      "before": "reg"
+    },
+    {
+      "iata": "UAI",
+      "country": "TL",
+      "before": "reg"
+    },
+    {
+      "iata": "YMM",
+      "country": "CA",
+      "before": "reg"
+    },
+    {
+      "iata": "CPR",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "GFK",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "ART",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "BBQ",
+      "country": "AG",
+      "before": "reg"
+    },
+    {
+      "iata": "MOT",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "RGA",
+      "country": "AR",
+      "before": "reg"
+    },
+    {
+      "iata": "AXA",
+      "country": "AI",
+      "before": "reg"
+    },
+    {
+      "iata": "BOC",
+      "country": "PA",
+      "before": "reg"
+    },
+    {
+      "iata": "BVC",
+      "country": "CV",
+      "before": "reg"
+    },
+    {
+      "iata": "BZN",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "CIU",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "CYB",
+      "country": "KY",
+      "before": "reg"
+    },
+    {
+      "iata": "EQS",
+      "country": "AR",
+      "before": "reg"
+    },
+    {
+      "iata": "ERL",
+      "country": "CN",
+      "before": "reg"
+    },
+    {
+      "iata": "EYW",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "FCA",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "FUN",
+      "country": "TV",
+      "before": "reg"
+    },
+    {
+      "iata": "GDT",
+      "country": "TC",
+      "before": "reg"
+    },
+    {
+      "iata": "GGT",
+      "country": "BS",
+      "before": "reg"
+    },
+    {
+      "iata": "HLE",
+      "country": "SH",
+      "before": "reg"
+    },
+    {
+      "iata": "INL",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "INU",
+      "country": "NR",
+      "before": "reg"
+    },
+    {
+      "iata": "IUE",
+      "country": "NU",
+      "before": "reg"
+    },
+    {
+      "iata": "KTN",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "MHH",
+      "country": "BS",
+      "before": "reg"
+    },
+    {
+      "iata": "MSS",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "NLK",
+      "country": "NF",
+      "before": "reg"
+    },
+    {
+      "iata": "NZG",
+      "country": "RU",
+      "before": "reg"
+    },
+    {
+      "iata": "OGS",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "PNI",
+      "country": "FM",
+      "before": "reg"
+    },
+    {
+      "iata": "PQI",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "PXM",
+      "country": "MX",
+      "before": "reg"
+    },
+    {
+      "iata": "RSD",
+      "country": "BS",
+      "before": "reg"
+    },
+    {
+      "iata": "SON",
+      "country": "VU",
+      "before": "reg"
+    },
+    {
+      "iata": "VAM",
+      "country": "MV",
+      "before": "reg"
+    },
+    {
+      "iata": "WWK",
+      "country": "PG",
+      "before": "reg"
+    },
+    {
+      "iata": "XCH",
+      "country": "CX",
+      "before": "reg"
+    },
+    {
+      "iata": "XWA",
+      "country": "US",
+      "before": "reg"
+    },
+    {
+      "iata": "YXC",
+      "country": "CA",
+      "before": "reg"
+    },
+    {
+      "iata": "YZF",
+      "country": "CA",
+      "before": "reg"
+    },
+    {
+      "iata": "ZTH",
+      "country": "GR",
+      "before": "reg"
+    }
+  ]
+}
