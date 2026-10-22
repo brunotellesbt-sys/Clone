@@ -3511,10 +3511,14 @@ const ESCOPO_A_MAO: Record<string, Escopo> = {
   URG: 'reg', // Uruguaiana, colado na Argentina
 }
 
-const escopoDe = (iata: string, tier: number, official: string): Escopo => {
+const escopoDe = (iata: string, tier: number, official: string, cc: string): Escopo => {
   const mao = ESCOPO_A_MAO[iata]
   if (mao) return mao
   const marca = MARCADOS_INTERNACIONAL.has(iata) || MARCA_INTERNACIONAL.test(official)
+  // Fora do Brasil, porte pequeno não retira a categoria internacional já
+  // cadastrada. RAI recebe voos da Europa com pista de 2.100 m (AAC/SATA).
+  // O cadastro brasileiro e as exceções explícitas mantêm a regra anterior.
+  if (cc !== 'BR' && marca) return 'int'
   if (tier >= 4 || (marca && tier >= 3)) return 'int'
   if (marca || tier === 3) return 'reg'
   return 'dom'
@@ -3748,7 +3752,7 @@ export const AIRPORTS: Airport[] = RAW.split('\n').map((line) => {
     fluxo: fatorFluxo(iata),
     medido: MOVIMENTO_ANUAL[iata] !== undefined,
     fuso: FUSO[iata] ?? Math.round(Number(lon) / 15) * 60,
-    escopo: escopoDe(iata, t, AIRPORT_NAMES[iata] ?? ''),
+    escopo: escopoDe(iata, t, AIRPORT_NAMES[iata] ?? '', cc),
     slots: SLOTS_BY_TIER[t],
     name: `${city} (${iata})`,
     official: AIRPORT_NAMES[iata] ?? `${city} (${iata})`,

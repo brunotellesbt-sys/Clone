@@ -29,6 +29,7 @@ jobs:
       - run: npm run economy:hubs
       - run: npm run hubs:check
       - run: npx tsx scripts/airport-entry-check.ts
+      - run: npx tsx scripts/international-airports-check.ts
       - run: npx tsx scripts/slot-policy-check.ts
       - run: npx tsx scripts/schedule-inspection-check.ts
       - run: npx tsx scripts/infrastructure-interest-check.ts
