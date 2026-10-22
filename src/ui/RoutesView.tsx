@@ -6,7 +6,7 @@ import {
 } from '../game/data/airports'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from '../game/demand'
 import { distanceBetween, odKey } from '../game/geo'
-import { saldoDiferenteDaRota } from '../game/escala'
+import { saldoDiferenteDaRota, segmentosFaltantesDaRota } from '../game/escala'
 import { CAMBIO, moedaDoPais, tarifa } from '../game/money'
 import { compararPorOrdenacao, ORDENACOES_ROTAS, type OrdenacaoRotas } from '../game/routeOrdering'
 import { aeroportoServe, pistaServe } from '../game/spec'
@@ -120,9 +120,15 @@ export function RoutesView() {
 
 function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }) {
   const { state, act } = useGame()
-  const [editingPrices,setEditingPrices]=useState(false)
-  useEffect(()=>setEditingPrices(false),[route.id])
+  const [editingPrices, setEditingPrices] = useState(false)
+  const [showMissingModal, setShowMissingModal] = useState(false)
+  useEffect(() => {
+    setEditingPrices(false)
+    setShowMissingModal(false)
+  }, [route.id])
   const desequilibrada = saldoDiferenteDaRota(state, route)
+  const faltantes = useMemo(() => segmentosFaltantesDaRota(state, route), [state, route])
+  const totalFaltantes = faltantes.reduce((acc, f) => acc + f.count, 0)
   const e = routeEconomics(state, route)
   const hist = route.history.map((h) => h.profit)
   // A passagem é vendida onde a viagem começa: a rota é lida na moeda da origem.
@@ -130,7 +136,19 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
 
   return (
     <div className="grid" style={{ gap: 14 }}>
-      <Card title={`${route.from} → ${route.to}${desequilibrada ? '*' : ''} · ${AIRPORT_BY_IATA[route.to].city}`}>
+      <Card
+        title={`${route.from} → ${route.to}${desequilibrada ? '*' : ''} · ${AIRPORT_BY_IATA[route.to].city}`}
+        right={
+          desequilibrada && totalFaltantes > 0 ? (
+            <button
+              className="btn sm"
+              onClick={() => setShowMissingModal(true)}
+            >
+              {totalFaltantes === 1 ? 'Segmento Faltante' : 'Segmentos Faltantes'}
+            </button>
+          ) : undefined
+        }
+      >
         <div className="grid g2" style={{ gap: 8, fontSize: 13, marginBottom: 10 }}>
           <div><span className="muted">Distância</span><br />{km(route.distance)}</div>
           <div><span className="muted">Demanda total</span><br />{num(e.demandaDia)} {e.unidade}/dia</div>
@@ -247,7 +265,59 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
       <button className="btn danger" onClick={() => { act((s) => closeRoute(s, route.id)); onClosed() }}>
         Encerrar rota
       </button>
+
+      {showMissingModal && (
+        <MissingSegmentsModal route={route} onClose={() => setShowMissingModal(false)} />
+      )}
     </div>
+  )
+}
+
+function MissingSegmentsModal({ route, onClose }: { route: Route; onClose: () => void }) {
+  const { state } = useGame()
+  const faltantes = segmentosFaltantesDaRota(state, route)
+  const total = faltantes.reduce((acc, f) => acc + f.count, 0)
+
+  return (
+    <Modal title={total === 1 ? 'Segmento Faltante' : 'Segmentos Faltantes'} onClose={onClose}>
+      <p className="muted" style={{ marginBottom: 14 }}>
+        A rota <b>{route.from} ↔ {route.to}</b> possui um número diferente de voos nos dois sentidos durante a semana.
+        Abaixo estão os segmentos necessários para equilibrar os pares:
+      </p>
+
+      {faltantes.length === 0 ? (
+        <Empty>Nenhum segmento faltando nesta rota.</Empty>
+      ) : (
+        <table className="compacta" style={{ width: '100%' }}>
+          <thead>
+            <tr>
+              <th>Dia da Semana</th>
+              <th>Segmento Faltante</th>
+              <th className="r">Falta(m)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {faltantes.map((f, i) => (
+              <tr key={i}>
+                <td><b>{f.dowName}</b></td>
+                <td>
+                  <span className="good" style={{ fontWeight: 'bold' }}>
+                    {f.from} → {f.to}
+                  </span>
+                </td>
+                <td className="r">
+                  {f.count} {f.count === 1 ? 'voo' : 'voos'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <p className="muted" style={{ fontSize: 12, marginTop: 14, marginBottom: 0 }}>
+        Dica: Você pode agendar os voos necessários no painel <b>Novo Voo</b> na seção de Horários logo abaixo.
+      </p>
+    </Modal>
   )
 }
 

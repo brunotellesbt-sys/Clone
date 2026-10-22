@@ -212,6 +212,41 @@ export function saldoDiferenteDaRota(s: GameState, r: Route): boolean {
   return saidas !== chegadas
 }
 
+export interface SegmentoFaltante {
+  dow: number
+  dowName: string
+  from: string
+  to: string
+  count: number
+}
+
+export function segmentosFaltantesDaRota(s: GameState, r: Route): SegmentoFaltante[] {
+  const voos = pernasDaRota(s, r)
+  const faltantes: SegmentoFaltante[] = []
+  for (let dow = 0; dow < 7; dow++) {
+    const ida = voos.filter((p) => p.dow === dow && p.from === r.from && p.to === r.to).length
+    const volta = voos.filter((p) => p.dow === dow && p.from === r.to && p.to === r.from).length
+    if (ida > volta) {
+      faltantes.push({
+        dow,
+        dowName: DOW_CURTO[dow],
+        from: r.to,
+        to: r.from,
+        count: ida - volta,
+      })
+    } else if (volta > ida) {
+      faltantes.push({
+        dow,
+        dowName: DOW_CURTO[dow],
+        from: r.from,
+        to: r.to,
+        count: volta - ida,
+      })
+    }
+  }
+  return faltantes
+}
+
 /** Quantas partidas a rota tem num dia da semana, contando os dois sentidos. */
 export function pernasDoDia(s: GameState, r: Route, dow: number): Perna[] {
   return pernasDaRota(s, r).filter((p) => p.dow === dow)
