@@ -102,13 +102,25 @@ export function reserveRouteEntry(s:GameState,id:string,price=0) {
    const companies=s.competitors.map(c=>({c,used:c.routes.filter(r=>r.from===id||r.to===id).reduce((n,r)=>n+r.freq*2,0)}))
      .filter(x=>x.used>0||x.c.hub===id||x.c.hubs?.includes(id))
    const capacity=airportSlots(s,id).capacity
-   const spare=Math.max(0,capacity-companies.reduce((n,x)=>n+x.used,0))
-   // O catálogo legado não tem títulos individuais: a cota de referência é
-   // dividida entre as operadoras, e a sobra física limita o que está vago.
-   const candidates=companies.map((x,i)=>({...x,idle:Math.min(spare,Math.max(0,Math.floor(capacity/companies.length)+(i<capacity%companies.length?1:0)-x.used))}))
-     .sort((a,b)=>b.idle-a.idle||b.used-a.used||a.c.id.localeCompare(b.c.id))
-   const donor=candidates[0]
-   if(donor){d.entryTransfer={companyId:donor.c.id,allowance:Math.max(0,donor.used+donor.idle-2),source:donor.idle>0?'idle':'operation',price};donor.c.cash+=price}
+   const totalUsed=companies.reduce((n,x)=>n+x.used,0)
+   const spare=Math.max(0,capacity-totalUsed)
+   if(spare<2&&companies.length>0){
+     // O aeroporto está completamente ocupado por outras cias:
+     // 1. Caso existam 2 slots ociosos de outra companhia, pegamos 2 ociosos
+     // 2. Caso contrário, pegamos 2 slots da companhia com mais slots operando
+     const candidates=companies.map((x,i)=>{
+       const quota=Math.floor(capacity/companies.length)+(i<capacity%companies.length?1:0)
+       return {...x,idle:Math.max(0,quota-x.used)}
+     })
+     const idleDonor=candidates.filter(x=>x.idle>=2).sort((a,b)=>b.idle-a.idle||a.c.id.localeCompare(b.c.id))[0]
+     const donor=idleDonor??[...candidates].sort((a,b)=>b.used-a.used||a.c.id.localeCompare(b.c.id))[0]
+     if(donor){
+       const source=donor===idleDonor?'idle':'operation'
+       const allowance=source==='idle'?donor.used:Math.max(0,donor.used-2)
+       d.entryTransfer={companyId:donor.c.id,allowance,source,price}
+       if(price>0)donor.c.cash+=price
+     }
+   }
    d.reserved+=access.grant
  }
  d.entryAccess=true
