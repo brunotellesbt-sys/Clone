@@ -302,7 +302,7 @@ function MissingSegmentsModal({ route, onClose }: { route: Route; onClose: () =>
                 <td><b>{f.dowName}</b></td>
                 <td>
                   <span className="good" style={{ fontWeight: 'bold' }}>
-                    {f.from} → {f.to}
+                    {f.from} - {f.to}
                   </span>
                 </td>
                 <td className="r">
