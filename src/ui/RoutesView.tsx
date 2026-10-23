@@ -282,7 +282,7 @@ function MissingSegmentsModal({ route, onClose }: { route: Route; onClose: () =>
     <Modal title={total === 1 ? 'Segmento Faltante' : 'Segmentos Faltantes'} onClose={onClose}>
       <p className="muted" style={{ marginBottom: 14 }}>
         A rota <b>{route.from} ↔ {route.to}</b> possui um número diferente de voos nos dois sentidos durante a semana.
-        Abaixo estão os segmentos necessários para equilibrar os pares:
+        Abaixo estão as pernas necessárias para equilibrar os dois sentidos. A direção é explícita: cada linha mostra a origem → destino que falta:
       </p>
 
       {faltantes.length === 0 ? (
@@ -291,8 +291,8 @@ function MissingSegmentsModal({ route, onClose }: { route: Route; onClose: () =>
         <table className="compacta" style={{ width: '100%' }}>
           <thead>
             <tr>
-              <th>Dia da Semana</th>
-              <th>Segmento Faltante</th>
+              <th>Dia</th>
+              <th>Perna que falta</th>
               <th className="r">Falta(m)</th>
             </tr>
           </thead>
@@ -301,8 +301,8 @@ function MissingSegmentsModal({ route, onClose }: { route: Route; onClose: () =>
               <tr key={i}>
                 <td><b>{f.dowName}</b></td>
                 <td>
-                  <span className="good" style={{ fontWeight: 'bold' }}>
-                    {f.from} - {f.to}
+                  <span className="good" style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    {f.from} → {f.to}
                   </span>
                 </td>
                 <td className="r">

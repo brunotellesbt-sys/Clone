@@ -30,10 +30,11 @@ export function Dashboard({ go }: { go: (tab: string) => void }) {
 
   return (
     <div className="grid" style={{ gap: 14 }}>
-      <div className="grid g4">
+      <div className="grid g5">
         <Card className="tight"><Kpi label="Caixa" value={money(state.airline.cash)} tone={state.airline.cash < 0 ? 'bad' : undefined} hint={`dívida ${money(debtTotal(state))}`} /></Card>
         <Card className="tight"><Kpi label="Patrimônio" value={money(netWorth(state))} hint={`frota ${money(fleetValue(state))}`} /></Card>
         <Card className="tight"><Kpi label="Lucro (30 d)" value={money(p30.profit)} tone={p30.profit >= 0 ? 'good' : 'bad'} hint={`margem ${p30.revenue ? pct(p30.profit / p30.revenue) : '—'}`} /></Card>
+        <Card className="tight"><Kpi label="Reputação" value={pct(state.airline.reputation)} hint="qualidade percebida da companhia" /></Card>
         <Card className="tight"><Kpi label="Aproveitamento" value={p7.seats ? pct(p7.loadFactor, 1) : '—'} hint={`${num(p7.pax)} pax em 7 dias`} /></Card>
       </div>
 
