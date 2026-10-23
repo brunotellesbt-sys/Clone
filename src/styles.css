@@ -126,6 +126,7 @@ main { flex: 1; overflow: auto; padding: 18px 16px 28px; }
 .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.g5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .split { display: grid; grid-template-columns: minmax(0, 1fr) 392px; gap: 14px; align-items: start; }
 /*
  * Uma coluna quando a tela aperta — e `minmax(0, 1fr)`, não `1fr`.
@@ -137,7 +138,7 @@ main { flex: 1; overflow: auto; padding: 18px 16px 28px; }
  * pelo `npm run mobile`: 214 px no painel, 276 px nas finanças.
  */
 @media (max-width: 1080px) {
-  .split, .g2, .g3, .g4 { grid-template-columns: minmax(0, 1fr); }
+  .split, .g2, .g3, .g4, .g5 { grid-template-columns: minmax(0, 1fr); }
   /* a coluna estreita fixa do detalhe de rota também vira linha */
   .split.detalhe { grid-template-columns: minmax(0, 1fr); }
 }
@@ -582,7 +583,7 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
 
   /* os quatro indicadores viram 2×2, e os pares rótulo/valor ficam em dois:
      empilhar tudo rende meia tela de rolagem para ler o que cabe num quadrado */
-  .g2, .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .g2, .g4, .g5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
   /* a barra de abas quebra em duas linhas em vez de rolar para o lado */
   .nav { flex-wrap: wrap; overflow-x: visible; padding: 7px 10px; }
