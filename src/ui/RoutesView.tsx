@@ -282,18 +282,18 @@ function MissingSegmentsModal({ route, onClose }: { route: Route; onClose: () =>
     <Modal title={total === 1 ? 'Segmento Faltante' : 'Segmentos Faltantes'} onClose={onClose}>
       <p className="muted" style={{ marginBottom: 14 }}>
         A rota <b>{route.from} ↔ {route.to}</b> possui um número diferente de voos nos dois sentidos durante a semana.
-        Abaixo estão as pernas necessárias para equilibrar os dois sentidos. A direção é explícita: cada linha mostra a origem → destino que falta:
+        {total === 1 ? 'Abaixo está o segmento que falta:' : 'Abaixo estão os segmentos que faltam:'}
       </p>
 
       {faltantes.length === 0 ? (
         <Empty>Nenhum segmento faltando nesta rota.</Empty>
       ) : (
-        <table className="compacta" style={{ width: '100%' }}>
+        <table className="missing-segments" style={{ width: '100%', tableLayout: 'fixed' }}>
           <thead>
             <tr>
               <th>Dia</th>
-              <th>Perna que falta</th>
-              <th className="r">Falta(m)</th>
+              <th>Segmento</th>
+              <th className="r">{total === 1 ? 'Falta' : 'Faltam'}</th>
             </tr>
           </thead>
           <tbody>
@@ -302,7 +302,7 @@ function MissingSegmentsModal({ route, onClose }: { route: Route; onClose: () =>
                 <td><b>{f.dowName}</b></td>
                 <td>
                   <span className="good" style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                    {f.from} → {f.to}
+                    {f.from} - {f.to}
                   </span>
                 </td>
                 <td className="r">
@@ -315,7 +315,7 @@ function MissingSegmentsModal({ route, onClose }: { route: Route; onClose: () =>
       )}
 
       <p className="muted" style={{ fontSize: 12, marginTop: 14, marginBottom: 0 }}>
-        Dica: Você pode agendar os voos necessários no painel <b>Novo Voo</b> na seção de Horários logo abaixo.
+        Dica: Você pode agendar {total === 1 ? 'o voo necessário' : 'os voos necessários'} no painel <b>Novo Voo</b> na seção de Horários logo abaixo.
       </p>
     </Modal>
   )
