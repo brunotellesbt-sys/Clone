@@ -532,6 +532,7 @@ const novoId = () => `pn${Date.now().toString(36)}${(seqPerna++).toString(36)}`
  * cauda, e o motivo tem que chegar na tela do mesmo jeito.
  */
 export function aeronaveServe(s: GameState, ac: Aircraft, from: string, to: string): string | null {
+  if (ac.isReserve) return `${ac.reg} está na reserva de manutenção e só pode substituir aeronaves.`
   const t = fichaDe(ac)
   const a = effectiveAirport(s, from)
   const b = effectiveAirport(s, to)
@@ -609,7 +610,7 @@ export function curfewDaPerna(
  * está, para o jogador conseguir montar a cadeia em vez de adivinhar.
  */
 export function aeronavesPara(s: GameState, from: string, to: string, dow: number, saida: number) {
-  return s.airline.fleet.map((ac) => {
+  return s.airline.fleet.filter((ac) => !ac.isReserve).map((ac) => {
     const duro = aeronaveServe(s, ac, from, to) ?? curfewDaPerna(s, ac.id, from, to, saida)
     if (duro) {
       return {
