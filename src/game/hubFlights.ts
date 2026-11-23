@@ -1,14 +1,17 @@
 import { airportSlots, airportUsage, effectiveAirport, routeEntryAccess } from './airportInfrastructure'
 import { AIRPORTS, AIRPORT_BY_IATA, noToqueDeRecolher, vooPermitido } from './data/airports'
 import { blockHours } from './economy'
-import { DIA, SEMANA, aeronaveServe, fichaDe, naSemana, pernasDe } from './escala'
+import { DIA, SEMANA, aeronaveServe, escalaDe, fichaDe, naSemana, noTempo, type PernaNoTempo } from './escala'
 import { distanceBetween, odKey } from './geo'
 import type { Aircraft, GameState } from './types'
 
-interface Opportunity {
+export interface GroundWindow {
   ac: Aircraft
   available: number
   until: number
+}
+
+export interface FlightOpportunity extends GroundWindow {
   departure: number
   arrival: number
   to: string
@@ -17,7 +20,7 @@ interface Opportunity {
   needsRoute: boolean
 }
 
-export function hubFlightOpportunities(s: GameState, hub: string, dow: number): Opportunity[] {
+export function hubFlightPlan(s: GameState, hub: string, dow: number, furthestOnly = false) {
   const start = dow * DIA - AIRPORT_BY_IATA[hub].fuso
   const end = start + SEMANA
   const slots = new Map<string, number[]>()
@@ -79,10 +82,22 @@ export function hubFlightOpportunities(s: GameState, hub: string, dow: number): 
     }
   }
 
-  const result: Opportunity[] = []
-  for (const ac of s.airline.fleet) {
-    if (ac.isReserve || ac.groundedUntil > s.day) continue
-    const legs = pernasDe(s, ac.id)
+  const fullAtBase = !Array.from({ length: 7 }, (_, day) => freeSlots(hub, day)).some(n => n > 0)
+  const legsByAircraft = new Map<string, PernaNoTempo[]>()
+  const fleet = s.airline.fleet.filter(ac => !ac.isReserve && ac.groundedUntil <= s.day)
+  const eligibleAircraft = new Set(fleet.map(ac => ac.id))
+  for (const leg of escalaDe(s)) {
+    if (!eligibleAircraft.has(leg.aircraftId)) continue
+    const schedule = legsByAircraft.get(leg.aircraftId) ?? []
+    schedule.push(noTempo(s, leg))
+    legsByAircraft.set(leg.aircraftId, schedule)
+  }
+
+  const opportunities: FlightOpportunity[] = []
+  const groundOnly: GroundWindow[] = []
+  for (const ac of fleet) {
+    const legs = legsByAircraft.get(ac.id) ?? []
+    legs.sort((a, b) => a.partida - b.partida)
     const windows: { available: number; until: number; next: string }[] = []
     if (!legs.length && (ac.base ?? s.airline.hubs[0]) === hub)
       windows.push({ available: start, until: end, next: hub })
@@ -98,18 +113,37 @@ export function hubFlightOpportunities(s: GameState, hub: string, dow: number): 
         if (from < until) windows.push({ available: from, until, next: next.perna.from })
       }
     }
+    let best: FlightOpportunity | undefined
+    let longest: GroundWindow | undefined
     for (const window of windows) {
+      if (!longest || window.until - window.available > longest.until - longest.available)
+        longest = { ac, available: window.available, until: window.until }
+      if (fullAtBase) continue
       const candidates = window.next === hub ? destinations : [{ id: window.next, distance: distanceBetween(hub, window.next) }]
       for (const { id: to, distance } of candidates) {
+        if (furthestOnly && best && distance < best.distance) break
         // Na conexão direta também é necessário o solo antes do próximo voo.
         const limit = window.next === hub ? window.until : window.until - fichaDe(ac).turn
         const feasible = trip(ac, { ...window, until: limit }, to, distance)
         if (!feasible) continue
-        result.push({ ac, ...window, ...feasible, to, distance, roundTrip: window.next === hub,
-          needsRoute: !routes.has(odKey(hub, to)) })
+        const option = { ac, available: window.available, until: window.until, ...feasible, to, distance,
+          roundTrip: window.next === hub, needsRoute: !routes.has(odKey(hub, to)) }
+        if (!furthestOnly) opportunities.push(option)
+        if (!best || option.distance > best.distance || (option.distance === best.distance && option.departure < best.departure))
+          best = option
         break
       }
     }
+    if (best && furthestOnly) opportunities.push(best)
+    if (!best && longest) groundOnly.push(longest)
   }
-  return result.sort((a, b) => a.available - b.available || b.distance - a.distance)
+  opportunities.sort(furthestOnly
+    ? (a, b) => b.distance - a.distance || a.departure - b.departure
+    : (a, b) => a.available - b.available || b.distance - a.distance)
+  groundOnly.sort((a, b) => a.available - b.available || a.ac.reg.localeCompare(b.ac.reg))
+  return { opportunities, groundOnly, fullAtBase }
+}
+
+export function hubFlightOpportunities(s: GameState, hub: string, dow: number) {
+  return hubFlightPlan(s, hub, dow).opportunities
 }

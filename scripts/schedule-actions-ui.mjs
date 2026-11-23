@@ -14,7 +14,8 @@ try {
   s.competitors=[];s.airline.cash=1e10;s.paused=true;invalidateAirportUsage(s)
   openRoute(s,'GRU','REC')
   for(let i=0;i<6;i++)buyAircraft(s,'e195e2',false)
-  const [flying, idle, latest, repair, busy, reserve] = s.airline.fleet
+  buyAircraft(s,'atr72',false)
+  const [flying, idle, latest, repair, busy, reserve, otherModel] = s.airline.fleet
   busy.isReserve=true
   reserve.isReserve=true
   const {marcarRotacao}=await import('/src/game/escala.ts')
@@ -25,7 +26,7 @@ try {
   if(err)throw Error(err)
   saveGame(s,1)
   return {reg:idle.reg,latest:latest.reg,flying:flying.reg,repair:repair.reg,busy:busy.reg,reserve:reserve.reg,
-    original:s.airline.escala.map(p=>p.id)}
+    otherModel:otherModel.reg,original:s.airline.escala.map(p=>p.id)}
  })
  await page.reload();await page.getByRole('button',{name:'Continuar',exact:true}).first().click()
  await page.getByRole('button',{name:/^Rotas/}).first().click()
@@ -39,6 +40,9 @@ try {
  assert.equal(await search.inputValue(),'Fortaleza')
  assert.deepEqual(await search.evaluate(e=>[e===document.activeElement,e.selectionStart,e.selectionEnd]),[true,2,5])
  await page.getByRole('button',{name:'Fechar',exact:true}).click()
+ const windows=page.getByRole('table',{name:'Janelas das aeronaves'})
+ await windows.locator('tbody tr').first().waitFor()
+ assert.match(await windows.locator('tbody tr').first().innerText(),/km[\s\S]*Sai \w{3} \d{2}:\d{2}/)
  const mark=page.locator('.card').filter({has:page.getByRole('heading',{name:'Marcar voo',exact:true})})
  assert(await mark.getByRole('button',{name:'Desfazer último movimento',exact:true}).isDisabled())
  await mark.getByRole('button',{name:'Todos',exact:true}).click()
@@ -48,13 +52,16 @@ try {
  const departure=mark.getByLabel('Parte às')
  await departure.fill('17:30')
  await page.getByRole('button',{name:'Manutenção',exact:true}).click()
- const maintenance=page.getByRole('table').first().locator('tbody tr')
+ const modelGroups=page.locator('.maintenance-model')
+ assert.equal(await modelGroups.count(),2)
+ assert.match(await modelGroups.nth(1).locator('tbody').innerText(),new RegExp(setup.otherModel))
+ const maintenance=modelGroups.first().locator('tbody tr')
  const priority=await maintenance.evaluateAll(rows=>rows.map(row=>row.querySelector('b')?.textContent))
  assert.deepEqual(priority,[setup.latest,setup.repair,setup.busy,setup.reserve,...[setup.reg,setup.flying].sort((a,b)=>a.localeCompare(b))])
- assert.equal(await page.getByRole('button',{name:'Alocar na Reserva',exact:true}).count(),1)
+ assert.equal(await page.getByRole('button',{name:'Alocar na Reserva',exact:true}).count(),2)
  await page.getByRole('button',{name:'Hubs',exact:true}).click()
  await page.getByRole('heading',{name:'Aeronaves com janela em GRU'}).waitFor()
- assert(await page.getByText('Volta ao hub',{exact:false}).first().isVisible())
+ await page.getByRole('table',{name:'Janelas das aeronaves'}).getByText('Volta ao hub',{exact:false}).first().waitFor()
  const connectionIdeas=page.locator('.card').filter({has:page.getByRole('heading',{name:'5 conexões potenciais em GRU'})})
  await connectionIdeas.locator('tbody tr').last().waitFor()
  assert.equal(await connectionIdeas.locator('tbody tr').count(),5)

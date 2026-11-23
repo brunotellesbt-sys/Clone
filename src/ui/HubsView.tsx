@@ -1,11 +1,11 @@
 import type { ConnectionSuggestion } from '../game/hubConnections'
-import { hubFlightOpportunities } from '../game/hubFlights'
-import { DIA, DOW_CURTO, hhmm, naSemana } from '../game/escala'
-import { useEffect, useMemo, useState } from 'react'
+import { DIA, DOW_CURTO, hhmm } from '../game/escala'
+import { useEffect, useState } from 'react'
 import { useGame } from '../store/useGame'
 import { Card } from './components/Bits'
+import { HubFlights } from './components/HubFlights'
 import { baseDemand } from '../game/demand'
-import { money, num, pct, closeHub, dowOf, km } from '../game/engine'
+import { money, num, pct, closeHub } from '../game/engine'
 import {hubCompanies,hubCompanyLimit} from '../game/hubAccess'
 import { AIRPORT_BY_IATA, ESCOPO_LABEL, SLOTS_BY_TIER } from '../game/data/airports'
 import { airportRevision, airportSlots, largeOperations, physicalRunwayLimit, effectiveAirport, growthProgress, populationAt, startAirportWork, workOffer, WORK_LABEL, type WorkKind } from '../game/airportInfrastructure'
@@ -109,32 +109,6 @@ export function HubsView({bases=false}:{bases?:boolean}) {
     </Card>}
   </div>
 }
-
-function HubFlights({ id }: { id: string }) {
-  const { state } = useGame()
-  const revision = airportRevision(state)
-  const options = useMemo(() => hubFlightOpportunities(state, id, dowOf(state)), [state, id, revision])
-  const time = (utc: number, airport = id) => {
-    const local = naSemana(utc + AIRPORT_BY_IATA[airport].fuso)
-    return `${DOW_CURTO[Math.floor(local / DIA)]} ${hhmm(local)}`
-  }
-  return <Card title={`Aeronaves com janela em ${id}`}>
-    {options.length ? <>
-      <p className="dim">Janelas da malha programada para os próximos 7 dias, em horário local. O destino mais distante considera alcance, pista, toque de recolher, slots e o próximo voo da aeronave.</p>
-      <div className="rolagem-x"><table>
-        <thead><tr><th>Aeronave</th><th>Disponível no hub</th><th>Destino mais distante</th><th>Horário possível</th></tr></thead>
-        <tbody>{options.map(option => <tr key={`${option.ac.id}-${option.available}`}>
-          <td><b>{option.ac.reg}</b></td>
-          <td>{option.until - option.available === 7 * DIA ? 'Toda a semana' : `${time(option.available)} até ${time(option.until)}`}</td>
-          <td><b>{option.to}</b> · {AIRPORT_BY_IATA[option.to].city} · {km(option.distance)}
-            {option.needsRoute && <><br /><small className="muted">Requer abrir a rota</small></>}</td>
-          <td>Sai {time(option.departure)}<br />{option.roundTrip ? 'Volta ao hub' : `Continua em ${option.to}`} {time(option.arrival, option.roundTrip ? id : option.to)}</td>
-        </tr>)}</tbody>
-      </table></div>
-    </> : <p className="muted">Nenhuma aeronave tem janela para ida e volta ou para completar a malha neste aeroporto nos próximos 7 dias.</p>}
-  </Card>
-}
-
 
 function HubConnections({ id }: { id: string }) {
   const { state } = useGame()

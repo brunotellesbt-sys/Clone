@@ -21,8 +21,12 @@ export function MaintenanceView() {
   const fleet = state.airline.fleet
   const substituteMap = getSubstituteMap(state, state.day)
 
-  // Identifica todos os modelos presentes na frota
-  const uniqueTypeIds = Array.from(new Set(fleet.map((a) => a.typeId)))
+  const fleetByModel = new Map<string, typeof fleet>()
+  for (const ac of fleet) {
+    const group = fleetByModel.get(ac.typeId) ?? []
+    group.push(ac)
+    fleetByModel.set(ac.typeId, group)
+  }
 
   const scheduled = scheduledAircraft(state)
   const totalActive = fleet.filter(a => !a.isReserve && scheduled.has(a.id)).length
@@ -44,7 +48,6 @@ export function MaintenanceView() {
     if (substitutingReverseMap.has(ac.id)) return 2
     return ac.isReserve ? 3 : 4
   }
-  const ordered = [...fleet].sort((a, b) => priority(a) - priority(b) || a.reg.localeCompare(b.reg))
 
   return (
     <div className="grid" style={{ gap: 14 }}>
@@ -113,103 +116,19 @@ export function MaintenanceView() {
               <Empty>Nenhuma aeronave na frota. Compre ou arrende aeronaves no mercado.</Empty>
             ) : (
               <div className="grid" style={{ gap: 16 }}>
-                <div className="scroll">
-                  <table style={{ width: '100%', fontSize: 13 }}>
-                    <thead>
-                      <tr>
-                        <th>Matrícula / modelo</th>
-                        <th className="r">Idade</th>
-                        <th className="r">Estado</th>
-                        <th>Status do Voo / Reserva</th>
-                        <th className="r">Alocação</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ordered.map((a) => {
-                        const isGrounded = a.groundedUntil > state.day
-                        const substitutingReg = substitutingReverseMap.get(a.id)
-
-                        return (
-                          <tr key={a.id}>
-                            <td>
-                              <b>{a.reg}</b><br /><small>{acLabel(AIRCRAFT_BY_ID[a.typeId])}</small>
-                              {a.leased && (
-                                <span className="chip grey sm" style={{ marginLeft: 6 }}>
-                                  arrendado
-                                </span>
-                              )}
-                            </td>
-                            <td className="r">{a.age.toFixed(1)} a</td>
-                            <td className="r" style={{ minWidth: 80 }}>
-                              <Bar
-                                value={a.condition}
-                                tone={a.condition < 0.4 ? '#fb7185' : undefined}
-                              />
-                            </td>
-                            <td>
-                              {a.isReserve ? (
-                                isGrounded ? (
-                                  <span className="chip bad">Manutenção (Reserva)</span>
-                                ) : substitutingReg ? (
-                                  <span className="chip good">
-                                    Substituindo <b>{substitutingReg}</b>
-                                  </span>
-                                ) : (
-                                  <span className="chip info">Em Reserva (Disponível)</span>
-                                )
-                              ) : isGrounded ? (
-                                <span className="chip bad">
-                                  Em Manutenção
-                                  {substituteMap.has(a.id) ? ' (Substituído)' : ' (Sem reserva)'}
-                                </span>
-                              ) : (
-                                <span className="chip grey">{scheduled.has(a.id) ? 'Ativa na Malha' : 'Sem voos na malha'}</span>
-                              )}
-                            </td>
-                            <td className="r">
-                              {a.isReserve ? (
-                                <button
-                                  className="btn sm"
-                                  onClick={() => {
-                                    setPlanningAircraftId(a.id)
-                                    const err = act((s) => setAircraftReserve(s, a.id, false))
-                                    if (err) toast(err, 'error')
-                                  }}
-                                >
-                                  Remover da Reserva
-                                </button>
-                              ) : canEnterReserve(a, scheduled, state.day) ? (
-                                <button
-                                  className="btn sm primary"
-                                  onClick={() => {
-                                    setPlanningAircraftId(a.id)
-                                    const err = act((s) => setAircraftReserve(s, a.id, true))
-                                    if (err) toast(err, 'error')
-                                  }}
-                                >
-                                  Alocar na Reserva
-                                </button>
-                              ) : null}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <h4>Quantidades por modelo</h4>
-                {uniqueTypeIds.map((typeId) => {
+                {[...fleetByModel].map(([typeId, modelFleet]) => {
                   const model = AIRCRAFT_BY_ID[typeId]
-                  const modelFleet = fleet.filter((a) => a.typeId === typeId)
+                  const ordered = [...modelFleet].sort((a, b) => priority(a) - priority(b) || a.reg.localeCompare(b.reg))
                   const reserves = modelFleet.filter((a) => a.isReserve)
                   const active = modelFleet.filter((a) => !a.isReserve)
                   const available = modelFleet.filter(a => canEnterReserve(a, scheduled, state.day)).length
                   const suggested = suggestedReserveCount(state, typeId)
 
                   return (
-                    <div
+                    <section
                       key={typeId}
-                      className="card tight"
+                      className="card tight maintenance-model"
+                      aria-labelledby={`maintenance-${typeId}`}
                       style={{
                         background: 'var(--panel-bg-soft, rgba(255,255,255,0.02))',
                         border: '1px solid var(--line)',
@@ -228,7 +147,7 @@ export function MaintenanceView() {
                         }}
                       >
                         <div>
-                          <b style={{ fontSize: 15 }}>{acLabel(model)}</b>
+                          <h4 id={`maintenance-${typeId}`} style={{ fontSize: 15, display: 'inline' }}>{acLabel(model)}</h4>
                           <span className="muted" style={{ marginLeft: 8, fontSize: 12 }}>
                             Total: {modelFleet.length} · Ativas: {active.length} · Reserva:{' '}
                             {reserves.length}
@@ -298,7 +217,91 @@ export function MaintenanceView() {
                           </button>
                         </div>
                       </div>
-                    </div>
+                      <div className="scroll">
+                        <table style={{ width: '100%', fontSize: 13 }}>
+                          <thead>
+                            <tr>
+                              <th>Matrícula</th>
+                              <th className="r">Idade</th>
+                              <th className="r">Estado</th>
+                              <th>Status do Voo / Reserva</th>
+                              <th className="r">Alocação</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ordered.map((a) => {
+                              const isGrounded = a.groundedUntil > state.day
+                              const substitutingReg = substitutingReverseMap.get(a.id)
+
+                              return (
+                                <tr key={a.id}>
+                                  <td>
+                                    <b>{a.reg}</b>
+                                    {a.leased && (
+                                      <span className="chip grey sm" style={{ marginLeft: 6 }}>
+                                        arrendado
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="r">{a.age.toFixed(1)} a</td>
+                                  <td className="r" style={{ minWidth: 80 }}>
+                                    <Bar
+                                      value={a.condition}
+                                      tone={a.condition < 0.4 ? '#fb7185' : undefined}
+                                    />
+                                  </td>
+                                  <td>
+                                    {a.isReserve ? (
+                                      isGrounded ? (
+                                        <span className="chip bad">Manutenção (Reserva)</span>
+                                      ) : substitutingReg ? (
+                                        <span className="chip good">
+                                          Substituindo <b>{substitutingReg}</b>
+                                        </span>
+                                      ) : (
+                                        <span className="chip info">Em Reserva (Disponível)</span>
+                                      )
+                                    ) : isGrounded ? (
+                                      <span className="chip bad">
+                                        Em Manutenção
+                                        {substituteMap.has(a.id) ? ' (Substituído)' : ' (Sem reserva)'}
+                                      </span>
+                                    ) : (
+                                      <span className="chip grey">{scheduled.has(a.id) ? 'Ativa na Malha' : 'Sem voos na malha'}</span>
+                                    )}
+                                  </td>
+                                  <td className="r">
+                                    {a.isReserve ? (
+                                      <button
+                                        className="btn sm"
+                                        onClick={() => {
+                                          setPlanningAircraftId(a.id)
+                                          const err = act((s) => setAircraftReserve(s, a.id, false))
+                                          if (err) toast(err, 'error')
+                                        }}
+                                      >
+                                        Remover da Reserva
+                                      </button>
+                                    ) : canEnterReserve(a, scheduled, state.day) ? (
+                                      <button
+                                        className="btn sm primary"
+                                        onClick={() => {
+                                          setPlanningAircraftId(a.id)
+                                          const err = act((s) => setAircraftReserve(s, a.id, true))
+                                          if (err) toast(err, 'error')
+                                        }}
+                                      >
+                                        Alocar na Reserva
+                                      </button>
+                                    ) : null}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </section>
                   )
                 })}
               </div>
