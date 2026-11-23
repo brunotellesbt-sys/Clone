@@ -144,7 +144,7 @@ try {
  const openRoute=page.locator('.modal').filter({has:page.getByRole('heading',{name:'Abrir nova rota',exact:true})})
  assert.equal(await openRoute.getByLabel('Saindo de').inputValue(),'GRU')
  await openRoute.getByLabel('Filtrar a lista').fill('SJK')
- await openRoute.getByLabel('Destino',{exact:true}).selectOption('SJK')
+ await openRoute.getByRole('row').filter({has:page.getByText('SJK',{exact:true})}).click()
  await openRoute.getByRole('button',{name:/^Abrir por/}).click()
  await openRoute.getByText(/Rota GRU → SJK aberta/).waitFor()
  await openRoute.getByRole('button',{name:'Fechar',exact:true}).click()
