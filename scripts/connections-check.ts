@@ -1,8 +1,10 @@
+import { suggestHubConnections } from '../src/game/hubConnections'
+import { conexoesNaBase } from '../src/game/malha'
 import assert from 'node:assert/strict'
 import { allocateConnections, connectionRoom, nearbyAirports } from '../src/game/connections'
 import { connectionWindow } from '../src/game/connectionRules'
 import { buyAircraft, dowOf, newGame, openRoute, routeEconomics } from '../src/game/engine'
-import { DIA, marcarVoo, partidaUtc } from '../src/game/escala'
+import { DIA, marcarVoo, noTempo, partidaUtc } from '../src/game/escala'
 import { baseDemand } from '../src/game/demand'
 import { sumCabins } from '../src/game/economy'
 import { odKey } from '../src/game/geo'
@@ -114,6 +116,21 @@ const lightFirst = lightManifests.get(`0:${light.airline.escala![0].id}`)!
 assert(sumCabins(lightFirst.connecting) > 0, 'conexões aumentam a lotação do voo vazio')
 assert.deepEqual(lightFirst.local, lightFirst.baseline, 'assentos vagos recebem conexões preservando todos os passageiros locais')
 
+// Mercado local vazio libera até os assentos físicos fora da cota usual.
+const emptyFlight = setup()
+emptyFlight.airline.fleet[0].seats = { y: 10, w: 0, c: 0, f: 0 }
+const zeroLocals = emptyFlight.airline.routes.map((route, i) => ({
+  route,
+  voos: [emptyFlight.airline.escala![i]],
+  seats: { y: i ? 200 : 9, w: 0, c: 0, f: 0 },
+  local: { y: 0, w: 0, c: 0, f: 0 },
+}))
+const filled = allocateConnections(emptyFlight, zeroLocals, dowOf(emptyFlight), 1)
+  .get(`0:${emptyFlight.airline.escala![0].id}`)!
+assert.equal(filled.capacity.y, 10, 'a cabine vazia disponibiliza todos os assentos físicos')
+assert.equal(filled.connecting.y, 10, 'a demanda de conexão pode preencher o voo inteiro')
+assert.equal(filled.local.y, 0)
+
 // Múltiplas combinações disputam os mesmos passageiros, sem duplicar reservas.
 const multi = setup()
 for (const [from, to, hour] of [['SDU', 'BSB', 9], ['BSB', 'LIM', 13]] as const) {
@@ -173,4 +190,25 @@ route.history = [{ day: 1, pax: { y: 100, w: 0, c: 0, f: 0 }, localPax: { y: 90,
 assert.equal(routeEconomics(s, route).atendidoDiaCabine.y, 90)
 assert.equal(routeEconomics(s, route).conexoesDia, 10)
 assert.equal(routeEconomics(s, route).loadFactor, 1)
+const planning = newGame({ name: 'Plano de hub', code: 'PH', hub: 'GRU', seed: 42, densidade: 'enxuta' })
+planning.airline.cash = 1e9
+for (const airport of ['REC', 'POA', 'SSA', 'CWB', 'BSB', 'CNF', 'FOR']) assert.equal(openRoute(planning, 'GRU', airport), null)
+assert.equal(buyAircraft(planning, 'a320neo', false), null)
+const ideas = suggestHubConnections(planning, 'GRU')
+assert.equal(ideas.length, 5)
+assert(ideas.every((idea, i) => idea.profit > 0 && !idea.missingRoute && (!i || ideas[i - 1].profit >= idea.profit)))
+const { from, to, connectionTime } = ideas[0]
+const arriving = planning.airline.fleet[0]
+arriving.base = from
+assert.equal(marcarVoo(planning, arriving.id, from, 'GRU', 1, 7 * 60), null)
+const arrival = noTempo(planning, planning.airline.escala![0]).chegadaLocal
+returnFlight(planning, arriving.id)
+assert.equal(buyAircraft(planning, 'a320neo', false), null)
+const onward = planning.airline.fleet[1]
+assert.equal(marcarVoo(planning, onward.id, 'GRU', to, 1, arrival + connectionTime.min), null)
+returnFlight(planning, onward.id)
+assert(conexoesNaBase(planning, 'GRU').some(c => c.de.ponta === from && c.para.ponta === to))
+assert(!suggestHubConnections(planning, 'GRU').some(idea => idea.from === from && idea.to === to))
+console.log('OK: cinco sugestões por lucro, priorizando a malha aberta e excluindo conexão já oferecida.')
+
 console.log('OK: janelas por redespacho, conservação entre voos, lotação/atendimento local, concorrência GIG–LIM e reservas entre dias/saves.')

@@ -1,6 +1,7 @@
+import type { ConnectionSuggestion } from '../game/hubConnections'
 import { hubFlightOpportunities } from '../game/hubFlights'
 import { DIA, DOW_CURTO, hhmm, naSemana } from '../game/escala'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useGame } from '../store/useGame'
 import { Card } from './components/Bits'
 import { baseDemand } from '../game/demand'
@@ -54,6 +55,7 @@ export function HubsView({bases=false}:{bases?:boolean}) {
       {slots.over>0&&<p className="bad">A malha excede a capacidade em {num(slots.over)} movimentos no dia de pico. As escalas das aeronaves que não couberem ficam temporariamente suspensas por inteiro, para evitar aviões voando sem terem chegado à origem. A suspensão dura até você ajustar os horários ou a capacidade ser restaurada; a programação é preservada.</p>}
     </Card>
     <HubFlights id={id} />
+    {isHub && <HubConnections id={id} />}
     <Card title="Quantos slots tem cada nível?">
       <p className="dim">Referência inicial de capacidade do aeroporto inteiro, compartilhada entre todas as companhias. Cada pouso ou decolagem ocupa 1 slot; uma ida e volta usa 2 em cada aeroporto.</p>
       <div className="rolagem-x"><table aria-label="Referência de slots por nível de infraestrutura"><thead><tr><th>Nível</th><th className="r">Slots/dia iniciais</th></tr></thead><tbody>{Object.entries(SLOTS_BY_TIER).map(([level,capacity])=><tr key={level} className={Number(level)===a.tier?'on':''}><td>Nível {level}{Number(level)===a.tier?' · atual':''}</td><td className="r">{num(capacity)}</td></tr>)}</tbody></table></div>
@@ -130,5 +132,56 @@ function HubFlights({ id }: { id: string }) {
         </tr>)}</tbody>
       </table></div>
     </> : <p className="muted">Nenhuma aeronave tem janela para ida e volta ou para completar a malha neste aeroporto nos próximos 7 dias.</p>}
+  </Card>
+}
+
+
+function HubConnections({ id }: { id: string }) {
+  const { state } = useGame()
+  const revision = airportRevision(state)
+  const [result, setResult] = useState<{ hub: string; suggestions: ConnectionSuggestion[] | null }>()
+  useEffect(() => {
+    let worker: Worker
+    try {
+      worker = new Worker(new URL('../game/hubConnectionsWorker.ts', import.meta.url), { type: 'module' })
+      worker.onmessage = ({ data }: MessageEvent<ConnectionSuggestion[] | null>) => setResult({ hub: id, suggestions: data })
+      worker.onerror = () => setResult({ hub: id, suggestions: null })
+      // A previsão usa as rotas recentes e a capacidade atual. O histórico
+      // completo de reservas e finanças não precisa atravessar a interface.
+      const airportDevelopment = state.airportDevelopment && Object.fromEntries(
+        Object.entries(state.airportDevelopment).map(([iata, development]) =>
+          [iata, { ...development, idle: [], history: [] }]),
+      )
+      worker.postMessage({ hub: id, state: {
+        ...state, airportDevelopment, ledger: [], notices: [], connectionJourneys: undefined,
+        airline: { ...state.airline, routes: state.airline.routes.map(r => ({ ...r, history: r.history.slice(-14) })) },
+      } })
+    } catch {
+      setResult({ hub: id, suggestions: null })
+    }
+    return () => worker?.terminate()
+  }, [state, id, revision])
+  const suggestions = result?.hub === id ? result.suggestions : undefined
+  const localTime = (minute: number) => `${DOW_CURTO[Math.floor(minute / DIA)]} ${hhmm(minute)}`
+  return <Card title={`5 conexões potenciais em ${id}`}>
+    {suggestions === undefined ? <p className="muted">Calculando oportunidades de conexão…</p> :
+      suggestions === null ? <p className="muted">As sugestões de conexão estão temporariamente indisponíveis.</p> :
+      suggestions.length ? <>
+      <p className="dim">Lucro estimado por par de voos, após custos dos lugares nos dois trechos. Os horários são alvos para planejar em Rotas.</p>
+      <div className="rolagem-x"><table>
+        <thead><tr><th>Conexão</th><th>Estimativa</th><th>Como programar</th></tr></thead>
+        <tbody>{suggestions.map(option => <tr key={`${option.from}-${option.to}`}>
+          <td><b>{option.from} → {id} → {option.to}</b></td>
+          <td><b className="good">{money(option.profit)}</b><br /><small>{num(option.passengers)} passageiros</small></td>
+          <td>
+            {option.missingRoute && <><b>Abra {id}–{option.missingRoute}</b><br /></>}
+            {option.arrival !== undefined && option.departure !== undefined
+              ? <>Chegada {localTime(option.arrival)} · saída {localTime(option.departure)}<br /></>
+              : null}
+            <small>Janela de conexão de {option.connectionTime.min} a {option.connectionTime.max} min</small>
+          </td>
+        </tr>)}</tbody>
+      </table></div>
+    </> : <p className="muted">Ainda não há combinações inéditas com lucro estimado nas rotas deste hub. Abra uma rota de passageiros ou amplie a malha para aparecerem opções.</p>}
   </Card>
 }

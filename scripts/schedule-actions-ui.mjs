@@ -55,23 +55,29 @@ try {
  await page.getByRole('button',{name:'Hubs',exact:true}).click()
  await page.getByRole('heading',{name:'Aeronaves com janela em GRU'}).waitFor()
  assert(await page.getByText('Volta ao hub',{exact:false}).first().isVisible())
+ const connectionIdeas=page.locator('.card').filter({has:page.getByRole('heading',{name:'5 conexões potenciais em GRU'})})
+ await connectionIdeas.locator('tbody tr').last().waitFor()
+ assert.equal(await connectionIdeas.locator('tbody tr').count(),5)
+ assert.equal(await connectionIdeas.getByText(/^Abra GRU–/).count(),5)
  await page.getByRole('button',{name:/^Rotas/}).first().click()
  assert.equal(await departure.inputValue(),'17:30')
  assert(await departure.evaluate(e=>e===document.activeElement))
  await mark.locator('.row').filter({has:page.getByRole('button',{name:setup.latest,exact:true})}).getByRole('button',{name:'Marcar',exact:true}).click()
  await mark.getByRole('button',{name:'Desfazer penúltimo movimento (7)',exact:true}).click()
  await page.getByText(/Penúltimo movimento desfeito: 7 voos/).waitFor()
- await page.waitForFunction(async count=>{
+ const waitForSavedFlights = count => page.evaluate(async expected => {
   const {loadSaveGame}=await import('/src/game/save.ts')
-  return (await loadSaveGame(1))?.airline.escala.length===count
- },setup.original.length+1)
+  const expires=Date.now()+10_000
+  while(Date.now()<expires) {
+   const legs=(await loadSaveGame(1))?.airline.escala ?? []
+   if(legs.length===expected) return legs.map(p=>p.id)
+   await new Promise(resolve=>setTimeout(resolve,50))
+  }
+  throw new Error(`O slot não registrou os ${expected} voos esperados.`)
+ },count)
+ assert.equal((await waitForSavedFlights(setup.original.length+1)).length,setup.original.length+1)
  await mark.getByRole('button',{name:'Desfazer último movimento (1)',exact:true}).click()
- await page.waitForFunction(async count=>{
-  const {loadSaveGame}=await import('/src/game/save.ts')
-  return (await loadSaveGame(1))?.airline.escala.length===count
- },setup.original.length)
- const remaining=await page.evaluate(async()=>{const {loadSaveGame}=await import('/src/game/save.ts');return (await loadSaveGame(1)).airline.escala.map(p=>p.id)})
- assert.deepEqual(remaining,setup.original)
+ assert.deepEqual(await waitForSavedFlights(setup.original.length),setup.original)
  await departure.fill('08:00')
  await mark.getByRole('button',{name:'Hoje',exact:true}).click()
  await mark.locator('.row').filter({has:page.getByRole('button',{name:setup.reg,exact:true})}).getByRole('button',{name:'Marcar',exact:true}).click()

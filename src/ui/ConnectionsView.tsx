@@ -81,7 +81,7 @@ export function ConnectionsView() {
 
   return <div className="grid" style={{ gap: 14 }}>
     <Card title="Conexões">
-      <p className="muted">Cada viagem liga dois voos e reserva o mesmo número de passageiros nos dois trechos. Eles contam na lotação de cada voo, mas não como demanda local atendida entre essas duas pontas.</p>
+      <p className="muted">Cada conexão reserva o mesmo número de passageiros nos dois trechos. Quando a procura local deixa lugares vagos, as conexões podem ocupar todos os assentos físicos se houver passageiros interessados e a tarifa cobrir o custo adicional.</p>
       <div className="connection-filters">
         <label>Hub<select aria-label="Hub das conexões" value={hub} onChange={e => setHub(e.target.value)}><option value="">Todos os hubs</option>{state.airline.hubs.map(h => <option key={h}>{h}</option>)}</select></label>
         <label>Período<select aria-label="Período das conexões" value={period} onChange={e => setPeriod(Number(e.target.value))}><option value={1}>Último dia</option><option value={7}>7 dias</option><option value={14}>14 dias</option></select></label>
@@ -122,7 +122,7 @@ export function ConnectionsView() {
                 casam no relógio{rodeio > 0 && <> ({rodeio} {rodeio === 1 ? 'rodeia' : 'rodeiam'} demais)</>}.
                 Os que sobram não venderam no último dia apurado (dia {state.conexoesApuradasEm}): o passageiro
                 preferiu um voo direto — inclusive o seu, se você voa o mesmo par sem escala —, ou o avião já saiu
-                sem espaço para novas conexões. Classes cheias têm teto de 40% para conexões; classes com vagas usam essa sobra.</>}
+                sem espaço para novas conexões. Classes cheias pela procura local mantêm o teto de 40% para conexões. Onde sobram assentos, a conexão pode ocupar todas as vagas físicas.</>}
         </p>
       )}
     </Card>
