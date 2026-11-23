@@ -109,10 +109,8 @@ h1, h2, h3, h4 { margin: 0; font-weight: 650; letter-spacing: -0.015em; }
   display: flex; gap: 4px; padding: 8px 14px; overflow-x: auto;
   border-bottom: 1px solid var(--line); background: rgba(8, 12, 21, .82);
 }
-.app:has(.tab-panel[aria-hidden="false"] .overlay) .game-nav {
-  position: relative;
-  z-index: 41;
-  background: var(--sky-1);
+.app:has(> .overlay, .tab-panel[aria-hidden="false"] .overlay) > .game-nav {
+  interactivity: inert;
 }
 .nav button {
   background: transparent; border: 1px solid transparent; border-radius: 999px;

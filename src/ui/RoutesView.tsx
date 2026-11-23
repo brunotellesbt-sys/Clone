@@ -429,10 +429,8 @@ function Porte({ lista, carga, de, para }: {
  * não mostrava.
  *
  * Quem decide se o par vale a pena é a demanda, que já cobra caro por etapa
- * colada (15% até 60 nm, subindo até as 120). Aqui só ficam de fora os pares
- * que são a mesma cidade — Galeão e Santos Dumont a 8 nm, Guarulhos e
- * Congonhas a 13, Heathrow e Gatwick a 21 —, que é o que estas 45 nm (83 km)
- * cortam.
+ * colada (15% até 60 nm, subindo até as 120). O corte de 45 nm (83 km) tira
+ * pares muito próximos da lista, com exceção de Guarulhos–São José dos Campos.
  */
 const ETAPA_MINIMA = 45
 
@@ -477,7 +475,7 @@ function OpenRouteModal({ origem, onOrigem, onClose, onOpened }: {
         // o jogador aprende a regra de alfândega em vez de nunca ver o aeroporto
         return { a, dist, demand: d, rivals: rivais.get(odKey(hub, a.iata)) ?? 0, barrado: vooPermitido(base, a) }
       })
-      .filter((o) => o.dist > ETAPA_MINIMA)
+      .filter((o) => o.dist > ETAPA_MINIMA || odKey(hub, o.a.iata) === 'GRU-SJK')
       .sort((x, y) => {
         const barrado = Number(!!x.barrado) - Number(!!y.barrado)
         if (barrado) return barrado
