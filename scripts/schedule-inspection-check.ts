@@ -31,11 +31,14 @@ const last=s.lastCreatedFlights
 assert.equal(marcarLoteVoos(s,ac.id,'GRU','REC',[1],600).created,0)
 assert.equal(s.lastCreatedFlights,last,'falha não substitui lote anterior')
 const p=pernasDe(s,ac.id)[0],conflict=cabeNaEscala(s,ac.id,'GRU','REC',1,610)
-assert(conflict.motivo?.includes(`pousa em REC`))
+assert(conflict.motivo?.includes('GRU–REC') && conflict.motivo.includes('Pousa'))
 assert(conflict.motivo?.includes(String(Math.floor(p.chegadaLocal/60)).padStart(2,'0')))
 // Uma marcação parcial só desfaz o que foi efetivamente aceito.
-assert.equal(marcarLoteVoos(s,ac.id,'GRU','REC',[1,2],600).created,1)
-assert.equal(desfazerUltimoLote(s),null);assert.equal(s.airline.escala!.length,1)
+const partial=setup(),tail=partial.airline.fleet[0]
+assert.equal(marcarVoo(partial,tail.id,'GRU','REC',1,600),null)
+assert.equal(marcarVoo(partial,tail.id,'REC','GRU',1,900),null)
+assert.equal(marcarLoteVoos(partial,tail.id,'GRU','REC',[1,2],600).created,1)
+assert.equal(desfazerUltimoLote(partial),null);assert.equal(partial.airline.escala!.length,2)
 assert.equal(marcarLoteVoos(s,ac.id,'REC','GRU',[1],900).created,1)
 s.airline.escala!.at(-1)!.saida++
 assert(desfazerUltimoLote(s),'não desfaz silenciosamente um voo posteriormente alterado')
@@ -52,7 +55,7 @@ legs=pernasDe(flight,f.id)
 const info=inspectionBeforeFlights(flight)
 assert.equal(info.get(legs[1].perna.id)?.minutes,120)
 const broken=structuredClone(flight);broken.airline.escala![1].from='BSB';invalidateAirportUsage(broken)
-assert.equal(inspectionBeforeFlights(broken).get(legs[1].perna.id)?.benefit,0,'não conta posicionamento como inspeção em solo')
+assert(!inspectionBeforeFlights(broken).has(legs[1].perna.id),'voo suspenso por quebra de posição não recebe inspeção')
 // O motor aplica a redução nas pernas de fato voadas no dia UTC.
 flight.day=(dow+6)%7 // primeiro será substituído pelo dia anterior à fixture
 const day=Array.from({length:7},(_,i)=>i).find(i=>{flight.day=i;return dowOf(flight)===dow})!

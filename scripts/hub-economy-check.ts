@@ -44,7 +44,10 @@ assert(development.population>1 && development.purchasingPower>1)
 assert.equal(hubExtraSlots(s,'MAO'),0,'hub comprado sem voos próprios não ganha slots da IA')
 const flying=structuredClone(s)
 flying.airline.fleet=[{id:'test',typeId:'e195e2',groundedUntil:0}] as typeof flying.airline.fleet
-flying.airline.escala=[{id:'test-leg',aircraftId:'test',from:'MAO',to:'PVH',dow:0,saida:480}]
+flying.airline.escala=[
+  {id:'test-leg',aircraftId:'test',from:'MAO',to:'PVH',dow:0,saida:480},
+  {id:'return-leg',aircraftId:'test',from:'PVH',to:'MAO',dow:0,saida:720},
+]
 ensureAirports(flying)
 assert(hubExtraSlots(flying,'MAO')>0)
 const loaded=importSaveFile(exportSaveFile(s))!

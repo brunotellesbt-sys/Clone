@@ -10,7 +10,10 @@ for(const a of AIRPORTS){
 }
 const s=newGame({name:'Cache',code:'CC',hub:'GRU',seed:17,densidade:'enxuta'})
 s.competitors=[]
-s.airline.escala=[{id:'test',aircraftId:'fixture',from:'CGH',to:'SDU',dow:1,saida:600}]
+s.airline.escala=[
+ {id:'test',aircraftId:'fixture',from:'CGH',to:'SDU',dow:1,saida:600},
+ {id:'return',aircraftId:'fixture',from:'SDU',to:'CGH',dow:2,saida:600},
+]
 s.airportDevelopment!.CGH.capacity=4;s.airportDevelopment!.CGH.reserved=0
 invalidateAirportUsage(s)
 const accepted=admittedFlights(s)

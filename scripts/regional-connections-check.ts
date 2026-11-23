@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import {connectionPathAllowed} from '../src/game/connectionGeometry'
 import {connectionAllowed,conexoesNaBase} from '../src/game/malha'
 import {newGame,openRoute,buyAircraft,dowOf} from '../src/game/engine'
-import {marcarVoo,noTempo} from '../src/game/escala'
+import {DIA,marcarVoo,noTempo,partidaUtc} from '../src/game/escala'
 import {allocateConnections} from '../src/game/connections'
 import {airportSlots,ensureAirports,invalidateAirportUsage,airportUsage,updateRivalUsage} from '../src/game/airportInfrastructure'
 import {odKey} from '../src/game/geo'
@@ -20,8 +20,11 @@ for(const [a,h,b] of [['RBR','PVH','CZS'],['OAL','PVH','JPR'],['CAW','BSB','VDC'
   }
   // Aproxima a segunda partida para ficar dentro da janela doméstica.
   s.airline.escala![1].saida=noTempo(s,s.airline.escala![0]).chegadaLocal+60;invalidateAirportUsage(s)
+  for(const p of [...s.airline.escala!]){
+    assert.equal(marcarVoo(s,p.aircraftId,p.to,p.from,(p.dow+2)%7,960),null)
+  }
   assert(conexoesNaBase(s,h).length>0,`${from}-${h}-${to}: oferta na malha`)
-  const locals=s.airline.routes.map(route=>({route,voos:s.airline.escala!.filter(p=>odKey(p.from,p.to)===odKey(route.from,route.to)),seats:{y:120,w:0,c:0,f:0},local:{y:20,w:0,c:0,f:0}}))
+  const locals=s.airline.routes.map(route=>({route,voos:s.airline.escala!.filter(p=>odKey(p.from,p.to)===odKey(route.from,route.to) && Math.floor(partidaUtc(p)/DIA)===dowOf(s)),seats:{y:120,w:0,c:0,f:0},local:{y:20,w:0,c:0,f:0}}))
   allocateConnections(s,locals,dowOf(s),1)
   assert(s.connectionJourneys!.some(j=>j.first.from===from&&j.second.to===to&&j.pax.y>0),`${from}-${to}: vende e embarca`)
   const d=s.airportDevelopment![h];d.slotPolicy=undefined;d.reserved=90;ensureAirports(s)

@@ -39,7 +39,8 @@ const add=(from:string,to:string,departure:number)=>{
  const ac=s.airline.fleet.at(-1)!;ac.base=from
  const local=naSemana(departure+AP[from].fuso)
  const p={id:`p${s.airline.escala!.length}`,aircraftId:ac.id,from,to,dow:Math.floor(local/DIA),saida:local%DIA}
- s.airline.escala!.push(p);invalidateAirportUsage(s);ensureAirports(s)
+ s.airline.escala!.push(p,{...p,id:`${p.id}-return`,from:to,to:from,dow:(p.dow+2)%7,saida:960})
+ invalidateAirportUsage(s);ensureAirports(s)
  return p
 }
 const first=add('RBR','PVH',3*DIA+12*60)
