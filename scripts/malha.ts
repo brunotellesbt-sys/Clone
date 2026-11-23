@@ -1,3 +1,6 @@
+import { hubFlightOpportunities } from '../src/game/hubFlights'
+import { setAircraftReserve, setReserveCountForModel } from '../src/game/reserve'
+import { admittedFlights } from '../src/game/airportInfrastructure'
 /**
  * Confere a malha: posição da aeronave, horário, conexão e os três tempos
  * mínimos.
@@ -32,7 +35,7 @@ import {
 } from '../src/game/malha'
 import {
   alterarNumeroVoo, aeronavesPara, cabeNaEscala, curfewDaPerna, DIA, DOW_CURTO, marcarVoo, noTempo, paradasDe,
-  partidaUtc, pernasDaRota, pernasDe, posicionamentos, quebrasDe, remarcarVoo, removerVoo,
+  marcarLoteVoos, marcarRotacao, partidaUtc, pernasDaRota, pernasDe, posicionamentos, quebrasDe, remarcarVoo, removerVoo,
 } from '../src/game/escala'
 
 let falhas = 0
@@ -96,12 +99,8 @@ console.log('\na aeronave só sai de onde está\n')
   const pernas = pernasDe(s, cauda.id)
   const fora = pernas.find((p) => p.perna.to !== 'GRU')
   conferir(!!fora, 'a cauda de referência sai da base', fora ? `${fora.perna.from}-${fora.perna.to}` : '')
-  // marcar um voo saindo de um aeroporto onde ela não está tem que ser recusado
-  // ela nunca é oferecida como se já estivesse em CNF: ou está no ar, ou o voo
-  // exige posicionamento vazio de onde ela pousou
   const d = cabeNaEscala(s, cauda.id, 'CNF', 'GRU', 1, 10 * 60)
-  conferir(!d.ok || !!d.ferryDe, 'partir de onde a cauda não está custa voo vazio',
-    d.ok ? `vazio de ${d.ferryDe}` : (d.motivo ?? ''))
+  conferir(!d.ok, 'partir de onde a cauda não está é recusado', d.motivo ?? '')
   const ok = quebrasDe(s, cauda.id).length === 0
   conferir(ok, 'a escala montada pela frequência fecha a semana')
 }
@@ -122,7 +121,7 @@ console.log('\nmalha triangular: GRU-REC, REC-CNF, CNF-GRU\n')
   conferir(!e1, 'segunda 07:00 GRU → REC', e1 ?? '')
   // agora ela está em Recife, e é de lá que o voo seguinte pode sair
   const caro = cabeNaEscala(t, cauda, 'GRU', 'CNF', 1, 14 * 60)
-  conferir(caro.ok && caro.ferryDe === 'REC', 'GRU → CNF só com voo vazio: a cauda está em REC', caro.ferryDe ?? '')
+  conferir(!caro.ok && /REC/.test(caro.motivo ?? ''), 'GRU → CNF recusado: a cauda está em REC', caro.motivo ?? '')
   const e2 = marcarVoo(t, cauda, 'REC', 'CNF', 1, 14 * 60)
   conferir(!e2, 'segunda 14:00 REC → CNF', e2 ?? '')
   const e3 = marcarVoo(t, cauda, 'CNF', 'GRU', 1, 19 * 60)
@@ -139,10 +138,11 @@ console.log('\nmalha triangular: GRU-REC, REC-CNF, CNF-GRU\n')
   // e a mesma cauda em três rotas não pertence a nenhuma
   conferir(t.airline.fleet[0].routeId === null, 'cauda que circula não fica dedicada a rota nenhuma')
 
-  // uma perna solta deixa a semana aberta, e isso vira voo vazio
+  // Uma perna a menos pode suspender a escala por falta de continuidade.
   removerVoo(t, pernasDe(t, cauda)[2].perna.id)
   const vazios = posicionamentos(t)
   conferir(vazios.length === 1, 'tirar a última perna abre uma quebra', vazios.map((v) => `${v.from}-${v.to}`).join(','))
+  conferir(admittedFlights(t).size === 0, 'escala incompleta permanece suspensa')
 }
 
 // ---------------------------------------------- a lista de disponíveis
@@ -381,13 +381,10 @@ console.log('\nfrota parada\n')
   )
   conferir(paradasDe(t, t.airline.fleet[0].id)[0].ocioso, 'e a cauda comprada segue parada na base')
   const livres = aeronavesPara(t, 'GIG', 'FOR', 2, 9 * 60).filter((c) => !c.impedimento)
-  conferir(livres.length === 1 && !livres[0].ferryDe, 'esvaziada, ela aparece livre na base')
-  const foraDeCasa = aeronavesPara(t, 'FOR', 'GIG', 2, 9 * 60).filter((c) => !c.impedimento)
-  conferir(
-    foraDeCasa.length === 1 && foraDeCasa[0].ferryDe === 'GIG',
-    'para um voo que sai de FOR ela aparece marcada como voo vazio desde GIG',
-    foraDeCasa[0]?.ferryDe ?? 'nenhuma',
-  )
+  conferir(livres.length === 1, 'esvaziada, ela aparece livre na base')
+  const foraDeCasa = aeronavesPara(t, 'FOR', 'GIG', 2, 9 * 60)[0]
+  conferir(/GIG/.test(foraDeCasa?.impedimento ?? ''), 'saída de FOR recusada: a cauda está em GIG',
+    foraDeCasa?.impedimento ?? '')
 }
 
 // ---------------------------------------------------- chegada com fuso
@@ -482,110 +479,34 @@ console.log('\ntoque de recolher: cada ponta no próprio relógio\n')
   }
 }
 
-console.log('\no voo vazio também gasta tempo\n')
-/**
- * O vazio continua permitido e continua cobrado — mas deixou de ser de graça
- * no relógio. Um avião que pousa em Congonhas às 22:20 não amanhece em Santos
- * Dumont de graça: o trecho vazio gasta solo nas duas pontas mais o voo, e
- * passa pelo mesmo toque de recolher. É o que bloqueia o pernoite impossível.
- */
+console.log('\npernoite e marcação semanal\n')
 {
-  const t = newGame({ name: 'Vazio2', code: 'V2', hub: 'SDU', seed: 11 })
+  const t = newGame({ name: 'Pernoite', code: 'PN', hub: 'SDU', seed: 11 })
   t.airline.cash = 5e9
   openRoute(t, 'SDU', 'CGH')
+  openRoute(t, 'SDU', 'BSB')
   buyAircraft(t, 'e195e2', false)
   const cauda = t.airline.fleet[0].id
-  let feitos = 0
-  for (let d = 0; d < 7; d++) if (!marcarVoo(t, cauda, 'SDU', 'CGH', d, 7 * 60 + 10)) feitos++
-  conferir(feitos === 7, 'a ida de manhã nos sete dias cabe: o vazio de volta voa de dia',
-    `${feitos} de 7`)
-
-  /**
-   * **A cauda pode pernoitar em Congonhas.** Quem decide é o jogador, e ele o
-   * faz marcando a volta no dia seguinte, na hora que quiser. Recusar a ida da
-   * noite porque a volta ainda não existe era o mesmo deadlock do triângulo:
-   * para marcar a ida era preciso ter a volta, e para marcar a volta era
-   * preciso ter a ida.
-   */
-  const noite = cabeNaEscala(t, cauda, 'SDU', 'CGH', 2, 21 * 60 + 35)
-  conferir(noite.ok, 'a ida das 21:35 pode ser marcada: dormir fora é escolha, não erro',
-    noite.motivo ?? '')
-  conferir(/CGH/.test(noite.vazioSemHora ?? '') && /23h/.test(noite.vazioSemHora ?? ''),
-    'mas o aviso diz que o vazio de volta não teria hora', noite.vazioSemHora ?? '(sem aviso)')
-
-  const tarde = cabeNaEscala(t, cauda, 'SDU', 'CGH', 2, 19 * 60)
-  conferir(tarde.ok && !tarde.vazioSemHora,
-    'a das 19:00 nem avisa: o vazio ainda sai antes das 23h')
-
-  /** E o gesto que resolve: marcar a volta com passageiro no dia seguinte. */
-  marcarVoo(t, cauda, 'SDU', 'CGH', 2, 21 * 60 + 35)
-  const comQuebra = quebrasDe(t, cauda).filter((q) => q.semHora)
-  conferir(comQuebra.length > 0, 'com a ida marcada, a grade acusa o vazio sem hora',
-    comQuebra[0]?.semHora ?? '(nenhuma)')
-  /*
-   * O que resolve é a **primeira** perna de quarta sair de Congonhas. Marcar
-   * uma volta às 09:00 e deixar a ida das 07:10 de pé não resolve nada: a
-   * cauda dormiu em Congonhas, e às 07:10 ela não está em Santos Dumont. Quem
-   * opera troca a perna, não acrescenta outra.
-   */
-  const daQuarta = pernasDe(t, cauda).find(
-    (p) => p.perna.dow === 3 && p.perna.from === 'SDU',
-  )
-  if (daQuarta) removerVoo(t, daQuarta.perna.id)
-  marcarVoo(t, cauda, 'CGH', 'SDU', 3, 7 * 60 + 10)
-  conferir(quebrasDe(t, cauda).filter((q) => q.semHora).length === 0,
-    'e trocar a primeira perna de quarta para sair de Congonhas resolve',
-    quebrasDe(t, cauda).filter((q) => q.semHora)[0]?.semHora ?? '')
-
-  /**
-   * O que continua sendo **recusado** é a falta de tempo, não a de horário:
-   * dez minutos entre pousar e a perna seguinte não dão para nenhum vazio, e
-   * nenhuma perna nova conserta isso — qualquer coisa marcada no meio aperta
-   * ainda mais.
-   */
-  const u = newGame({ name: 'Curto', code: 'CT', hub: 'GRU', seed: 12 })
-  u.airline.cash = 5e9
-  openRoute(u, 'GRU', 'REC')
-  openRoute(u, 'GRU', 'SSA')
-  buyAircraft(u, 'a320neo', false)
-  const outra = u.airline.fleet[0].id
-  marcarVoo(u, outra, 'GRU', 'REC', 1, 8 * 60)
-  const colado = cabeNaEscala(u, outra, 'GRU', 'SSA', 1, 11 * 60 + 10)
-  conferir(!colado.ok, 'sem tempo para o vazio, a recusa continua dura',
-    colado.motivo ?? '(aceitou)')
-}
-
-console.log('\no vazio diz qual perna o obriga\n')
-/**
- * O relato: uma ponte aérea com ida 06:00 e volta 07:25 nos sete dias, e ao
- * marcar uma segunda ida às 09:30 o jogo avisava "seguiria vazia para SDU".
- * Quem montou a escala lê aquilo como erro — "mas ela já volta para SDU às
- * 07:25". Volta, só que **antes** desta partida. O que obriga o vazio é a
- * perna de depois, que é a ida de segunda, e o aviso não dizia qual era.
- */
-{
-  const t = newGame({ name: 'Vazio', code: 'VZ', hub: 'SDU', seed: 7 })
-  t.airline.cash = 5e9
-  openRoute(t, 'SDU', 'CGH')
-  buyAircraft(t, 'a320neo', false)
-  const cauda = t.airline.fleet[0].id
-  for (let d = 0; d < 7; d++) {
-    marcarVoo(t, cauda, 'SDU', 'CGH', d, 6 * 60)
-    marcarVoo(t, cauda, 'CGH', 'SDU', d, 7 * 60 + 25)
-  }
-  const d = cabeNaEscala(t, cauda, 'SDU', 'CGH', 0, 9 * 60 + 30)
-  conferir(d.ok && d.ferryPara === 'SDU', 'a segunda ida do dia cobra voo vazio',
-    `${d.ferryPara ?? 'nenhum'}`)
-  conferir(/SDU–CGH/.test(d.ferryParaVoo ?? ''),
-    'e o aviso nomeia a perna que obriga o vazio', d.ferryParaVoo ?? '(sem nome)')
-  conferir(/Seg/.test(d.ferryParaVoo ?? ''),
-    'que é a de **depois** desta, não a volta que já estava marcada antes',
-    d.ferryParaVoo ?? '')
-  // e marcando a volta dessa segunda ida o vazio some, que é o que o aviso ensina
-  marcarVoo(t, cauda, 'SDU', 'CGH', 0, 9 * 60 + 30)
-  marcarVoo(t, cauda, 'CGH', 'SDU', 0, 11 * 60)
-  conferir(quebrasDe(t, cauda).length === 0, 'marcar a volta dela fecha a escala',
-    `${quebrasDe(t, cauda).length} quebras`)
+  const days = [0, 1, 2, 3, 4, 5, 6]
+  const ida = marcarLoteVoos(t, cauda, 'SDU', 'CGH', days, 21 * 60 + 35)
+  conferir(ida.created === 7, 'lote marca as sete idas como planejamento', ida.errors.join(' · '))
+  conferir(admittedFlights(t).size === 0, 'sem volta programada, as idas ficam suspensas')
+  const madrugada = cabeNaEscala(t, cauda, 'SDU', 'BSB', 2, 3 * 60)
+  conferir(!madrugada.ok && /CGH/.test(madrugada.motivo ?? ''), 'a cauda pernoita em CGH e não sai de SDU', madrugada.motivo)
+  const continuacao = hubFlightOpportunities(t, 'CGH', 2).find(option => option.ac.id === cauda)
+  conferir(continuacao?.to === 'SDU' && !continuacao.roundTrip, 'a janela em CGH sugere o trecho necessário até SDU')
+  const route = t.airline.routes.find(r => r.to === 'CGH')!
+  const rotacao = marcarRotacao(t, cauda, { ...route, from: 'CGH', to: 'SDU' }, 2, 7 * 60 + 10)
+  conferir(!!rotacao && pernasDe(t, cauda).length === 7, 'ida e volta automática preserva o aeroporto da próxima saída', rotacao ?? '')
+  const modelo = t.airline.fleet[0].typeId
+  conferir(!!setAircraftReserve(t, cauda, true) && !!setReserveCountForModel(t, modelo, 1) &&
+    pernasDe(t, cauda).length === 7, 'reserva recusa cauda com rascunho de voo e preserva a malha')
+  const volta = marcarLoteVoos(t, cauda, 'CGH', 'SDU', days, 7 * 60 + 10)
+  conferir(volta.created === 7, 'lote fecha a malha com as sete voltas da manhã', volta.errors.join(' · '))
+  conferir(quebrasDe(t, cauda).length === 0 && admittedFlights(t).size === 14,
+    'escala contínua permite o pernoite sem posicionamento automático')
+  const colado = cabeNaEscala(t, cauda, 'CGH', 'SDU', 2, 22 * 60 + 35)
+  conferir(!colado.ok, 'a partida antes do solo mínimo é recusada', colado.motivo)
 }
 
 console.log('\ntempo de solo por porte\n')
@@ -735,8 +656,16 @@ console.log('\ntempo de etapa na ponte aérea do Sudeste\n')
   // banco de manhã: sul chega, nordeste sai — a conexão clássica de hub
   for (const dia of [1, 2, 3]) {
     let k = 0
-    ;['POA', 'CWB'].forEach((o, i) => marcarVoo(t, f[k++], o, 'GRU', dia, 6 * 60 + i * 30))
-    ;['REC', 'FOR', 'SSA'].forEach((d, i) => marcarVoo(t, f[k++], 'GRU', d, dia, 9 * 60 + i * 30))
+    ;['POA', 'CWB'].forEach((o, i) => {
+      const ac = f[k++]
+      conferir(!marcarVoo(t, ac, 'GRU', o, dia - 1, 16 * 60), `posiciona o voo comercial para ${o} na véspera`)
+      conferir(!marcarVoo(t, ac, o, 'GRU', dia, 6 * 60 + i * 30), `chegada de ${o} no banco da manhã`)
+    })
+    ;['REC', 'FOR', 'SSA'].forEach((d, i) => {
+      const ac = f[k++]
+      conferir(!marcarVoo(t, ac, 'GRU', d, dia, 9 * 60 + i * 30), `saída para ${d} no banco da manhã`)
+      conferir(!marcarVoo(t, ac, d, 'GRU', dia, 17 * 60), `retorno de ${d} à tarde`)
+    })
   }
   const pares = conexoesNaBase(t, 'GRU')
   conferir(pares.length > 0, 'a regra enxerga par de voos que casa no relógio', `${pares.length} pares`)

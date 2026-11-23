@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { hubFlightOpportunities } from '../game/hubFlights'
+import { DIA, DOW_CURTO, hhmm, naSemana } from '../game/escala'
+import { useMemo, useState } from 'react'
 import { useGame } from '../store/useGame'
 import { Card } from './components/Bits'
 import { baseDemand } from '../game/demand'
-import { money, num, pct, closeHub } from '../game/engine'
+import { money, num, pct, closeHub, dowOf, km } from '../game/engine'
 import {hubCompanies,hubCompanyLimit} from '../game/hubAccess'
 import { AIRPORT_BY_IATA, ESCOPO_LABEL, SLOTS_BY_TIER } from '../game/data/airports'
-import { airportSlots, largeOperations, physicalRunwayLimit, effectiveAirport, growthProgress, populationAt, startAirportWork, workOffer, WORK_LABEL, type WorkKind } from '../game/airportInfrastructure'
+import { airportRevision, airportSlots, largeOperations, physicalRunwayLimit, effectiveAirport, growthProgress, populationAt, startAirportWork, workOffer, WORK_LABEL, type WorkKind } from '../game/airportInfrastructure'
 
 function Progress({label,value,total}:{label:string;value:number;total:number}){
  const ratio=Math.max(0,Math.min(1,value/Math.max(1,total)))
@@ -51,6 +53,7 @@ export function HubsView({bases=false}:{bases?:boolean}) {
       </div>
       {slots.over>0&&<p className="bad">A malha excede a capacidade em {num(slots.over)} movimentos no dia de pico. As escalas das aeronaves que não couberem ficam temporariamente suspensas por inteiro, para evitar aviões voando sem terem chegado à origem. A suspensão dura até você ajustar os horários ou a capacidade ser restaurada; a programação é preservada.</p>}
     </Card>
+    <HubFlights id={id} />
     <Card title="Quantos slots tem cada nível?">
       <p className="dim">Referência inicial de capacidade do aeroporto inteiro, compartilhada entre todas as companhias. Cada pouso ou decolagem ocupa 1 slot; uma ida e volta usa 2 em cada aeroporto.</p>
       <div className="rolagem-x"><table aria-label="Referência de slots por nível de infraestrutura"><thead><tr><th>Nível</th><th className="r">Slots/dia iniciais</th></tr></thead><tbody>{Object.entries(SLOTS_BY_TIER).map(([level,capacity])=><tr key={level} className={Number(level)===a.tier?'on':''}><td>Nível {level}{Number(level)===a.tier?' · atual':''}</td><td className="r">{num(capacity)}</td></tr>)}</tbody></table></div>
@@ -103,4 +106,29 @@ export function HubsView({bases=false}:{bases?:boolean}) {
       {!!d?.completed.length&&<p>Obras concluídas: {d.completed.map(w=>`${WORK_LABEL[w.kind]} (dia ${w.end})`).join(' · ')}.</p>}
     </Card>}
   </div>
+}
+
+function HubFlights({ id }: { id: string }) {
+  const { state } = useGame()
+  const revision = airportRevision(state)
+  const options = useMemo(() => hubFlightOpportunities(state, id, dowOf(state)), [state, id, revision])
+  const time = (utc: number, airport = id) => {
+    const local = naSemana(utc + AIRPORT_BY_IATA[airport].fuso)
+    return `${DOW_CURTO[Math.floor(local / DIA)]} ${hhmm(local)}`
+  }
+  return <Card title={`Aeronaves com janela em ${id}`}>
+    {options.length ? <>
+      <p className="dim">Janelas da malha programada para os próximos 7 dias, em horário local. O destino mais distante considera alcance, pista, toque de recolher, slots e o próximo voo da aeronave.</p>
+      <div className="rolagem-x"><table>
+        <thead><tr><th>Aeronave</th><th>Disponível no hub</th><th>Destino mais distante</th><th>Horário possível</th></tr></thead>
+        <tbody>{options.map(option => <tr key={`${option.ac.id}-${option.available}`}>
+          <td><b>{option.ac.reg}</b></td>
+          <td>{option.until - option.available === 7 * DIA ? 'Toda a semana' : `${time(option.available)} até ${time(option.until)}`}</td>
+          <td><b>{option.to}</b> · {AIRPORT_BY_IATA[option.to].city} · {km(option.distance)}
+            {option.needsRoute && <><br /><small className="muted">Requer abrir a rota</small></>}</td>
+          <td>Sai {time(option.departure)}<br />{option.roundTrip ? 'Volta ao hub' : `Continua em ${option.to}`} {time(option.arrival, option.roundTrip ? id : option.to)}</td>
+        </tr>)}</tbody>
+      </table></div>
+    </> : <p className="muted">Nenhuma aeronave tem janela para ida e volta ou para completar a malha neste aeroporto nos próximos 7 dias.</p>}
+  </Card>
 }

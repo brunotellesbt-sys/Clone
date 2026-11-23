@@ -235,11 +235,14 @@ export function MapView({
   }, [state.paused, state.speed])
 
   const focusPoint=focus&&AIRPORT_BY_IATA[focus]?airportMapPoint(AIRPORT_BY_IATA[focus]):null
+  const centeredFocus = useRef<string | null>(null)
   // Centraliza também quando chegam as coordenadas precisas da pista.
   useEffect(() => {
-    if (!focus || !AIRPORT_BY_IATA[focus]) return
-    const ap = AIRPORT_BY_IATA[focus]
-    const [px, py] = projection(airportMapPoint(ap))!
+    const key = focus && focusPoint ? `${focus}:${focusPoint.join(',')}` : null
+    if (key === centeredFocus.current) return
+    centeredFocus.current = key
+    if (!focusPoint) return
+    const [px, py] = projection(focusPoint)!
     const k = 2.1
     aplicar(limitar(k, W / 2 - px * k, H / 2 - py * k))
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -269,7 +272,7 @@ export function MapView({
     return () => svg.removeEventListener('wheel', onWheel)
   }, [])
 
-  const hubs = new Set(state.airline.hubs)
+  const hubs = useMemo(() => new Set(state.airline.hubs), [state.airline.hubs])
   const routes = state.airline.routes
   /** O relógio do mapa é mostrado na hora da base principal. */
   const refFuso = state.airline.hubs[0] ?? 'GRU'
@@ -403,6 +406,51 @@ export function MapView({
   // Redução contínua: cruzar 256× não faz marcador e rótulo saltarem de tamanho.
   const dotR = (tier: number) => (1.4 + tier * 0.62) * fator * Math.max(.35,Math.min(1,32/view.k)**.5)
   const stroke = (w: number) => w * fator
+
+  // Os marcadores de aeroporto não precisam ser refeitos a cada passo do relógio.
+  const airportMarkers = useMemo(() => [...AIRPORTS.filter(a => !hubs.has(a.iata)), ...AIRPORTS.filter(a => hubs.has(a.iata))].map((a) => {
+    const isHub = hubs.has(a.iata)
+    const isSel = selected === a.iata
+    const served = servidos.has(a.iata)
+    if (!isHub && !served && a.tier < degrauMin) return null
+    const [px, py] = projection(airportMapPoint(a))!
+    if (px < visivel.x0 || px > visivel.x1 || py < visivel.y0 || py > visivel.y1) return null
+    return (
+      <g key={a.iata}>
+        {view.k>=128&&<path className="map-runway" data-airport={a.iata} d={path({type:'LineString',coordinates:airportRunwayPoints(a)})??''} fill="none" stroke="#f1f5f9" strokeOpacity={.7} strokeWidth={stroke(2)} pointerEvents="none"/>}
+        {isSel && (
+          <circle cx={px} cy={py} r={dotR(a.tier) * 3.2} fill="none"
+            stroke="#ffc266" strokeOpacity={0.7} strokeWidth={stroke(1.1)} style={{ pointerEvents: 'none' }} />
+        )}
+        <circle
+          aria-label={`Aeroporto ${a.iata}`}
+          cx={px}
+          cy={py}
+          r={dotR(a.tier) * (isHub ? 1.7 : 1)}
+          fill={isSel ? '#ffc266' : isHub ? '#4fc3f7' : served ? '#a9bdf5' : '#54688f'}
+          stroke={isSel ? '#fff6e6' : 'rgba(4,10,20,.7)'}
+          strokeWidth={stroke(isSel ? 1.4 : 0.6)}
+          style={{ cursor: 'pointer' }}
+          onPointerEnter={(e) => setHover({ iata: a.iata, x: e.clientX, y: e.clientY })}
+          onPointerLeave={() => setHover(null)}
+          onClick={(e) => { e.stopPropagation(); if (!andou.current) { if (onPick) onPick(a.iata); else { setAirport(a.iata); setVoo(null) } } }}
+        />
+        {(isHub || isSel || (view.k > 2.6 && a.tier >= 4)) && (
+          <text
+            x={px + dotR(a.tier) * 2}
+            y={py + 2.5 * fator}
+            fontSize={7.5 * fator}
+            fill={isSel ? '#ffe0ac' : isHub ? '#bae6fd' : '#8ea3c9'}
+            style={{ pointerEvents: 'none', fontWeight: 700 }}
+          >
+            {a.iata}
+          </text>
+        )}
+      </g>
+    )
+  }), [
+    hubs, selected, servidos, degrauMin, projection, view, path, onPick, procedureRevision,
+  ])
 
   /** Os dois primeiros dedos, na ordem em que encostaram. */
   const doisDedos = () => [...dedos.current.values()].slice(0, 2)
@@ -595,47 +643,7 @@ export function MapView({
           )}
 
           {/* Bases desenhadas por último para aeroportos vizinhos não roubarem o clique. */}
-          {[...AIRPORTS.filter(a => !hubs.has(a.iata)), ...AIRPORTS.filter(a => hubs.has(a.iata))].map((a) => {
-            const isHub = hubs.has(a.iata)
-            const isSel = selected === a.iata
-            const served = servidos.has(a.iata)
-            if (!isHub && !served && a.tier < degrauMin) return null
-            const [px, py] = projection(airportMapPoint(a))!
-            if (px < visivel.x0 || px > visivel.x1 || py < visivel.y0 || py > visivel.y1) return null
-            return (
-              <g key={a.iata}>
-                {view.k>=128&&<path className="map-runway" data-airport={a.iata} d={path({type:'LineString',coordinates:airportRunwayPoints(a)})??''} fill="none" stroke="#f1f5f9" strokeOpacity={.7} strokeWidth={stroke(2)} pointerEvents="none"/>}
-                {isSel && (
-                  <circle cx={px} cy={py} r={dotR(a.tier) * 3.2} fill="none"
-                    stroke="#ffc266" strokeOpacity={0.7} strokeWidth={stroke(1.1)} style={{ pointerEvents: 'none' }} />
-                )}
-                <circle
-                  aria-label={`Aeroporto ${a.iata}`}
-                  cx={px}
-                  cy={py}
-                  r={dotR(a.tier) * (isHub ? 1.7 : 1)}
-                  fill={isSel ? '#ffc266' : isHub ? '#4fc3f7' : served ? '#a9bdf5' : '#54688f'}
-                  stroke={isSel ? '#fff6e6' : 'rgba(4,10,20,.7)'}
-                  strokeWidth={stroke(isSel ? 1.4 : 0.6)}
-                  style={{ cursor: 'pointer' }}
-                  onPointerEnter={(e) => setHover({ iata: a.iata, x: e.clientX, y: e.clientY })}
-                  onPointerLeave={() => setHover(null)}
-                  onClick={(e) => { e.stopPropagation(); if (!andou.current) { if (onPick) onPick(a.iata); else { setAirport(a.iata); setVoo(null) } } }}
-                />
-                {(isHub || isSel || (view.k > 2.6 && a.tier >= 4)) && (
-                  <text
-                    x={px + dotR(a.tier) * 2}
-                    y={py + 2.5 * fator}
-                    fontSize={7.5 * fator}
-                    fill={isSel ? '#ffe0ac' : isHub ? '#bae6fd' : '#8ea3c9'}
-                    style={{ pointerEvents: 'none', fontWeight: 700 }}
-                  >
-                    {a.iata}
-                  </text>
-                )}
-              </g>
-            )
-          })}
+          {airportMarkers}
           {/* avião por último: desenhado depois do aeroporto, ele fica por cima
               e o clique é dele — antes o marcador do aeroporto de origem roubava */}
           {voos.map(({ id, a, b, fase, ac, perna, bloco }) => {

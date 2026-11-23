@@ -1,3 +1,4 @@
+import { escalaContinua } from './escala'
 import { blockHours } from './economy'
 import { specOf } from './spec'
 import { distanceBetween } from './geo'
@@ -239,6 +240,7 @@ export function admittedFlights(s:GameState) {
   const limit=(id:string)=>{let n=limits.get(id);if(n===undefined){n=airportSlots(s,id).ownLimit;limits.set(id,n)}return n}
   for(const p of s.airline.escala??[]){const list=schedules.get(p.aircraftId)??[];list.push(p);schedules.set(p.aircraftId,list)}
   for(const legs of schedules.values()) {
+    if (!escalaContinua(s, legs)) continue
     const required=new Map<string,number[]>()
     for(const p of legs)for(const [id,dow] of flightMovements(s,p)){const days=required.get(id)??Array(7).fill(0);days[dow]++;required.set(id,days)}
     if([...required].some(([id,days])=>days.some((n,dow)=>n+(counts.get(id)?.[dow]??0)>limit(id))))continue

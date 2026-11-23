@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { allocateConnections, connectionRoom, nearbyAirports } from '../src/game/connections'
 import { connectionWindow } from '../src/game/connectionRules'
 import { buyAircraft, dowOf, newGame, openRoute, routeEconomics } from '../src/game/engine'
-import { marcarVoo } from '../src/game/escala'
+import { DIA, marcarVoo, partidaUtc } from '../src/game/escala'
 import { baseDemand } from '../src/game/demand'
 import { sumCabins } from '../src/game/economy'
 import { odKey } from '../src/game/geo'
@@ -12,6 +12,12 @@ import { exportSave, importSave } from '../src/game/save'
 import type { GameState } from '../src/game/types'
 import { connectionPathAllowed } from '../src/game/connectionGeometry'
 import {ensureAirports,invalidateAirportUsage} from '../src/game/airportInfrastructure'
+
+// A volta fecha a escala fora da janela em que a conexão é medida.
+function returnFlight(s: GameState, acId: string) {
+  const outbound = s.airline.escala!.find(p => p.aircraftId === acId)!
+  assert.equal(marcarVoo(s, acId, outbound.to, outbound.from, (outbound.dow + 2) % 7, 16 * 60), null)
+}
 
 // GIG–SSA–CKS é uma conexão doméstica válida: não há GIG–CKS direto e o
 // desvio é 1,357×, dentro do limite de 1,45×. Um direto compete por preço e
@@ -37,6 +43,7 @@ for (const [index, [from, to]] of [['GRU', 'SDU'], ['SDU', 'GYN'], ['GRU', 'BSB'
   const ac = alternatives.airline.fleet.at(-1)!
   ac.base = from
   assert.equal(marcarVoo(alternatives, ac.id, from, to, dowOf(alternatives), 480 + index * 120), null)
+  returnFlight(alternatives, ac.id)
 }
 assert.equal(connectionAllowed(alternatives, 'GRU', 'SDU', 'GYN'), true,'caminho menor sai quatro horas depois; não é alternativa no mesmo horário')
 assert.equal(connectionAllowed(alternatives, 'GRU', 'BSB', 'GYN'), true)
@@ -75,11 +82,12 @@ function setup(overnight = false, startDay = 0) {
   const dow = dowOf(s)
   assert.equal(marcarVoo(s, s.airline.fleet[0].id, origin, 'BSB', dow, overnight ? 20 * 60 + 30 : 8 * 60), null)
   assert.equal(marcarVoo(s, s.airline.fleet[1].id, 'BSB', destination, (dow + Number(overnight)) % 7, overnight ? 30 : 12 * 60), null)
+  for (const ac of s.airline.fleet) returnFlight(s, ac.id)
   return s
 }
 function allocate(s: GameState, routeIds = s.airline.routes.map(r => r.id), occupancy = 1) {
   const locals = s.airline.routes.filter(r => routeIds.includes(r.id)).map(route => ({ route,
-    voos: s.airline.escala!.filter(p => odKey(p.from, p.to) === odKey(route.from, route.to)),
+    voos: s.airline.escala!.filter(p => odKey(p.from, p.to) === odKey(route.from, route.to) && Math.floor(partidaUtc(p) / DIA) === dowOf(s)),
     seats: { y: 100, w: 10, c: 10, f: 0 }, local: { y: 100 * occupancy, w: 10 * occupancy, c: 10 * occupancy, f: 0 } }))
   return allocateConnections(s, locals, dowOf(s), 1 + s.day)
 }
@@ -112,6 +120,7 @@ for (const [from, to, hour] of [['SDU', 'BSB', 9], ['BSB', 'LIM', 13]] as const)
   assert.equal(buyAircraft(multi, 'a320neo', false), null)
   multi.airline.fleet.at(-1)!.base = from
   assert.equal(marcarVoo(multi, multi.airline.fleet.at(-1)!.id, from, to, dowOf(multi), hour * 60), null)
+  returnFlight(multi, multi.airline.fleet.at(-1)!.id)
 }
 const shared = allocate(multi, undefined, .2)
 assert(multi.connectionJourneys!.length > 1)

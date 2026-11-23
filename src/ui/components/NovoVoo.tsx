@@ -25,7 +25,7 @@ import { Card } from './Bits'
  * nasce dali.
  */
 export function NovoVoo({ route }: { route: Route }) {
-  const { state, act, toast } = useGame()
+  const { state, act, toast, planningAircraftId, setPlanningAircraftId } = useGame()
   const [sentido, setSentido] = useState<'ida' | 'volta'>('ida')
   /**
    * O dia começa em **hoje**, não numa segunda fixa.
@@ -60,12 +60,18 @@ export function NovoVoo({ route }: { route: Route }) {
    * acabou de decolar, e só o teste de navegador pegou isso. A conta varre a
    * frota uma vez por quadro, o que é barato perto de errar a resposta.
    */
-  const candidatas = aeronavesPara(state, from, to, dow, minutos)
-  // três grupos, e a ordem é a da decisão: quem está aqui, quem viria vazio,
-  // quem não pode. O do meio é o que faltava — a escala não proíbe, ela cobra.
-  const livres = candidatas.filter((c) => !c.impedimento && !c.ferryDe && !c.ferryPara)
-  const comVazio = candidatas.filter((c) => !c.impedimento && (c.ferryDe || c.ferryPara))
-  const presas = candidatas.filter((c) => c.impedimento)
+  const candidatas = aeronavesPara(state, from, to, dow, minutos, planningAircraftId ?? undefined)
+    .sort((a, b) => Number(b.ac.id === planningAircraftId) - Number(a.ac.id === planningAircraftId))
+  const livres = candidatas.filter(c => !c.impedimento)
+  const presas = candidatas.filter(c => c.impedimento)
+
+  const undo = (previous: boolean) => {
+    const batch = previous ? state.previousCreatedFlights : state.lastCreatedFlights
+    const error = act(s => desfazerUltimoLote(s, previous))
+    if (error) return toast(error, 'error')
+    const count = batch?.length ?? 0
+    toast(`${previous ? 'Penúltimo' : 'Último'} movimento desfeito: ${count} ${count === 1 ? 'voo removido' : 'voos removidos'} da escala.`)
+  }
 
   /**
    * Marca em todos os dias escolhidos, um a um, e conta o que deu certo.
@@ -82,6 +88,7 @@ export function NovoVoo({ route }: { route: Route }) {
    * que é exatamente a decisão que faltava.
    */
   const marcar = (acId: string) => {
+    setPlanningAircraftId(acId)
     const recusas: string[] = []
     let feitos = 0
     act((s) => {
@@ -124,11 +131,14 @@ export function NovoVoo({ route }: { route: Route }) {
           <span>Parte às</span>
           <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
         </label>
-        <button className="btn sm" style={{marginLeft:'auto'}} disabled={!state.lastCreatedFlights?.length} onClick={()=>{
-          const n=state.lastCreatedFlights?.length??0
-          const error=act(desfazerUltimoLote)
-          if(error)toast(error,'error');else toast(`Último movimento desfeito: ${n} ${n===1?'voo removido':'voos removidos'} da escala.`)
-        }}>Desfazer último movimento{state.lastCreatedFlights?.length?` (${state.lastCreatedFlights.length})`:''}</button>
+        <div className="row tight" style={{ marginLeft: 'auto' }}>
+          <button className="btn sm" disabled={!state.lastCreatedFlights?.length} onClick={() => undo(false)}>
+            Desfazer último movimento{state.lastCreatedFlights?.length ? ` (${state.lastCreatedFlights.length})` : ''}
+          </button>
+          <button className="btn sm" disabled={!state.previousCreatedFlights?.length} onClick={() => undo(true)}>
+            Desfazer penúltimo movimento{state.previousCreatedFlights?.length ? ` (${state.previousCreatedFlights.length})` : ''}
+          </button>
+        </div>
       </div>
 
       {/* Os sete dias como botão, e não lista suspensa: com lista, escolher
@@ -170,70 +180,24 @@ export function NovoVoo({ route }: { route: Route }) {
       ) : (
         <div style={{ marginBottom: 10 }}>
           <h4 className="sub">Disponíveis em {from}</h4>
-          {livres.map(({ ac }) => {
+          {livres.map(({ ac, precisaFecharEm }) => {
             const bloco = blocoDe(state, { id: '', aircraftId: ac.id, from, to, dow, saida: minutos })
             const chega = minutos + bloco + (AIRPORT_BY_IATA[to].fuso - AIRPORT_BY_IATA[from].fuso)
             return (
               <div key={ac.id} className="row" style={{ justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--line-soft)' }}>
                 <span>
-                  <b>{ac.reg}</b> <span className="muted">{acLabel(fichaDe(ac))}</span>{' '}
+                  <button className="btn sm" aria-pressed={ac.id === planningAircraftId} onClick={() => setPlanningAircraftId(ac.id)}>{ac.reg}</button> <span className="muted">{acLabel(fichaDe(ac))}</span>{' '}
                   <span className="dim">{sumCabins(ac.seats)} assentos · {pernasDe(state, ac.id).length} voos na semana</span>
                   <br />
                   <span className="muted" style={{ fontSize: 12 }}>
                     chega {hhmm(chega)} em {AIRPORT_BY_IATA[to].city}
                   </span>
+                  {precisaFecharEm && <><br /><small className="warn">Programe a continuação de {to} até {precisaFecharEm} para ativar a escala.</small></>}
                 </span>
                 <button className="btn sm primary" onClick={() => marcar(ac.id)}>{rotulo}</button>
               </div>
             )
           })}
-        </div>
-      )}
-
-      {comVazio.length > 0 && (
-        <div style={{ marginBottom: 10 }}>
-          <h4 className="sub">Podem voar, mas custam um voo vazio</h4>
-          {comVazio.map(({ ac, ferryDe, ferryPara, ferryDeVoo, ferryParaVoo, vazioSemHora }) => (
-            <div key={ac.id} className="row" style={{ justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--line-soft)' }}>
-              <span>
-                <b>{ac.reg}</b> <span className="muted">{acLabel(fichaDe(ac))}</span>
-                <br />
-                {/* O vazio vem sempre com a perna que o obriga. Ver
-                    `ferryDeVoo` em `escala.ts`: quem tem ponte aérea montada lê
-                    "seguiria vazia para SDU" e responde "mas ela já volta para
-                    SDU" — volta, só que antes desta partida. */}
-                <span className="warn" style={{ fontSize: 12 }}>
-                  {ferryDe && `viria vazia de ${ferryDe}`}
-                  {ferryDe && ferryDeVoo && (
-                    <span className="muted">, que é onde a perna anterior dela pousa ({ferryDeVoo})</span>
-                  )}
-                  {ferryDe && ferryPara && <br />}
-                  {ferryPara && `seguiria vazia para ${ferryPara}`}
-                  {ferryPara && ferryParaVoo && (
-                    <span className="muted">, de onde sai a perna seguinte dela ({ferryParaVoo})</span>
-                  )}
-                  {/* O vazio que não tem hora não impede marcar — ver
-                      `vazioSemHora` em `escala.ts`. Ele diz que a escala, do
-                      jeito que está, não fecha, e o que resolve é marcar a
-                      volta com passageiro. */}
-                  {vazioSemHora && (
-                    <>
-                      <br />
-                      <span className="bad">
-                        E esse vazio não tem hora: {vazioSemHora} Marque a volta com passageiro e
-                        ele some.
-                      </span>
-                    </>
-                  )}
-                </span>
-              </span>
-              <button className="btn sm" onClick={() => marcar(ac.id)}>{rotulo} assim</button>
-            </div>
-          ))}
-          <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
-            O jogo não teleporta avião: ele voa o trecho vazio, pagando combustível e tripulação
-            sem vender assento. Às vezes compensa; quase sempre é sinal de que falta uma perna.
-          </p>
         </div>
       )}
 
@@ -245,7 +209,7 @@ export function NovoVoo({ route }: { route: Route }) {
           <div style={{ marginTop: 6 }}>
             {presas.map(({ ac, impedimento }) => (
               <div key={ac.id} className="row" style={{ justifyContent: 'space-between', padding: '3px 0', fontSize: 12 }}>
-                <span className="muted"><b>{ac.reg}</b> {impedimento}</span>
+                <span className="muted"><button className="btn sm" aria-pressed={ac.id === planningAircraftId} onClick={() => setPlanningAircraftId(ac.id)}>{ac.reg}</button> {impedimento}</span>
               </div>
             ))}
           </div>

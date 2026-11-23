@@ -1,3 +1,6 @@
+import { accessSave } from './saveStorage'
+import { readSaveText } from './saveFileCodec'
+export { compressSaveFile, exportSaveFile, MAX_EXTERNAL_SAVE_BYTES } from './saveFileCodec'
 import LZString from 'lz-string'
 import {rebalanceCompetitorHubs} from './ai'
 import { effectiveAirport, ensureAirports } from './airportInfrastructure'
@@ -9,7 +12,7 @@ import { clampPitch, defaultCabin, normalizarCabine } from './cabin'
 import { engineIdFor } from './spec'
 import type { Aircraft, GameState } from './types'
 
-/** Compactação só no armazenamento interno; exportação continua JSON completo. */
+/** Mantém a leitura da compactação usada nos slots locais. */
 export const encodeStoredSave = (s: GameState) => {
   const json=JSON.stringify(s)
   return json.length>1_000_000?'LZ1:'+LZString.compressToUTF16(json):json
@@ -162,21 +165,35 @@ export interface SlotSummary {
   cash: number
 }
 
+const FILE_MARKER = 'IDB:'
+type SavePointer = SlotSummary & { key: string }
+
+function savePointer(raw: string | null): SavePointer | undefined {
+  if (!raw?.startsWith(FILE_MARKER)) return
+  try {
+    const pointer = JSON.parse(raw.slice(FILE_MARKER.length)) as SavePointer
+    return typeof pointer?.key === 'string' ? pointer : undefined
+  } catch { return undefined }
+}
+
+function summary(s: GameState, slot: number): SlotSummary {
+  return { slot, name: s.airline.name, code: s.airline.code, hub: s.airline.hubs[0] ?? '---',
+    day: s.day, cash: s.airline.cash }
+}
+
+function removeStoredFile(key: string) {
+  void accessSave('readwrite', store => store.delete(key)).catch(() => {})
+}
+
 export function getSlotInfo(slot: number): SlotSummary | null {
   migrateOldSaveIfNeeded()
   try {
     const raw = localStorage.getItem(SLOT_KEY(slot))
     if (!raw) return null
+    const pointer = savePointer(raw)
+    if (pointer) return pointer
     const parsed = migrate(decodeStoredSave(raw))
-    if (!parsed || !parsed.airline) return null
-    return {
-      slot,
-      name: parsed.airline.name,
-      code: parsed.airline.code,
-      hub: parsed.airline.hubs[0] ?? '---',
-      day: parsed.day,
-      cash: parsed.airline.cash,
-    }
+    return parsed?.airline ? summary(parsed, slot) : null
   } catch {
     return null
   }
@@ -197,27 +214,99 @@ export function queueSaveGame(state:GameState,slot=getActiveSlot()) {
   if(saveTimer)clearTimeout(saveTimer)
   saveTimer=setTimeout(pumpSaves,100)
 }
-function pumpSaves() {
-  if(saving||!pendingSaves.size)return
-  const [slot,state]=pendingSaves.entries().next().value!
-  pendingSaves.delete(slot)
-  try {
-    if(!saveWorker) {
-      saveWorker=new Worker(new URL('./saveWorker.ts',import.meta.url),{type:'module'})
-      saveWorker.onmessage=({data})=>{
-        try {
-          if(saveVersions.get(data.slot)===data.version) {
-            localStorage.setItem(SLOT_KEY(data.slot),data.encoded)
-            latestSaves.delete(data.slot)
-          }
-        }
-        catch {window.dispatchEvent(new Event('game-save-error'))}
-        saving=false;pumpSaves()
-      }
-      saveWorker.onerror=()=>{saveWorker?.terminate();saveWorker=undefined;saving=false;window.dispatchEvent(new Event('game-save-error'));pumpSaves()}
+async function storeEncodedSave(info: SlotSummary, version: number, stored: string | Blob) {
+  const { slot } = info
+  if (saveVersions.get(slot) !== version) return false
+  const storageKey = SLOT_KEY(slot)
+  const previous = savePointer(localStorage.getItem(storageKey))
+  let written = false
+  if (typeof stored === 'string') {
+    try {
+      localStorage.setItem(storageKey, stored)
+      written = true
+    } catch (error) {
+      if (!(error instanceof DOMException) || error.name !== 'QuotaExceededError') throw error
     }
-    saving=true;saveWorker.postMessage({slot,state,version:saveVersions.get(slot)})
-  } catch {saving=false;saveGame(state,slot);pumpSaves()}
+  }
+  if (!written) {
+    const key = crypto.randomUUID()
+    try {
+      await accessSave('readwrite', store => store.put(stored, key))
+      if (saveVersions.get(slot) !== version) {
+        removeStoredFile(key)
+        return false
+      }
+      localStorage.setItem(storageKey, FILE_MARKER + JSON.stringify({ ...info, key }))
+    } catch (error) {
+      removeStoredFile(key)
+      throw error
+    }
+  }
+  if (previous) removeStoredFile(previous.key)
+  latestSaves.delete(slot)
+  return true
+}
+
+function pumpSaves() {
+  if (saving || !pendingSaves.size) return
+  const [slot, state] = pendingSaves.entries().next().value!
+  pendingSaves.delete(slot)
+  const version = saveVersions.get(slot)!
+  const info = summary(state, slot)
+  saving = true
+  if (!saveWorker) {
+    try { saveWorker = new Worker(new URL('./saveWorker.ts', import.meta.url), { type: 'module' }) }
+    catch { saving = false; window.dispatchEvent(new Event('game-save-error')); return }
+  }
+  const done = () => { saving = false; pumpSaves() }
+  saveWorker.onmessage = async ({ data }) => {
+    try {
+      if (data.error) throw new Error(data.error)
+      await storeEncodedSave(info, version, data.stored)
+    } catch { if (saveVersions.get(slot) === version) window.dispatchEvent(new Event('game-save-error')) }
+    finally { done() }
+  }
+  saveWorker.onerror = () => {
+    saveWorker?.terminate()
+    saveWorker = undefined
+    window.dispatchEvent(new Event('game-save-error'))
+    done()
+  }
+  try { saveWorker.postMessage({ operation: 'store', slot, state, version }) }
+  catch { window.dispatchEvent(new Event('game-save-error')); done() }
+}
+
+export async function persistSaveGame(state: GameState, slot = getActiveSlot()) {
+  invalidatePendingSave(slot)
+  const version = saveVersions.get(slot)!
+  const info = summary(state, slot)
+  try {
+    const stored = await runSaveWorker<string | Blob>({ operation: 'store', state, slot, version }, 'stored')
+    if (!await storeEncodedSave(info, version, stored)) return false
+    setActiveSlot(slot)
+    return true
+  } catch { return false }
+}
+
+export async function loadSaveGame(slot = getActiveSlot()) {
+  const local = loadGame(slot)
+  if (local) return local
+  try {
+    const pointer = savePointer(localStorage.getItem(SLOT_KEY(slot)))
+    if (!pointer) return null
+    const data = await accessSave('readonly', store => store.get(pointer.key))
+    if (!data) return null
+    const parsed = typeof data === 'string' ? migrate(decodeStoredSave(data)) : await readSaveFile(data)
+    if (!parsed) return null
+    parsed.paused = true
+    setActiveSlot(slot)
+    return parsed
+  } catch { return null }
+}
+
+export function flushLocalSave(state: GameState, slot = getActiveSlot()) {
+  try { if (!savePointer(localStorage.getItem(SLOT_KEY(slot)))) saveGame(state, slot) }
+  catch { /* o navegador está encerrando a página */ }
 }
 
 export function saveGame(state: GameState, slot = getActiveSlot()) {
@@ -225,7 +314,9 @@ export function saveGame(state: GameState, slot = getActiveSlot()) {
   latestSaves.set(slot,state)
   migrateOldSaveIfNeeded()
   try {
+    const previous = savePointer(localStorage.getItem(SLOT_KEY(slot)))
     localStorage.setItem(SLOT_KEY(slot), encodeStoredSave(state))
+    if (previous) removeStoredFile(previous.key)
     setActiveSlot(slot)
     latestSaves.delete(slot)
     return true
@@ -246,7 +337,7 @@ export function loadGame(slot = getActiveSlot()): GameState | null {
       return parsed
     }
     const raw = localStorage.getItem(SLOT_KEY(slot))
-    if (!raw) return null
+    if (!raw || raw.startsWith(FILE_MARKER)) return null
     const parsed = migrate(decodeStoredSave(raw))
     if (!parsed) return null
     parsed.paused = true
@@ -270,20 +361,37 @@ export function clearSave(slot = getActiveSlot()) {
   invalidatePendingSave(slot)
   latestSaves.delete(slot)
   try {
+    const pointer = savePointer(localStorage.getItem(SLOT_KEY(slot)))
     localStorage.removeItem(SLOT_KEY(slot))
+    if (pointer) removeStoredFile(pointer.key)
   } catch {
     /* ignora */
   }
 }
 
-/** Arquivo JSON legível, com todos os dados da partida para análise e reparo. */
-export function exportSaveFile(state: GameState): string {
-  return JSON.stringify({
-    format: 'the-airline-simulator-save',
-    fileVersion: 1,
-    exportedAt: new Date().toISOString(),
-    game: state,
-  }, null, 2)
+function runSaveWorker<T>(request: object, field: 'blob' | 'stored'): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('./saveWorker.ts', import.meta.url), { type: 'module' })
+    worker.onmessage = ({ data }) => {
+      worker.terminate()
+      if (data[field] != null) resolve(data[field])
+      else reject(new Error(data.error ?? 'Não foi possível gerar o arquivo da partida.'))
+    }
+    worker.onerror = event => {
+      worker.terminate()
+      reject(new Error(event.message || 'Não foi possível gerar o arquivo da partida.'))
+    }
+    try { worker.postMessage(request) }
+    catch (error) { worker.terminate(); reject(error) }
+  })
+}
+
+export function exportCompressedSave(state: GameState): Promise<Blob> {
+  return runSaveWorker({ operation: 'export', state }, 'blob')
+}
+
+export async function readSaveFile(file: Blob): Promise<GameState | null> {
+  return importSaveFile(await readSaveText(file))
 }
 
 export function importSaveFile(text: string): GameState | null {

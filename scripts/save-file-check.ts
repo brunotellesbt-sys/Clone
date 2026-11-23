@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { newGame, openRoute } from '../src/game/engine'
-import { exportSave, exportSaveFile, importSaveFile, encodeStoredSave, decodeStoredSave } from '../src/game/save'
+import { compressSaveFile, exportSave, exportSaveFile, importSaveFile, MAX_EXTERNAL_SAVE_BYTES, readSaveFile, encodeStoredSave, decodeStoredSave } from '../src/game/save'
 
 const game = newGame({ name: 'Save de teste', code: 'ST', hub: 'SSA', seed: 17 })
 assert.equal(openRoute(game, 'SSA', 'AJU'), null)
@@ -28,3 +28,17 @@ assert(packed.length<JSON.stringify(large).length/2)
 assert.deepEqual(decodeStoredSave(packed),large)
 assert.deepEqual(decodeStoredSave(JSON.stringify(game)),game)
 console.log('OK: armazenamento compactado sem perda e leitura de saves antigos.')
+
+
+// O arquivo antigo passa de 92 MB em UTF-8, inclusive com dados de jogo em português.
+const big = structuredClone(game)
+big.notices = Array.from({ length: 65_000 }, (_, day) => ({
+  day, kind: 'info', text: 'Conexão em operação. '.repeat(55) + day,
+}))
+const oldFile = new Blob([exportSaveFile(big)])
+assert(oldFile.size >= 92_000_000)
+const compressed = await compressSaveFile(big)
+assert(compressed.size <= MAX_EXTERNAL_SAVE_BYTES)
+assert.deepEqual((await readSaveFile(compressed))?.notices, big.notices)
+assert.deepEqual((await readSaveFile(oldFile))?.notices, big.notices)
+console.log(`OK: ${(oldFile.size / 1e6).toFixed(2)} MB → ${(compressed.size / 1e6).toFixed(2)} MB, histórico integral e leitura do arquivo original.`)

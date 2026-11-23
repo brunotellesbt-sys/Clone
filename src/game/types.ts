@@ -467,6 +467,7 @@ export interface Notice {
 export interface GameState {
   /** Último clique de marcação: permite desfazer o lote sem tocar outros voos. */
   lastCreatedFlights?: Perna[]
+  previousCreatedFlights?: Perna[]
   hubAccessVersion?: number
   hubInvestments?: Record<string, number>
   cghExtraSlotsGranted?: boolean

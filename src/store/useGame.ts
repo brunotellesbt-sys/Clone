@@ -3,6 +3,8 @@ import type { GameState } from '../game/types'
 
 export interface GameContextValue {
   state: GameState
+  planningAircraftId: string | null
+  setPlanningAircraftId: (id: string) => void
   /** Executa uma mutação no estado e força o redesenho. Devolve a mensagem de erro, se houver. */
   act: (fn: (s: GameState) => string | null | void) => string | null
   replace: (s: GameState) => void

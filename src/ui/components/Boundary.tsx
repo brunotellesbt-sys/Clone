@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
-import { clearSave, exportSave, loadGame } from '../../game/save'
+import { clearSave, exportSave, loadSaveGame } from '../../game/save'
 
 interface Props {
   children: ReactNode
@@ -36,8 +36,8 @@ export class Boundary extends Component<Props, State> {
     console.error('quebrou:', erro, info.componentStack)
   }
 
-  copiarSave = () => {
-    const s = loadGame()
+  copiarSave = async () => {
+    const s = await loadSaveGame()
     if (!s) return
     navigator.clipboard?.writeText(exportSave(s)).catch(() => {})
   }

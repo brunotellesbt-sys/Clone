@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
+import { gunzipSync, gzipSync } from 'node:zlib'
 import { chromium } from 'playwright'
 import { browserPath } from './browser.mjs'
 
@@ -20,10 +21,12 @@ try {
   await page.locator('button[title="Jogo"]').click()
   assert.equal(await page.locator('.modal textarea').count(), 0, 'o texto codificado saiu da tela')
   const downloadPromise = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Baixar save em JSON' }).click()
+  await page.getByRole('button', { name: 'Baixar save compactado' }).click()
   const download = await downloadPromise
-  assert(download.suggestedFilename().endsWith('.json'))
-  const json = JSON.parse(await readFile(await download.path(), 'utf8'))
+  assert(download.suggestedFilename().endsWith('.json.gz'))
+  const downloaded = await readFile(await download.path())
+  assert(downloaded.length <= 50_000_000)
+  const json = JSON.parse(gunzipSync(downloaded).toString('utf8'))
   assert.equal(json.format, 'the-airline-simulator-save')
   assert.equal(json.game.airline.routes[0].to, 'AJU')
   assert.equal(json.game.airline.name, 'Partida original')
@@ -31,16 +34,20 @@ try {
   const select = page.getByLabel('Selecionar arquivo de save')
   json.game.airline.name = 'Partida corrigida'
   json.game.day = 45
-  await select.setInputFiles({ name: 'partida-corrigida.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(json)) })
-  await page.getByText(/partida-corrigida.json · Partida corrigida · dia 45/).waitFor()
+  json.game.notices = [{ day: 45, kind: 'info', text: 'Arquivo grande. '.repeat(320_000) }]
+  await select.setInputFiles({ name: 'partida-corrigida.json.gz', mimeType: 'application/gzip', buffer: gzipSync(JSON.stringify(json)) })
+  await page.getByText(/partida-corrigida.json.gz · Partida corrigida · dia 45/).waitFor()
   await page.getByRole('button', { name: 'Importar partida', exact: true }).click()
   assert(await page.getByText(/substituirá o save do Slot 1/).isVisible())
   await page.getByRole('button', { name: 'Cancelar', exact: true }).click()
   assert((await page.locator('.brand').textContent()).includes('Partida original'), 'cancelar preserva a partida')
   await page.getByRole('button', { name: 'Importar partida', exact: true }).click()
   await page.getByRole('button', { name: 'Confirmar', exact: true }).click()
-  assert((await page.locator('.brand').textContent()).includes('Partida corrigida'))
-  assert.equal(await page.evaluate(async () => { const {loadGame}=await import('/src/game/save.ts');return loadGame(1).day }), 45)
+  await page.locator('.brand').filter({hasText:'Partida corrigida'}).waitFor()
+  assert(await page.evaluate(() => localStorage.getItem('skyline-tycoon:save:1').startsWith('IDB:')))
+  await page.reload()
+  await page.getByRole('button', { name: 'Continuar', exact: true }).first().click()
+  assert.equal(await page.evaluate(async () => { const {loadSaveGame}=await import('/src/game/save.ts');return (await loadSaveGame(1)).day }), 45)
   await page.locator('button[title="Jogo"]').click()
   await select.setInputFiles({ name: 'invalido.json', mimeType: 'application/json', buffer: Buffer.from('{erro') })
   await page.getByText('Arquivo de save inválido ou incompatível.').waitFor()
@@ -48,5 +55,5 @@ try {
   assert((await page.locator('.brand').textContent()).includes('Partida corrigida'))
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
   assert.equal(errors.length, 0, errors.join('\n'))
-  console.log('OK: download legível, importação confirmada, cancelamento e arquivo inválido no celular.')
+  console.log('OK: download gzip, importação grande, reabertura no IndexedDB, cancelamento e arquivo inválido no celular.')
 } finally { await browser.close() }
