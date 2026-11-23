@@ -39,7 +39,14 @@ try {
   await page.getByRole('button', { name: 'Continuar', exact: true }).first().click()
   for (const speed of ['1×', '75×', '300×', '600×']) assert.equal(await page.getByRole('button', { name: speed, exact: true }).count(), 1)
   await page.getByRole('button', { name: 'Conexões', exact: true }).click()
-  assert.equal(await page.locator('.connection-sold tbody tr').count(), trips)
+  const sold = page.locator('.connection-sold')
+  assert.equal(await sold.locator('tbody tr').count(), Math.min(trips, 50))
+  await page.getByRole('table', { name: 'Tabela de conexões da malha' }).waitFor()
+  if (trips > 50) {
+    await sold.getByRole('button', { name: 'Próxima', exact: true }).click()
+    assert.equal(await sold.locator('tbody tr').count(), Math.min(trips - 50, 50))
+    await sold.getByRole('button', { name: 'Anterior', exact: true }).click()
+  }
   const moneyCells = await page.locator('.connection-sold tbody tr td:nth-child(2)').allTextContents()
   assert(moneyCells.some(v => v.includes('$')), 'conexões apuradas mostram resultado monetário')
   await page.getByLabel('Ordenar resultado das conexões').selectOption('worst')
