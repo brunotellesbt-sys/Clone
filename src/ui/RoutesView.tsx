@@ -1,4 +1,4 @@
-import { effectiveAirport, largeOperations, routeEntryAccess } from '../game/airportInfrastructure'
+import { effectiveAirport, routeEntryAccess } from '../game/airportInfrastructure'
 import { useEffect, useMemo, useState } from 'react'
 import { AIRCRAFT_BY_ID, acLabel, ehCargueiro, type AircraftType } from '../game/data/aircraft'
 import {
@@ -23,7 +23,7 @@ import { HubFlights } from './components/HubFlights'
 export function RoutesView() {
   const { state } = useGame()
   const [hubFiltro, setHubFiltro] = useState<string>('todos')
-  const [flightBase, setFlightBase] = useState(state.airline.hubs[0])
+  const [showFlightWindows, setShowFlightWindows] = useState(false)
   const [ordem, setOrdem] = useState<OrdenacaoRotas>('dist-asc')
   const [selId, setSelId] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
@@ -49,12 +49,7 @@ export function RoutesView() {
       .map((x) => x.route)
   }, [state, state.airline.routes, state.airline.routes.length, state.day, state.startYear, hubFiltro, ordem])
   const sel = routes.find((r) => r.id === selId) ?? routes[0] ?? null
-  const flightBases = [...new Set([
-    ...state.airline.hubs,
-    ...largeOperations(state).map(base => base.id),
-    ...state.airline.fleet.flatMap(ac => ac.base && AIRPORT_BY_IATA[ac.base] ? [ac.base] : []),
-  ])]
-  const activeBase = flightBases.includes(flightBase) ? flightBase : flightBases[0]
+  const flightBase = state.airline.hubs.includes(hubFiltro) ? hubFiltro : state.airline.hubs[0]
 
   return (
    <div className="grid" style={{ gap: 14 }}>
@@ -65,11 +60,7 @@ export function RoutesView() {
          <div className="row tight">
            <label className="field" style={{ marginBottom: 0 }}>
              <span>Hub</span>
-             <select value={hubFiltro} onChange={(e) => {
-               const hub = e.target.value
-               setHubFiltro(hub)
-               if (hub !== 'todos') setFlightBase(hub)
-             }}>
+             <select aria-label="Hub das rotas" value={hubFiltro} onChange={(e) => setHubFiltro(e.target.value)}>
                <option value="todos">Todos</option>
                {state.airline.hubs.map((h) => (
                  <option key={h} value={h}>{h}</option>
@@ -83,9 +74,18 @@ export function RoutesView() {
              </select>
            </label>
            <button className="btn primary sm" onClick={() => setOpening(true)}>Abrir rota</button>
+           <button
+             className="btn sm"
+             aria-expanded={showFlightWindows}
+             aria-controls={showFlightWindows ? 'route-flight-windows' : undefined}
+             onClick={() => setShowFlightWindows(open => !open)}
+           >
+             Aeronaves e rota máxima
+           </button>
          </div>
        )}
      >
+       {showFlightWindows && <HubFlights id={flightBase} inline />}
        {routes.length === 0 ? (
          <Empty>Nenhuma rota. Toda linha precisa sair de uma das suas bases ({state.airline.hubs.join(', ')}).</Empty>
         ) : (
@@ -123,7 +123,6 @@ export function RoutesView() {
       {opening && <OpenRouteModal origem={hubFiltro !== 'todos' ? hubFiltro : origem ?? state.airline.hubs[0]}
         onOrigem={h => { setOrigem(h); if (hubFiltro !== 'todos') setHubFiltro(h) }} onClose={() => setOpening(false)} onOpened={(id) => { setSelId(id) }} />}
     </div>
-    <HubFlights id={activeBase} bases={flightBases} onBaseChange={setFlightBase} />
     {/* horários e conexões ocupam a largura toda: a malha não cabe na coluna
         estreita, e é a tela mais densa da rota */}
     {sel && <Horarios route={sel} />}
