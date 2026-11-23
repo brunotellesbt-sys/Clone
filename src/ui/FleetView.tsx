@@ -90,7 +90,7 @@ export function FleetView() {
                       <td className="r">
                         {ehCargueiro(t)
                           ? <span className="muted" style={{ fontSize: 11 }}>sem cabine</span>
-                          : <button className="btn sm" onClick={(e) => { e.stopPropagation(); setConfig(a) }}>Cabine</button>}
+                          : <button className="btn sm" onClick={(e) => { e.stopPropagation(); setPlanningAircraftId(a.id); setConfig(a) }}>Cabine</button>}
                       </td>
                     </tr>
                   )
@@ -101,7 +101,7 @@ export function FleetView() {
         )}
       </Card>
 
-      <div className="grid" style={{ gap: 14 }}>
+      <div className="grid" style={{ gap: 14 }} onFocusCapture={() => { if (sel) setPlanningAircraftId(sel.id) }}>
         {sel && (
           <>
             <Card title={`${acLabel(modelOf(sel))} · ${sel.reg}`}>
