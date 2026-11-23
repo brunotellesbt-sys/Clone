@@ -74,7 +74,11 @@ const second={id:'out',aircraftId:bad.airline.fleet[1].id,from:'MAO',to:'GRU',do
 const arrival=first.saida+blocoDe(bad,first)-60 // MAO uma hora atrás de GIG
 const departure=naSemana(first.dow*DIA+arrival+90)
 second.dow=Math.floor(departure/DIA);second.saida=departure%DIA
-bad.airline.escala=[first,second]
+bad.airline.escala=[
+  first,second,
+  {...first,id:'in-return',from:'MAO',to:'GIG',dow:3,saida:900},
+  {...second,id:'out-return',from:'GRU',to:'MAO',dow:3,saida:900},
+]
 assert(conexoesNaBase(bad,'MAO',true).length>0,'horários de teste são compatíveis')
 assert.equal(conexoesNaBase(bad,'MAO').length,0,'itinerário absurdo não aparece na oferta')
 for(const route of bad.airline.routes){const c=conexoesDaRota(bad,route);assert.equal(c.entrando.length+c.saindo.length,0)}

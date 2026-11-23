@@ -8,14 +8,19 @@ try {
  await page.goto(process.env.URL??'http://127.0.0.1:5173/')
  const result=await page.evaluate(async()=>{
   const {DaySimulation}=await import('/src/game/daySimulation.ts')
-  const {newGame,advanceDay}=await import('/src/game/engine.ts')
+  const {newGame,advanceDay,buyAircraft,openRoute,assignAircraft}=await import('/src/game/engine.ts')
   const expected=newGame({name:'Worker',code:'WK',hub:'GRU',seed:44,densidade:'enxuta'})
+  openRoute(expected,'GRU','REC')
+  buyAircraft(expected,'e195e2',false)
+  assignAircraft(expected,expected.airline.fleet[0].id,expected.airline.routes[0].id)
   let actual=structuredClone(expected),frames=0
   const simulation=new DaySimulation(),timer=setInterval(()=>frames++,5)
   try{
    for(let i=0;i<8;i++){
-    advanceDay(expected);actual=await simulation.advance(actual)
-    if(JSON.stringify(actual)!==JSON.stringify(expected))throw new Error(`Divergência no dia ${i+1}`)
+    advanceDay(expected);actual=await simulation.advance(actual, 0)
+    const canonical=value=>JSON.stringify(value,(_, v)=>v && typeof v==='object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b))) : v)
+    if(canonical(actual)!==canonical(expected))throw new Error(`Divergência no dia ${i+1}`)
    }
    return {frames,day:actual.day}
   }finally{clearInterval(timer);simulation.dispose()}
@@ -34,7 +39,7 @@ try {
     })
    }
    postMessage(data,...args){
-    if(this.day){window.__dayRequests++;window.__lastDay={day:data.state.day,fleet:data.state.airline.fleet.length,cash:data.state.airline.cash}}
+    if(this.day){window.__dayRequests++;if(data.state)window.__lastDay={day:data.state.day,fleet:data.state.airline.fleet.length,cash:data.state.airline.cash}}
     return super.postMessage(data,...args)
    }
   }

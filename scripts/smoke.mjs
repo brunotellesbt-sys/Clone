@@ -60,7 +60,13 @@ if (await fecharModal.count()) { await fecharModal.click(); await page.waitForTi
 const todos = page.getByRole('button', { name: 'Todos', exact: true })
 if (await todos.count()) { await todos.click(); await page.waitForTimeout(300) }
 const marcar = page.getByRole('button', { name: /^Marcar/ }).first()
-if (await marcar.count()) { await marcar.click(); await page.waitForTimeout(600) }
+if (await marcar.count()) {
+  await marcar.click()
+  await page.getByRole('button', { name: 'REC → GRU', exact: true }).click()
+  await page.getByLabel('Parte às').fill('13:00')
+  await marcar.click()
+  await page.waitForTimeout(600)
+}
 await page.screenshot({ path: artifact('shot-5-rota.png') })
 
 // rodar o tempo
@@ -84,8 +90,10 @@ await page.waitForTimeout(400)
 await page.screenshot({ path: artifact('shot-9-ranking.png') })
 
 const rawSave = await page.evaluate(() => localStorage.getItem('skyline-tycoon:save:1') ?? localStorage.getItem('skyline-tycoon:save:0'))
-const saved = rawSave ? JSON.parse(rawSave.startsWith('LZ1:') ? LZString.decompressFromUTF16(rawSave.slice(4)) : rawSave) : null
-const summary = saved ? `dia ${saved.day}, caixa ${Math.round(saved.airline.cash / 1e6)}M, frota ${saved.airline.fleet.length}, rotas ${saved.airline.routes.length}` : 'sem save'
+const saved = rawSave?.startsWith('IDB:') ? null :
+  rawSave ? JSON.parse(rawSave.startsWith('LZ1:') ? LZString.decompressFromUTF16(rawSave.slice(4)) : rawSave) : null
+const summary = saved ? `dia ${saved.day}, caixa ${Math.round(saved.airline.cash / 1e6)}M, frota ${saved.airline.fleet.length}, rotas ${saved.airline.routes.length}` :
+  rawSave?.startsWith('IDB:') ? `dia ${JSON.parse(rawSave.slice(4)).day}, slot no IndexedDB` : 'sem save'
 console.log('estado:', summary)
 console.log('erros de console:', errors.length ? errors.slice(0, 10) : 'nenhum')
 await browser.close()

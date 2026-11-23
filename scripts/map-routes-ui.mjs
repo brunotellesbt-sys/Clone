@@ -19,7 +19,10 @@ try {
    const a=s.airline.fleet.at(-1),r=s.airline.routes.find(r=>r.to==='CGH')
    assignAircraft(s,a.id,r.id)
    s.day=3
-   s.airline.escala=[{id:'departure-test',aircraftId:a.id,from:'SDU',to:'CGH',dow:dowOf(s),saida:299}]
+   s.airline.escala=[
+    {id:'departure-test',aircraftId:a.id,from:'SDU',to:'CGH',dow:dowOf(s),saida:299},
+    {id:'return-test',aircraftId:a.id,from:'CGH',to:'SDU',dow:dowOf(s),saida:660},
+   ]
    // UTC 08:00 na abertura do mapa, um minuto após sair de SDU (UTC−3).
    invalidateAirportUsage(s);saveGame(s,1)
   })

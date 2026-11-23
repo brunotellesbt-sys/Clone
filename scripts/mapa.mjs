@@ -54,9 +54,10 @@ conferir(/scale\((?!1\))/.test(antesZoom ?? ''), `a roda aproxima (${antesZoom})
 // zoom fundo: a roda tem que passar de 9, que era o teto antigo
 for (let i = 0; i < 16; i++) { await page.mouse.wheel(0, -260); await page.waitForTimeout(40) }
 // Eventos de roda podem ser agrupados pelo navegador; confirme o limite pelos botões.
-for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Aproximar', exact: true }).click()
+for (let i = 0; i < 8; i++) await page.getByRole('button', { name: 'Aproximar', exact: true }).click()
 const fundo = Number((await transform()).match(/scale\(([\d.]+)\)/)[1])
-conferir(fundo === 72, `o zoom alcança o novo teto (${fundo.toFixed(1)}x)`)
+const maxZoom = await page.evaluate(async () => (await import('/src/ui/mapGeometry.ts')).MAP_MAX_ZOOM)
+conferir(fundo === maxZoom, `o zoom alcança o teto (${fundo.toFixed(1)}x)`)
 await page.screenshot({ path: artifact('mapa-0-zoom.png') })
 await page.mouse.move(cx, cy)
 for (let i = 0; i < 12; i++) { await page.mouse.wheel(0, 260); await page.waitForTimeout(40) }
@@ -146,10 +147,8 @@ await page.getByPlaceholder('cidade, país ou código').fill('Recife')
 await page.waitForTimeout(450)
 await page.getByRole('row', { name: /REC/ }).first().click()
 await page.waitForTimeout(400)
-// o destino sai de menu suspenso, e a distância vem em km
-const menu = page.locator('.modal select').last()
-conferir((await menu.locator('option').count()) > 1, 'o destino é um menu suspenso')
-conferir(/\d+ km/.test(await menu.locator('option').nth(1).textContent()), 'o menu mostra a distância em km')
+const destination = page.locator('.modal').getByRole('row', { name: /REC/ }).first()
+conferir(/km/.test(await destination.textContent()), 'a busca de destino mostra a distância em km')
 await page.getByRole('button', { name: /^Abrir por/ }).click()
 await page.waitForTimeout(500)
 await page.locator('.modal').getByRole('button', { name: 'Fechar', exact: true }).click()
@@ -157,6 +156,9 @@ conferir(/km/.test(await page.locator('table').first().textContent()), 'a tabela
 
 // a rota nasce sem voo: quem marca é o jogador, e sem perna marcada não há
 // avião no mapa para clicar
+await page.getByRole('button', { name: 'Marcar', exact: true }).first().click()
+await page.getByRole('button', { name: 'REC → GRU', exact: true }).click()
+await page.getByLabel('Parte às').fill('13:00')
 await page.getByRole('button', { name: 'Marcar', exact: true }).first().click()
 await page.waitForTimeout(600)
 conferir((await page.locator('.horarios tbody tr').count()) > 0, 'o voo marcado entra na semana')

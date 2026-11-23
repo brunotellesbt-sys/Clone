@@ -1,6 +1,6 @@
 import { HubsView } from './ui/HubsView'
 import { invalidateAirportUsage } from './game/airportInfrastructure'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Activity, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { invalidateHubActivity } from './game/hubDevelopment'
 import { gameDate, money, netWorth, pct, period } from './game/engine'
 import {DaySimulation} from './game/daySimulation'
@@ -8,13 +8,14 @@ import { MS_POR_DIA_NA_TELA } from './ui/relogio'
 import {
   AVAILABLE_SLOTS,
   clearSave,
-  exportSaveFile,
+  exportCompressedSave,
   getActiveSlot,
   getSlotInfo,
   hasSave,
-  importSaveFile,
-  loadGame,
-  saveGame,
+  readSaveFile,
+  loadSaveGame,
+  persistSaveGame,
+  flushLocalSave,
   queueSaveGame,
 } from './game/save'
 import type { SlotSummary } from './game/save'
@@ -61,11 +62,36 @@ export function App() {
   const [state, setState] = useState<GameState | null>(null)
   const [, force] = useState(0)
   const [tab, setTab] = useState('painel')
+  const [visitedTabs, setVisitedTabs] = useState(() => new Set(['painel']))
+  const [planningAircraftId, setPlanningAircraftId] = useState<string | null>(null)
+  const [gameSession, setGameSession] = useState(0)
+  const mainRef = useRef<HTMLElement>(null)
+  const tabPositions = useRef(new Map<string, { top?: number; focus?: HTMLElement }>())
+  const changeTab = (next: string) => {
+    if (next === tab) return
+    tabPositions.current.set(tab, { ...tabPositions.current.get(tab), top: mainRef.current?.scrollTop })
+    setVisitedTabs(tabs => tabs.has(next) ? tabs : new Set([...tabs, next]))
+    setTab(next)
+  }
+  useLayoutEffect(() => {
+    const position = tabPositions.current.get(tab)
+    if (mainRef.current) mainRef.current.scrollTop = position?.top ?? 0
+    if (position?.focus?.isConnected) position.focus.focus({ preventScroll: true })
+  }, [tab, gameSession])
   const [toasts, setToasts] = useState<{ id: number; msg: string; kind: string }[]>([])
   const [menu, setMenu] = useState(false)
   const stateRef = useRef<GameState | null>(null)
   const mutationRevision=useRef(0)
-  stateRef.current = state
+  const replace = useCallback((next: GameState | null) => {
+    mutationRevision.current++
+    stateRef.current = next
+    setState(next)
+    setPlanningAircraftId(null)
+    setVisitedTabs(new Set(['painel']))
+    tabPositions.current.clear()
+    setTab('painel')
+    setGameSession(session => session + 1)
+  }, [])
 
   const toast = useCallback((msg: string, kind: 'info' | 'error' = 'info') => {
     const id = Date.now() + Math.random()
@@ -82,6 +108,7 @@ export function App() {
     if (!err) {
       queueSaveGame(s, getActiveSlot())
     }
+    setState(s)
     force((v) => v + 1)
     return err
   }, [])
@@ -90,7 +117,7 @@ export function App() {
   const playback=useCallback((speed:number,paused:boolean)=>{
     const s=stateRef.current;if(!s)return
     mutationRevision.current++;s.speed=speed;s.paused=paused
-    queueSaveGame(s,getActiveSlot());force(v=>v+1)
+    queueSaveGame(s,getActiveSlot());setState(s);force(v=>v+1)
   },[])
 
   // laço do jogo
@@ -106,18 +133,21 @@ export function App() {
       const started=performance.now()
       const revision=mutationRevision.current
       try {
-        const next=await simulation.advance(s)
+        const next=await simulation.advance(s, revision)
         if(disposed)return
         // Um clique pode alterar a companhia enquanto o worker calcula. Nesse
         // caso descarta a cópia antiga, preservando integralmente a ação.
         if(revision===mutationRevision.current){
-          stateRef.current=next;setState(next)
+          stateRef.current = next
+          startTransition(() => setState(next))
           if(next.day%30===0)queueSaveGame(next,getActiveSlot())
         }
       }catch(error){
         if(disposed)return
         if(revision===mutationRevision.current){
-          s.paused=true;force(v=>v+1)
+          s.paused = true
+          setState(s)
+          force(v => v + 1)
           toast(`A simulação foi pausada: ${error instanceof Error?error.message:String(error)}`,'error')
           return
         }
@@ -128,10 +158,10 @@ export function App() {
     }
     id=setTimeout(tick,interval)
     return () => {disposed=true;clearTimeout(id);simulation.dispose()}
-  }, [!!state, state?.paused, state?.speed,toast])
+  }, [!!state, state?.paused, state?.speed, gameSession, toast])
 
   useEffect(()=>{
-    const flush=()=>{const s=stateRef.current;if(s)saveGame(s,getActiveSlot())}
+    const flush=()=>{const s=stateRef.current;if(s)flushLocalSave(s,getActiveSlot())}
     const error=()=>toast('Não foi possível salvar automaticamente. Exporte seu save pelo menu.','error')
     window.addEventListener('pagehide',flush);window.addEventListener('game-save-error',error)
     return()=>{window.removeEventListener('pagehide',flush);window.removeEventListener('game-save-error',error)}
@@ -153,18 +183,20 @@ export function App() {
     () => ({
       state: state as GameState,
       act,
-      replace: (s: GameState) => {mutationRevision.current++;setState(s)},
-      reset: () => { mutationRevision.current++;clearSave(getActiveSlot());setState(null) },
+      planningAircraftId,
+      setPlanningAircraftId,
+      replace,
+      reset: () => { clearSave(getActiveSlot()); replace(null) },
       toast,
     }),
-    [state, act, toast],
+    [state, act, toast, replace, planningAircraftId],
   )
 
   if (!state) {
     return (
       <div className="app">
         <main>
-          <StartScreen onStart={setState} toast={toast} />
+          <StartScreen onStart={replace} toast={toast} />
         </main>
         <Toasts items={toasts} />
       </div>
@@ -216,9 +248,9 @@ export function App() {
           </div>
         </header>
 
-        <nav className="nav">
+        <nav className="nav game-nav">
           {TABS.map((t) => (
-            <button key={t.id} className={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)}>
+            <button key={t.id} className={tab === t.id ? 'on' : ''} onClick={() => changeTab(t.id)}>
               {t.label}
               {t.id === 'rotas' && state.airline.routes.length > 0 && (
                 <span className="muted" style={{ marginLeft: 6 }}>{state.airline.routes.length}</span>
@@ -227,20 +259,28 @@ export function App() {
           ))}
         </nav>
 
-        <main>
-          <div className="wrap">
-            {tab === 'painel' && <Dashboard go={setTab} />}
-            {tab === 'rotas' && <RoutesView />}
-            {tab === 'conexoes' && <ConnectionsView />}
-            {tab === 'calendario' && <CalendarView />}
-            {tab === 'frota' && <FleetView />}
-            {tab === 'mercado' && <MarketView />}
-            {tab === 'financas' && <FinanceView />}
-            {(tab === 'pintura' || tab === 'manutencao') && <MaintenanceView />}
-            {tab === 'ranking' && <RankingView />}
-            {tab === 'hubs' && <HubsView />}
-            {tab === 'bases' && <HubsView bases />}
-            {tab === 'companhias' && <CompetitorsView />}
+        <main ref={mainRef}>
+          <div className="wrap" key={gameSession}>
+            {TABS.filter(t => visitedTabs.has(t.id)).map(t => (
+              <Activity key={t.id} mode={tab === t.id ? 'visible' : 'hidden'}>
+                <section className="tab-panel" aria-hidden={tab !== t.id} onFocusCapture={event => {
+                  tabPositions.current.set(t.id, { ...tabPositions.current.get(t.id), focus: event.target })
+                }}>
+                  {t.id === 'painel' && <Dashboard go={changeTab} />}
+                  {t.id === 'rotas' && <RoutesView />}
+                  {t.id === 'conexoes' && <ConnectionsView />}
+                  {t.id === 'calendario' && <CalendarView />}
+                  {t.id === 'frota' && <FleetView />}
+                  {t.id === 'mercado' && <MarketView />}
+                  {t.id === 'financas' && <FinanceView />}
+                  {t.id === 'pintura' && <MaintenanceView />}
+                  {t.id === 'ranking' && <RankingView />}
+                  {t.id === 'hubs' && <HubsView />}
+                  {t.id === 'bases' && <HubsView bases />}
+                  {t.id === 'companhias' && <CompetitorsView />}
+                </section>
+              </Activity>
+            ))}
           </div>
         </main>
 
@@ -259,6 +299,7 @@ function ConfirmModal({
   kind = 'primary',
   onConfirm,
   onCancel,
+  busy = false,
 }: {
   title: string
   message: string
@@ -267,18 +308,19 @@ function ConfirmModal({
   kind?: 'primary' | 'danger'
   onConfirm: () => void
   onCancel: () => void
+  busy?: boolean
 }) {
   return (
-    <Modal title={title} onClose={onCancel}>
+    <Modal title={title} onClose={busy ? () => {} : onCancel}>
       <p className="dim" style={{ fontSize: 13.5, margin: '12px 0 20px', lineHeight: 1.5 }}>
         {message}
       </p>
       <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
-        <button className="btn" onClick={onCancel}>
+        <button className="btn" disabled={busy} onClick={onCancel}>
           {cancelText}
         </button>
-        <button className={`btn ${kind}`} onClick={onConfirm}>
-          {confirmText}
+        <button className={`btn ${kind}`} disabled={busy} onClick={onConfirm}>
+          {busy ? 'Aguarde…' : confirmText}
         </button>
       </div>
     </Modal>
@@ -287,6 +329,9 @@ function ConfirmModal({
 
 function GameMenu({ onClose }: { onClose: () => void }) {
   const { state, replace, reset, toast } = useGame()
+  const [exporting, setExporting] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const importRequest = useRef(0)
   const [pendingFile, setPendingFile] = useState<{ name: string; game: GameState } | null>(null)
   const [pendingConfirm, setPendingConfirm] = useState<{
     type: 'save' | 'load' | 'delete' | 'new' | 'import'
@@ -307,16 +352,18 @@ function GameMenu({ onClose }: { onClose: () => void }) {
 
   if (!state) return null
 
-  const handleConfirmAction = () => {
-    if (!pendingConfirm) return
+  const handleConfirmAction = async () => {
+    if (!pendingConfirm || saving) return
+    setSaving(true)
     const { type, slot } = pendingConfirm
 
     if (type === 'save' && slot) {
-      saveGame(state, slot)
-      toast(`Partida salva no Slot ${slot}.`)
-      refreshSlots()
+      if (await persistSaveGame(state, slot)) {
+        toast(`Partida salva no Slot ${slot}.`)
+        refreshSlots()
+      } else toast('Não foi possível salvar neste slot.', 'error')
     } else if (type === 'load' && slot) {
-      const loaded = loadGame(slot)
+      const loaded = await loadSaveGame(slot)
       if (loaded) {
         replace(loaded)
         toast(`Slot ${slot} carregado com sucesso.`)
@@ -330,7 +377,7 @@ function GameMenu({ onClose }: { onClose: () => void }) {
       refreshSlots()
     } else if (type === 'import' && pendingFile) {
       pendingFile.game.paused = true
-      if (saveGame(pendingFile.game, activeSlot)) {
+      if (await persistSaveGame(pendingFile.game, activeSlot)) {
         replace(pendingFile.game)
         toast(`Partida importada no Slot ${activeSlot}.`)
         onClose()
@@ -343,6 +390,7 @@ function GameMenu({ onClose }: { onClose: () => void }) {
     }
 
     setPendingConfirm(null)
+    setSaving(false)
   }
 
   return (
@@ -456,30 +504,36 @@ function GameMenu({ onClose }: { onClose: () => void }) {
       <div className="grid" style={{ gap: 12 }}>
         <div className="field">
           <span>Exportar partida atual</span>
-          <button className="btn" onClick={() => {
+          <button className="btn" disabled={exporting} onClick={async () => {
+            setExporting(true)
             try {
-              const filename = `the-airline-simulator-${state.airline.code.replace(/[^a-z0-9-]/gi, '') || 'save'}-slot-${activeSlot}-${new Date().toISOString().slice(0, 10)}.json`
-              downloadFile(filename, new Blob([exportSaveFile(state)], { type: 'application/json;charset=utf-8' }))
-            } catch { toast('Não foi possível gerar o arquivo da partida.', 'error') }
-          }}>Baixar save em JSON</button>
-          <small className="muted">Arquivo legível com a partida completa para guardar ou compartilhar para correção.</small>
+              const filename = `the-airline-simulator-${state.airline.code.replace(/[^a-z0-9-]/gi, '') || 'save'}-slot-${activeSlot}-${new Date().toISOString().slice(0, 10)}.json.gz`
+              downloadFile(filename, await exportCompressedSave(state))
+            } catch (error) {
+              toast(error instanceof Error ? error.message : 'Não foi possível gerar o arquivo da partida.', 'error')
+            } finally { setExporting(false) }
+          }}>{exporting ? 'Compactando partida…' : 'Baixar save compactado'}</button>
+          <small className="muted">Partida completa em JSON compactado (.json.gz), com limite de 50 MB.</small>
         </div>
 
         <label className="field">
           <span>Importar partida de arquivo</span>
-          <input type="file" accept=".json,.txt,application/json,text/plain" aria-label="Selecionar arquivo de save" onChange={async e => {
+          <input type="file" accept=".gz,.json,.txt,application/gzip,application/json,text/plain" aria-label="Selecionar arquivo de save" onChange={async e => {
+            const request = ++importRequest.current
             const file = e.target.files?.[0]
             e.target.value = ''
             setPendingFile(null)
             if (!file) return
-            if (file.size > 50 * 1024 * 1024) return toast('Arquivo maior que 50 MB.', 'error')
             try {
-              const game = importSaveFile(await file.text())
+              const game = await readSaveFile(file)
+              if (request !== importRequest.current) return
               if (!game) return toast('Arquivo de save inválido ou incompatível.', 'error')
               setPendingFile({ name: file.name, game })
-            } catch { toast('Não foi possível ler o arquivo de save.', 'error') }
+            } catch {
+              if (request === importRequest.current) toast('Não foi possível ler o arquivo de save.', 'error')
+            }
           }} />
-          <small className="muted">Aceita o novo JSON e códigos antigos guardados em arquivo .txt.</small>
+          <small className="muted">Aceita .json.gz, JSON e backups antigos em .txt.</small>
         </label>
         {pendingFile && <p className="muted" style={{ margin: 0, fontSize: 12 }}>
           {pendingFile.name} · {pendingFile.game.airline.name} · dia {pendingFile.game.day}
@@ -502,6 +556,7 @@ function GameMenu({ onClose }: { onClose: () => void }) {
           message={pendingConfirm.message}
           kind={pendingConfirm.kind}
           onConfirm={handleConfirmAction}
+          busy={saving}
           onCancel={() => setPendingConfirm(null)}
         />
       )}
@@ -595,8 +650,8 @@ function StartScreen({
                     <>
                       <button
                         className="btn primary sm"
-                        onClick={() => {
-                          const s = loadGame(slotNum)
+                        onClick={async () => {
+                          const s = await loadSaveGame(slotNum)
                           if (s) onStart(s)
                           else toast('Save corrompido.', 'error')
                         }}

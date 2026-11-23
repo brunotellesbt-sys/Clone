@@ -23,14 +23,13 @@ import { airportSlots, airportUsage, ensureAirports, flightMovements, effectiveA
  *   justamente para cruzar fuso.
  * - **A semana é circular.** Domingo 23:00 encosta em segunda 00:30, e a escala
  *   se repete: a última perna da semana tem que deixar o avião onde a primeira
- *   começa, senão a semana seguinte não fecha. Quando não fecha, o jogo não
- *   teleporta o avião — ele voa **vazio** até lá, paga e não recebe, que é
- *   exatamente o que uma companhia faz quando erra a escala.
+ *   começa. Uma escala incompleta fica programada e aguarda os trechos
+ *   necessários para entrar em operação.
  *
  * Nada de React aqui: é `src/game/`.
  */
 import { AIRPORT_BY_IATA, noToqueDeRecolher, TOQUE_DE_RECOLHER, vooPermitido } from './data/airports'
-import { AIRCRAFT_BY_ID, type AircraftType } from './data/aircraft'
+import { AIRCRAFT_BY_ID } from './data/aircraft'
 import { blockHours } from './economy'
 import { distanceBetween } from './geo'
 import { motivoDoPar, withEngine } from './spec'
@@ -297,228 +296,86 @@ export function paradasDe(s: GameState, aircraftId: string): Parada[] {
   })
 }
 
-/**
- * A escala da cauda fecha a semana?
- *
- * Fecha quando cada perna começa onde a anterior terminou, inclusive na virada
- * de domingo para segunda. Não fechar não é proibido — a tela avisa e o jogo
- * cobra um voo de posicionamento —, mas é quase sempre erro de quem montou.
- */
-export function quebrasDe(
-  s: GameState, aircraftId: string,
-): { antes: Perna; depois: Perna; semHora?: string }[] {
+/** Lacunas de posição que o jogador ainda precisa fechar. */
+export function quebrasDe(s: GameState, aircraftId: string): { antes: Perna; depois: Perna }[] {
   const pernas = pernasDe(s, aircraftId)
-  const ac = aeronaveDa(s, aircraftId)
-  const t = ac ? fichaDe(ac) : AIRCRAFT_BY_ID.a320
-  const out: { antes: Perna; depois: Perna; semHora?: string }[] = []
-  for (let i = 0; i < pernas.length; i++) {
-    const a = pernas[i]
+  return pernas.flatMap((a, i) => {
     const b = pernas[(i + 1) % pernas.length]
-    if (a.perna.to === b.perna.from) continue
-    /**
-     * O vazio desta quebra tem hora em que caiba?
-     *
-     * É aqui que o pernoite impossível aparece, e é aqui que ele tem que
-     * aparecer: a cauda pode dormir em Congonhas — quem decide é o jogador —,
-     * mas se a perna seguinte dela sai de Santos Dumont às 6h, o vazio teria
-     * que cruzar a madrugada com os dois aeroportos fechados. A escala não
-     * fecha, e a tela diz isso até alguém marcar a volta.
-     */
-    const solo = AIRCRAFT_BY_ID[ac?.typeId ?? 'a320'].turn
-    const folga = adianteNaSemana(a.chegada, b.partida)
-    const bloco = Math.round(blockHours(t, distanceBetween(a.perna.to, b.perna.from)) * 60)
-    const v = cabeUmVazio(
-      t, a.perna.to, b.perna.from,
-      naSemana(a.chegada + a.solo),
-      naSemana(a.chegada + a.solo) + Math.max(0, folga - a.solo - bloco - solo),
-    )
-    out.push({ antes: a.perna, depois: b.perna, semHora: v.ok ? undefined : v.motivo })
-  }
-  return out
+    return a.perna.to === b.perna.from ? [] : [{ antes: a.perna, depois: b.perna }]
+  })
 }
 
-/**
- * Os voos vazios que a escala obriga.
- *
- * Quando a cadeia não fecha, o avião precisa chegar de algum jeito onde a próxima
- * perna começa. O jogo não o teleporta: manda um voo de posicionamento, que
- * queima combustível, paga tripulação e taxa e não vende um assento. É o preço
- * real de uma escala malfeita, e aparece no custo do dia.
- */
+/** Mantém o diagnóstico de partidas que ainda exigiriam um trecho intermediário. */
 export function posicionamentos(s: GameState): { aircraftId: string; from: string; to: string }[] {
-  const out: { aircraftId: string; from: string; to: string }[] = []
-  for (const ac of s.airline.fleet) {
-    for (const q of quebrasDe(s, ac.id)) {
-      out.push({ aircraftId: ac.id, from: q.antes.to, to: q.depois.from })
-    }
-  }
-  return out
+  return s.airline.fleet.flatMap(ac =>
+    quebrasDe(s, ac.id).map(({ antes, depois }) => ({ aircraftId: ac.id, from: antes.to, to: depois.from })),
+  )
+}
+
+export function escalaContinua(s: GameState, legs: Perna[]): boolean {
+  const ordered = legs.map(p => noTempo(s, p)).sort((a, b) => a.partida - b.partida)
+  return ordered.every((p, i) => {
+    const next = ordered[(i + 1) % ordered.length]
+    const departure = next.partida + (i === ordered.length - 1 ? SEMANA : 0)
+    return p.perna.to === next.perna.from && p.chegada + p.solo <= departure
+  })
 }
 
 export interface Disponibilidade {
-  /** Pode voar. Ainda assim pode exigir posicionamento. */
   ok: boolean
-  /** Por que não pode — só quando `ok` é falso. */
   motivo?: string
-  /** De onde ela teria que vir vazia para cumprir esta perna. */
-  ferryDe?: string
-  /** Para onde ela teria que seguir vazia depois. */
-  ferryPara?: string
-  /**
-   * O vazio é obrigatório e **não tem hora que caiba** — aeroporto fechado dos
-   * dois lados da madrugada. Não impede marcar; a escala é que não fecha, e a
-   * grade cobra isso até a volta ser marcada.
-   */
-  vazioSemHora?: string
-  /**
-   * A perna vizinha que **obriga** cada vazio, escrita para a tela.
-   *
-   * Sem isto o aviso dizia "seguiria vazia para SDU" e pronto, e quem tinha uma
-   * ponte aérea montada lia aquilo como erro do jogo: "mas ela já está voltando
-   * para SDU às 07:25". Está — só que **antes** desta partida, não depois. O
-   * que obriga o vazio é a perna de depois, e nomear qual é resolve a dúvida
-   * sem o jogador ter que reconstruir a cadeia de cabeça.
-   */
-  ferryDeVoo?: string
-  ferryParaVoo?: string
+  /** Trecho ou sequência ainda a programar após esta perna. */
+  precisaFecharEm?: string
 }
 
-/**
- * A cauda consegue voar esta perna, e a que preço?
- *
- * A separação entre **não pode** e **pode, mas vazio** é o centro da malha, e
- * custou uma tentativa errada para ficar clara. A primeira versão exigia que a
- * cadeia fechasse a cada perna marcada, e isso torna impossível montar um
- * triângulo: para marcar REC–CNF a cauda precisa já ter o CNF–GRU marcado, e
- * para marcar o CNF–GRU ela precisa já ter o REC–CNF. Um impede o outro, e o
- * jogador fica preso na ida e volta — exatamente o que a malha vem desfazer.
- *
- * Então a regra dura é só uma, e é física: **o avião não está em dois lugares
- * ao mesmo tempo**, com solo suficiente entre um pouso e a decolagem seguinte.
- * A continuidade de posição é regra mole: quando a perna anterior pousa em
- * outro lugar, a escala não está errada, está **cara** — o avião voa vazio até
- * lá, e o jogo cobra isso no custo do dia.
- */
 export function cabeNaEscala(
   s: GameState, aircraftId: string, from: string, to: string, dow: number, saida: number,
+  repetirRascunho = false,
 ): Disponibilidade {
   const ac = aeronaveDa(s, aircraftId)
   if (!ac) return { ok: false, motivo: 'Aeronave não encontrada.' }
   const partida = naSemana(dow * DIA + saida - fuso(from))
-  const t = fichaDe(ac)
-  const bloco = Math.round(blockHours(t, distanceBetween(from, to)) * 60)
-  const solo = AIRCRAFT_BY_ID[ac.typeId].turn
+  const bloco = Math.round(blockHours(fichaDe(ac), distanceBetween(from, to)) * 60)
   const chegada = partida + bloco
+  const solo = AIRCRAFT_BY_ID[ac.typeId].turn
 
   const pernas = pernasDe(s, aircraftId)
   if (!pernas.length) {
     const casa = ac.base ?? s.airline.hubs[0]
-    return casa === from ? { ok: true } : { ok: true, ferryDe: casa }
+    return casa === from ? { ok: true, precisaFecharEm: from } :
+      { ok: false, motivo: `${ac.reg} está em ${casa}. Programe a primeira saída a partir desse aeroporto.` }
   }
 
   for (const p of pernas) {
-    // regra dura: nada de sobrepor tempo de voo com outra perna
-    const dentro = (m: number) => adianteNaSemana(p.partida, m) < p.bloco
-    if (dentro(partida) || dentro(chegada) || adianteNaSemana(partida, p.partida) < bloco) {
+    if (adianteNaSemana(p.partida, partida) < p.bloco || adianteNaSemana(partida, p.partida) < bloco) {
       return {
         ok: false,
-        motivo: `${ac.reg} está no ar: ${p.perna.from}–${p.perna.to} sai ${DOW_CURTO[p.perna.dow]} ${hhmm(p.perna.saida)} e pousa em ${p.perna.to} ${DOW_CURTO[p.dowChegada]} ${hhmm(p.chegadaLocal)} (horário local).`,
+        motivo: `${ac.reg} está ocupada em ${p.perna.from}–${p.perna.to}, ${DOW_CURTO[p.perna.dow]} ${hhmm(p.perna.saida)}. Pousa ${DOW_CURTO[p.dowChegada]} ${hhmm(p.chegadaLocal)} (horário local).`,
       }
     }
   }
 
-  // a anterior é a última que chega antes desta sair; a seguinte, a primeira que
-  // sai depois desta chegar
-  const anterior = [...pernas].sort(
-    (a, b) => adianteNaSemana(a.chegada, partida) - adianteNaSemana(b.chegada, partida),
-  )[0]
-  const seguinte = [...pernas].sort(
-    (a, b) => adianteNaSemana(chegada, a.partida) - adianteNaSemana(chegada, b.partida),
-  )[0]
-
-  /**
-   * **O voo vazio também leva tempo** — e aqui a regra é dura.
-   *
-   * Ele continua permitido e continua cobrado, mas deixou de ser de graça no
-   * relógio: gasta solo nas duas pontas mais o tempo de voo. Se a folga entre
-   * uma perna e a outra não comporta isso, não comporta mesmo — e não há perna
-   * nova que conserte, porque qualquer coisa marcada no meio aperta ainda
-   * mais. Por isso esta recusa é definitiva.
-   *
-   * O **toque de recolher** do vazio é outra história, e fica logo abaixo: ele
-   * avisa, não proíbe.
-   */
-  const vazio = (de: string, para: string) =>
-    Math.round(blockHours(t, distanceBetween(de, para)) * 60)
-
-  const precisaVirDe = anterior.perna.to === from ? null : anterior.perna.to
-  const folgaAntes = adianteNaSemana(anterior.chegada, partida)
-  const pedeAntes = anterior.solo + (precisaVirDe ? vazio(precisaVirDe, from) + solo : 0)
-  if (folgaAntes < pedeAntes) {
+  const nextIndex = pernas.findIndex(p => p.partida > partida)
+  const index = nextIndex < 0 ? 0 : nextIndex
+  const anterior = pernas[(index + pernas.length - 1) % pernas.length]
+  const seguinte = pernas[index]
+  // Um lote semanal pode montar os dias da mesma perna como rascunho.
+  // A escala só entra em operação quando os trechos intermediários fecharem.
+  const mesmaPerna = repetirRascunho && anterior.perna.from === from &&
+    anterior.perna.to === to && anterior.perna.saida === saida
+  if (anterior.perna.to !== from && !mesmaPerna) {
     return {
       ok: false,
-      motivo: precisaVirDe
-        ? `${ac.reg} pousa em ${precisaVirDe} ${hhmm(anterior.chegadaLocal)} e não dá tempo de fazer o trecho vazio até ${from}: são ${pedeAntes} min de solo e voo, e há ${folgaAntes}.`
-        : `${ac.reg} pousa em ${anterior.perna.to} ${hhmm(anterior.chegadaLocal)} e não tem os ${anterior.solo} min de solo antes desta partida.`,
+      motivo: `${ac.reg} está em ${anterior.perna.to} após pousar ${DOW_CURTO[anterior.dowChegada]} ${hhmm(anterior.chegadaLocal)}. A saída precisa partir desse aeroporto.`,
     }
   }
-  const vazioAntes = precisaVirDe
-    ? cabeUmVazio(
-        t, precisaVirDe, from,
-        naSemana(anterior.chegada + anterior.solo),
-        naSemana(anterior.chegada + anterior.solo) +
-          (folgaAntes - anterior.solo - vazio(precisaVirDe, from) - solo),
-      )
-    : null
-
-  const precisaIrPara = seguinte.perna.from === to ? null : seguinte.perna.from
-  const folgaDepois = adianteNaSemana(chegada, seguinte.partida)
-  const pedeDepois = solo + (precisaIrPara ? vazio(to, precisaIrPara) + solo : 0)
-  if (folgaDepois < pedeDepois) {
-    return {
-      ok: false,
-      motivo: precisaIrPara
-        ? `${ac.reg} pousaria em ${to} e não dá tempo do trecho vazio até ${precisaIrPara} antes de ${seguinte.perna.from}–${seguinte.perna.to}, ${DOW_CURTO[seguinte.perna.dow]} ${hhmm(seguinte.perna.saida)}: são ${pedeDepois} min de solo e voo, e há ${folgaDepois}.`
-        : `${ac.reg} não tem ${solo} min de solo em ${to} antes de ${seguinte.perna.from}–${seguinte.perna.to}, ${DOW_CURTO[seguinte.perna.dow]} ${hhmm(seguinte.perna.saida)}.`,
-    }
+  if (adianteNaSemana(anterior.chegada, partida) < anterior.solo) {
+    return { ok: false, motivo: `${ac.reg} precisa de ${anterior.solo} min de solo após o pouso em ${anterior.perna.to}.` }
   }
-  const vazioDepois = precisaIrPara
-    ? cabeUmVazio(
-        t, to, precisaIrPara,
-        naSemana(chegada + solo),
-        naSemana(chegada + solo) + (folgaDepois - solo - vazio(to, precisaIrPara) - solo),
-      )
-    : null
-  const rotulo = (p: PernaNoTempo) =>
-    `${p.perna.from}–${p.perna.to}, ${DOW_CURTO[p.perna.dow]} ${hhmm(p.perna.saida)}`
-  const vemDe = anterior.perna.to === from ? undefined : anterior.perna.to
-  const vaiPara = seguinte.perna.from === to ? undefined : seguinte.perna.from
-  return {
-    ok: true,
-    ferryDe: vemDe,
-    ferryPara: vaiPara,
-    /**
-     * O vazio que **não tem hora** fica avisado, não proibido.
-     *
-     * Esta foi a lição de uma tentativa errada minha. Recusar o voo porque o
-     * vazio não cabia no toque de recolher parecia rigor, e era o mesmo
-     * deadlock que o comentário acima já descrevia: para marcar a ida da noite
-     * era preciso já ter a volta da manhã, e para marcar a volta era preciso a
-     * ida. A cauda **pode** pernoitar em Congonhas e voltar no dia seguinte
-     * com passageiro, na hora que o jogador quiser — quem decide isso é ele,
-     * marcando a perna.
-     *
-     * O que não existe é a escala ficar assim **pronta**: se a cauda dorme em
-     * Congonhas e a perna seguinte dela sai de Santos Dumont às 6h, o vazio
-     * teria que cruzar a madrugada com os dois aeroportos fechados. Isso é
-     * pernoite impossível, e é a **grade** que cobra — o aviso fica na tela até
-     * o jogador marcar a volta, que é o gesto que resolve.
-     */
-    vazioSemHora: (!vazioAntes?.ok && vazioAntes?.motivo) ||
-      (!vazioDepois?.ok && vazioDepois?.motivo) || undefined,
-    ferryDeVoo: vemDe && rotulo(anterior),
-    ferryParaVoo: vaiPara && rotulo(seguinte),
+  if (adianteNaSemana(chegada, seguinte.partida) < solo) {
+    return { ok: false, motivo: `${ac.reg} precisa de ${solo} min de solo antes de ${seguinte.perna.from}–${seguinte.perna.to}, ${DOW_CURTO[seguinte.perna.dow]} ${hhmm(seguinte.perna.saida)}.` }
   }
+  return { ok: true, precisaFecharEm: seguinte.perna.from === to ? undefined : seguinte.perna.from }
 }
 
 // -------------------------------------------------------------- marcar e tirar
@@ -546,45 +403,6 @@ export function aeronaveServe(s: GameState, ac: Aircraft, from: string, to: stri
 }
 
 /** Toque de recolher nas duas pontas da perna. */
-/**
- * O mesmo toque de recolher, mas para um trecho vazio agendado em UTC.
- *
- * `curfewDaPerna` recebe a hora local da origem, que é o que a tela digita. O
- * vazio não é digitado por ninguém: ele é deduzido da folga entre duas pernas,
- * e nasce em minuto da semana em UTC. Converter aqui evita duas contas de fuso
- * espalhadas pelo módulo.
- */
-function cabeUmVazio(
-  t: AircraftType, from: string, to: string, cedo: number, tarde: number,
-): { ok: true; parte: number } | { ok: false; motivo: string } {
-  const bloco = Math.round(blockHours(t, distanceBetween(from, to)) * 60)
-  /**
-   * O vazio não tem hora marcada: ele cabe em qualquer momento da folga.
-   *
-   * A primeira versão o punha sempre no último instante possível, e isso o
-   * fazia bater no toque de recolher sem necessidade: o avião pousava em
-   * Congonhas às 07:55 de domingo e tinha a semana toda pela frente, mas o
-   * vazio era agendado para as 05:45 de segunda, dentro da janela fechada, e a
-   * escala inteira era recusada. Quem opera escolhe a hora; o que o jogo
-   * precisa responder é se **existe** hora, e é isso que a varredura faz — de
-   * quinze em quinze minutos, do momento em que a cauda fica livre até o
-   * último em que ela ainda chega a tempo.
-   */
-  for (let parte = cedo; parte <= tarde; parte += 15) {
-    const local = noDia(parte + fuso(from))
-    const chegadaLocal = local + bloco + (fuso(to) - fuso(from))
-    if (!noToqueDeRecolher(from, local) && !noToqueDeRecolher(to, chegadaLocal)) {
-      return { ok: true, parte }
-    }
-  }
-  const fechado = TOQUE_DE_RECOLHER[from] ? from : to
-  const [fecha, abre] = TOQUE_DE_RECOLHER[fechado] ?? [0, 0]
-  return {
-    ok: false,
-    motivo: `${fechado} não opera das ${String(fecha).padStart(2, '0')}h às ${String(abre).padStart(2, '0')}h — não sobra hora para esse trecho.`,
-  }
-}
-
 export function curfewDaPerna(
   s: GameState, aircraftId: string, from: string, to: string, saida: number,
 ): string | null {
@@ -609,30 +427,46 @@ export function curfewDaPerna(
  * que não está no aeroporto não aparece como escolha, e o motivo diz onde ela
  * está, para o jogador conseguir montar a cadeia em vez de adivinhar.
  */
-export function aeronavesPara(s: GameState, from: string, to: string, dow: number, saida: number) {
-  return s.airline.fleet.filter((ac) => !ac.isReserve).map((ac) => {
-    const duro = aeronaveServe(s, ac, from, to) ?? curfewDaPerna(s, ac.id, from, to, saida)
-    if (duro) {
-      return {
-        ac, impedimento: duro,
-        ferryDe: undefined as string | undefined, ferryPara: undefined as string | undefined,
-        ferryDeVoo: undefined as string | undefined, ferryParaVoo: undefined as string | undefined,
-        vazioSemHora: undefined as string | undefined,
-      }
-    }
-    const d = cabeNaEscala(s, ac.id, from, to, dow, saida)
+export function aeronavesPara(s: GameState, from: string, to: string, dow: number, saida: number, preferredId?: string) {
+  const cargo = !!rotaDoPar(s, from, to)?.cargo
+  return s.airline.fleet.filter(ac => !ac.isReserve || ac.id === preferredId).map(ac => {
+    const tipo = fichaDe(ac)
+    const duro = (tipo.payload !== undefined) !== cargo
+      ? cargo ? 'A rota exige uma aeronave de carga.' : 'A aeronave só opera em rotas de carga.'
+      : aeronaveServe(s, ac, from, to) ?? curfewDaPerna(s, ac.id, from, to, saida)
+    if (duro) return { ac, impedimento: duro }
+    const disponibilidade = cabeNaEscala(s, ac.id, from, to, dow, saida)
     return {
       ac,
-      impedimento: d.ok ? null : d.motivo ?? 'Não cabe na escala.',
-      ferryDe: d.ferryDe, ferryPara: d.ferryPara,
-      ferryDeVoo: d.ferryDeVoo, ferryParaVoo: d.ferryParaVoo,
-      vazioSemHora: d.vazioSemHora,
+      impedimento: disponibilidade.ok
+        ? motivoDeSlots(s, [{ id: '', aircraftId: ac.id, from, to, dow, saida }])
+        : disponibilidade.motivo ?? 'Não cabe na escala.',
+      precisaFecharEm: disponibilidade.precisaFecharEm,
     }
   })
 }
 
+export function motivoDeSlots(s: GameState, legs: Perna[]): string | null {
+  const usage = airportUsage(s)
+  const additions = new Map<string, number[]>()
+  for (const leg of legs) for (const [id, day] of flightMovements(s, leg)) {
+    const days = additions.get(id) ?? Array<number>(7).fill(0)
+    additions.set(id, days)
+    if ((usage.get(id)?.days[day] ?? 0) + ++days[day] > airportSlots(s, id).ownLimit)
+      return `${id}: sem slots para mais um movimento nesse dia.`
+  }
+  return null
+}
+
 export function marcarVoo(
   s: GameState, aircraftId: string, from: string, to: string, dow: number, saida: number,
+): string | null {
+  return inserirVoo(s, aircraftId, from, to, dow, saida)
+}
+
+function inserirVoo(
+  s: GameState, aircraftId: string, from: string, to: string, dow: number, saida: number,
+  repetirRascunho = false,
 ): string | null {
   ensureAirports(s)
   const ac = aeronaveDa(s, aircraftId)
@@ -656,9 +490,10 @@ export function marcarVoo(
   const d = ((Math.round(dow) % 7) + 7) % 7
   const duro = aeronaveServe(s, ac, from, to) ?? curfewDaPerna(s, ac.id, from, to, hora)
   if (duro) return duro
-  const cabe = cabeNaEscala(s, ac.id, from, to, d, hora)
+  const cabe = cabeNaEscala(s, ac.id, from, to, d, hora, repetirRascunho)
   if (!cabe.ok) return cabe.motivo ?? 'Não cabe na escala da aeronave.'
-  for (const [id, day] of flightMovements(s,{id:'candidate',aircraftId,from,to,dow:d,saida:hora})) if ((airportUsage(s).get(id)?.days[day] ?? 0) + 1 > airportSlots(s, id).ownLimit) return `${id}: sem slots para mais um movimento nesse dia.`
+  const slots = motivoDeSlots(s, [{ id: '', aircraftId, from, to, dow: d, saida: hora }])
+  if (slots) return slots
   const numero = numeroLivre(s, from, to, hora)
   if (!numero) return 'Todos os números de voo estão em uso.'
   s.airline.escala = [...escalaDe(s), { id: novoId(), numero, aircraftId, from, to, dow: d, saida: hora }]
@@ -675,24 +510,28 @@ export function removerVoo(s: GameState, pernaId: string) {
 export function marcarLoteVoos(s:GameState,aircraftId:string,from:string,to:string,days:number[],departure:number) {
   const created:Perna[]=[],errors:string[]=[]
   for(const dow of [...new Set(days)].sort((a,b)=>a-b)) {
-    const error=marcarVoo(s,aircraftId,from,to,dow,departure)
+    const error=inserirVoo(s,aircraftId,from,to,dow,departure,created.length>0)
     if(error)errors.push(`${DOW_CURTO[dow]}: ${error}`)
     else created.push({...escalaDe(s).at(-1)!})
   }
-  if(created.length)s.lastCreatedFlights=created
+  if (created.length) {
+    s.previousCreatedFlights = s.lastCreatedFlights
+    s.lastCreatedFlights = created
+  }
   return {created:created.length,errors}
 }
-export function desfazerUltimoLote(s:GameState):string|null {
-  const batch=s.lastCreatedFlights
+export function desfazerUltimoLote(s: GameState, previous = false): string | null {
+  const batch = previous ? s.previousCreatedFlights : s.lastCreatedFlights
   if(!batch?.length)return 'Nenhum movimento criado para desfazer.'
   const ids=new Set(batch.map(p=>p.id)),current=new Map(escalaDe(s).map(p=>[p.id,p]))
   for(const original of batch){
     const now=current.get(original.id)
     if(now&&(['aircraftId','from','to','dow','saida','numero'] as const).some(key=>now[key]!==original[key]))
-      return 'Um voo do último movimento foi alterado depois da marcação. Confira a escala antes de removê-lo.'
+      return 'Um voo do movimento foi alterado depois da marcação. Confira a escala antes de removê-lo.'
   }
   s.airline.escala=escalaDe(s).filter(p=>!ids.has(p.id))
-  s.lastCreatedFlights=undefined
+  if (!previous) s.lastCreatedFlights = s.previousCreatedFlights
+  s.previousCreatedFlights = undefined
   sincronizarMalha(s)
   return null
 }
@@ -787,6 +626,10 @@ export function marcarRotacao(
 ): string | null {
   const ac = aeronaveDa(s, aircraftId)
   if (!ac) return 'Aeronave não encontrada.'
+  const ida = cabeNaEscala(s, aircraftId, r.from, r.to, dow, hora)
+  if (!ida.ok) return ida.motivo ?? 'A ida não cabe na escala da aeronave.'
+  if (ida.precisaFecharEm !== r.from)
+    return `A escala precisa continuar em ${ida.precisaFecharEm ?? r.to} depois dessa janela.`
   const erroIda = marcarVoo(s, aircraftId, r.from, r.to, dow, hora)
   if (erroIda) return erroIda
   const bloco = Math.round(blockHours(fichaDe(ac), r.distance) * 60)
@@ -859,13 +702,9 @@ export function montarRotacoes(s: GameState, routeId: string, dow: number, quant
       for (const bruta of horas) {
         const hora = noDia(bruta)
         if (hora < INICIO || hora > INICIO + JANELA) continue
-        // quem já está na base primeiro: escolher quem precisaria de voo vazio é
-        // resolver a frequência pedida gastando combustível à toa
         const candidatas = aeronavesPara(s, r.from, r.to, dow, hora)
-          .filter((c) => !c.impedimento)
-          .sort((a, b) => Number(!!a.ferryDe) - Number(!!b.ferryDe))
-        if (!candidatas.length) continue
-        if (marcarRotacao(s, candidatas[0].ac.id, r, dow, hora)) continue
+          .filter(c => !c.impedimento && c.precisaFecharEm === r.from)
+        if (!candidatas.some(c => !marcarRotacao(s, c.ac.id, r, dow, hora))) continue
         marcou++
         faltam--
         feito = true

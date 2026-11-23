@@ -14,7 +14,7 @@ import {
   atratividadeDaRota, atratividadeHorario, fatorConexaoIA, fracaoNoturna, horaDaConcorrente,
 } from './malha'
 import {
-  escalaDe, marcarRotacao, montarRotacoes, posicionamentos, removerVoo, rotaDoPar,
+  escalaDe, marcarRotacao, montarRotacoes, removerVoo, rotaDoPar,
   sincronizarMalha, partidaUtc, DIA, pernasDaRota,
 } from './escala'
 import { BLANK_LIVERY } from '../livery/presets'
@@ -968,28 +968,6 @@ export function advanceDay(s: GameState): GameState {
     today.revenue += dayRes.revenue
     today.cost += dayRes.cost
   }
-
-  /**
-   * 3c) Os voos vazios que a escala obriga.
-   *
-   * Quando a semana de uma cauda não fecha — ela termina em Fortaleza e a
-   * primeira perna sai do Rio —, o avião não se teleporta: ele voa vazio até
-   * lá. Paga combustível, tripulação e taxa, e não vende um assento. É o preço
-   * real de uma escala malfeita, e aparece no custo do dia inteiro, rateado
-   * pelos sete dias porque a quebra é semanal e o apuramento é diário.
-   */
-  let ferry = 0
-  for (const pos of posicionamentos(s)) {
-    const ac = aircraftOf(s, pos.aircraftId)
-    if (!ac || ac.groundedUntil > s.day || !escalaDe(s).some(p => p.aircraftId === ac.id && admittedFlights(s).has(p.id))) continue
-    const dist = distanceBetween(pos.from, pos.to)
-    const t = typeOf(ac)
-    if (t.range < dist) continue
-    const c = flightCost(t, dist, pos.from, pos.to, s.fuelPrice, ac.age, 0, 0, 0, 0)
-    ferry += c.total / 7
-    ac.hours += c.blockH / 7
-  }
-  if (ferry > 0) today.cost += ferry
 
   // 4) Custos que não dependem de voar.
   let overhead = HQ_DAILY_BASE + s.airline.fleet.length * 2200 + s.airline.routes.length * 850

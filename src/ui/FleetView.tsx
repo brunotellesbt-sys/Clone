@@ -24,7 +24,7 @@ import { pernasDe, quebrasDe } from '../game/escala'
 import {inspectionSummary} from '../game/groundInspection'
 
 export function FleetView() {
-  const { state, act, toast } = useGame()
+  const { state, act, toast, setPlanningAircraftId } = useGame()
   const [selId, setSelId] = useState<string | null>(null)
   const [config, setConfig] = useState<Aircraft | null>(null)
   const fleet = state.airline.fleet
@@ -55,7 +55,7 @@ export function FleetView() {
                   const premium = [a.seats.f && `${a.seats.f}F`, a.seats.c && `${a.seats.c}C`, a.seats.w && `${a.seats.w}W`]
                     .filter(Boolean).join(' ')
                   return (
-                    <tr key={a.id} className={`click ${sel?.id === a.id ? 'on' : ''}`} onClick={() => setSelId(a.id)}>
+                    <tr key={a.id} className={`click ${sel?.id === a.id ? 'on' : ''}`} onClick={() => { setSelId(a.id); setPlanningAircraftId(a.id) }}>
                       <td><b>{a.reg}</b>{a.leased && <span className="chip grey" style={{ marginLeft: 6 }}>arrendado</span>}</td>
                       <td>{acLabel(t)}</td>
                       <td className="muted" style={{ fontSize: 12 }}>{eng?.name ?? '—'}</td>
@@ -90,7 +90,7 @@ export function FleetView() {
                       <td className="r">
                         {ehCargueiro(t)
                           ? <span className="muted" style={{ fontSize: 11 }}>sem cabine</span>
-                          : <button className="btn sm" onClick={(e) => { e.stopPropagation(); setConfig(a) }}>Cabine</button>}
+                          : <button className="btn sm" onClick={(e) => { e.stopPropagation(); setPlanningAircraftId(a.id); setConfig(a) }}>Cabine</button>}
                       </td>
                     </tr>
                   )
@@ -101,7 +101,7 @@ export function FleetView() {
         )}
       </Card>
 
-      <div className="grid" style={{ gap: 14 }}>
+      <div className="grid" style={{ gap: 14 }} onFocusCapture={() => { if (sel) setPlanningAircraftId(sel.id) }}>
         {sel && (
           <>
             <Card title={`${acLabel(modelOf(sel))} · ${sel.reg}`}>

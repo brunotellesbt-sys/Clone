@@ -26,7 +26,7 @@ const dur = (min: number) => {
  * verdade sobre quem voa o quê; o que ela perde é a simetria, e não era real.
  */
 export function Horarios({ route }: { route: Route }) {
-  const { state, act, toast } = useGame()
+  const { state, act, toast, setPlanningAircraftId } = useGame()
   const pernas = pernasDaRota(state, route)
     .map((p) => noTempo(state, p))
     .sort((a, b) => a.perna.dow - b.perna.dow || a.perna.saida - b.perna.saida)
@@ -66,7 +66,7 @@ export function Horarios({ route }: { route: Route }) {
                   const colado = colados.some(([x, y]) => x.id === p.id || y.id === p.id)
                   const peso = atratividadeHorario(p.saida)
                   return (
-                    <tr key={p.id}>
+                    <tr key={p.id} onFocusCapture={() => setPlanningAircraftId(p.aircraftId)}>
                       <td>
                         {DOW_CURTO[p.dow]}
                         {colado && (

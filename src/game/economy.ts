@@ -86,6 +86,16 @@ export interface FlightCost {
  */
 const COST_TUNING = 0.85
 
+const passengerFee = (fromTier: number, toTier: number) => 4.5 + 0.8 * ((fromTier + toTier) / 2)
+const economyCatering = (distNm: number) => 2 + 0.0022 * distNm
+const premiumCatering = (distNm: number) => 16 + 0.013 * distNm
+
+/** Custo de levar mais uma pessoa em um voo que já vai sair. */
+export function marginalPassengerCost(from: string, to: string, distNm: number, premium: boolean) {
+  const catering = premium ? premiumCatering(distNm) : economyCatering(distNm)
+  return (passengerFee(AIRPORT_BY_IATA[from].tier, AIRPORT_BY_IATA[to].tier) + catering) * COST_TUNING
+}
+
 export function flightCost(
   t: AircraftType,
   distNm: number,
@@ -136,7 +146,7 @@ export function flightCost(
   const ruido = 1 + SOBRETAXA_RUIDO * noturno
   const fees = (landing(a.tier) * (a.tier >= 3 ? ruido : 1)
     + landing(b.tier) * (b.tier >= 3 ? ruido : 1))
-    + pax * (4.5 + 0.8 * ((a.tier + b.tier) / 2))
+    + pax * passengerFee(a.tier, b.tier)
   /**
    * Handling: rampa, escada, bagagem, limpeza, água, esgoto, push-back.
    *
@@ -151,7 +161,7 @@ export function flightCost(
    * paga 47% menos.
    */
   const handling = 200 + 6.5 * porte
-  const catering = (pax - premiumPax) * (2 + 0.0022 * distNm) + premiumPax * (16 + 0.013 * distNm)
+  const catering = (pax - premiumPax) * economyCatering(distNm) + premiumPax * premiumCatering(distNm)
 
   const total = (fuel + crew + maintenance + fees + handling + catering) * COST_TUNING
   return { fuel, crew, maintenance, fees, handling, catering, total, blockH }

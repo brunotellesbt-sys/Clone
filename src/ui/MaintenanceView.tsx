@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { acLabel, AIRCRAFT_BY_ID } from '../game/data/aircraft'
 import {
+  canEnterReserve,
   getSubstituteMap,
+  scheduledAircraft,
   setAircraftReserve,
   setReserveCountForModel,
   suggestedReserveCount,
@@ -13,7 +15,7 @@ import { LiveryEditor } from './LiveryEditor'
 type SubTab = 'reserva' | 'pintura'
 
 export function MaintenanceView() {
-  const { state, act, toast } = useGame()
+  const { state, act, toast, setPlanningAircraftId } = useGame()
   const [subTab, setSubTab] = useState<SubTab>('reserva')
 
   const fleet = state.airline.fleet
@@ -22,7 +24,8 @@ export function MaintenanceView() {
   // Identifica todos os modelos presentes na frota
   const uniqueTypeIds = Array.from(new Set(fleet.map((a) => a.typeId)))
 
-  const totalActive = fleet.filter((a) => !a.isReserve).length
+  const scheduled = scheduledAircraft(state)
+  const totalActive = fleet.filter(a => !a.isReserve && scheduled.has(a.id)).length
   const totalReserve = fleet.filter((a) => a.isReserve).length
   const totalGrounded = fleet.filter((a) => a.groundedUntil > state.day).length
 
@@ -34,6 +37,14 @@ export function MaintenanceView() {
       substitutingReverseMap.set(reserveAc.id, groundedAc.reg)
     }
   }
+
+  const priority = (ac: typeof fleet[number]) => {
+    if (canEnterReserve(ac, scheduled, state.day)) return 0
+    if (ac.groundedUntil > state.day) return 1
+    if (substitutingReverseMap.has(ac.id)) return 2
+    return ac.isReserve ? 3 : 4
+  }
+  const ordered = [...fleet].sort((a, b) => priority(a) - priority(b) || a.reg.localeCompare(b.reg))
 
   return (
     <div className="grid" style={{ gap: 14 }}>
@@ -102,11 +113,97 @@ export function MaintenanceView() {
               <Empty>Nenhuma aeronave na frota. Compre ou arrende aeronaves no mercado.</Empty>
             ) : (
               <div className="grid" style={{ gap: 16 }}>
+                <div className="scroll">
+                  <table style={{ width: '100%', fontSize: 13 }}>
+                    <thead>
+                      <tr>
+                        <th>Matrícula / modelo</th>
+                        <th className="r">Idade</th>
+                        <th className="r">Estado</th>
+                        <th>Status do Voo / Reserva</th>
+                        <th className="r">Alocação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ordered.map((a) => {
+                        const isGrounded = a.groundedUntil > state.day
+                        const substitutingReg = substitutingReverseMap.get(a.id)
+
+                        return (
+                          <tr key={a.id}>
+                            <td>
+                              <b>{a.reg}</b><br /><small>{acLabel(AIRCRAFT_BY_ID[a.typeId])}</small>
+                              {a.leased && (
+                                <span className="chip grey sm" style={{ marginLeft: 6 }}>
+                                  arrendado
+                                </span>
+                              )}
+                            </td>
+                            <td className="r">{a.age.toFixed(1)} a</td>
+                            <td className="r" style={{ minWidth: 80 }}>
+                              <Bar
+                                value={a.condition}
+                                tone={a.condition < 0.4 ? '#fb7185' : undefined}
+                              />
+                            </td>
+                            <td>
+                              {a.isReserve ? (
+                                isGrounded ? (
+                                  <span className="chip bad">Manutenção (Reserva)</span>
+                                ) : substitutingReg ? (
+                                  <span className="chip good">
+                                    Substituindo <b>{substitutingReg}</b>
+                                  </span>
+                                ) : (
+                                  <span className="chip info">Em Reserva (Disponível)</span>
+                                )
+                              ) : isGrounded ? (
+                                <span className="chip bad">
+                                  Em Manutenção
+                                  {substituteMap.has(a.id) ? ' (Substituído)' : ' (Sem reserva)'}
+                                </span>
+                              ) : (
+                                <span className="chip grey">{scheduled.has(a.id) ? 'Ativa na Malha' : 'Sem voos na malha'}</span>
+                              )}
+                            </td>
+                            <td className="r">
+                              {a.isReserve ? (
+                                <button
+                                  className="btn sm"
+                                  onClick={() => {
+                                    setPlanningAircraftId(a.id)
+                                    const err = act((s) => setAircraftReserve(s, a.id, false))
+                                    if (err) toast(err, 'error')
+                                  }}
+                                >
+                                  Remover da Reserva
+                                </button>
+                              ) : canEnterReserve(a, scheduled, state.day) ? (
+                                <button
+                                  className="btn sm primary"
+                                  onClick={() => {
+                                    setPlanningAircraftId(a.id)
+                                    const err = act((s) => setAircraftReserve(s, a.id, true))
+                                    if (err) toast(err, 'error')
+                                  }}
+                                >
+                                  Alocar na Reserva
+                                </button>
+                              ) : null}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <h4>Quantidades por modelo</h4>
                 {uniqueTypeIds.map((typeId) => {
                   const model = AIRCRAFT_BY_ID[typeId]
                   const modelFleet = fleet.filter((a) => a.typeId === typeId)
                   const reserves = modelFleet.filter((a) => a.isReserve)
                   const active = modelFleet.filter((a) => !a.isReserve)
+                  const available = modelFleet.filter(a => canEnterReserve(a, scheduled, state.day)).length
                   const suggested = suggestedReserveCount(state, typeId)
 
                   return (
@@ -158,6 +255,7 @@ export function MaintenanceView() {
                           {reserves.length !== suggested && (
                             <button
                               className="btn sm primary"
+                              disabled={suggested > reserves.length + available}
                               onClick={() => {
                                 const err = act((s) =>
                                   setReserveCountForModel(s, typeId, suggested),
@@ -175,7 +273,7 @@ export function MaintenanceView() {
 
                           <button
                             className="btn sm"
-                            disabled={active.length === 0}
+                            disabled={available === 0}
                             onClick={() => {
                               const err = act((s) =>
                                 setReserveCountForModel(s, typeId, reserves.length + 1),
@@ -199,89 +297,6 @@ export function MaintenanceView() {
                             - 1 Reserva
                           </button>
                         </div>
-                      </div>
-
-                      <div className="scroll">
-                        <table style={{ width: '100%', fontSize: 13 }}>
-                          <thead>
-                            <tr>
-                              <th>Matrícula</th>
-                              <th className="r">Idade</th>
-                              <th className="r">Estado</th>
-                              <th>Status do Voo / Reserva</th>
-                              <th className="r">Alocação</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {modelFleet.map((a) => {
-                              const isGrounded = a.groundedUntil > state.day
-                              const substitutingReg = substitutingReverseMap.get(a.id)
-
-                              return (
-                                <tr key={a.id}>
-                                  <td>
-                                    <b>{a.reg}</b>
-                                    {a.leased && (
-                                      <span className="chip grey sm" style={{ marginLeft: 6 }}>
-                                        arrendado
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="r">{a.age.toFixed(1)} a</td>
-                                  <td className="r" style={{ minWidth: 80 }}>
-                                    <Bar
-                                      value={a.condition}
-                                      tone={a.condition < 0.4 ? '#fb7185' : undefined}
-                                    />
-                                  </td>
-                                  <td>
-                                    {a.isReserve ? (
-                                      isGrounded ? (
-                                        <span className="chip bad">Manutenção (Reserva)</span>
-                                      ) : substitutingReg ? (
-                                        <span className="chip good">
-                                          Substituindo <b>{substitutingReg}</b>
-                                        </span>
-                                      ) : (
-                                        <span className="chip info">Em Reserva (Disponível)</span>
-                                      )
-                                    ) : isGrounded ? (
-                                      <span className="chip bad">
-                                        Em Manutenção
-                                        {substituteMap.has(a.id) ? ' (Substituído)' : ' (Sem reserva)'}
-                                      </span>
-                                    ) : (
-                                      <span className="chip grey">Ativa na Malha</span>
-                                    )}
-                                  </td>
-                                  <td className="r">
-                                    {a.isReserve ? (
-                                      <button
-                                        className="btn sm"
-                                        onClick={() => {
-                                          const err = act((s) => setAircraftReserve(s, a.id, false))
-                                          if (err) toast(err, 'error')
-                                        }}
-                                      >
-                                        Remover da Reserva
-                                      </button>
-                                    ) : (
-                                      <button
-                                        className="btn sm primary"
-                                        onClick={() => {
-                                          const err = act((s) => setAircraftReserve(s, a.id, true))
-                                          if (err) toast(err, 'error')
-                                        }}
-                                      >
-                                        Alocar na Reserva
-                                      </button>
-                                    )}
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
                       </div>
                     </div>
                   )
