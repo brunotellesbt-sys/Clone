@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react'
-import {DIA,DOW_CURTO,hhmm,naSemana,pernasDe,quebrasDe} from '../../game/escala'
+import {DIA,DOW_CURTO,hhmm,naSemana,pernasDe} from '../../game/escala'
 import {AIRPORT_BY_IATA} from '../../game/data/airports'
 import type {Aircraft} from '../../game/types'
 import {useGame} from '../../store/useGame'
@@ -17,7 +17,7 @@ export function Grade({ac}:{ac:Aircraft}) {
     return()=>observer.disconnect()
   },[])
   useEffect(()=>setSelected(null),[ac.id])
-  const legs=pernasDe(state,ac.id),breaks=quebrasDe(state,ac.id)
+  const legs=pernasDe(state,ac.id)
   const reference=state.airline.hubs[0],offset=AIRPORT_BY_IATA[reference]?.fuso??0
   const {header,body,axis,padding}=APK_WEEK,dayWidth=(width-axis)/7,usable=body-2*padding
   const y=(minute:number)=>header+padding+minute/DIA*usable
@@ -33,7 +33,6 @@ export function Grade({ac}:{ac:Aircraft}) {
   const chosen=legs.find(p=>p.perna.id===selected)
   return <div className="apk-week" ref={container}>
     <p className="muted" style={{fontSize:12,margin:'0 0 8px'}}>{legs.length} voos na semana · {(legs.reduce((n,p)=>n+p.bloco,0)/60).toFixed(1)} h de voo · referência {reference}</p>
-    {breaks.length>0&&<p className="warn" style={{fontSize:12}}>⚠ {breaks.length} {breaks.length===1?'quebra':'quebras'} na escala. Os voos ficam suspensos até que você programe os trechos que faltam em Rotas.</p>}
     <svg className="apk-week-chart" role="img" aria-label={`Escala semanal de ${ac.reg}, somente consulta`} viewBox={`0 0 ${width} ${header+body}`} width="100%" height={header+body} style={{display:'block',background:'#111923',border:'1px solid #394553',borderRadius:6}}>
       <rect x={0} y={0} width={width} height={header} fill="#233343"/>
       <text x={axis/2} y={header/2+4} textAnchor="middle" fontSize={13} fill="#c5d4e0">◷</text>

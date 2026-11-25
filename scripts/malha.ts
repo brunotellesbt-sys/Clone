@@ -192,6 +192,20 @@ console.log('\nquem está disponível\n')
   )
 }
 
+// Conexões de planejamento não dependem do fechamento semanal.
+{
+  const t = newGame({ name: 'Planejamento', code: 'PL', hub: 'GRU', seed: 37 })
+  t.airline.cash = 5e9
+  openRoute(t, 'GRU', 'POA')
+  openRoute(t, 'GRU', 'REC')
+  buyAircraft(t, 'a320neo', false)
+  buyAircraft(t, 'a320neo', false)
+  conferir(!marcarVoo(t, t.airline.fleet[0].id, 'POA', 'GRU', 1, 6 * 60), 'planeja chegada sem retorno')
+  conferir(!marcarVoo(t, t.airline.fleet[1].id, 'GRU', 'REC', 1, 10 * 60), 'planeja saída sem retorno')
+  conferir(conexoesNaBase(t, 'GRU', false, true).some(c => c.de.ponta === 'POA' && c.para.ponta === 'REC'), 'conexão planejada aparece sem fechamento')
+  conferir(conexoesNaBase(t, 'GRU').length === 0, 'planejamento não cria conexão operacional fictícia')
+}
+
 // ------------------------------------------------------------- conexões
 console.log('\nconexões em GRU\n')
 const conexoes = conexoesNaBase(s, 'GRU')
