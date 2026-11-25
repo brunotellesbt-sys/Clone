@@ -276,8 +276,8 @@ export interface Parada {
 /**
  * Onde a cauda fica parada, entre uma perna e a seguinte.
  *
- * Com a escala vazia, o avião fica na base o tempo todo — é de lá que a primeira
- * perna dele pode sair. Com uma perna só, ele sai, chega e espera a semana
+ * Com a escala vazia, a base é a referência de parada. Uma aeronave sem
+ * utilização pode escolher outra origem na primeira marcação. Com uma perna só, ele sai, chega e espera a semana
  * inteira para repetir: a lacuna vai da chegada até a partida da semana seguinte,
  * e é por isso que a conta é circular.
  */
