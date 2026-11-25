@@ -180,7 +180,7 @@ export function NovoVoo({ route }: { route: Route }) {
       ) : (
         <div style={{ marginBottom: 10 }}>
           <h4 className="sub">Disponíveis em {from}</h4>
-          {livres.map(({ ac, precisaFecharEm }) => {
+          {livres.map(({ ac }) => {
             const bloco = blocoDe(state, { id: '', aircraftId: ac.id, from, to, dow, saida: minutos })
             const chega = minutos + bloco + (AIRPORT_BY_IATA[to].fuso - AIRPORT_BY_IATA[from].fuso)
             return (
@@ -192,7 +192,6 @@ export function NovoVoo({ route }: { route: Route }) {
                   <span className="muted" style={{ fontSize: 12 }}>
                     chega {hhmm(chega)} em {AIRPORT_BY_IATA[to].city}
                   </span>
-                  {precisaFecharEm && <><br /><small className="warn">Programe a continuação de {to} até {precisaFecharEm} para ativar a escala.</small></>}
                 </span>
                 <button className="btn sm primary" onClick={() => marcar(ac.id)}>{rotulo}</button>
               </div>
