@@ -158,11 +158,11 @@ export function pontasDaConcorrente(
 }
 
 /** Chegadas e partidas numa base, suas e das parceiras, em minuto da semana. */
-export function toquesNaBase(s: GameState, base: string): { chegadas: Toque[]; partidas: Toque[] } {
+export function toquesNaBase(s: GameState, base: string, planejadas = false): { chegadas: Toque[]; partidas: Toque[] } {
   const chegadas: Toque[] = []
   const partidas: Toque[] = []
   for (const p of escalaDe(s)) {
-    if (!admittedFlights(s).has(p.id)) continue
+    if (!planejadas && !admittedFlights(s).has(p.id)) continue
     if (p.from !== base && p.to !== base) continue
     const ac = s.airline.fleet.find(a => a.id === p.aircraftId)
     if (!ac || ac.groundedUntil > s.day || rotaDaPerna(s, p)?.cargo) continue
@@ -211,12 +211,14 @@ function cityKey(id:string) {
   return key
 }
 const marketKey=(from:string,to:string)=>`${cityKey(from)}>${cityKey(to)}`
-const marketCache=new WeakMap<GameState,{day:number;revision:number;options:Map<string,TravelOption[]>;timings:Map<string,PernaNoTempo>}>()
-export function connectionAllowed(s:GameState,from:string,via:string,to:string,candidate?:Conexao) {
+const marketCacheOperacional=new WeakMap<GameState,{day:number;revision:number;options:Map<string,TravelOption[]>;timings:Map<string,PernaNoTempo>}>()
+const marketCachePlanejado = new WeakMap<GameState,{day:number;revision:number;options:Map<string,TravelOption[]>;timings:Map<string,PernaNoTempo>}>()
+export function connectionAllowed(s:GameState,from:string,via:string,to:string,candidate?:Conexao, planejadas = false) {
   // Caminhos naturalmente alinhados continuam competindo com diretos por
   // preço e horário. Só os desvios excepcionais precisam justificar a volta.
   if(connectionPathAllowed(from,via,to,true)) return true
   if(!connectionPathAllowed(from,via,to,false)) return false
+  const marketCache = planejadas ? marketCachePlanejado : marketCacheOperacional
   let market=marketCache.get(s)
   if(!market||market.day!==s.day||market.revision!==airportRevision(s)) {
     const options=new Map<string,TravelOption[]>(),timings=new Map<string,PernaNoTempo>()
@@ -226,14 +228,14 @@ export function connectionAllowed(s:GameState,from:string,via:string,to:string,c
       const key=marketKey(from,to),list=options.get(key)??[]
       list.push(option);options.set(key,list)
     }
-    for(const p of escalaDe(s))if(operating.has(p.aircraftId)&&admittedFlights(s).has(p.id)&&passengerRoutes.has(`${p.from}>${p.to}`)){
+    for(const p of escalaDe(s))if(operating.has(p.aircraftId)&&(planejadas||admittedFlights(s).has(p.id))&&passengerRoutes.has(`${p.from}>${p.to}`)){
       const t=noTempo(s,p);timings.set(p.id,t)
       add(p.from,p.to,{departure:t.partida,duration:t.bloco,distance:distanceNm(AIRPORT_BY_IATA[p.from],AIRPORT_BY_IATA[p.to])})
     }
     // Apenas pares com horários compatíveis, de voos próprios. Não junta duas
     // concorrentes independentes para inventar um bilhete alternativo.
     for(const hub of s.airline.hubs) {
-      for(const c of conexoesNaBase(s,hub,true)){
+      for(const c of conexoesNaBase(s,hub,true,planejadas)){
         const first=timings.get(c.de.id),second=timings.get(c.para.id)
         if(!first||!second||!connectionPathAllowed(c.de.ponta,hub,c.para.ponta,false))continue
         add(c.de.ponta,c.para.ponta,{via:hub,departure:first.partida,duration:first.bloco+c.espera+second.bloco,
@@ -253,7 +255,7 @@ export function connectionAllowed(s:GameState,from:string,via:string,to:string,c
     }
     market={day:s.day,revision:airportRevision(s),options,timings};marketCache.set(s,market)
   }
-  const candidates=candidate?[candidate]:conexoesNaBase(s,via,true).filter(c=>c.de.ponta===from&&c.para.ponta===to)
+  const candidates=candidate?[candidate]:conexoesNaBase(s,via,true,planejadas).filter(c=>c.de.ponta===from&&c.para.ponta===to)
   const distance=distanceNm(AIRPORT_BY_IATA[from],AIRPORT_BY_IATA[via])+distanceNm(AIRPORT_BY_IATA[via],AIRPORT_BY_IATA[to])
   // Sem horários ainda, informa somente se o caminho é plausível.
   if(!candidates.length)return true
@@ -268,8 +270,10 @@ export function connectionAllowed(s:GameState,from:string,via:string,to:string,c
     })
   })
 }
-const connectionsCache=new WeakMap<GameState,{day:number;revision:number;bases:Map<string,Conexao[]>;allowed:Map<string,Conexao[]>}>()
-export function conexoesNaBase(s: GameState, base: string, includeRejectedPaths = false): Conexao[] {
+const connectionsCacheOperacional=new WeakMap<GameState,{day:number;revision:number;bases:Map<string,Conexao[]>;allowed:Map<string,Conexao[]>}>()
+const connectionsCachePlanejado = new WeakMap<GameState,{day:number;revision:number;bases:Map<string,Conexao[]>;allowed:Map<string,Conexao[]>}>()
+export function conexoesNaBase(s: GameState, base: string, includeRejectedPaths = false, planejadas = false): Conexao[] {
+  const connectionsCache = planejadas ? connectionsCachePlanejado : connectionsCacheOperacional
   let cache=connectionsCache.get(s)
   if(!cache||cache.day!==s.day||cache.revision!==airportRevision(s)) {
     cache={day:s.day,revision:airportRevision(s),bases:new Map(),allowed:new Map()};connectionsCache.set(s,cache)
@@ -277,12 +281,12 @@ export function conexoesNaBase(s: GameState, base: string, includeRejectedPaths 
   const valid=cache.allowed.get(base)
   if(!includeRejectedPaths&&valid)return valid
   const filterAllowed=(list:Conexao[])=>{
-    const result=list.filter(c=>connectionAllowed(s,c.de.ponta,base,c.para.ponta,c))
+    const result=list.filter(c=>connectionAllowed(s,c.de.ponta,base,c.para.ponta,c,planejadas))
     cache.allowed.set(base,result);return result
   }
   const cached=cache.bases.get(base)
   if(cached)return includeRejectedPaths?cached:filterAllowed(cached)
-  const { chegadas, partidas } = toquesNaBase(s, base)
+  const { chegadas, partidas } = toquesNaBase(s, base, planejadas)
   const sorted=partidas.flatMap(p=>[p,{...p,quando:p.quando+7*DIA}]).sort((a,b)=>a.quando-b.quando)
   const out: Conexao[] = []
   for (const de of chegadas) {
@@ -318,7 +322,7 @@ export const DESCONTO_INTERLINE = 0.45
 /** As conexões que alimentam ou são alimentadas por uma rota, em cada base. */
 export function conexoesDaRota(s: GameState, r: Route, hub?: string) {
   const base = hub ?? (s.airline.hubs.includes(r.from) ? r.from : s.airline.hubs.includes(r.to) ? r.to : r.from)
-  const todas = conexoesNaBase(s, base)
+  const todas = conexoesNaBase(s, base, false, true)
   return {
     base,
     /** Chega de outro voo e embarca nesta rota. */
