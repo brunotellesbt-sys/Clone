@@ -105,7 +105,7 @@ console.log('\na aeronave só sai de onde está\n')
   conferir(ok, 'a escala montada pela frequência fecha a semana')
 }
 
-// ------------------------------------------------ primeira partida arrendada
+// ------------------------------------------------ primeira partida de aeronave adquirida
 {
   const t = newGame({ name: 'Lease', code: 'LE', hub: 'GRU', seed: 11 })
   t.airline.cash = 5e9
@@ -125,7 +125,11 @@ console.log('\na aeronave só sai de onde está\n')
   conferir(cabeNaEscala(t, ac.id, 'GRU', 'REC', 1, 14 * 60).ok, 'segunda partida pode sair do aeroporto de chegada')
   conferir(!buyAircraft(t, 'a320neo', false), 'compra aeronave')
   const propria = t.airline.fleet.at(-1)!
-  conferir(!cabeNaEscala(t, propria.id, 'REC', 'GRU', 1, 7 * 60).ok, 'compra mantém regra anterior')
+  conferir(cabeNaEscala(t, propria.id, 'REC', 'GRU', 1, 7 * 60).ok, 'comprada sem uso pode iniciar fora do hub')
+  const erroCompra = marcarVoo(t, propria.id, 'REC', 'GRU', 1, 9 * 60)
+  conferir(!erroCompra, 'marca primeira partida da comprada fora do hub', erroCompra ?? '')
+  conferir(propria.base === 'REC', 'compra registra origem escolhida')
+  conferir(!cabeNaEscala(t, propria.id, 'REC', 'GRU', 1, 16 * 60).ok, 'comprada mantém continuidade após primeira partida')
 }
 
 // ------------------------------------------- a malha triangular, o pedido
