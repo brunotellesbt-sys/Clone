@@ -276,8 +276,8 @@ export interface Parada {
 /**
  * Onde a cauda fica parada, entre uma perna e a seguinte.
  *
- * Com a escala vazia, o avião fica na base o tempo todo — é de lá que a primeira
- * perna dele pode sair. Com uma perna só, ele sai, chega e espera a semana
+ * Com a escala vazia, a base é a referência de parada. Uma aeronave sem
+ * utilização pode escolher outra origem na primeira marcação. Com uma perna só, ele sai, chega e espera a semana
  * inteira para repetir: a lacuna vai da chegada até a partida da semana seguinte,
  * e é por isso que a conta é circular.
  */
@@ -341,6 +341,9 @@ export function cabeNaEscala(
 
   const pernas = pernasDe(s, aircraftId)
   if (!pernas.length) {
+    // Aeronave adquirida ainda sem utilização pode ser entregue na origem escolhida.
+    // Os contadores também identificam aeronaves de saves anteriores à correção.
+    if (ac.cycles === 0 && ac.hours === 0) return { ok: true, precisaFecharEm: from }
     const casa = ac.base ?? s.airline.hubs[0]
     return casa === from ? { ok: true, precisaFecharEm: from } :
       { ok: false, motivo: `${ac.reg} está em ${casa}. Programe a primeira saída a partir desse aeroporto.` }
@@ -496,6 +499,7 @@ function inserirVoo(
   if (slots) return slots
   const numero = numeroLivre(s, from, to, hora)
   if (!numero) return 'Todos os números de voo estão em uso.'
+  if (ac.cycles === 0 && ac.hours === 0 && !pernasDe(s, aircraftId).length) ac.base = from
   s.airline.escala = [...escalaDe(s), { id: novoId(), numero, aircraftId, from, to, dow: d, saida: hora }]
   sincronizarMalha(s)
   return null

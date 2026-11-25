@@ -105,6 +105,33 @@ console.log('\na aeronave só sai de onde está\n')
   conferir(ok, 'a escala montada pela frequência fecha a semana')
 }
 
+// ------------------------------------------------ primeira partida de aeronave adquirida
+{
+  const t = newGame({ name: 'Lease', code: 'LE', hub: 'GRU', seed: 11 })
+  t.airline.cash = 5e9
+  conferir(!openRoute(t, 'GRU', 'REC'), 'abre rota para testar entrega')
+  conferir(!buyAircraft(t, 'a320neo', true), 'arrenda aeronave')
+  const ac = t.airline.fleet.at(-1)!
+  conferir(cabeNaEscala(t, ac.id, 'REC', 'GRU', 1, 7 * 60).ok, 'arrendada sem uso pode iniciar fora do hub')
+  ac.cycles = 1
+  ac.hours = 2
+  conferir(!cabeNaEscala(t, ac.id, 'REC', 'GRU', 1, 7 * 60).ok, 'arrendada já utilizada mantém restrição de base')
+  ac.cycles = 0
+  ac.hours = 0
+  const erro = marcarVoo(t, ac.id, 'REC', 'GRU', 1, 7 * 60)
+  conferir(!erro, 'marca primeira partida fora do hub', erro ?? '')
+  conferir(ac.base === 'REC', 'entrega registra a origem escolhida')
+  conferir(!cabeNaEscala(t, ac.id, 'REC', 'GRU', 1, 14 * 60).ok, 'segunda partida respeita aeroporto de chegada')
+  conferir(cabeNaEscala(t, ac.id, 'GRU', 'REC', 1, 14 * 60).ok, 'segunda partida pode sair do aeroporto de chegada')
+  conferir(!buyAircraft(t, 'a320neo', false), 'compra aeronave')
+  const propria = t.airline.fleet.at(-1)!
+  conferir(cabeNaEscala(t, propria.id, 'REC', 'GRU', 1, 7 * 60).ok, 'comprada sem uso pode iniciar fora do hub')
+  const erroCompra = marcarVoo(t, propria.id, 'REC', 'GRU', 1, 9 * 60)
+  conferir(!erroCompra, 'marca primeira partida da comprada fora do hub', erroCompra ?? '')
+  conferir(propria.base === 'REC', 'compra registra origem escolhida')
+  conferir(!cabeNaEscala(t, propria.id, 'REC', 'GRU', 1, 16 * 60).ok, 'comprada mantém continuidade após primeira partida')
+}
+
 // ------------------------------------------- a malha triangular, o pedido
 console.log('\nmalha triangular: GRU-REC, REC-CNF, CNF-GRU\n')
 {
@@ -383,8 +410,12 @@ console.log('\nfrota parada\n')
   const livres = aeronavesPara(t, 'GIG', 'FOR', 2, 9 * 60).filter((c) => !c.impedimento)
   conferir(livres.length === 1, 'esvaziada, ela aparece livre na base')
   const foraDeCasa = aeronavesPara(t, 'FOR', 'GIG', 2, 9 * 60)[0]
-  conferir(/GIG/.test(foraDeCasa?.impedimento ?? ''), 'saída de FOR recusada: a cauda está em GIG',
-    foraDeCasa?.impedimento ?? '')
+  conferir(!!foraDeCasa && !foraDeCasa.impedimento, 'cauda nova pode iniciar em FOR', foraDeCasa?.impedimento ?? '')
+  const ac = t.airline.fleet[0]
+  ac.cycles = 1
+  ac.hours = 2
+  const usada = aeronavesPara(t, 'FOR', 'GIG', 2, 9 * 60)[0]
+  conferir(/GIG/.test(usada?.impedimento ?? ''), 'cauda já utilizada sem escala não pode sair de FOR quando está em GIG', usada?.impedimento ?? '')
 }
 
 // ---------------------------------------------------- chegada com fuso
