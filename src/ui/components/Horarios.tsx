@@ -3,7 +3,7 @@ import {
   voosColados, type Conexao,
 } from '../../game/malha'
 import { useState } from 'react'
-import { alterarNumeroVoo, DOW_CURTO, lerHora, noTempo, pernasDaRota, remarcarVoo, removerVoo, saldoDiferenteDaRota } from '../../game/escala'
+import { alterarNumeroVoo, DOW_CURTO, lerHora, noTempo, pernasDaRota, remarcarVoo, removerVoo } from '../../game/escala'
 import { odKey } from '../../game/geo'
 import { aircraftOf, num } from '../../game/engine'
 import type { Route } from '../../game/types'
@@ -30,7 +30,6 @@ export function Horarios({ route }: { route: Route }) {
   const pernas = pernasDaRota(state, route)
     .map((p) => noTempo(state, p))
     .sort((a, b) => a.perna.dow - b.perna.dow || a.perna.saida - b.perna.saida)
-  const desequilibrada = saldoDiferenteDaRota(state, route)
   const hubsDaRota = [...new Set([route.from, route.to])].filter(base => state.airline.hubs.includes(base))
   const conexoesPorHub = (hubsDaRota.length ? hubsDaRota : [route.from]).map(base => conexoesDaRota(state, route, base))
   const colados = voosColados(state, route)
@@ -75,7 +74,7 @@ export function Horarios({ route }: { route: Route }) {
                       </td>
                       <td><label className="flight-number"><b>{state.airline.code}</b><input aria-label={`Número do voo ${p.from} para ${p.to}`} type="number" min="1" max="9999" key={`${p.id}-${p.numero}`} defaultValue={p.numero ?? ''}
                         onBlur={e => { const err = act(s => alterarNumeroVoo(s, p.id, Number(e.target.value))); if (err) { toast(err, 'error'); e.target.value = String(p.numero ?? '') } }} /></label></td>
-                      <td><b>{p.from} → {p.to}{desequilibrada && <span className="alerta" title="Número diferente de voos de saída e chegada na semana">*</span>}</b></td>
+                      <td><b>{p.from} → {p.to}</b></td>
                       <td>{ac ? ac.reg : <span className="bad">sem cauda</span>}</td>
                       <td>
                         <input
