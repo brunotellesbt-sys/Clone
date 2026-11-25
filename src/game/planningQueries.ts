@@ -17,7 +17,7 @@ function connectionSchedule(state: GameState) {
   const rows: ConnectionScheduleRow[] = []
   const totals = state.airline.hubs.map(hub => {
     const groups = new Map<string, Omit<ConnectionScheduleRow, 'days'> & { days: Set<number> }>()
-    const accepted = conexoesNaBase(state, hub)
+    const accepted = conexoesNaBase(state, hub, false, true)
     for (const c of accepted) {
       if (c.parceira || c.codeshare || c.de.parceira || c.para.parceira) continue
       const key = `${c.de.ponta}:${c.para.ponta}:${c.de.local}:${c.para.local}`
@@ -32,7 +32,7 @@ function connectionSchedule(state: GameState) {
     for (const group of groups.values()) {
       rows.push({ ...group, days: group.days.size })
     }
-    const pairs = conexoesNaBase(state, hub, true).length
+    const pairs = conexoesNaBase(state, hub, true, true).length
     return { hub, pairs, rejected: pairs - accepted.length }
   })
   rows.sort((a, b) => a.via.localeCompare(b.via) || a.arrival - b.arrival || a.departure - b.departure)
