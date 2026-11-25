@@ -410,8 +410,12 @@ console.log('\nfrota parada\n')
   const livres = aeronavesPara(t, 'GIG', 'FOR', 2, 9 * 60).filter((c) => !c.impedimento)
   conferir(livres.length === 1, 'esvaziada, ela aparece livre na base')
   const foraDeCasa = aeronavesPara(t, 'FOR', 'GIG', 2, 9 * 60)[0]
-  conferir(/GIG/.test(foraDeCasa?.impedimento ?? ''), 'saída de FOR recusada: a cauda está em GIG',
-    foraDeCasa?.impedimento ?? '')
+  conferir(!!foraDeCasa && !foraDeCasa.impedimento, 'cauda nova pode iniciar em FOR', foraDeCasa?.impedimento ?? '')
+  const ac = t.airline.fleet[0]
+  ac.cycles = 1
+  ac.hours = 2
+  const usada = aeronavesPara(t, 'FOR', 'GIG', 2, 9 * 60)[0]
+  conferir(/GIG/.test(usada?.impedimento ?? ''), 'cauda já utilizada sem escala não pode sair de FOR quando está em GIG', usada?.impedimento ?? '')
 }
 
 // ---------------------------------------------------- chegada com fuso
