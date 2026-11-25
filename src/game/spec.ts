@@ -94,6 +94,15 @@ const excecaoPav = (t: AircraftType, ap: Portao) => ap.iata === 'PAV' &&
   (t.maxSeats > 78 && t.maxSeats <= AIRCRAFT_BY_ID.a319neo.maxSeats ||
     ['b37m', 'b38m', 'b39m', 'b310m'].includes(t.id))
 
+// CUZ: limite operacional local, sem alterar pista física ou altitude.
+const tiposCusco = new Set(['a318', 'a319', 'a319neo', 'a320', 'a320neo', 'a321', 'a321neo', 'b736', 'b73g', 'b737', 'b739', 'b37m', 'b38m', 'b39m'])
+const limiteCusco = (t: AircraftType, ap: Portao): boolean | undefined => {
+  if (ap.iata !== 'CUZ') return undefined
+  if (tiposCusco.has(t.id)) return true
+  if (['b310m', 'a21lr', 'a21xlr'].includes(t.id) || t.family === 'widebody') return false
+  return undefined
+}
+
 /**
  * O aeroporto recebe este tipo?
  *
@@ -108,6 +117,8 @@ const excecaoPav = (t: AircraftType, ap: Portao) => ap.iata === 'PAV' &&
  * existe.
  */
 export const aeroportoServe = (t: AircraftType, ap: Portao) => {
+  const cuz = limiteCusco(t, ap)
+  if (cuz !== undefined) return cuz
   if (excecaoPav(t, ap)) return true
   if (ap.tetoAssentos !== undefined) {
     return t.maxSeats <= ap.tetoAssentos
@@ -128,6 +139,9 @@ export const pistaServe = (t: AircraftType, a: Portao, b: Portao) =>
  */
 export function motivoDoPar(t: AircraftType, a: Portao, b: Portao): string | null {
   for (const ap of [a, b]) {
+    const cuz = limiteCusco(t, ap)
+    if (cuz === true) continue
+    if (cuz === false) return 'Aeronave acima do limite operacional de Cusco (CUZ).'
     if (excecaoPav(t, ap)) continue
     if (ap.tetoAssentos !== undefined) {
       if (t.maxSeats > ap.tetoAssentos) {

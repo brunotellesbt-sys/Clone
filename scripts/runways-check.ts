@@ -15,14 +15,26 @@ const hash=(x:unknown)=>createHash('sha256').update(JSON.stringify(x)).digest('h
 const variants=AIRCRAFT_ALL.flatMap(t=>t.engines.map(e=>withEngine(t,e)))
 assert.equal(AIRPORTS.length,before.airports)
 assert.equal(variants.length,before.variants)
-// PAV e o A321neo em RAI são exceções posteriores verificadas separadamente.
+// PAV, RAI e CUZ são exceções posteriores verificadas separadamente.
 // Neutralizá-las aqui conserva a régua anterior para todos os demais casos.
-assert.equal(hash(AIRPORTS.map(a=>[a.iata,...variants.map(t=>aeroportoServe(t,['PAV','RAI'].includes(a.iata)?{...a,iata:undefined}:a))])),before.permissions,'demais permissões intactas, incluindo carga e motores')
+assert.equal(hash(AIRPORTS.map(a=>[a.iata,...variants.map(t=>aeroportoServe(t,['PAV','RAI','CUZ'].includes(a.iata)?{...a,iata:undefined}:a))])),before.permissions,'demais permissões intactas, incluindo carga e motores')
 for(const t of variants) {
   const pav=AIRPORT_BY_IATA.PAV
   const exception=(t.maxSeats>78&&t.maxSeats<=160)||['b37m','b38m','b39m','b310m'].includes(t.id)
   assert.equal(aeroportoServe(t,pav),exception||aeroportoServe(t,{...pav,iata:undefined}),`PAV/${t.id}`)
   if(exception)assert.equal(motivoDoPar(t,pav,AIRPORT_BY_IATA.GRU),null,'exceção vale também ao programar a rota')
+}
+const cuz = AIRPORT_BY_IATA.CUZ
+for (const t of variants) {
+  const allowed = ['a318','a319','a319neo','a320','a320neo','a321','a321neo','b736','b73g','b737','b739','b37m','b38m','b39m'].includes(t.id)
+  const blocked = ['b310m','a21lr','a21xlr'].includes(t.id) || t.family === 'widebody'
+  const expected = allowed || (!blocked && aeroportoServe(t,{...cuz,iata:undefined}))
+  assert.equal(aeroportoServe(t,cuz),expected,`CUZ/${t.id}`)
+  if (allowed || blocked) {
+    const other = AIRPORT_BY_IATA.GRU
+    for (const [a,b] of [[cuz,other],[other,cuz]])
+      assert.equal(motivoDoPar(t,a,b)===null,allowed && aeroportoServe(t,other),`CUZ rota/${t.id}`)
+  }
 }
 // Categoria internacional foi revisada posteriormente por regra de widebody;
 // airport-entry-check cobre o escopo. Os demais índices continuam congelados.
