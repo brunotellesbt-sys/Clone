@@ -341,9 +341,9 @@ export function cabeNaEscala(
 
   const pernas = pernasDe(s, aircraftId)
   if (!pernas.length) {
-    // Aeronave arrendada ainda sem utilização pode ser entregue na origem escolhida.
+    // Aeronave adquirida ainda sem utilização pode ser entregue na origem escolhida.
     // Os contadores também identificam aeronaves de saves anteriores à correção.
-    if (ac.leased && ac.cycles === 0 && ac.hours === 0) return { ok: true, precisaFecharEm: from }
+    if (ac.cycles === 0 && ac.hours === 0) return { ok: true, precisaFecharEm: from }
     const casa = ac.base ?? s.airline.hubs[0]
     return casa === from ? { ok: true, precisaFecharEm: from } :
       { ok: false, motivo: `${ac.reg} está em ${casa}. Programe a primeira saída a partir desse aeroporto.` }
@@ -499,7 +499,7 @@ function inserirVoo(
   if (slots) return slots
   const numero = numeroLivre(s, from, to, hora)
   if (!numero) return 'Todos os números de voo estão em uso.'
-  if (ac.leased && ac.cycles === 0 && ac.hours === 0 && !pernasDe(s, aircraftId).length) ac.base = from
+  if (ac.cycles === 0 && ac.hours === 0 && !pernasDe(s, aircraftId).length) ac.base = from
   s.airline.escala = [...escalaDe(s), { id: novoId(), numero, aircraftId, from, to, dow: d, saida: hora }]
   sincronizarMalha(s)
   return null
