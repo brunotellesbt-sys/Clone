@@ -5,12 +5,13 @@ import { engineLabel, type Engine } from '../game/data/engines'
 import {
   cabinComfort, cabinLength, defaultCabin, normalizarCabine, rowLayout, sumSeats, textoDasClasses,
 } from '../game/cabin'
-import { custoDeFabrica, normalizeSeats } from '../game/seatModels'
+import { cabinesDoModelo, chaveCabine } from '../game/cabinProfiles'
+import { custoDeFabrica } from '../game/seatModels'
 import { SeatMapEditor } from './SeatMapEditor'
 import { useCabine } from './useCabine'
 import { leaseMonthly, marketPrice } from '../game/economy'
 import {
-  buyAircraft, cabinesDoModelo, km, metros, money, num, PRAZO_DO_ARRENDAMENTO,
+  buyAircraft, km, metros, money, num, PRAZO_DO_ARRENDAMENTO,
 } from '../game/engine'
 import { enginesOf, withEngine } from '../game/spec'
 import { useGame } from '../store/useGame'
@@ -188,24 +189,22 @@ function Encomenda({ model, price, lease, available, since, onAcquire }: {
     return normalizarCabine(model, base.seats, base.pitch)
   }, [model])
   const cab = useCabine(model, serie)
-  const [mexeu, setMexeu] = useState(false)
   const salvas = cabinesDoModelo(state, model.id)
   const carga = ehCargueiro(model)
 
   const encomenda = { seats: cab.seats, pitch: cab.pitch, seatConfig: cab.seatConfig }
+  const chave = chaveCabine(encomenda)
+  const chaveSerie = chaveCabine(serie)
+  const salva = salvas.find(c => chaveCabine(c) === chave)
+  const temSerie = salvas.some(c => chaveCabine(c) === chaveSerie)
+  const personalizada = chave !== chaveSerie && !carga
   // Só cobra interior de quem encomendou: a cabine de série já vem no preço.
-  const extra = mexeu && !carga ? custoDeFabrica(cab.seats, cab.seatConfig) : 0
-  const mostrada = mexeu ? encomenda : serie
-  const conforto = cabinComfort(model, mostrada.seats, mostrada.pitch, mexeu ? cab.seatConfig : serie.seatConfig)
+  const extra = personalizada ? custoDeFabrica(cab.seats, cab.seatConfig) : 0
+  const conforto = cabinComfort(model, cab.seats, cab.pitch, cab.seatConfig)
   // O arrendador não cobra o interior à vista: ele dilui no contrato. Ver
   // `buyAircraft`, que é quem manda — aqui só se repete a conta para a tela.
   const mensal = lease + extra / PRAZO_DO_ARRENDAMENTO
-  const comprar = (arrendar: boolean) => onAcquire(arrendar, mexeu && !carga ? encomenda : undefined)
-
-  const carregar = (b: { seats: Cabins; pitch: Cabins; seatConfig?: SeatConfig }) => {
-    cab.carregar({ ...b, seatConfig: normalizeSeats(model, b.seatConfig, b.pitch) })
-    setMexeu(true)
-  }
+  const comprar = (arrendar: boolean) => onAcquire(arrendar, personalizada ? encomenda : undefined)
 
   return (
     <>
@@ -214,7 +213,7 @@ function Encomenda({ model, price, lease, available, since, onAcquire }: {
           title="Cabine de fábrica"
           right={
             <span className="muted" style={{ fontSize: 12 }}>
-              {sumSeats(mostrada.seats)} de {model.maxSeats}
+              {sumSeats(cab.seats)} de {model.maxSeats}
             </span>
           }
         >
@@ -224,24 +223,29 @@ function Encomenda({ model, price, lease, available, since, onAcquire }: {
             avião parado — só existe para quem recebe o interior de série e
             troca em seguida.
           */}
-          <div className="lista-curta row tight" style={{ flexWrap: 'wrap' }}>
-            {salvas.map((c) => (
-              <button key={c.id} className="btn sm" onClick={() => carregar(c)}>{c.nome}</button>
-            ))}
-          </div>
+          {salvas.length > 0 && (
+            <label className="field">
+              <span>Configuração de cabine salva</span>
+              <select aria-label="Configuração de cabine salva" value={salva?.id ?? (personalizada ? '' : 'serie')}
+                onChange={e => cab.carregar(salvas.find(c => c.id === e.target.value) ?? serie)}>
+                <option value="" disabled>Configuração em edição</option>
+                {!temSerie && <option value="serie">Cabine de série</option>}
+                {salvas.map(c => <option key={c.id} value={c.id}>{c.nome} · {sumSeats(c.seats)} assentos</option>)}
+              </select>
+            </label>
+          )}
 
           <SeatMapEditor
             type={model} seats={cab.seats} pitch={cab.pitch} config={cab.seatConfig}
-            change={(c, p) => { cab.aplicar({ seats: cab.seats, pitch: p, config: c }); setMexeu(true) }}
-            setAssentos={(c, v) => { cab.setAssentos(c, v); setMexeu(true) }}
-            setPasso={(c, v) => { cab.setPasso(c, v); setMexeu(true) }}
+            change={(c, p) => cab.aplicar({ seats: cab.seats, pitch: p, config: c })}
+            setAssentos={cab.setAssentos} setPasso={cab.setPasso}
           />
 
           <p className="muted" style={{ fontSize: 12, marginBottom: 0, marginTop: 10 }}>
             Conforto desta cabine: <b>{(conforto * 100).toFixed(0)}</b> — passo e modelo de
             poltrona entram nele, e a média da frota puxa a reputação da companhia mês a mês.
             {' '}
-            {mexeu
+            {personalizada
               ? `Interior encomendado: ${money(extra)}, cobrado junto com a aeronave. O avião entra voando — quem remonta depois paga a reforma e fica com a cauda parada.`
               : 'A cabine mostrada acompanha a aeronave; altere as poltronas para encomendar outra configuração.'}
             {' '}{textoDasClasses(model)}
@@ -265,7 +269,7 @@ function Encomenda({ model, price, lease, available, since, onAcquire }: {
         <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
           {carga
             ? `Leva até ${model.payload} t de carga paga e só voa em rota de carga.`
-            : `Entra com ${sumSeats(mostrada.seats)} assentos${mostrada.seats.c > 0 ? `, ${mostrada.seats.c} na executiva` : ', em classe única'}. Dá para remontar depois, na tela da frota, pagando a reforma.`}
+            : `Entra com ${sumSeats(cab.seats)} assentos${cab.seats.c > 0 ? `, ${cab.seats.c} na executiva` : ''}. Para reformar depois, abra Manutenção → Reconfiguração.`}
         </p>
         <div className="row">
           <button className="btn primary" disabled={!available || state.airline.cash < price + extra}
