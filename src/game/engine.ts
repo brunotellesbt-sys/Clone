@@ -20,6 +20,7 @@ import {
 import { BLANK_LIVERY } from '../livery/presets'
 import { baseDemand, cargoDemand, CLASS_FARE_MULT } from './demand'
 import { cabinComfort, checkCabin, clampPitch, crewFor, defaultCabin, normalizarCabine } from './cabin'
+import { guardarCabineInstalada } from './cabinProfiles'
 import { engineIdFor, motivoDoPar, withEngine } from './spec'
 import {
   addCabins, allocateCargoMarket, allocateMarket, blockHours, CARGO_SELLABLE,
@@ -245,6 +246,7 @@ export function buyAircraft(s: GameState, typeId: string, lease: boolean, opts: 
     value: lease ? 0 : price,
     groundedUntil: 0,
   })
+  if (!ehCargueiro(model)) guardarCabineInstalada(s, typeId, cabin)
   notify(s, 'good', `${model.name} ${lease ? 'arrendado' : 'comprado'} — entrou na frota.`)
   return null
 }
@@ -480,63 +482,9 @@ export function setCabin(s: GameState, acId: string, seats: Cabins, pitch: Cabin
   ac.pitch = p
   ac.seatConfig = cfg
   ac.groundedUntil = s.day + (seats.c + seats.f > 0 ? 4 : 2)
+  guardarCabineInstalada(s, ac.typeId, { seats: ac.seats, pitch: p, seatConfig: cfg })
   return null
 }
-
-/** Quantas cabines dá para guardar. */
-export const MAX_CABINES = 24
-
-/**
- * Guarda a cabine montada com um nome, para reusar em outra aeronave do modelo.
- *
- * Guarda **o que está na tela**, não o que está instalado no avião: o jogador
- * monta, salva e só então decide se aplica naquela cauda — e se ele tivesse que
- * aplicar antes de poder salvar, cada configuração experimental custaria uma
- * reforma e dois dias de avião parado.
- *
- * Nome repetido sobrescreve o anterior em vez de criar um segundo com o mesmo
- * rótulo. Duas entradas idênticas na lista são um defeito, não uma escolha.
- */
-export function salvarCabine(
-  s: GameState, typeId: string, nome: string, seats: Cabins, pitch: Cabins, seatConfig?: SeatConfig,
-): string | null {
-  const t = AIRCRAFT_BY_ID[typeId]
-  if (!t) return 'Modelo inexistente.'
-  const limpo = nome.trim().slice(0, 32)
-  if (!limpo) return 'Dê um nome à configuração.'
-  const cfg = normalizeSeats(t, seatConfig, pitch)
-  const p = seatConfig ? clampPitch(pitch) : normalizeSeatPitch(clampPitch(pitch), cfg)
-  const chk = checkCabin(t, seats, p, seatConfig ?? cfg)
-  if (!chk.ok) return chk.seatError ?? 'Essa configuração não é válida; ajuste antes de salvar.'
-  const lista = (s.airline.cabines ??= [])
-  const igual = lista.find((x) => x.typeId === typeId && x.nome.toLowerCase() === limpo.toLowerCase())
-  const nova = {
-    id: igual?.id ?? nextId('cb'),
-    nome: limpo,
-    typeId,
-    seats: { ...seats },
-    pitch: p,
-    seatConfig: cfg,
-  }
-  if (igual) lista[lista.indexOf(igual)] = nova
-  else {
-    if (lista.length >= MAX_CABINES) return `Já são ${MAX_CABINES} configurações guardadas; apague uma.`
-    lista.push(nova)
-  }
-  return null
-}
-
-export function apagarCabine(s: GameState, id: string): string | null {
-  const lista = s.airline.cabines
-  const i = lista?.findIndex((x) => x.id === id) ?? -1
-  if (!lista || i < 0) return 'Configuração não encontrada.'
-  lista.splice(i, 1)
-  return null
-}
-
-/** As cabines guardadas que servem num modelo. */
-export const cabinesDoModelo = (s: GameState, typeId: string) =>
-  (s.airline.cabines ?? []).filter((c) => c.typeId === typeId)
 
 /** Preço de abrir base, igual em qualquer aeroporto. */
 export const HUB_COST = 20e6

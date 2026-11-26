@@ -9,6 +9,7 @@ import { completarNumeros, migrarEscala, sincronizarMalha } from './escala'
 import { AIRCRAFT_BY_ID, ehCargueiro } from './data/aircraft'
 import { AIRPORT_BY_IATA, vooPermitido } from './data/airports'
 import { clampPitch, defaultCabin, normalizarCabine } from './cabin'
+import { migrarCabines } from './cabinProfiles'
 import { engineIdFor } from './spec'
 import type { Aircraft, GameState } from './types'
 
@@ -87,6 +88,7 @@ function migrate(s: GameState): GameState | null {
     ac.cc = ac.cc || AIRPORT_BY_IATA[s.airline.hubs[0]]?.cc || 'BR'
     return [ac]
   })
+  if (s.airline.cabines) s.airline.cabines = migrarCabines(s.airline.cabines, RENAMED)
 
   migrarEscala(s)
   s.airline.escala = (s.airline.escala ?? []).filter(

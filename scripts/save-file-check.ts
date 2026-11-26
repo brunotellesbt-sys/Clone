@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import { newGame, openRoute } from '../src/game/engine'
+import { buyAircraft, newGame, openRoute } from '../src/game/engine'
+import { chaveCabine, renomearCabine } from '../src/game/cabinProfiles'
 import { compressSaveFile, exportSave, exportSaveFile, importSaveFile, MAX_EXTERNAL_SAVE_BYTES, readSaveFile, encodeStoredSave, decodeStoredSave } from '../src/game/save'
 
 const game = newGame({ name: 'Save de teste', code: 'ST', hub: 'SSA', seed: 17 })
@@ -19,6 +20,22 @@ assert.equal(importSaveFile('{incompleto'), null)
 assert.equal(importSaveFile(JSON.stringify({ ...parsed, fileVersion: 99 })), null)
 assert.equal(importSaveFile(JSON.stringify({ ...parsed, game: { ...parsed.game, version: 99 } })), null)
 console.log('OK: arquivo JSON legível preserva partida, rotas e versão; arquivos inválidos são recusados.')
+
+const comCabines = structuredClone(game)
+assert.equal(buyAircraft(comCabines, 'e190', true), null)
+const original = comCabines.airline.cabines![0]
+assert.equal(renomearCabine(comCabines, original.id, 'Regional'), null)
+const compactada = await compressSaveFile(comCabines)
+assert.deepEqual((await readSaveFile(compactada))?.airline.cabines, [original])
+const copia = { ...structuredClone(original), id: 'antiga', nome: 'Cópia' }
+const semAssentos = copia.seats.f === 0 ? 'f' : 'w'
+assert.equal(copia.seats[semAssentos], 0)
+copia.pitch[semAssentos]++
+assert.equal(chaveCabine(copia), chaveCabine(original))
+copia.seatConfig = undefined
+comCabines.airline.cabines!.push(copia)
+assert.deepEqual(importSaveFile(exportSaveFile(comCabines))?.airline.cabines, [original])
+console.log('OK: perfis viajam no save compactado, e cópias de saves antigos são consolidadas.')
 
 const large=structuredClone(game)
 large.notices=Array.from({length:12000},(_,i)=>({day:i,kind:'info' as const,text:'Histórico grande com acentos: conexão, população e operação. '.repeat(4)}))

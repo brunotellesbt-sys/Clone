@@ -11,13 +11,35 @@ import {
 import { useGame } from '../store/useGame'
 import { Bar, Card, Empty, Kpi } from './components/Bits'
 import { LiveryEditor } from './LiveryEditor'
+import { CabinReconfiguration } from './CabinReconfiguration'
 
-type SubTab = 'reserva' | 'pintura'
+type SubTab = 'reserva' | 'pintura' | 'reconfiguracao'
 
 export function MaintenanceView() {
-  const { state, act, toast, setPlanningAircraftId } = useGame()
   const [subTab, setSubTab] = useState<SubTab>('reserva')
 
+  return (
+    <div className="grid" style={{ gap: 14 }}>
+      <div className="nav" style={{ margin: 0, padding: '6px 12px' }}>
+        <button className={subTab === 'reserva' ? 'on' : ''} onClick={() => setSubTab('reserva')}>
+          🛠️ Reserva e Manutenção
+        </button>
+        <button className={subTab === 'pintura' ? 'on' : ''} onClick={() => setSubTab('pintura')}>
+          🎨 Pintura da Frota
+        </button>
+        <button className={subTab === 'reconfiguracao' ? 'on' : ''} onClick={() => setSubTab('reconfiguracao')}>
+          Reconfiguração
+        </button>
+      </div>
+      {subTab === 'reserva' && <ReserveMaintenance />}
+      {subTab === 'pintura' && <LiveryEditor />}
+      {subTab === 'reconfiguracao' && <CabinReconfiguration />}
+    </div>
+  )
+}
+
+function ReserveMaintenance() {
+  const { state, act, toast, setPlanningAircraftId } = useGame()
   const fleet = state.airline.fleet
   const substituteMap = getSubstituteMap(state, state.day)
 
@@ -50,26 +72,6 @@ export function MaintenanceView() {
   }
 
   return (
-    <div className="grid" style={{ gap: 14 }}>
-      {/* Navegação entre Reserva de Manutenção e Pintura */}
-      <div className="nav" style={{ margin: 0, padding: '6px 12px' }}>
-        <button
-          className={subTab === 'reserva' ? 'on' : ''}
-          onClick={() => setSubTab('reserva')}
-        >
-          🛠️ Reserva e Manutenção
-        </button>
-        <button
-          className={subTab === 'pintura' ? 'on' : ''}
-          onClick={() => setSubTab('pintura')}
-        >
-          🎨 Pintura da Frota
-        </button>
-      </div>
-
-      {subTab === 'pintura' ? (
-        <LiveryEditor />
-      ) : (
         <div className="grid" style={{ gap: 14 }}>
           {/* Indicadores gerais de manutenção e reserva */}
           <div className="grid g4">
@@ -308,7 +310,5 @@ export function MaintenanceView() {
             )}
           </Card>
         </div>
-      )}
-    </div>
   )
 }

@@ -693,9 +693,16 @@ td > input[type="range"] { width: 100%; margin: 0 0 2px; }
 
 /* ------------------------------------------------------ montagem da cabine */
 
+table.cabin-profiles :is(th, td) { white-space: normal; }
+table.compacta.cabin-profiles :is(th, td):nth-child(2) { display: table-cell; }
+table.cabin-profiles td:first-child { overflow-wrap: anywhere; }
+
 /* Configuração guardada: o botão que aplica e o × que apaga, colados. */
-.salva { display: inline-flex; }
-.salva .btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.salva { display: inline-flex; max-width: 100%; }
+.salva .btn:first-child {
+  border-top-right-radius: 0; border-bottom-right-radius: 0;
+  min-width: 0; white-space: normal; overflow-wrap: anywhere;
+}
 .salva .btn.ghost {
   border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px;
   padding-left: 8px; padding-right: 8px; color: var(--ink-3);
