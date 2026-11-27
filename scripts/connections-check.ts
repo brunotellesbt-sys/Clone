@@ -94,6 +94,60 @@ function allocate(s: GameState, routeIds = s.airline.routes.map(r => r.id), occu
   return allocateConnections(s, locals, dowOf(s), 1 + s.day)
 }
 
+// Um embarque em Fortaleza pode atender quem iniciou a viagem em Guarulhos.
+{
+  const s = newGame({ name: 'Conexão em Fortaleza', code: 'CF', hub: 'FOR', seed: 31 })
+  s.competitors = []
+  s.airline.cash = 5e9
+  s.airline.hubs.push('GRU')
+  invalidateAirportUsage(s)
+  let saida = 7 * 60
+  for (const [from, to] of [['GRU', 'FOR'], ['FOR', 'ATH']]) {
+    assert.equal(openRoute(s, from, to), null)
+    assert.equal(buyAircraft(s, 'b789', false), null)
+    const ac = s.airline.fleet.at(-1)!
+    ac.base = from
+    ac.seats = { y: 160, w: 24, c: 16, f: 8 }
+    assert.equal(marcarVoo(s, ac.id, from, to, dowOf(s), saida), null)
+    saida = noTempo(s, s.airline.escala!.at(-1)!).chegadaLocal + 90
+    returnFlight(s, ac.id)
+  }
+  assert.equal(openRoute(s, 'GRU', 'ATH'), null)
+  const locals = s.airline.routes.slice(0, 2).map((route, i) => ({
+    route, voos: [s.airline.escala![i * 2]], seats: s.airline.fleet[i].seats,
+    local: { y: 0, w: 0, c: 0, f: 0 },
+  }))
+  const semPrimeira = structuredClone(s)
+  const manifests = allocateConnections(s, locals, dowOf(s), 1)
+  const trip = s.connectionJourneys!.find(j => j.first.from === 'GRU' && j.via === 'FOR' && j.second.to === 'ATH')!
+  const od = baseDemand('GRU', 'ATH', s.day, 1, s.startYear, true, s)
+  for (const cb of ['y', 'w', 'c', 'f'] as const) {
+    assert(trip.pax[cb] > 0 && trip.pax[cb] <= od.pax[cb] / 2, cb)
+    for (const leg of [trip.first, trip.second]) {
+      assert.equal(manifests.get(`${leg.day}:${leg.id}`)!.connecting[cb], trip.pax[cb])
+    }
+  }
+  assert.deepEqual(routeEconomics(s, s.airline.routes[2]).atendidoDiaCabine, trip.pax)
+  assert.equal(routeEconomics(s, s.airline.routes[1]).atendidoDia, 0)
+  allocateConnections(s, locals, dowOf(s), 1)
+  assert.equal(s.connectionJourneys!.length, 1, 'reapuração não revende o bilhete')
+  const comDireto = structuredClone(semPrimeira)
+  assert.equal(buyAircraft(comDireto, 'b789', false), null)
+  const direto = comDireto.airline.fleet.at(-1)!
+  direto.base = 'GRU'
+  direto.seats.f = Math.ceil(od.pax.f / 2)
+  assert.equal(marcarVoo(comDireto, direto.id, 'GRU', 'ATH', dowOf(s), 18 * 60), null)
+  const vooDireto = comDireto.airline.escala!.at(-1)!
+  returnFlight(comDireto, direto.id)
+  allocateConnections(comDireto, [...locals, { route: comDireto.airline.routes[2], voos: [vooDireto],
+    seats: direto.seats, local: { y: 0, w: 0, c: 0, f: od.pax.f / 2 } }], dowOf(s), 1)
+  assert.equal(comDireto.connectionJourneys![0].pax.f, 0, 'primeira já atendida no direto não se vende via FOR')
+  assert(comDireto.connectionJourneys![0].pax.w > 0, 'lugares em premium continuam disputando o mercado GRU–ATH')
+  semPrimeira.airline.fleet[0].seats.f = 0
+  allocateConnections(semPrimeira, locals, dowOf(semPrimeira), 1)
+  assert.equal(semPrimeira.connectionJourneys![0].pax.f, 0)
+}
+
 const s = setup()
 assert(nearbyAirports('SDU').includes('GIG'))
 const demandBefore = baseDemand('SDU', 'BSB', 0, 1)

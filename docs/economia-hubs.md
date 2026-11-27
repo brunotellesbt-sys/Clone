@@ -2,7 +2,7 @@
 
 A demanda diária continua sendo a soma dos dois sentidos. O piso estrutural é **2 × maxSeats** da maior aeronave de passageiros que possa operar o par, considerando os dois aeroportos, elevação/pista/porte, distância, motorização e ano. Não é garantia de lotação: tarifa, concorrência, configuração de cabine e horário continuam afetando as vendas.
 
-A curva gravitacional e seu teto crescem na mesma proporção entre o novo piso e a referência histórica (309 passageiros para jatos ou 117,42 para turboélices), sem redução dessa curva. Depois aplica-se o piso ao total, distribuído por renda e distância. Não se acrescenta um piso separado para cada classe. Turboélices ficam na econômica; primeira classe mantém as restrições de distância/renda e disponibilidade de aeronave. Mercados origem/destino sem voo direto possível continuam existindo para conexões, mas não ganham piso de voo direto.
+A curva gravitacional e seu teto crescem na mesma proporção entre o novo piso e a referência histórica (309 passageiros para jatos ou 117,42 para turboélices), sem redução dessa curva. Depois aplica-se o piso ao total, distribuído por renda e distância. Não se acrescenta um piso separado para cada classe. Nos mercados curtos restritos a turboélice, a procura se concentra na econômica. No longo curso, a procura por primeira cresce gradualmente com distância e renda. Para vender a classe em conexão, os dois trechos precisam oferecê-la. Mercados origem/destino sem voo direto possível continuam existindo para conexões, mas não ganham piso de voo direto.
 
 Tendência econômica dos países, ciclos, estações e calendário de eventos/férias continuam ativos. A ampliação não altera custos operacionais nem os parâmetros da carga.
 

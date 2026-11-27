@@ -8,7 +8,7 @@ import { stepHubDevelopment, invalidateHubActivity } from './hubDevelopment'
 import { custoDeFabrica, normalizeSeats, normalizeSeatPitch, seatChangeCost } from './seatModels'
 import { AIRCRAFT_BY_ID, ehCargueiro, type AircraftType } from './data/aircraft'
 import { SAVE_VERSION } from './save'
-import { allocateConnections } from './connections'
+import { allocateConnections, connectingPassengersForMarket } from './connections'
 import { AIRPORT_BY_IATA, vooPermitido } from './data/airports'
 import {
   atratividadeDaRota, atratividadeHorario, fatorConexaoIA, fracaoNoturna, horaDaConcorrente,
@@ -1156,12 +1156,12 @@ export function routeEconomics(s: GameState, r: Route) {
   const pax = last.reduce((x, d) => x + sumCabins(d.pax), 0)
   const seats = last.reduce((x, d) => x + d.seats, 0)
   const dias = diasCorridos
-  const atendidoDiaCabine: Cabins = {
-    y: last.reduce((x, d) => x + (d.localPax ?? d.pax).y, 0) / dias,
-    w: last.reduce((x, d) => x + (d.localPax ?? d.pax).w, 0) / dias,
-    c: last.reduce((x, d) => x + (d.localPax ?? d.pax).c, 0) / dias,
-    f: last.reduce((x, d) => x + (d.localPax ?? d.pax).f, 0) / dias,
+  const atendidoDiaCabine = connectingPassengersForMarket(s, r.from, r.to, inicioJanela)
+  for (const d of last) {
+    const local = d.localPax ?? d.pax
+    for (const cb of CABINS) atendidoDiaCabine[cb] += local[cb]
   }
+  for (const cb of CABINS) atendidoDiaCabine[cb] /= dias
   const restanteDiaCabine: Cabins = {
     y: Math.max(0, demand.pax.y - atendidoDiaCabine.y),
     w: Math.max(0, demand.pax.w - atendidoDiaCabine.w),

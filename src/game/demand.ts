@@ -327,16 +327,17 @@ export function baseDemand(from: string, to: string, day: number, _dayOfYear: nu
   total = Math.max(floor, total * scale) * Math.sqrt(cityA.traffic * cityB.traffic) * nearbyHubDemand(state, from, to)
 
   // Mistura de classes: renda e distância empurram para a frente do avião.
-  const classes = plane ? classesDe(plane) : ['y', 'w', 'c', 'f']
-  const premium = classes.length === 1 ? 0 : Math.min(0.34, 0.03 + 0.13 * Math.max(0, gdp - 0.55) + 0.075 * Math.min(distNm / 4200, 1))
-  const domestico = a.cc === b.cc
-  const primeiraElegivel =
-    classes.includes('f') && gdp > 0.95 &&
-    (domestico ? distNm > LIMIAR_DOMESTICO_F_NM : distNm > 2600)
-  const fShare = primeiraElegivel ? premium * 0.11 : 0
-  // A executiva deixa de empatar exatamente com a premium em todas as rotas
-  // curtas. A inclinação aumenta com a duração, sem tirar espaço da econômica.
-  const cShare = classes.includes('c') ? premium * (0.54 + 0.14 * Math.min(1, distNm / 2200)) : 0
+  const longoCurso = distNm > 2600
+  const classes = plane && !longoCurso ? classesDe(plane) : ['y', 'w', 'c', 'f']
+  const duracao = Math.min(distNm / 4200, 1)
+  const premium = classes.length === 1 ? 0 : Math.min(0.34, 0.03 + 0.13 * Math.max(0, gdp - 0.55) + 0.075 * duracao)
+  // A procura pertence à viagem completa. O embarque exige uma cabine
+  // disponível em cada trecho, inclusive quando só há serviço com conexão.
+  const inicioPrimeira = a.cc === b.cc && plane?.family === 'widebody' ? LIMIAR_DOMESTICO_F_NM : 2600
+  const distanciaPrimeira = Math.max(0, Math.min(1, (distNm - inicioPrimeira) / 1200))
+  const renda = Math.min(1, Math.max(0, gdp / 1.6))
+  const fShare = premium * distanciaPrimeira * (0.03 + 0.08 * renda)
+  const cShare = classes.includes('c') ? (premium - fShare) * (0.28 + 0.08 * duracao + 0.06 * renda) : 0
   const wShare = premium - cShare - fShare
   const pax: Cabins = {
     y: total * (1 - premium),

@@ -21,8 +21,13 @@ conferir(curta.pax.f === 0, 'doméstica até 2.000 km não gera primeira classe'
 const longaDom = baseDemand('JFK', 'LAX', 0, 180)
 conferir(longaDom.distance * 1.852 > 2000, 'caso doméstico de teste passa de 2.000 km')
 conferir(longaDom.pax.f > 0, 'doméstica longa elegível pode gerar primeira classe')
-conferir(ponte.pax.c > ponte.pax.w, 'executiva e premium têm demandas distintas na ponte aérea')
+conferir(ponte.pax.w > ponte.pax.c, 'premium supera executiva na ponte aérea')
 conferir(baseDemand('IZA', 'GRU', 0, 180).total > 190, 'ligação regional ganhou procura sem perder teto do aeroporto')
+for (const [origem, destino] of [['GRU', 'ATH'], ['FOR', 'ATH'], ['NBO', 'GRU']]) {
+  const d = baseDemand(origem, destino, 0, 1)
+  conferir(d.pax.w > d.pax.c && d.pax.c > d.pax.f && d.pax.f > 0,
+    `${origem}–${destino} tem procura decrescente de premium até primeira`)
+}
 const jatoRegional = baseDemand('VAL', 'SSA', 0, 1)
 conferir(jatoRegional.total >= 2 * largestPassengerAircraft('VAL', 'SSA', 2027)!.maxSeats,
   'piso bidirecional cobre a capacidade certificada de ida e volta da maior aeronave apta')

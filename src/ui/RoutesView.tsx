@@ -20,6 +20,8 @@ import { Bar, Card, Empty, Modal, Spark } from './components/Bits'
 import { Horarios } from './components/Horarios'
 import { HubFlights } from './components/HubFlights'
 
+const passageirosPorDia = (valor: number) => valor > 0 && valor < 1 ? '<1' : num(valor)
+
 export function RoutesView() {
   const { state } = useGame()
   const [hubFiltro, setHubFiltro] = useState<string>('todos')
@@ -164,9 +166,9 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
         <div className="grid g2" style={{ gap: 8, fontSize: 13, marginBottom: 10 }}>
           <div><span className="muted">Distância</span><br />{km(route.distance)}</div>
           <div><span className="muted">Demanda total</span><br />{num(e.demandaDia)} {e.unidade}/dia</div>
-          <div><span className="muted">{e.cargo ? 'Atendido por você' : 'Demanda local atendida'}</span><br />{num(e.atendidoDia)} {e.unidade}/dia{!e.cargo && <small className="good" style={{ display: 'block' }}>+ {num(e.conexoesDia)} embarques de conexão/dia</small>}</div>
+          <div><span className="muted">{e.cargo ? 'Atendido por você' : 'Atendido entre as cidades'}</span><br />{num(e.atendidoDia)} {e.unidade}/dia{!e.cargo && <small className="good" style={{ display: 'block' }}>{num(e.conexoesDia)} embarques de conexão/dia neste trecho</small>}</div>
           <div><span className="muted">Restante da demanda</span><br />{num(e.restanteDia)} {e.unidade}/dia</div>
-          <div><span className="muted">Sua fatia</span><br />{pct(e.share, 1)}</div>
+          <div><span className="muted">{e.cargo ? 'Sua fatia' : 'Fatia no voo direto'}</span><br />{pct(e.share, 1)}</div>
           <div>
             <span className="muted">{e.cargo ? 'Frete base' : 'Tarifa base'}</span><br />
             {tarifa(e.demand.refFare, moeda, e.cargo ? '/t' : '')}
@@ -194,16 +196,16 @@ function RouteDetail({ route, onClosed }: { route: Route; onClosed: () => void }
                   c !== 'f' || e.demand.pax.f > 0 || e.atendidoDiaCabine.f > 0 || e.restanteDiaCabine.f > 0).map((c) => (
                     <tr key={c}>
                       <td><b>{CABIN_SHORT[c]}</b> — {CABIN_LABEL[c]}</td>
-                      <td className="r">{num(e.demand.pax[c])}</td>
-                      <td className="r">{num(e.atendidoDiaCabine[c])}</td>
-                      <td className="r">{num(e.restanteDiaCabine[c])}</td>
+                      <td className="r">{passageirosPorDia(e.demand.pax[c])}</td>
+                      <td className="r">{passageirosPorDia(e.atendidoDiaCabine[c])}</td>
+                      <td className="r">{passageirosPorDia(e.restanteDiaCabine[c])}</td>
                     </tr>
                   ))}
               </tbody>
             </table>
           </div>
           <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
-            Demanda total é o mercado local diário, com referência igual de segunda a domingo; atendido é sua média recente de passageiros locais. As conexões aumentam a lotação sem preencher essa demanda local.
+            A demanda vale de segunda a domingo. O atendimento soma, por classe, quem viajou entre estas cidades em voo direto ou com conexão. Quem apenas troca de avião aqui ocupa um assento no trecho e conta para o mercado entre a origem e o destino final.
           </p>
           {'calendarBoost' in e.demand && <SeasonalDemandNote boost={e.demand.calendarBoost} />}
         </Card>
